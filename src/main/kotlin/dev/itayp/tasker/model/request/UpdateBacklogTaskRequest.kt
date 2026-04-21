@@ -1,11 +1,6 @@
 package dev.itayp.tasker.model.request
 
-data class TagInput(
-    val label: String,
-    val colorId: String
-)
-
-data class CreateBacklogTaskRequest(
+data class UpdateBacklogTaskRequest(
     val title: String,
     val description: String? = null,
     val url: String? = null,

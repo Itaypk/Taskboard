@@ -1,8 +1,9 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { PostItNote } from './components/PostItNote';
 import { TaskDrawer } from './components/TaskDrawer';
 import { SettingsModal } from './components/SettingsModal';
-import { MOCK_TASKS, DEFAULT_SETTINGS } from './data';
+import { DEFAULT_SETTINGS } from './data';
+import { fetchTasks, fetchCategories, createTask, updateTask, deleteTask } from './api';
 import type { Task, UserSettings } from './types';
 import pineappleUrl from './assets/pineapple.png';
 import './App.css';
@@ -17,12 +18,24 @@ function GearIcon() {
 }
 
 export default function App() {
-  const [tasks, setTasks]             = useState<Task[]>(MOCK_TASKS);
-  const [settings, setSettings]       = useState<UserSettings>(DEFAULT_SETTINGS);
+  const [tasks, setTasks]             = useState<Task[]>([]);
+  const [settings, setSettings]       = useState<UserSettings>({ ...DEFAULT_SETTINGS, categories: [] });
   const [selectedId, setSelectedId]   = useState<string | null>(null);
   const [isCreating, setIsCreating]   = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [leavingId, setLeavingId]     = useState<string | null>(null);
+  const [loading, setLoading]         = useState(true);
+  const [error, setError]             = useState<string | null>(null);
+
+  useEffect(() => {
+    Promise.all([fetchTasks(), fetchCategories()])
+      .then(([loadedTasks, loadedCategories]) => {
+        setTasks(loadedTasks);
+        setSettings(prev => ({ ...prev, categories: loadedCategories }));
+      })
+      .catch(() => setError('Failed to load data. Is the backend running?'))
+      .finally(() => setLoading(false));
+  }, []);
 
   const drawerOpen   = selectedId !== null || isCreating;
   const selectedTask = tasks.find(t => t.id === selectedId) ?? null;
@@ -39,35 +52,65 @@ export default function App() {
 
   const closeDrawer = () => { setSelectedId(null); setIsCreating(false); };
 
-  const handleSave = (updated: Task) => {
-    setTasks(prev => {
-      const exists = prev.some(t => t.id === updated.id);
-      return exists
-        ? prev.map(t => (t.id === updated.id ? updated : t))
-        : [updated, ...prev];
-    });
-    closeDrawer();
+  const handleSave = async (updated: Task) => {
+    try {
+      const { id: _id, createdAt: _ca, ...payload } = updated;
+      if (isCreating) {
+        const created = await createTask(payload);
+        setTasks(prev => [created, ...prev]);
+      } else {
+        const saved = await updateTask(updated.id, payload);
+        setTasks(prev => prev.map(t => t.id === saved.id ? saved : t));
+      }
+      closeDrawer();
+    } catch (e) {
+      console.error('Failed to save task', e);
+    }
   };
 
-  const handleDelete = (id: string) => {
-    setTasks(prev => prev.filter(t => t.id !== id));
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteTask(id);
+      setTasks(prev => prev.filter(t => t.id !== id));
+    } catch (e) {
+      console.error('Failed to delete task', e);
+    }
   };
 
   const handleMarkDone = useCallback((id: string) => {
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
     setLeavingId(id);
-    setTimeout(() => {
-      setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'done' } : t));
+    const { id: _id, createdAt: _ca, ...payload } = task;
+    updateTask(id, { ...payload, status: 'done' }).then(() => {
+      setTimeout(() => {
+        setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'done' } : t));
+        setLeavingId(null);
+      }, 380);
+    }).catch(e => {
+      console.error('Failed to mark task done', e);
       setLeavingId(null);
-    }, 380);
-  }, []);
+    });
+  }, [tasks]);
 
   const defaultCategoryId = settings.categories[0]?.id ?? null;
 
   const openNew = () => {
-    if (!defaultCategoryId) return;
+    if (settings.categories.length === 0) {
+      setSettingsOpen(true);
+      return;
+    }
     setSelectedId(null);
     setIsCreating(true);
   };
+
+  if (loading) {
+    return <div className="board-wrap"><div className="board board--empty">Loading…</div></div>;
+  }
+
+  if (error) {
+    return <div className="board-wrap"><div className="board board--empty">{error}</div></div>;
+  }
 
   return (
     <>

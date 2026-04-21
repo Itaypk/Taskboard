@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="1" author="tasker">
+        <createTable tableName="backlog_task_category">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="label" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="swatch_id" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="backlog_task_tag">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="label" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="color_id" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="VARCHAR(1000)">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="backlog_task">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="title" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="VARCHAR(10000)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="url" type="VARCHAR(1000)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="priority" type="VARCHAR(50)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="deadline" type="DATE">
+                <constraints nullable="true"/>
+            </column>
+            <column name="estimated_minutes" type="INT">
+                <constraints nullable="true"/>
+            </column>
+            <column name="status" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="category_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_backlog_task_category" references="backlog_task_category(id)"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="backlog_task_tags">
+            <column name="task_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_backlog_task_tags_task" references="backlog_task(id)"/>
+            </column>
+            <column name="tag_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_backlog_task_tags_tag" references="backlog_task_tag(id)"/>
+            </column>
+        </createTable>
+        <addPrimaryKey tableName="backlog_task_tags" columnNames="task_id,tag_id"/>
+    </changeSet>
+
+</databaseChangeLog>

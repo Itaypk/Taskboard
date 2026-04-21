@@ -4,8 +4,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
 
 @SpringBootApplication
-class TaskerApplication
+class TaskBoardApplication
 
 fun main(args: Array<String>) {
-	runApplication<TaskerApplication>(*args)
+	runApplication<TaskBoardApplication>(*args)
 }

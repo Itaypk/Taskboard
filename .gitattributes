@@ -1,3 +1,9 @@
+# Handle text files automatically and normalize to LF in the repo
+* text=auto
+
 /gradlew text eol=lf
+*.bat text eol=crlf
+*.java text eol=lf
+*.sh text eol=lf
 *.bat text eol=crlf
 *.jar binary

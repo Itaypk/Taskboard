@@ -1,0 +1,129 @@
+package dev.itayp.tasker.controller
+
+import dev.itayp.tasker.config.SecurityConfiguration
+import dev.itayp.tasker.model.BacklogTask
+import dev.itayp.tasker.model.BacklogTaskCategory
+import dev.itayp.tasker.model.CategoryColor
+import dev.itayp.tasker.model.TaskStatus
+import dev.itayp.tasker.service.BacklogTaskService
+import org.junit.jupiter.api.Test
+import org.mockito.kotlin.any
+import org.mockito.kotlin.doThrow
+import org.mockito.kotlin.eq
+import org.mockito.kotlin.whenever
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest
+import org.springframework.context.annotation.Import
+import org.springframework.http.MediaType
+import org.springframework.test.context.bean.override.mockito.MockitoBean
+import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import java.time.Instant
+import java.util.UUID
+
+@WebMvcTest(BacklogTaskController::class)
+@Import(SecurityConfiguration::class)
+class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
+
+    @MockitoBean
+    lateinit var backlogTaskService: BacklogTaskService
+
+    private val taskId = UUID.fromString("00000000-0000-0000-0000-000000000001")
+    private val categoryId = UUID.fromString("00000000-0000-0000-0000-000000000002")
+
+    private fun aTask(id: UUID = taskId, title: String = "Test Task") = BacklogTask(
+        id = id,
+        userId = "test",
+        title = title,
+        description = null,
+        url = null,
+        priority = null,
+        deadline = null,
+        estimatedMinutes = null,
+        status = TaskStatus.TODO,
+        category = BacklogTaskCategory(categoryId, "test", "Work", CategoryColor.SUNSHINE),
+        tags = emptySet(),
+        createdAt = Instant.parse("2026-01-01T00:00:00Z"),
+        updatedAt = null
+    )
+
+    @Test
+    fun `GET tasks returns 200 with task list`() {
+        whenever(backlogTaskService.getAllTasksForUser("test")).thenReturn(listOf(aTask()))
+
+        mockMvc.perform(get("/api/v1/tasks"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$[0].title").value("Test Task"))
+            .andExpect(jsonPath("$[0].status").value("todo"))
+            .andExpect(jsonPath("$[0].categoryId").value(categoryId.toString()))
+    }
+
+    @Test
+    fun `GET tasks returns 200 with empty list`() {
+        whenever(backlogTaskService.getAllTasksForUser("test")).thenReturn(emptyList())
+
+        mockMvc.perform(get("/api/v1/tasks"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$").isArray)
+            .andExpect(jsonPath("$").isEmpty)
+    }
+
+    @Test
+    fun `POST tasks returns 201 with created task`() {
+        whenever(backlogTaskService.createTask(eq("test"), any())).thenReturn(aTask(title = "New Task"))
+
+        mockMvc.perform(
+            post("/api/v1/tasks")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"title":"New Task","status":"todo","categoryId":"$categoryId","tags":[]}""")
+        )
+            .andExpect(status().isCreated)
+            .andExpect(jsonPath("$.title").value("New Task"))
+            .andExpect(jsonPath("$.id").exists())
+    }
+
+    @Test
+    fun `PUT tasks-id returns 200 with updated task`() {
+        whenever(backlogTaskService.updateTask(eq("test"), eq(taskId), any())).thenReturn(aTask(title = "Updated"))
+
+        mockMvc.perform(
+            put("/api/v1/tasks/$taskId")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"title":"Updated","status":"todo","categoryId":"$categoryId","tags":[]}""")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.title").value("Updated"))
+    }
+
+    @Test
+    fun `PUT tasks-id returns 404 when task not found`() {
+        whenever(backlogTaskService.updateTask(any(), any(), any()))
+            .thenThrow(NoSuchElementException("not found"))
+
+        mockMvc.perform(
+            put("/api/v1/tasks/$taskId")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"title":"X","status":"todo","categoryId":"$categoryId","tags":[]}""")
+        )
+            .andExpect(status().isNotFound)
+    }
+
+    @Test
+    fun `DELETE tasks-id returns 204`() {
+        mockMvc.perform(delete("/api/v1/tasks/$taskId"))
+            .andExpect(status().isNoContent)
+    }
+
+    @Test
+    fun `DELETE tasks-id returns 404 when task not found`() {
+        doThrow(NoSuchElementException("not found")).whenever(backlogTaskService).deleteTask(any(), any())
+
+        mockMvc.perform(delete("/api/v1/tasks/$taskId"))
+            .andExpect(status().isNotFound)
+    }
+}
