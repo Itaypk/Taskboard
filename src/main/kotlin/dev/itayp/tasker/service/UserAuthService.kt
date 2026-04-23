@@ -2,10 +2,12 @@ package dev.itayp.tasker.service
 
 import dev.itayp.tasker.jpa.UserEntity
 import dev.itayp.tasker.repository.UserRepository
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
 import java.util.UUID
+import java.util.logging.Logger
 
 @Service
 class UserAuthService(
@@ -55,6 +57,11 @@ class UserAuthService(
         }
         val saved = userRepository.save(created)
         userService.initializeNewUser(saved.id!!)
+        logger.info("Created dev user with id $userId and telegram id $telegramId")
         return saved
+    }
+
+    companion object {
+        private val logger = LoggerFactory.getLogger(UserAuthService::class.java)
     }
 }

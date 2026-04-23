@@ -16,6 +16,14 @@ import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.HttpStatusEntryPoint
 import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository
+import org.springframework.security.web.csrf.CsrfToken
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler
+import org.springframework.security.web.csrf.CsrfTokenRequestHandler
+import org.springframework.security.web.csrf.XorCsrfTokenRequestAttributeHandler
+import org.springframework.util.StringUtils
+import java.util.function.Supplier
+import jakarta.servlet.http.HttpServletRequest
+import jakarta.servlet.http.HttpServletResponse
 
 @Configuration
 @EnableWebSecurity
@@ -60,6 +68,7 @@ class SecurityConfiguration(
             }
             csrf {
                 csrfTokenRepository = CookieCsrfTokenRepository.withHttpOnlyFalse()
+                csrfTokenRequestHandler = SpaCsrfTokenRequestHandler()
                 ignoringRequestMatchers("/api/auth/telegram", "/api/auth/dev-login")
             }
             sessionManagement {
@@ -86,5 +95,23 @@ class SecurityConfiguration(
             .roles("PROMETHEUS")
             .build()
         return InMemoryUserDetailsManager(scraper)
+    }
+}
+
+// Forces the deferred CSRF token to load on every request so the XSRF-TOKEN cookie is
+// always written (including on GETs). Without this, the cookie is never set and the
+// first POST returns 403. See: https://docs.spring.io/spring-security/reference/servlet/exploits/csrf.html#csrf-integration-javascript-spa
+private class SpaCsrfTokenRequestHandler : CsrfTokenRequestHandler {
+    private val plain = CsrfTokenRequestAttributeHandler()
+    private val xor = XorCsrfTokenRequestAttributeHandler()
+
+    override fun handle(request: HttpServletRequest, response: HttpServletResponse, csrfToken: Supplier<CsrfToken>) {
+        xor.handle(request, response, csrfToken)
+        csrfToken.get()
+    }
+
+    override fun resolveCsrfTokenValue(request: HttpServletRequest, csrfToken: CsrfToken): String? {
+        val headerValue = request.getHeader(csrfToken.headerName)
+        return (if (StringUtils.hasText(headerValue)) plain else xor).resolveCsrfTokenValue(request, csrfToken)
     }
 }
