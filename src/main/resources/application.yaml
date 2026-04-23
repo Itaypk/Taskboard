@@ -1,6 +1,4 @@
 spring:
-  profiles:
-    active: dev
   application:
     name: taskboard
   jpa:
@@ -11,6 +9,7 @@ spring:
     enabled: true
 
 server:
+  shutdown: graceful
   servlet:
     session:
       timeout: 14d

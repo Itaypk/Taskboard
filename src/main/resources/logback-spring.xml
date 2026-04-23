@@ -18,7 +18,7 @@
         <appender name="JSON_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
             <file>taskboard.log</file>
             <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-                <fileNamePattern>whoami-%d{yyyy-MM-dd}.log</fileNamePattern>
+                <fileNamePattern>taskboard-%d{yyyy-MM-dd}.log</fileNamePattern>
                 <maxHistory>30</maxHistory>
                 <totalSizeCap>1GB</totalSizeCap>
             </rollingPolicy>
@@ -43,7 +43,7 @@
     </springProfile>
 
     <logger name="org.springframework" level="INFO" />
-    <logger name="pk.itay" level="DEBUG" />
+    <logger name="dev.itayp.tasker" level="DEBUG" />
     <springProfile name="dev">
         <logger name="org.springframework.jdbc.core" level="TRACE" />
     </springProfile>

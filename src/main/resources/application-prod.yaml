@@ -1,3 +1,9 @@
+server:
+  servlet:
+    session:
+      cookie:
+        secure: true
+
 spring:
   datasource:
     url: ${TASKER_DB_URL}
