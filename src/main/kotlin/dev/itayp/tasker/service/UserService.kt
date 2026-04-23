@@ -7,7 +7,10 @@ import org.springframework.stereotype.Service
 import java.util.UUID
 
 @Service
-class UserService(private val categoryRepository: BacklogTaskCategoryRepository) {
+class UserService(
+    private val categoryRepository: BacklogTaskCategoryRepository,
+    private val userSettingsService: UserSettingsService,
+) {
 
     fun initializeNewUser(userId: UUID) {
         DEFAULT_CATEGORIES.forEach { (label, color) ->
@@ -17,6 +20,7 @@ class UserService(private val categoryRepository: BacklogTaskCategoryRepository)
                 this.swatchId = color
             })
         }
+        userSettingsService.initializeForNewUser(userId)
     }
 
     companion object {

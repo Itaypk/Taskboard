@@ -1,7 +1,19 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { UserSettings, Task } from '../types';
 import { CategoryEditor } from './CategoryEditor';
-import { createCategory, updateCategory, deleteCategory } from '../api';
+import { createCategory, updateCategory, deleteCategory, updateUserSettings } from '../api';
+
+const LANGUAGE_OPTIONS = [
+  { value: 'en', label: 'English' },
+  { value: 'es', label: 'Spanish' },
+  { value: 'fr', label: 'French' },
+  { value: 'de', label: 'German' },
+  { value: 'pt', label: 'Portuguese' },
+  { value: 'he', label: 'Hebrew' },
+  { value: 'ar', label: 'Arabic' },
+  { value: 'zh', label: 'Chinese' },
+  { value: 'ja', label: 'Japanese' },
+];
 
 interface SettingsModalProps {
   settings: UserSettings;
@@ -43,11 +55,17 @@ export function SettingsModal({ settings, tasks, open, onClose, onSave }: Settin
       const originalIds = new Set(settings.categories.map(c => c.id));
       const newIdSet = new Set(form.categories.map(c => c.id));
 
-      await Promise.all(
-        settings.categories
+      await Promise.all([
+        updateUserSettings({
+          displayName: form.displayName,
+          contextBlock: form.contextBlock,
+          timeZone: form.timeZone,
+          preferredLanguage: form.preferredLanguage,
+        }),
+        ...settings.categories
           .filter(c => !newIdSet.has(c.id))
-          .map(c => deleteCategory(c.id))
-      );
+          .map(c => deleteCategory(c.id)),
+      ]);
 
       await Promise.all(
         form.categories
@@ -106,6 +124,29 @@ export function SettingsModal({ settings, tasks, open, onClose, onSave }: Settin
               usage={usage}
               onChange={next => setForm(f => ({ ...f, categories: next }))}
             />
+          </div>
+
+          <div className="field">
+            <label className="field__label">Time zone</label>
+            <input
+              className="field__input"
+              value={form.timeZone}
+              onChange={e => setForm(f => ({ ...f, timeZone: e.target.value }))}
+              placeholder="e.g. Europe/London"
+            />
+          </div>
+
+          <div className="field">
+            <label className="field__label">Language</label>
+            <select
+              className="field__input"
+              value={form.preferredLanguage}
+              onChange={e => setForm(f => ({ ...f, preferredLanguage: e.target.value }))}
+            >
+              {LANGUAGE_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
           </div>
 
           <div className="field">

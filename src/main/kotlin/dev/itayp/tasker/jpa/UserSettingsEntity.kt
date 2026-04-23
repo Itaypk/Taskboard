@@ -1,0 +1,27 @@
+package dev.itayp.tasker.jpa
+
+import jakarta.persistence.Column
+import jakarta.persistence.Entity
+import jakarta.persistence.Id
+import jakarta.persistence.Table
+import java.util.UUID
+
+@Entity
+@Table(name = "user_settings")
+open class UserSettingsEntity {
+    @Id
+    @Column(name = "user_id")
+    var userId: UUID? = null
+
+    @Column(name = "display_name")
+    var displayName: String? = null
+
+    @Column(name = "context_block", columnDefinition = "TEXT")
+    var contextBlock: String? = null
+
+    @Column(name = "time_zone", nullable = false)
+    var timeZone: String = "UTC"
+
+    @Column(name = "preferred_language", nullable = false)
+    var preferredLanguage: String = "en"
+}

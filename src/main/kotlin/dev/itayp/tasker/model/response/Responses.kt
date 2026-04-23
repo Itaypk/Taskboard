@@ -1,8 +1,23 @@
 package dev.itayp.tasker.model.response
 
+import dev.itayp.tasker.jpa.UserSettingsEntity
 import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.BacklogTaskTag
+
+data class UserSettingsResponse(
+    val displayName: String?,
+    val contextBlock: String?,
+    val timeZone: String,
+    val preferredLanguage: String,
+)
+
+fun UserSettingsEntity.toResponse() = UserSettingsResponse(
+    displayName = displayName,
+    contextBlock = contextBlock,
+    timeZone = timeZone,
+    preferredLanguage = preferredLanguage,
+)
 
 data class TagResponseItem(val label: String, val colorId: String)
 

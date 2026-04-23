@@ -57,5 +57,7 @@ export interface Task {
 export interface UserSettings {
   displayName: string;
   contextBlock: string;
+  timeZone: string;
+  preferredLanguage: string;
   categories: Category[];
 }

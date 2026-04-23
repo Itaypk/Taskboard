@@ -3,7 +3,7 @@ import { PostItNote } from './components/PostItNote';
 import { TaskDrawer } from './components/TaskDrawer';
 import { SettingsModal } from './components/SettingsModal';
 import { DEFAULT_SETTINGS } from './data';
-import { fetchTasks, fetchCategories, createTask, updateTask, deleteTask } from './api';
+import { fetchTasks, fetchCategories, fetchUserSettings, createTask, updateTask, deleteTask } from './api';
 import type { Task, UserSettings } from './types';
 import { useAuth } from './auth/AuthContext';
 import { LoginPage } from './auth/LoginPage';
@@ -54,10 +54,16 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const [error, setError]             = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([fetchTasks(), fetchCategories()])
-      .then(([loadedTasks, loadedCategories]) => {
+    Promise.all([fetchTasks(), fetchCategories(), fetchUserSettings()])
+      .then(([loadedTasks, loadedCategories, loadedSettings]) => {
         setTasks(loadedTasks);
-        setSettings(prev => ({ ...prev, categories: loadedCategories }));
+        setSettings(prev => ({
+          ...prev,
+          ...loadedSettings,
+          displayName: loadedSettings.displayName ?? prev.displayName,
+          contextBlock: loadedSettings.contextBlock ?? prev.contextBlock,
+          categories: loadedCategories,
+        }));
       })
       .catch(() => setError('Failed to load data. Is the backend running?'))
       .finally(() => setLoading(false));
