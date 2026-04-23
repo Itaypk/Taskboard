@@ -1,4 +1,4 @@
-import type { Task, Category, Tag, UserSettings } from './types';
+import type { Task, Category, Tag, UserSettings, SettingsOptions } from './types';
 
 const BASE = '/api/v1';
 
@@ -85,3 +85,6 @@ export const fetchUserSettings = (): Promise<UserSettingsPayload> =>
 
 export const updateUserSettings = (payload: UserSettingsPayload): Promise<UserSettingsPayload> =>
     apiRequest('/settings', { method: 'PUT', ...jsonBody(payload) });
+
+export const fetchSettingsOptions = (): Promise<SettingsOptions> =>
+    apiRequest('/settings/options');

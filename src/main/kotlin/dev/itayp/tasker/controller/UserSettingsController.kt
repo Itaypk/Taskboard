@@ -1,6 +1,7 @@
 package dev.itayp.tasker.controller
 
 import dev.itayp.tasker.model.request.UpdateUserSettingsRequest
+import dev.itayp.tasker.model.response.SettingsOptionsResponse
 import dev.itayp.tasker.model.response.UserSettingsResponse
 import dev.itayp.tasker.model.response.toResponse
 import dev.itayp.tasker.security.TaskerPrincipal
@@ -27,6 +28,20 @@ class UserSettingsController(private val userSettingsService: UserSettingsServic
     fun updateSettings(
         @AuthenticationPrincipal principal: TaskerPrincipal,
         @RequestBody request: UpdateUserSettingsRequest,
-    ): ResponseEntity<UserSettingsResponse> =
-        ResponseEntity.ok(userSettingsService.update(principal.userId, request).toResponse())
+    ): ResponseEntity<UserSettingsResponse> {
+        return try {
+            ResponseEntity.ok(userSettingsService.update(principal.userId, request).toResponse())
+        } catch (e: IllegalArgumentException) {
+            ResponseEntity.badRequest().build()
+        }
+    }
+
+    @GetMapping("/options")
+    fun getOptions(): ResponseEntity<SettingsOptionsResponse> =
+        ResponseEntity.ok(
+            SettingsOptionsResponse(
+                timeZones = UserSettingsService.SUPPORTED_TIME_ZONES,
+                languages = UserSettingsService.SUPPORTED_LANGUAGES,
+            )
+        )
 }

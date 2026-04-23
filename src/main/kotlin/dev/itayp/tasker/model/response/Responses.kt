@@ -5,6 +5,13 @@ import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.BacklogTaskTag
 
+data class LanguageOption(val code: String, val label: String)
+
+data class SettingsOptionsResponse(
+    val timeZones: List<String>,
+    val languages: List<LanguageOption>,
+)
+
 data class UserSettingsResponse(
     val displayName: String?,
     val contextBlock: String?,

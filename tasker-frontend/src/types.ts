@@ -54,6 +54,16 @@ export interface Task {
   createdAt: string;
 }
 
+export interface LanguageOption {
+  code: string;
+  label: string;
+}
+
+export interface SettingsOptions {
+  timeZones: string[];
+  languages: LanguageOption[];
+}
+
 export interface UserSettings {
   displayName: string;
   contextBlock: string;

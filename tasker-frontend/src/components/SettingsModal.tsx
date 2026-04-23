@@ -1,19 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import type { UserSettings, Task } from '../types';
+import type { UserSettings, Task, SettingsOptions } from '../types';
 import { CategoryEditor } from './CategoryEditor';
-import { createCategory, updateCategory, deleteCategory, updateUserSettings } from '../api';
-
-const LANGUAGE_OPTIONS = [
-  { value: 'en', label: 'English' },
-  { value: 'es', label: 'Spanish' },
-  { value: 'fr', label: 'French' },
-  { value: 'de', label: 'German' },
-  { value: 'pt', label: 'Portuguese' },
-  { value: 'he', label: 'Hebrew' },
-  { value: 'ar', label: 'Arabic' },
-  { value: 'zh', label: 'Chinese' },
-  { value: 'ja', label: 'Japanese' },
-];
+import { createCategory, updateCategory, deleteCategory, updateUserSettings, fetchSettingsOptions } from '../api';
 
 interface SettingsModalProps {
   settings: UserSettings;
@@ -27,6 +15,7 @@ export function SettingsModal({ settings, tasks, open, onClose, onSave }: Settin
   const [form, setForm] = useState<UserSettings>(settings);
   const [wasOpen, setWasOpen] = useState(open);
   const [saving, setSaving] = useState(false);
+  const [options, setOptions] = useState<SettingsOptions | null>(null);
 
   if (open && !wasOpen) {
     setWasOpen(true);
@@ -40,6 +29,12 @@ export function SettingsModal({ settings, tasks, open, onClose, onSave }: Settin
     if (open) window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [open, onClose]);
+
+  useEffect(() => {
+    if (open && !options) {
+      fetchSettingsOptions().then(setOptions).catch(console.error);
+    }
+  }, [open, options]);
 
   const usage = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -127,24 +122,33 @@ export function SettingsModal({ settings, tasks, open, onClose, onSave }: Settin
           </div>
 
           <div className="field">
-            <label className="field__label">Time zone</label>
+            <label className="field__label" htmlFor="settings-tz">Time zone</label>
             <input
+              id="settings-tz"
               className="field__input"
+              list="settings-tz-list"
               value={form.timeZone}
               onChange={e => setForm(f => ({ ...f, timeZone: e.target.value }))}
               placeholder="e.g. Europe/London"
+              autoComplete="off"
             />
+            {options && (
+              <datalist id="settings-tz-list">
+                {options.timeZones.map(tz => <option key={tz} value={tz} />)}
+              </datalist>
+            )}
           </div>
 
           <div className="field">
-            <label className="field__label">Language</label>
+            <label className="field__label" htmlFor="settings-lang">Language</label>
             <select
+              id="settings-lang"
               className="field__input"
               value={form.preferredLanguage}
               onChange={e => setForm(f => ({ ...f, preferredLanguage: e.target.value }))}
             >
-              {LANGUAGE_OPTIONS.map(opt => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              {(options?.languages ?? []).map(opt => (
+                <option key={opt.code} value={opt.code}>{opt.label}</option>
               ))}
             </select>
           </div>
