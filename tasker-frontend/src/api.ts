@@ -1,4 +1,4 @@
-import type { Task, Category, Tag } from './types';
+import type { Task, Category, Tag, UserSettings, SettingsOptions } from './types';
 
 const BASE = '/api/v1';
 
@@ -75,3 +75,16 @@ export const deleteCategory = (id: string): Promise<void> =>
 
 export const fetchTags = (): Promise<Tag[]> =>
     apiRequest('/tags');
+
+// --- User Settings ---
+
+type UserSettingsPayload = Pick<UserSettings, 'displayName' | 'contextBlock' | 'timeZone' | 'preferredLanguage'>;
+
+export const fetchUserSettings = (): Promise<UserSettingsPayload> =>
+    apiRequest('/settings');
+
+export const updateUserSettings = (payload: UserSettingsPayload): Promise<UserSettingsPayload> =>
+    apiRequest('/settings', { method: 'PUT', ...jsonBody(payload) });
+
+export const fetchSettingsOptions = (): Promise<SettingsOptions> =>
+    apiRequest('/settings/options');
