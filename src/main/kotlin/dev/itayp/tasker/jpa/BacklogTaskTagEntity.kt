@@ -18,8 +18,8 @@ open class BacklogTaskTagEntity {
     @GeneratedValue(strategy = GenerationType.UUID)
     var id: UUID? = null
 
-    @Column
-    var userId: String? = null
+    @Column(name = "user_id")
+    var userId: UUID? = null
 
     @Column
     var label: String? = null

@@ -26,11 +26,11 @@ class BacklogTaskService(
     private val tagRepository: BacklogTaskTagRepository
 ) {
 
-    fun getAllTasksForUser(userId: String): List<BacklogTask> =
+    fun getAllTasksForUser(userId: UUID): List<BacklogTask> =
         backlogTaskRepository.findAllByUserId(userId).map { it.toDomain() }
 
     @Transactional
-    fun createTask(userId: String, request: CreateBacklogTaskRequest): BacklogTask {
+    fun createTask(userId: UUID, request: CreateBacklogTaskRequest): BacklogTask {
         val categoryId = UUID.fromString(request.categoryId)
         val category = categoryRepository.findByIdAndUserId(categoryId, userId)
             ?: throw NoSuchElementException("Category $categoryId not found")
@@ -54,7 +54,7 @@ class BacklogTaskService(
     }
 
     @Transactional
-    fun updateTask(userId: String, id: UUID, request: UpdateBacklogTaskRequest): BacklogTask {
+    fun updateTask(userId: UUID, id: UUID, request: UpdateBacklogTaskRequest): BacklogTask {
         val entity = backlogTaskRepository.findByIdAndUserId(id, userId)
             ?: throw NoSuchElementException("Task $id not found")
 
@@ -76,13 +76,13 @@ class BacklogTaskService(
         return backlogTaskRepository.save(entity).toDomain()
     }
 
-    fun deleteTask(userId: String, id: UUID) {
+    fun deleteTask(userId: UUID, id: UUID) {
         val entity = backlogTaskRepository.findByIdAndUserId(id, userId)
             ?: throw NoSuchElementException("Task $id not found")
         backlogTaskRepository.delete(entity)
     }
 
-    private fun resolveOrCreateTags(userId: String, inputs: List<TagInput>): Set<BacklogTaskTagEntity> {
+    private fun resolveOrCreateTags(userId: UUID, inputs: List<TagInput>): MutableSet<BacklogTaskTagEntity> {
         val existing = tagRepository.findAllByUserId(userId)
         val lookup = existing.associateBy { "${it.label}::${it.colorId?.name}" }
 
@@ -93,6 +93,6 @@ class BacklogTaskService(
                 this.label = input.label
                 this.colorId = TagColor.valueOf(input.colorId.uppercase())
             }.let { tagRepository.save(it) }
-        }.toSet()
+        }.toMutableSet()
     }
 }

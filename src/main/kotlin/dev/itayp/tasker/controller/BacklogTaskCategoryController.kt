@@ -4,9 +4,11 @@ import dev.itayp.tasker.model.request.CreateCategoryRequest
 import dev.itayp.tasker.model.request.UpdateCategoryRequest
 import dev.itayp.tasker.model.response.CategoryResponse
 import dev.itayp.tasker.model.response.toResponse
+import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.BacklogTaskCategoryService
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -22,31 +24,40 @@ import java.util.UUID
 class BacklogTaskCategoryController(private val categoryService: BacklogTaskCategoryService) {
 
     @GetMapping
-    fun getCategories(): ResponseEntity<List<CategoryResponse>> =
-        ResponseEntity.ok(categoryService.getAllForUser("test").map { it.toResponse() })
+    fun getCategories(
+        @AuthenticationPrincipal principal: TaskerPrincipal,
+    ): ResponseEntity<List<CategoryResponse>> =
+        ResponseEntity.ok(categoryService.getAllForUser(principal.userId).map { it.toResponse() })
 
     @PostMapping
-    fun createCategory(@RequestBody request: CreateCategoryRequest): ResponseEntity<CategoryResponse> {
-        val category = categoryService.createCategory("test", request)
+    fun createCategory(
+        @AuthenticationPrincipal principal: TaskerPrincipal,
+        @RequestBody request: CreateCategoryRequest,
+    ): ResponseEntity<CategoryResponse> {
+        val category = categoryService.createCategory(principal.userId, request)
         return ResponseEntity.status(HttpStatus.CREATED).body(category.toResponse())
     }
 
     @PutMapping("/{id}")
     fun updateCategory(
+        @AuthenticationPrincipal principal: TaskerPrincipal,
         @PathVariable id: UUID,
-        @RequestBody request: UpdateCategoryRequest
+        @RequestBody request: UpdateCategoryRequest,
     ): ResponseEntity<CategoryResponse> {
         return try {
-            ResponseEntity.ok(categoryService.updateCategory("test", id, request).toResponse())
+            ResponseEntity.ok(categoryService.updateCategory(principal.userId, id, request).toResponse())
         } catch (e: NoSuchElementException) {
             ResponseEntity.notFound().build()
         }
     }
 
     @DeleteMapping("/{id}")
-    fun deleteCategory(@PathVariable id: UUID): ResponseEntity<Void> {
+    fun deleteCategory(
+        @AuthenticationPrincipal principal: TaskerPrincipal,
+        @PathVariable id: UUID,
+    ): ResponseEntity<Void> {
         return try {
-            categoryService.deleteCategory("test", id)
+            categoryService.deleteCategory(principal.userId, id)
             ResponseEntity.noContent().build()
         } catch (e: NoSuchElementException) {
             ResponseEntity.notFound().build()

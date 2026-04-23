@@ -19,17 +19,19 @@ class BacklogTaskTagServiceTest {
 
     @InjectMocks private lateinit var service: BacklogTaskTagService
 
+    private val userId: UUID = UUID.fromString("00000000-0000-0000-0000-000000000001")
+
     @Test
     fun `getAllForUser returns tags mapped to domain`() {
         val entity = BacklogTaskTagEntity().apply {
             id = UUID.randomUUID()
-            userId = "test"
+            this.userId = this@BacklogTaskTagServiceTest.userId
             label = "deep-work"
             colorId = TagColor.VIOLET
         }
-        whenever(tagRepository.findAllByUserId("test")).thenReturn(listOf(entity))
+        whenever(tagRepository.findAllByUserId(userId)).thenReturn(listOf(entity))
 
-        val result = service.getAllForUser("test")
+        val result = service.getAllForUser(userId)
 
         assertEquals(1, result.size)
         assertEquals("deep-work", result[0].label)
@@ -38,9 +40,9 @@ class BacklogTaskTagServiceTest {
 
     @Test
     fun `getAllForUser returns empty list when no tags exist`() {
-        whenever(tagRepository.findAllByUserId("test")).thenReturn(emptyList())
+        whenever(tagRepository.findAllByUserId(userId)).thenReturn(emptyList())
 
-        val result = service.getAllForUser("test")
+        val result = service.getAllForUser(userId)
 
         assertEquals(0, result.size)
     }

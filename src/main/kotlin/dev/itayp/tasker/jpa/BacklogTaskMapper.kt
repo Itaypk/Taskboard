@@ -16,7 +16,7 @@ fun BacklogTaskEntity.toDomain(): BacklogTask =
         estimatedMinutes = estimatedMinutes,
         status = status ?: throw IllegalStateException("BacklogTaskEntity must have status"),
         category = category?.toDomain() ?: throw IllegalStateException("BacklogTaskEntity must have category"),
-        tags = (tags ?: emptySet()).map { it.toDomain() }.toSet(),
+        tags = tags.map { it.toDomain() }.toSet(),
         createdAt = createdAt ?: throw IllegalStateException("BacklogTaskEntity must have createdAt"),
         updatedAt = updatedAt
     )

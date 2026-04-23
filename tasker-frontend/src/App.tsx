@@ -5,6 +5,8 @@ import { SettingsModal } from './components/SettingsModal';
 import { DEFAULT_SETTINGS } from './data';
 import { fetchTasks, fetchCategories, createTask, updateTask, deleteTask } from './api';
 import type { Task, UserSettings } from './types';
+import { useAuth } from './auth/AuthContext';
+import { LoginPage } from './auth/LoginPage';
 import pineappleUrl from './assets/pineapple.png';
 import './App.css';
 
@@ -17,7 +19,31 @@ function GearIcon() {
   );
 }
 
+function SignOutIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M7 3H3.5v12H7" />
+      <path d="M11 12l3-3-3-3" />
+      <path d="M14 9H7" />
+    </svg>
+  );
+}
+
 export default function App() {
+  const { state, signOut } = useAuth();
+
+  if (state.status === 'loading') {
+    return <div className="board-wrap"><div className="board board--empty">Loading…</div></div>;
+  }
+
+  if (state.status === 'unauthenticated') {
+    return <LoginPage />;
+  }
+
+  return <Board onSignOut={signOut} />;
+}
+
+function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const [tasks, setTasks]             = useState<Task[]>([]);
   const [settings, setSettings]       = useState<UserSettings>({ ...DEFAULT_SETTINGS, categories: [] });
   const [selectedId, setSelectedId]   = useState<string | null>(null);
@@ -134,6 +160,15 @@ export default function App() {
             title="Settings"
           >
             <GearIcon />
+          </button>
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={() => { void onSignOut(); }}
+            aria-label="Sign out"
+            title="Sign out"
+          >
+            <SignOutIcon />
           </button>
         </div>
       </header>

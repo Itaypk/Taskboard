@@ -20,7 +20,6 @@ import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
-import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -40,15 +39,17 @@ class BacklogTaskServiceTest {
 
     @InjectMocks private lateinit var service: BacklogTaskService
 
+    private val userId: UUID = UUID.fromString("00000000-0000-0000-0000-000000000001")
+
     // --- getAllTasksForUser ---
 
     @Test
     fun `getAllTasksForUser returns tasks mapped to domain`() {
         val category = categoryEntity()
         val entity = taskEntity(category, title = "My Task")
-        whenever(backlogTaskRepository.findAllByUserId("test")).thenReturn(listOf(entity))
+        whenever(backlogTaskRepository.findAllByUserId(userId)).thenReturn(listOf(entity))
 
-        val result = service.getAllTasksForUser("test")
+        val result = service.getAllTasksForUser(userId)
 
         assertEquals(1, result.size)
         assertEquals("My Task", result[0].title)
@@ -61,11 +62,11 @@ class BacklogTaskServiceTest {
     fun `createTask maps priority and status from lowercase strings`() {
         val catId = UUID.randomUUID()
         val cat = categoryEntity(id = catId)
-        whenever(categoryRepository.findByIdAndUserId(catId, "test")).thenReturn(cat)
-        whenever(tagRepository.findAllByUserId("test")).thenReturn(emptyList())
+        whenever(categoryRepository.findByIdAndUserId(catId, userId)).thenReturn(cat)
+        whenever(tagRepository.findAllByUserId(userId)).thenReturn(emptyList())
         stubSaveTask()
 
-        service.createTask("test", CreateBacklogTaskRequest(
+        service.createTask(userId, CreateBacklogTaskRequest(
             title = "Task",
             priority = "high",
             status = "todo",
@@ -81,11 +82,11 @@ class BacklogTaskServiceTest {
     @Test
     fun `createTask parses deadline string to LocalDate`() {
         val catId = UUID.randomUUID()
-        whenever(categoryRepository.findByIdAndUserId(catId, "test")).thenReturn(categoryEntity(id = catId))
-        whenever(tagRepository.findAllByUserId("test")).thenReturn(emptyList())
+        whenever(categoryRepository.findByIdAndUserId(catId, userId)).thenReturn(categoryEntity(id = catId))
+        whenever(tagRepository.findAllByUserId(userId)).thenReturn(emptyList())
         stubSaveTask()
 
-        service.createTask("test", CreateBacklogTaskRequest(
+        service.createTask(userId, CreateBacklogTaskRequest(
             title = "Task",
             deadline = "2026-05-01",
             categoryId = catId.toString(),
@@ -101,11 +102,11 @@ class BacklogTaskServiceTest {
     @Test
     fun `createTask sets createdAt and leaves updatedAt null`() {
         val catId = UUID.randomUUID()
-        whenever(categoryRepository.findByIdAndUserId(catId, "test")).thenReturn(categoryEntity(id = catId))
-        whenever(tagRepository.findAllByUserId("test")).thenReturn(emptyList())
+        whenever(categoryRepository.findByIdAndUserId(catId, userId)).thenReturn(categoryEntity(id = catId))
+        whenever(tagRepository.findAllByUserId(userId)).thenReturn(emptyList())
         stubSaveTask()
 
-        service.createTask("test", CreateBacklogTaskRequest(title = "Task", categoryId = catId.toString()))
+        service.createTask(userId, CreateBacklogTaskRequest(title = "Task", categoryId = catId.toString()))
 
         val captor = argumentCaptor<BacklogTaskEntity>()
         verify(backlogTaskRepository).save(captor.capture())
@@ -116,24 +117,24 @@ class BacklogTaskServiceTest {
     @Test
     fun `createTask throws when category not found`() {
         val catId = UUID.randomUUID()
-        whenever(categoryRepository.findByIdAndUserId(catId, "test")).thenReturn(null)
+        whenever(categoryRepository.findByIdAndUserId(catId, userId)).thenReturn(null)
 
         assertFailsWith<NoSuchElementException> {
-            service.createTask("test", CreateBacklogTaskRequest(title = "Task", categoryId = catId.toString()))
+            service.createTask(userId, CreateBacklogTaskRequest(title = "Task", categoryId = catId.toString()))
         }
     }
 
     @Test
     fun `createTask creates new tag when none matches`() {
         val catId = UUID.randomUUID()
-        whenever(categoryRepository.findByIdAndUserId(catId, "test")).thenReturn(categoryEntity(id = catId))
-        whenever(tagRepository.findAllByUserId("test")).thenReturn(emptyList())
+        whenever(categoryRepository.findByIdAndUserId(catId, userId)).thenReturn(categoryEntity(id = catId))
+        whenever(tagRepository.findAllByUserId(userId)).thenReturn(emptyList())
         whenever(tagRepository.save(any())).thenAnswer { inv ->
             (inv.arguments[0] as BacklogTaskTagEntity).also { it.id = UUID.randomUUID() }
         }
         stubSaveTask()
 
-        service.createTask("test", CreateBacklogTaskRequest(
+        service.createTask(userId, CreateBacklogTaskRequest(
             title = "Task",
             categoryId = catId.toString(),
             tags = listOf(TagInput("urgent", "coral")),
@@ -149,11 +150,11 @@ class BacklogTaskServiceTest {
     fun `createTask reuses existing tag when label and color match`() {
         val catId = UUID.randomUUID()
         val existingTag = tagEntity(label = "urgent", colorId = TagColor.CORAL)
-        whenever(categoryRepository.findByIdAndUserId(catId, "test")).thenReturn(categoryEntity(id = catId))
-        whenever(tagRepository.findAllByUserId("test")).thenReturn(listOf(existingTag))
+        whenever(categoryRepository.findByIdAndUserId(catId, userId)).thenReturn(categoryEntity(id = catId))
+        whenever(tagRepository.findAllByUserId(userId)).thenReturn(listOf(existingTag))
         stubSaveTask()
 
-        service.createTask("test", CreateBacklogTaskRequest(
+        service.createTask(userId, CreateBacklogTaskRequest(
             title = "Task",
             categoryId = catId.toString(),
             tags = listOf(TagInput("urgent", "coral")),
@@ -169,12 +170,12 @@ class BacklogTaskServiceTest {
         val taskId = UUID.randomUUID()
         val catId = UUID.randomUUID()
         val existingEntity = taskEntity(categoryEntity(), id = taskId, title = "Old Title")
-        whenever(backlogTaskRepository.findByIdAndUserId(taskId, "test")).thenReturn(existingEntity)
-        whenever(categoryRepository.findByIdAndUserId(catId, "test")).thenReturn(categoryEntity(id = catId))
-        whenever(tagRepository.findAllByUserId("test")).thenReturn(emptyList())
+        whenever(backlogTaskRepository.findByIdAndUserId(taskId, userId)).thenReturn(existingEntity)
+        whenever(categoryRepository.findByIdAndUserId(catId, userId)).thenReturn(categoryEntity(id = catId))
+        whenever(tagRepository.findAllByUserId(userId)).thenReturn(emptyList())
         stubSaveTask(existingEntity)
 
-        service.updateTask("test", taskId, UpdateBacklogTaskRequest(
+        service.updateTask(userId, taskId, UpdateBacklogTaskRequest(
             title = "New Title",
             status = "done",
             categoryId = catId.toString(),
@@ -188,10 +189,10 @@ class BacklogTaskServiceTest {
     @Test
     fun `updateTask throws when task not found`() {
         val taskId = UUID.randomUUID()
-        whenever(backlogTaskRepository.findByIdAndUserId(taskId, "test")).thenReturn(null)
+        whenever(backlogTaskRepository.findByIdAndUserId(taskId, userId)).thenReturn(null)
 
         assertFailsWith<NoSuchElementException> {
-            service.updateTask("test", taskId, UpdateBacklogTaskRequest(
+            service.updateTask(userId, taskId, UpdateBacklogTaskRequest(
                 title = "Title",
                 status = "todo",
                 categoryId = UUID.randomUUID().toString(),
@@ -205,9 +206,9 @@ class BacklogTaskServiceTest {
     fun `deleteTask deletes the found entity`() {
         val taskId = UUID.randomUUID()
         val entity = taskEntity(categoryEntity(), id = taskId)
-        whenever(backlogTaskRepository.findByIdAndUserId(taskId, "test")).thenReturn(entity)
+        whenever(backlogTaskRepository.findByIdAndUserId(taskId, userId)).thenReturn(entity)
 
-        service.deleteTask("test", taskId)
+        service.deleteTask(userId, taskId)
 
         verify(backlogTaskRepository).delete(entity)
     }
@@ -215,10 +216,10 @@ class BacklogTaskServiceTest {
     @Test
     fun `deleteTask throws when task not found`() {
         val taskId = UUID.randomUUID()
-        whenever(backlogTaskRepository.findByIdAndUserId(taskId, "test")).thenReturn(null)
+        whenever(backlogTaskRepository.findByIdAndUserId(taskId, userId)).thenReturn(null)
 
         assertFailsWith<NoSuchElementException> {
-            service.deleteTask("test", taskId)
+            service.deleteTask(userId, taskId)
         }
     }
 
@@ -236,7 +237,7 @@ class BacklogTaskServiceTest {
         swatchId: CategoryColor = CategoryColor.SUNSHINE,
     ) = BacklogTaskCategoryEntity().apply {
         this.id = id
-        this.userId = "test"
+        this.userId = this@BacklogTaskServiceTest.userId
         this.label = label
         this.swatchId = swatchId
     }
@@ -247,7 +248,7 @@ class BacklogTaskServiceTest {
         colorId: TagColor = TagColor.SAGE,
     ) = BacklogTaskTagEntity().apply {
         this.id = id
-        this.userId = "test"
+        this.userId = this@BacklogTaskServiceTest.userId
         this.label = label
         this.colorId = colorId
     }
@@ -258,11 +259,11 @@ class BacklogTaskServiceTest {
         title: String = "Task",
     ) = BacklogTaskEntity().apply {
         this.id = id
-        this.userId = "test"
+        this.userId = this@BacklogTaskServiceTest.userId
         this.title = title
         this.status = TaskStatus.TODO
         this.category = category
-        this.tags = emptySet()
+        this.tags = mutableSetOf()
         this.createdAt = Instant.now()
         this.updatedAt = null
     }

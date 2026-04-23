@@ -5,5 +5,4 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories
 
 @Configuration
 @EnableJpaRepositories(basePackages = ["dev.itayp.tasker.repository"])
-class JpaConfiguration {
-}
+class JpaConfiguration

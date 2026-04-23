@@ -26,8 +26,8 @@ open class BacklogTaskEntity {
     @GeneratedValue(strategy = GenerationType.UUID)
     var id: UUID? = null
 
-    @Column
-    var userId: String? = null
+    @Column(name = "user_id")
+    var userId: UUID? = null
 
     @Column
     var title: String? = null
@@ -62,7 +62,7 @@ open class BacklogTaskEntity {
         joinColumns = [JoinColumn(name = "task_id")],
         inverseJoinColumns = [JoinColumn(name = "tag_id")]
     )
-    var tags: Set<BacklogTaskTagEntity>? = null
+    var tags: MutableSet<BacklogTaskTagEntity> = mutableSetOf()
 
     @Column
     var createdAt: Instant? = null

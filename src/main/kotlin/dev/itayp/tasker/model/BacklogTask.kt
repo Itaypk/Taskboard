@@ -22,7 +22,7 @@ enum class CategoryColor {
 
 data class BacklogTaskTag(
     val id: UUID,
-    val userId: String,
+    val userId: UUID,
     val label: String,
     val colorId: TagColor,
     val description: String?
@@ -30,14 +30,14 @@ data class BacklogTaskTag(
 
 data class BacklogTaskCategory(
     val id: UUID,
-    val userId: String,
+    val userId: UUID,
     val label: String,
     val swatchId: CategoryColor
 )
 
 data class BacklogTask(
     val id: UUID,
-    val userId: String,
+    val userId: UUID,
     val title: String,
     val description: String?,
     val url: String?,

@@ -1,3 +1,5 @@
+import org.gradle.language.jvm.tasks.ProcessResources
+
 plugins {
 	kotlin("jvm") version "2.3.20"
 	kotlin("plugin.spring") version "2.3.20"
@@ -33,6 +35,8 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-security-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
+	testImplementation("org.springframework.boot:spring-boot-restclient")
+	testImplementation("org.springframework.boot:spring-boot-resttestclient")
 	testImplementation("org.mockito.kotlin:mockito-kotlin:5.4.0")
 	testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
@@ -56,4 +60,38 @@ allOpen {
 
 tasks.withType<Test> {
 	useJUnitPlatform()
+}
+
+val frontendDir = layout.projectDirectory.dir("tasker-frontend")
+val frontendDist = frontendDir.dir("dist")
+val isWindows = System.getProperty("os.name").lowercase().contains("windows")
+val npmCmd = if (isWindows) "npm.cmd" else "npm"
+
+val npmInstall = tasks.register<Exec>("npmInstall") {
+	workingDir = frontendDir.asFile
+	commandLine(npmCmd, "ci")
+	inputs.file(frontendDir.file("package.json"))
+	inputs.file(frontendDir.file("package-lock.json"))
+	outputs.file(frontendDir.file("node_modules/.package-lock.json"))
+}
+
+val buildFrontend = tasks.register<Exec>("buildFrontend") {
+	dependsOn(npmInstall)
+	workingDir = frontendDir.asFile
+	commandLine(npmCmd, "run", "build")
+	inputs.dir(frontendDir.dir("src"))
+	inputs.dir(frontendDir.dir("public"))
+	inputs.file(frontendDir.file("index.html"))
+	inputs.file(frontendDir.file("vite.config.ts"))
+	inputs.file(frontendDir.file("tsconfig.json"))
+	inputs.file(frontendDir.file("tsconfig.app.json"))
+	inputs.file(frontendDir.file("tsconfig.node.json"))
+	inputs.file(frontendDir.file("package.json"))
+	inputs.file(frontendDir.file("package-lock.json"))
+	outputs.dir(frontendDist)
+}
+
+tasks.named<ProcessResources>("processResources") {
+	dependsOn(buildFrontend)
+	from(frontendDist) { into("static") }
 }

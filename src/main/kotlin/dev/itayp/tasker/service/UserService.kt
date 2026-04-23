@@ -4,11 +4,12 @@ import dev.itayp.tasker.jpa.BacklogTaskCategoryEntity
 import dev.itayp.tasker.model.CategoryColor
 import dev.itayp.tasker.repository.BacklogTaskCategoryRepository
 import org.springframework.stereotype.Service
+import java.util.UUID
 
 @Service
 class UserService(private val categoryRepository: BacklogTaskCategoryRepository) {
 
-    fun initializeNewUser(userId: String) {
+    fun initializeNewUser(userId: UUID) {
         DEFAULT_CATEGORIES.forEach { (label, color) ->
             categoryRepository.save(BacklogTaskCategoryEntity().apply {
                 this.userId = userId

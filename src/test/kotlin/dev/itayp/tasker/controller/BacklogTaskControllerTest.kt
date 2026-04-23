@@ -5,6 +5,7 @@ import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.CategoryColor
 import dev.itayp.tasker.model.TaskStatus
+import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.BacklogTaskService
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
@@ -15,6 +16,10 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest
 import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
+import org.springframework.security.core.authority.SimpleGrantedAuthority
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
@@ -33,12 +38,19 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
     @MockitoBean
     lateinit var backlogTaskService: BacklogTaskService
 
+    private val userId = UUID.fromString("00000000-0000-0000-0000-000000000099")
     private val taskId = UUID.fromString("00000000-0000-0000-0000-000000000001")
     private val categoryId = UUID.fromString("00000000-0000-0000-0000-000000000002")
 
+    private val auth = UsernamePasswordAuthenticationToken(
+        TaskerPrincipal(userId),
+        null,
+        listOf(SimpleGrantedAuthority("ROLE_USER")),
+    )
+
     private fun aTask(id: UUID = taskId, title: String = "Test Task") = BacklogTask(
         id = id,
-        userId = "test",
+        userId = userId,
         title = title,
         description = null,
         url = null,
@@ -46,7 +58,7 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
         deadline = null,
         estimatedMinutes = null,
         status = TaskStatus.TODO,
-        category = BacklogTaskCategory(categoryId, "test", "Work", CategoryColor.SUNSHINE),
+        category = BacklogTaskCategory(categoryId, userId, "Work", CategoryColor.SUNSHINE),
         tags = emptySet(),
         createdAt = Instant.parse("2026-01-01T00:00:00Z"),
         updatedAt = null
@@ -54,9 +66,9 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @Test
     fun `GET tasks returns 200 with task list`() {
-        whenever(backlogTaskService.getAllTasksForUser("test")).thenReturn(listOf(aTask()))
+        whenever(backlogTaskService.getAllTasksForUser(userId)).thenReturn(listOf(aTask()))
 
-        mockMvc.perform(get("/api/v1/tasks"))
+        mockMvc.perform(get("/api/v1/tasks").with(authentication(auth)))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$[0].title").value("Test Task"))
             .andExpect(jsonPath("$[0].status").value("todo"))
@@ -65,20 +77,28 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @Test
     fun `GET tasks returns 200 with empty list`() {
-        whenever(backlogTaskService.getAllTasksForUser("test")).thenReturn(emptyList())
+        whenever(backlogTaskService.getAllTasksForUser(userId)).thenReturn(emptyList())
 
-        mockMvc.perform(get("/api/v1/tasks"))
+        mockMvc.perform(get("/api/v1/tasks").with(authentication(auth)))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$").isArray)
             .andExpect(jsonPath("$").isEmpty)
     }
 
     @Test
+    fun `GET tasks unauthenticated returns 401`() {
+        mockMvc.perform(get("/api/v1/tasks"))
+            .andExpect(status().isUnauthorized)
+    }
+
+    @Test
     fun `POST tasks returns 201 with created task`() {
-        whenever(backlogTaskService.createTask(eq("test"), any())).thenReturn(aTask(title = "New Task"))
+        whenever(backlogTaskService.createTask(eq(userId), any())).thenReturn(aTask(title = "New Task"))
 
         mockMvc.perform(
             post("/api/v1/tasks")
+                .with(authentication(auth))
+                .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"title":"New Task","status":"todo","categoryId":"$categoryId","tags":[]}""")
         )
@@ -89,10 +109,12 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @Test
     fun `PUT tasks-id returns 200 with updated task`() {
-        whenever(backlogTaskService.updateTask(eq("test"), eq(taskId), any())).thenReturn(aTask(title = "Updated"))
+        whenever(backlogTaskService.updateTask(eq(userId), eq(taskId), any())).thenReturn(aTask(title = "Updated"))
 
         mockMvc.perform(
             put("/api/v1/tasks/$taskId")
+                .with(authentication(auth))
+                .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"title":"Updated","status":"todo","categoryId":"$categoryId","tags":[]}""")
         )
@@ -107,6 +129,8 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
 
         mockMvc.perform(
             put("/api/v1/tasks/$taskId")
+                .with(authentication(auth))
+                .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"title":"X","status":"todo","categoryId":"$categoryId","tags":[]}""")
         )
@@ -115,7 +139,7 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @Test
     fun `DELETE tasks-id returns 204`() {
-        mockMvc.perform(delete("/api/v1/tasks/$taskId"))
+        mockMvc.perform(delete("/api/v1/tasks/$taskId").with(authentication(auth)).with(csrf()))
             .andExpect(status().isNoContent)
     }
 
@@ -123,7 +147,7 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
     fun `DELETE tasks-id returns 404 when task not found`() {
         doThrow(NoSuchElementException("not found")).whenever(backlogTaskService).deleteTask(any(), any())
 
-        mockMvc.perform(delete("/api/v1/tasks/$taskId"))
+        mockMvc.perform(delete("/api/v1/tasks/$taskId").with(authentication(auth)).with(csrf()))
             .andExpect(status().isNotFound)
     }
 }

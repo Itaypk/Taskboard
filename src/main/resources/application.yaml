@@ -14,3 +14,17 @@ spring:
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.xml
     enabled: true
+
+server:
+  servlet:
+    session:
+      timeout: 14d
+      cookie:
+        http-only: true
+        same-site: lax
+        max-age: 1209600
+
+tasker:
+  telegram:
+    bot-token: ${TASKER_TELEGRAM_BOT_TOKEN:}
+    bot-username: ${TASKER_TELEGRAM_BOT_USERNAME:}
