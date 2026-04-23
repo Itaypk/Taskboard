@@ -11,7 +11,7 @@ Current state: the backlog CRUD (tasks, categories, tags) is implemented end-to-
 ## Repo layout
 
 - `src/` — Kotlin/Spring Boot backend (package `dev.itayp.tasker`). Entry point: `src/main/kotlin/dev/itayp/tasker/TaskBoardApplication.kt`.
-  - `config/` — Spring config (`SecurityConfiguration`, `DevDataInitializer`, `TelegramAuthProperties`, `TimeConfiguration`, `DevAuthConstants`).
+  - `config/` — Spring config (`SecurityConfiguration`, `DevDataInitializer`, `TelegramAuthProperties`, `PrometheusAuthProperties`, `TimeConfiguration`, `DevAuthConstants`).
   - `controller/` — REST controllers. `AuthController` handles Telegram login + `/me`; `DevAuthController` is `@Profile("dev")` only.
   - `service/` — `TelegramAuthService` (HMAC verify), `UserAuthService` (login-or-register), per-resource services.
   - `security/` — `TaskerPrincipal` (UUID user id) + `SessionAuthenticator` (creates session on successful auth).
@@ -25,7 +25,7 @@ Current state: the backlog CRUD (tasks, categories, tags) is implemented end-to-
 ## Common commands
 
 Backend (run from repo root):
-- `./gradlew bootRun` — run the Spring Boot app (auto-starts Postgres via compose; also builds + bundles the frontend as a side effect of `processResources`).
+- `./gradlew bootRun` — run the Spring Boot app with `--spring.profiles.active=dev` (set in the Gradle task); auto-starts Postgres via compose and bundles the frontend as a side effect of `processResources`.
 - `./gradlew build` — compile + test + bundle frontend.
 - `./gradlew test` — run all tests.
 - `./gradlew test --tests "dev.itayp.tasker.SomeTest.someMethod"` — run a single test.
@@ -37,7 +37,12 @@ Frontend (run from `tasker-frontend/`, only needed for fast iteration with HMR):
 
 ## Auth model (important — affects every new endpoint)
 
-- **Session-based** Spring Security with a `SameSite=Lax`, `HttpOnly` cookie (`JSESSIONID`), 14-day timeout.
+There are two independent `SecurityFilterChain` beans:
+
+1. **`prometheusFilterChain` (`@Order(1)`)** — matches only `/actuator/prometheus`. Stateless HTTP Basic Auth; credentials come from `PrometheusAuthProperties` (`TASKER_PROMETHEUS_USERNAME` / `TASKER_PROMETHEUS_PASSWORD`). CSRF disabled.
+2. **`securityFilterChain` (`@Order(2)`)** — everything else. Session-based with a `SameSite=Lax`, `HttpOnly`, `Secure` (prod) cookie (`JSESSIONID`), 14-day timeout.
+
+Session chain details:
 - **CSRF** via `CookieCsrfTokenRepository.withHttpOnlyFalse()` — mutating requests must echo the `XSRF-TOKEN` cookie value as the `X-XSRF-TOKEN` header. Login endpoints (`/api/auth/telegram`, `/api/auth/dev-login`) are exempt because they create the session. Frontend `api.ts` handles this automatically.
 - **Login paths**:
   1. `POST /api/auth/telegram` — validates Telegram Login Widget HMAC payload, upserts a `UserEntity` by `telegram_id`, seeds default categories for new users.
@@ -59,7 +64,7 @@ Frontend (run from `tasker-frontend/`, only needed for fast iteration with HMR):
 - **Jackson**: uses `tools.jackson.module:jackson-module-kotlin` (Jackson 3.x, `tools.jackson` package), not `com.fasterxml.jackson.*`. Import accordingly.
 - **Spring Boot 4.0.x**: several starter artifacts moved. Notable: `TestRestTemplate` lives in `org.springframework.boot.resttestclient` and requires `spring-boot-restclient` + `spring-boot-resttestclient` as `testImplementation` (already declared).
 - **LLM**: Spring AI is **not** the chosen approach. Use a thin, hand-rolled abstraction over the Claude API when the planner is built.
-- **Databases**: Postgres in dev/prod, H2 for in-memory dev + tests. Config is explicit in `application.yaml`.
+- **Databases**: H2 in-memory for dev (`application-dev.yaml`) and unit/slice tests. Postgres for prod (`application-prod.yaml`). Integration tests under `@ActiveProfiles("prod")` spin up a real Postgres instance via TestContainers (`AbstractIntegrationTest.Initializer`). Config is split across `application.yaml` (base), `application-dev.yaml`, and `application-prod.yaml`.
 - **Compiler flags**: `-Xjsr305=strict` (JSR-305 nullability → errors) and `-Xannotation-default-target=param-property` (Kotlin 2.x annotation target default). Keep nullability annotations honest.
 
 ## Frontend specifics
@@ -72,10 +77,17 @@ Frontend (run from `tasker-frontend/`, only needed for fast iteration with HMR):
 - Backend env vars (read via `TelegramAuthProperties`):
   - `TASKER_TELEGRAM_BOT_TOKEN` — used to verify the widget HMAC.
   - `TASKER_TELEGRAM_BOT_USERNAME` — cosmetic / future use.
+- Backend env vars (read via `PrometheusAuthProperties`) — **required in prod, dev defaults apply otherwise**:
+  - `TASKER_PROMETHEUS_USERNAME` — Basic Auth username for `/actuator/prometheus` (default: `prometheus`).
+  - `TASKER_PROMETHEUS_PASSWORD` — Basic Auth password for `/actuator/prometheus` (default: `prometheus-dev`).
+- Backend env vars for the production database (required when running with `prod` profile):
+  - `TASKER_DB_URL` — JDBC URL, e.g. `jdbc:postgresql://host:5432/taskboard`.
+  - `TASKER_DB_USERNAME` / `TASKER_DB_PASSWORD` — Postgres credentials.
 
 ## Testing patterns
 
 - Service unit tests: `@ExtendWith(MockitoExtension::class)` + `mockito-kotlin`. See `BacklogTaskServiceTest`, `UserAuthServiceTest`.
 - Controller slice tests: `@WebMvcTest(SomeController::class)` + `@Import(SecurityConfiguration::class)`. Authenticate with `SecurityMockMvcRequestPostProcessors.authentication(UsernamePasswordAuthenticationToken(TaskerPrincipal(userId), null, listOf(SimpleGrantedAuthority("ROLE_USER"))))`, and add `.with(csrf())` for non-GET requests. See `BacklogTaskControllerTest`, `AuthControllerTest`.
 - Integration tests: `@SpringBootTest(webEnvironment = RANDOM_PORT)` + `@AutoConfigureTestRestTemplate` + `@ActiveProfiles("dev"|"prod")`. See `SecurityIntegrationTest` — covers cookie reuse, CSRF enforcement, and prod-profile gating of dev-login.
+- **Postgres integration tests**: use `@ContextConfiguration(initializers = [AbstractIntegrationTest.Initializer::class])` together with `@ActiveProfiles("prod")`. The `Initializer` starts a shared TestContainers `PostgreSQLContainer` and injects its coordinates into the Spring environment before the context refreshes. See `PostgresIntegrationTest` — validates health/liveness endpoints and JPA CRUD against real Postgres. `SecurityIntegrationProdProfileTest` also uses the initializer because the prod profile requires a live datasource.
 - Time-dependent code (`TelegramAuthService`, `UserAuthService`) takes a `Clock` — tests inject `Clock.fixed(...)`.
