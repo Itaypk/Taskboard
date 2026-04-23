@@ -68,6 +68,10 @@ tasks.withType<Test> {
 	useJUnitPlatform()
 }
 
+tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
+	args("--spring.profiles.active=dev")
+}
+
 val frontendDir = layout.projectDirectory.dir("tasker-frontend")
 val frontendDist = frontendDir.dir("dist")
 val isWindows = System.getProperty("os.name").lowercase().contains("windows")

@@ -1,13 +1,6 @@
 spring:
-  profiles:
-    active: dev
   application:
     name: taskboard
-  datasource:
-    url: jdbc:h2:mem:taskboard;DB_CLOSE_DELAY=-1
-    driver-class-name: org.h2.Driver
-    username: sa
-    password: sa
   jpa:
     hibernate:
       ddl-auto: validate
@@ -16,6 +9,7 @@ spring:
     enabled: true
 
 server:
+  shutdown: graceful
   servlet:
     session:
       timeout: 14d
@@ -24,7 +18,21 @@ server:
         same-site: lax
         max-age: 1209600
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+
 tasker:
   telegram:
     bot-token: ${TASKER_TELEGRAM_BOT_TOKEN:}
     bot-username: ${TASKER_TELEGRAM_BOT_USERNAME:}
+  prometheus:
+    username: ${TASKER_PROMETHEUS_USERNAME:prometheus}
+    password: ${TASKER_PROMETHEUS_PASSWORD:prometheus-dev}
