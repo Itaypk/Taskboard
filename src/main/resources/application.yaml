@@ -3,11 +3,6 @@ spring:
     active: dev
   application:
     name: taskboard
-  datasource:
-    url: jdbc:h2:mem:taskboard;DB_CLOSE_DELAY=-1
-    driver-class-name: org.h2.Driver
-    username: sa
-    password: sa
   jpa:
     hibernate:
       ddl-auto: validate
@@ -23,6 +18,17 @@ server:
         http-only: true
         same-site: lax
         max-age: 1209600
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
 
 tasker:
   telegram:

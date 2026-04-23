@@ -1,4 +1,4 @@
-package pk.itay.whoami
+package dev.itayp.tasker
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -21,14 +21,13 @@ class AbstractIntegrationTest {
                 "spring.datasource.username=${postgresContainer.username}",
                 "spring.datasource.password=${postgresContainer.password}",
                 "spring.datasource.driverClassName=org.postgresql.Driver",
-                "spring.datasource.url=$jdbcUrl",
-                "spring.sql.init.data-locations=classpath:sql/data-postgresql.sql"
+                "spring.datasource.url=$jdbcUrl"
             ).applyTo(configurableApplicationContext.environment)
         }
     }
 
     companion object {
-        private val logger: Logger = LoggerFactory.getLogger(WhoAmIApplicationIT::class.java)
+        private val logger: Logger = LoggerFactory.getLogger(AbstractIntegrationTest::class.java)
 
         private const val DATABASE_USERNAME = "taskboard_test"
         private const val DATABASE_PASSWORD = "Password"

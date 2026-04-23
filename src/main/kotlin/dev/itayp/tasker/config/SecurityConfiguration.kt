@@ -29,6 +29,7 @@ class SecurityConfiguration {
                 authorize("/api/auth/logout", permitAll)
                 authorize("/api/**", authenticated)
                 authorize("/actuator/health", permitAll)
+                authorize("/actuator/health/**", permitAll)
                 authorize("/actuator/prometheus", hasRole("PROMETHEUS"))
                 authorize(anyRequest, permitAll)
             }

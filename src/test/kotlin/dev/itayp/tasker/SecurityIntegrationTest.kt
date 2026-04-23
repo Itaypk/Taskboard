@@ -12,6 +12,7 @@ import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.test.context.ActiveProfiles
+import org.springframework.test.context.ContextConfiguration
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestRestTemplate
@@ -63,6 +64,7 @@ class SecurityIntegrationTest(@Autowired val rest: TestRestTemplate) {
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestRestTemplate
 @ActiveProfiles("prod")
+@ContextConfiguration(initializers = [AbstractIntegrationTest.Initializer::class])
 class SecurityIntegrationProdProfileTest(@Autowired val rest: TestRestTemplate) {
 
     @Test
