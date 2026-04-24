@@ -82,7 +82,7 @@ class SecurityConfiguration(
                 logoutUrl = "/api/auth/logout"
                 logoutSuccessHandler = HttpStatusReturningLogoutSuccessHandler(HttpStatus.NO_CONTENT)
                 invalidateHttpSession = true
-                deleteCookies("JSESSIONID", "XSRF-TOKEN")
+                deleteCookies("SESSION", "XSRF-TOKEN")
             }
         }
         return http.build()

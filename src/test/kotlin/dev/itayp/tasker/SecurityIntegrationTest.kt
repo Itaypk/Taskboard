@@ -34,9 +34,9 @@ class SecurityIntegrationTest(
         val login = rest.postForEntity("/api/auth/dev-login", null, String::class.java)
         assertThat(login.statusCode).isEqualTo(HttpStatus.OK)
         val setCookies = login.headers[HttpHeaders.SET_COOKIE] ?: emptyList()
-        assertThat(setCookies).anyMatch { it.startsWith("JSESSIONID=") }
+        assertThat(setCookies).anyMatch { it.startsWith("SESSION=") }
 
-        val sessionCookie = setCookies.first { it.startsWith("JSESSIONID=") }.substringBefore(";")
+        val sessionCookie = setCookies.first { it.startsWith("SESSION=") }.substringBefore(";")
         val xsrfCookie = setCookies.firstOrNull { it.startsWith("XSRF-TOKEN=") }?.substringBefore(";")
         val headers = HttpHeaders().apply {
             add(HttpHeaders.COOKIE, listOfNotNull(sessionCookie, xsrfCookie).joinToString("; "))
@@ -51,7 +51,7 @@ class SecurityIntegrationTest(
         val login = rest.postForEntity("/api/auth/dev-login", null, String::class.java)
         assertThat(login.statusCode).isEqualTo(HttpStatus.OK)
         val setCookies = login.headers[HttpHeaders.SET_COOKIE] ?: emptyList()
-        val sessionCookie = setCookies.first { it.startsWith("JSESSIONID=") }.substringBefore(";")
+        val sessionCookie = setCookies.first { it.startsWith("SESSION=") }.substringBefore(";")
         val xsrfCookie = setCookies.firstOrNull { it.startsWith("XSRF-TOKEN=") }?.substringBefore(";")
 
         // A row should now exist in SPRING_SESSION — this is what makes sessions survive restart.
@@ -81,7 +81,7 @@ class SecurityIntegrationTest(
     fun `mutating request without CSRF token returns 403`() {
         val login = rest.postForEntity("/api/auth/dev-login", null, String::class.java)
         val sessionCookie = login.headers[HttpHeaders.SET_COOKIE]!!
-            .first { it.startsWith("JSESSIONID=") }
+            .first { it.startsWith("SESSION=") }
             .substringBefore(";")
 
         val headers = HttpHeaders().apply {

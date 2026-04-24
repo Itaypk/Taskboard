@@ -40,7 +40,7 @@ Frontend (run from `tasker-frontend/`, only needed for fast iteration with HMR):
 There are two independent `SecurityFilterChain` beans:
 
 1. **`prometheusFilterChain` (`@Order(1)`)** — matches only `/actuator/prometheus`. Stateless HTTP Basic Auth; credentials come from `PrometheusAuthProperties` (`TASKER_PROMETHEUS_USERNAME` / `TASKER_PROMETHEUS_PASSWORD`). CSRF disabled.
-2. **`securityFilterChain` (`@Order(2)`)** — everything else. Session-based with a `SameSite=Lax`, `HttpOnly`, `Secure` (prod) cookie (`JSESSIONID`), 30-day rolling timeout.
+2. **`securityFilterChain` (`@Order(2)`)** — everything else. Session-based with a `SameSite=Lax`, `HttpOnly`, `Secure` (prod) cookie (`SESSION`), 30-day rolling timeout.
 
 Session chain details:
 - **CSRF** via `CookieCsrfTokenRepository.withHttpOnlyFalse()` — mutating requests must echo the `XSRF-TOKEN` cookie value as the `X-XSRF-TOKEN` header. Login endpoints (`/api/auth/telegram`, `/api/auth/dev-login`) are exempt because they create the session. Frontend `api.ts` handles this automatically.
