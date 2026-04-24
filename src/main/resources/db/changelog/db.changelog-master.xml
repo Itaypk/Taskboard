@@ -113,9 +113,7 @@
             </column>
         </createTable>
         <addPrimaryKey tableName="backlog_task_tags" columnNames="task_id,tag_id"/>
-    </changeSet>
 
-    <changeSet id="2" author="tasker">
         <createTable tableName="user_settings">
             <column name="user_id" type="UUID">
                 <constraints primaryKey="true" nullable="false" foreignKeyName="fk_user_settings_user" references="users(id)"/>
@@ -123,7 +121,7 @@
             <column name="display_name" type="VARCHAR(255)">
                 <constraints nullable="true"/>
             </column>
-            <column name="context_block" type="TEXT">
+            <column name="context_block" type="VARCHAR(4096)">
                 <constraints nullable="true"/>
             </column>
             <column name="time_zone" type="VARCHAR(100)" defaultValue="UTC">

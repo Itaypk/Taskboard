@@ -41,3 +41,5 @@ out/
 
 ### Others
 .playwright-mcp/
+/constants.sh
+/tasker-frontend/.env.production
