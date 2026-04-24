@@ -129,7 +129,7 @@ class BacklogTaskServiceTest {
         val catId = UUID.randomUUID()
         whenever(categoryRepository.findByIdAndUserId(catId, userId)).thenReturn(categoryEntity(id = catId))
         whenever(tagRepository.findAllByUserId(userId)).thenReturn(emptyList())
-        whenever(tagRepository.save(any())).thenAnswer { inv ->
+        whenever(tagRepository.save(any<BacklogTaskTagEntity>())).thenAnswer { inv ->
             (inv.arguments[0] as BacklogTaskTagEntity).also { it.id = UUID.randomUUID() }
         }
         stubSaveTask()
@@ -226,7 +226,7 @@ class BacklogTaskServiceTest {
     // --- helpers ---
 
     private fun stubSaveTask(existing: BacklogTaskEntity? = null) {
-        whenever(backlogTaskRepository.save(any())).thenAnswer { inv ->
+        whenever(backlogTaskRepository.save(any<BacklogTaskEntity>())).thenAnswer { inv ->
             (inv.arguments[0] as BacklogTaskEntity).also { if (it.id == null) it.id = UUID.randomUUID() }
         }
     }
