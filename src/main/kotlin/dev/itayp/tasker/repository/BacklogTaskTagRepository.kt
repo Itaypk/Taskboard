@@ -9,4 +9,6 @@ import java.util.UUID
 interface BacklogTaskTagRepository : JpaRepository<BacklogTaskTagEntity, UUID> {
 
     fun findAllByUserId(userId: UUID): List<BacklogTaskTagEntity>
+
+    fun deleteAllByUserId(userId: UUID)
 }

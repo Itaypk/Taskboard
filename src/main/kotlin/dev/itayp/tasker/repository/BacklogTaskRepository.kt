@@ -13,4 +13,6 @@ interface BacklogTaskRepository : JpaRepository<BacklogTaskEntity, UUID> {
     fun findByIdAndUserId(id: UUID, userId: UUID): BacklogTaskEntity?
 
     fun existsByCategoryIdAndUserId(categoryId: UUID, userId: UUID): Boolean
+
+    fun deleteAllByUserId(userId: UUID)
 }

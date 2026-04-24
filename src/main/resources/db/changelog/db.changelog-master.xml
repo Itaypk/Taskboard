@@ -134,5 +134,6 @@
     </changeSet>
 
     <include file="db/changelog/changesets/002-spring-session.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changesets/003-demo-users.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>
