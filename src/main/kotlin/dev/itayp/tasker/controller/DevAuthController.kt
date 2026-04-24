@@ -9,6 +9,7 @@ import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.UserAuthService
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Profile
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.PostMapping
@@ -34,6 +35,11 @@ class DevAuthController(
     ): ResponseEntity<MeResponse> {
         val user = userAuthService.ensureDevUser(DEV_USER_ID, DEV_USER_TELEGRAM_ID)
         sessionAuthenticator.authenticate(TaskerPrincipal(user.id!!), request, response)
+        logger.debug("Successful dev login for user ID ${user.id}")
         return ResponseEntity.ok(user.toMeResponse())
+    }
+
+    companion object {
+        private val logger = LoggerFactory.getLogger(DevAuthController::class.java)
     }
 }

@@ -7,16 +7,21 @@ spring:
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.xml
     enabled: true
+  session:
+    store-type: jdbc
+    timeout: 30d
+    jdbc:
+      initialize-schema: never
 
 server:
   shutdown: graceful
   servlet:
     session:
-      timeout: 14d
+      timeout: 30d
       cookie:
         http-only: true
         same-site: lax
-        max-age: 1209600
+        max-age: 2592000
 
 management:
   endpoints:

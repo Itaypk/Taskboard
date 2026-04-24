@@ -40,7 +40,7 @@ Frontend (run from `tasker-frontend/`, only needed for fast iteration with HMR):
 There are two independent `SecurityFilterChain` beans:
 
 1. **`prometheusFilterChain` (`@Order(1)`)** — matches only `/actuator/prometheus`. Stateless HTTP Basic Auth; credentials come from `PrometheusAuthProperties` (`TASKER_PROMETHEUS_USERNAME` / `TASKER_PROMETHEUS_PASSWORD`). CSRF disabled.
-2. **`securityFilterChain` (`@Order(2)`)** — everything else. Session-based with a `SameSite=Lax`, `HttpOnly`, `Secure` (prod) cookie (`JSESSIONID`), 14-day timeout.
+2. **`securityFilterChain` (`@Order(2)`)** — everything else. Session-based with a `SameSite=Lax`, `HttpOnly`, `Secure` (prod) cookie (`SESSION`), 30-day rolling timeout.
 
 Session chain details:
 - **CSRF** via `CookieCsrfTokenRepository.withHttpOnlyFalse()` — mutating requests must echo the `XSRF-TOKEN` cookie value as the `X-XSRF-TOKEN` header. Login endpoints (`/api/auth/telegram`, `/api/auth/dev-login`) are exempt because they create the session. Frontend `api.ts` handles this automatically.
@@ -50,12 +50,13 @@ Session chain details:
 - **Controllers inject `@AuthenticationPrincipal principal: TaskerPrincipal`** and use `principal.userId: UUID`. Never hardcode user ids.
 - **Writing a new session**: call `SessionAuthenticator.authenticate(principal, request, response)`. It saves the context via `HttpSessionSecurityContextRepository.saveContext` — **this call is mandatory** in Spring Security 7 or the session cookie won't be issued.
 - **401 vs 403**: `exceptionHandling { authenticationEntryPoint = HttpStatusEntryPoint(UNAUTHORIZED) }` means unauth requests to `/api/**` return 401 JSON (the SPA listens for 401 and clears auth state). Missing/invalid CSRF returns 403.
+- **Session persistence**: sessions are stored in the `SPRING_SESSION` / `SPRING_SESSION_ATTRIBUTES` tables via `spring-session-jdbc`, so they survive application restarts. `spring.session.jdbc.initialize-schema: never` — the schema is owned by Liquibase (changeset `002-spring-session.xml`). Every request updates `last_access_time`, so the 30-day TTL rolls forward for active users and only idle sessions expire. Expired rows are GC'd by Spring Session's internal scheduled cleanup.
 
 ## Data model
 
 - **UUIDs everywhere**: user ids, task ids, category/tag ids. Stored as `UUID` columns with foreign keys to `users(id)`.
-- Liquibase runs on startup against H2 (dev/test) and Postgres (prod). `spring.jpa.hibernate.ddl-auto: validate` — Hibernate does **not** manage schema. All schema changes go through Liquibase changesets in `src/main/resources/db/changelog/changesets/`.
-- **The repo is pre-release and currently allows breaking changes straight into changeset `001`.** Once a real production DB exists, switch to additive migrations.
+- Liquibase runs on startup against H2 (dev/test) and Postgres (prod). `spring.jpa.hibernate.ddl-auto: validate` — Hibernate does **not** manage schema. The master changelog is `src/main/resources/db/changelog/db.changelog-master.xml`; additional changesets live under `src/main/resources/db/changelog/changesets/` and are wired in via `<include>`.
+- **The app is deployed against a real Postgres database, so migrations are additive only.** Never edit a previously-applied changeset (including `id="1"`) — add a new changeset with the next integer id instead. Renames, column-type changes, and drops must be done through new changesets that preserve existing data.
 
 ## Stack notes that affect how you write code
 
