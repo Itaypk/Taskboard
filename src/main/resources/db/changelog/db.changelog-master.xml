@@ -133,4 +133,6 @@
         </createTable>
     </changeSet>
 
+    <include file="db/changelog/changesets/002-spring-session.xml" relativeToChangelogFile="false"/>
+
 </databaseChangeLog>
