@@ -54,6 +54,9 @@ export const createTask = (payload: Omit<Task, 'id' | 'createdAt'>): Promise<Tas
 export const updateTask = (id: string, payload: Omit<Task, 'id' | 'createdAt'>): Promise<Task> =>
     apiRequest(`/tasks/${id}`, { method: 'PUT', ...jsonBody(payload) });
 
+export const reorderTask = (id: string, afterId: string | null, beforeId: string | null): Promise<Task> =>
+    apiRequest(`/tasks/${id}/reorder`, { method: 'PATCH', ...jsonBody({ afterId, beforeId }) });
+
 export const deleteTask = (id: string): Promise<void> =>
     apiRequest(`/tasks/${id}`, { method: 'DELETE' });
 

@@ -1,9 +1,9 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { PostItNote } from './components/PostItNote';
 import { TaskDrawer } from './components/TaskDrawer';
 import { SettingsModal } from './components/SettingsModal';
 import { DEFAULT_SETTINGS } from './data';
-import { fetchTasks, fetchCategories, fetchUserSettings, createTask, updateTask, deleteTask } from './api';
+import { fetchTasks, fetchCategories, fetchUserSettings, createTask, updateTask, deleteTask, reorderTask } from './api';
 import type { Task, UserSettings } from './types';
 import { useAuth } from './auth/AuthContext';
 import { LoginPage } from './auth/LoginPage';
@@ -53,6 +53,11 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState<string | null>(null);
 
+  // Drag-and-drop state — kept in refs to avoid re-renders during the drag gesture.
+  const dragIdRef   = useRef<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const [dropPosition, setDropPosition] = useState<'before' | 'after'>('after');
+
   useEffect(() => {
     Promise.all([fetchTasks(), fetchCategories(), fetchUserSettings()])
       .then(([loadedTasks, loadedCategories, loadedSettings]) => {
@@ -72,9 +77,16 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const drawerOpen   = selectedId !== null || isCreating;
   const selectedTask = tasks.find(t => t.id === selectedId) ?? null;
 
+  // Primary sorted list — server already orders by sortKey, but keep it stable
+  // during optimistic updates by sorting locally on the same key.
+  const sortedTasks = useMemo(
+    () => [...tasks].sort((a, b) => a.sortKey < b.sortKey ? -1 : a.sortKey > b.sortKey ? 1 : 0),
+    [tasks],
+  );
+
   const visibleTasks = useMemo(
-    () => tasks.filter(t => t.status === 'todo' || t.id === leavingId),
-    [tasks, leavingId],
+    () => sortedTasks.filter(t => t.status === 'todo' || t.id === leavingId),
+    [sortedTasks, leavingId],
   );
 
   const categoryById = useMemo(
@@ -86,10 +98,10 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
 
   const handleSave = async (updated: Task) => {
     try {
-      const { id: _id, createdAt: _ca, ...payload } = updated;
+      const { id: _id, createdAt: _ca, sortKey: _sk, ...payload } = updated;
       if (isCreating) {
         const created = await createTask(payload);
-        setTasks(prev => [created, ...prev]);
+        setTasks(prev => [...prev, created]);
       } else {
         const saved = await updateTask(updated.id, payload);
         setTasks(prev => prev.map(t => t.id === saved.id ? saved : t));
@@ -113,7 +125,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
     const task = tasks.find(t => t.id === id);
     if (!task) return;
     setLeavingId(id);
-    const { id: _id, createdAt: _ca, ...payload } = task;
+    const { id: _id, createdAt: _ca, sortKey: _sk, ...payload } = task;
     updateTask(id, { ...payload, status: 'done' }).then(() => {
       setTimeout(() => {
         setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'done' } : t));
@@ -124,6 +136,77 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
       setLeavingId(null);
     });
   }, [tasks]);
+
+  // ---- Drag-and-drop handlers ----
+
+  const handleDragStart = useCallback((taskId: string) => {
+    dragIdRef.current = taskId;
+  }, []);
+
+  const handleDragOver = useCallback((taskId: string, position: 'before' | 'after') => {
+    setDropTargetId(taskId);
+    setDropPosition(position);
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    dragIdRef.current = null;
+    setDropTargetId(null);
+  }, []);
+
+  const handleDrop = useCallback(async (targetId: string, position: 'before' | 'after') => {
+    const draggedId = dragIdRef.current;
+    dragIdRef.current = null;
+    setDropTargetId(null);
+
+    if (!draggedId || draggedId === targetId) return;
+
+    // Compute afterId / beforeId from the visible sorted list.
+    const list = visibleTasks;
+    const targetIdx = list.findIndex(t => t.id === targetId);
+    if (targetIdx === -1) return;
+
+    let afterId: string | null = null;
+    let beforeId: string | null = null;
+
+    if (position === 'before') {
+      // Drop before targetIdx
+      beforeId = list[targetIdx].id;
+      afterId  = targetIdx > 0 ? list[targetIdx - 1].id : null;
+      // Skip over the dragged task itself if it happens to be the predecessor
+      if (afterId === draggedId) afterId = targetIdx > 1 ? list[targetIdx - 2].id : null;
+    } else {
+      // Drop after targetIdx
+      afterId  = list[targetIdx].id;
+      beforeId = targetIdx < list.length - 1 ? list[targetIdx + 1].id : null;
+      // Skip over the dragged task itself if it happens to be the successor
+      if (beforeId === draggedId) beforeId = targetIdx < list.length - 2 ? list[targetIdx + 2].id : null;
+    }
+
+    // Optimistic update: splice the task into its new position locally.
+    setTasks(prev => {
+      const next = [...prev].sort((a, b) => a.sortKey < b.sortKey ? -1 : 1);
+      const draggedIdx = next.findIndex(t => t.id === draggedId);
+      if (draggedIdx === -1) return prev;
+      const [dragged] = next.splice(draggedIdx, 1);
+      const newTargetIdx = next.findIndex(t => t.id === targetId);
+      const insertAt = position === 'after' ? newTargetIdx + 1 : newTargetIdx;
+      next.splice(insertAt, 0, dragged);
+      // Assign a synthetic sort key just for optimistic ordering; server will confirm.
+      return next.map((t, i) => ({ ...t, sortKey: String(i).padStart(6, '0') }));
+    });
+
+    try {
+      const updated = await reorderTask(draggedId, afterId, beforeId);
+      // Replace the optimistic sort key with the real one from the server.
+      setTasks(prev => prev.map(t => t.id === updated.id ? { ...t, sortKey: updated.sortKey } : t));
+    } catch (e) {
+      console.error('Failed to reorder task', e);
+      // Revert: re-fetch authoritative order.
+      fetchTasks().then(setTasks).catch(() => {});
+    }
+  }, [visibleTasks]);
+
+  // ---- Render ----
 
   const defaultCategoryId = settings.categories[0]?.id ?? null;
 
@@ -183,20 +266,24 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
         {visibleTasks.length === 0 ? (
           <div className="board board--empty">Nothing pinned up. Add your first task.</div>
         ) : (
-          <div className="board">
-            {visibleTasks.map((task, i) => (
+          <div className="board board--list" role="list" aria-label="Task list">
+            {visibleTasks.map((task) => (
               <PostItNote
                 key={task.id}
                 task={task}
                 category={categoryById.get(task.categoryId)}
-                index={i}
                 leaving={leavingId === task.id}
+                isDragTarget={dropTargetId === task.id}
+                dropPosition={dropTargetId === task.id ? dropPosition : undefined}
                 onClick={() => { setIsCreating(false); setSelectedId(task.id); }}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                onDragEnd={handleDragEnd}
+                onDrop={handleDrop}
               />
             ))}
           </div>
         )}
-
       </main>
 
       <img className="pineapple-pet" src={pineappleUrl} alt="" aria-hidden="true" />

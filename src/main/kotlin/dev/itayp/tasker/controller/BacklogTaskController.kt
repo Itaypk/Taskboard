@@ -1,6 +1,7 @@
 package dev.itayp.tasker.controller
 
 import dev.itayp.tasker.model.request.CreateBacklogTaskRequest
+import dev.itayp.tasker.model.request.ReorderTaskRequest
 import dev.itayp.tasker.model.request.UpdateBacklogTaskRequest
 import dev.itayp.tasker.model.response.TaskResponse
 import dev.itayp.tasker.model.response.toResponse
@@ -12,6 +13,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
@@ -61,6 +63,19 @@ class BacklogTaskController(private val backlogTaskService: BacklogTaskService) 
         return try {
             backlogTaskService.deleteTask(principal.userId, id)
             ResponseEntity.noContent().build()
+        } catch (e: NoSuchElementException) {
+            ResponseEntity.notFound().build()
+        }
+    }
+
+    @PatchMapping("/tasks/{id}/reorder")
+    fun reorderBacklogTask(
+        @AuthenticationPrincipal principal: TaskerPrincipal,
+        @PathVariable id: UUID,
+        @RequestBody request: ReorderTaskRequest,
+    ): ResponseEntity<TaskResponse> {
+        return try {
+            ResponseEntity.ok(backlogTaskService.reorderTask(principal.userId, id, request).toResponse())
         } catch (e: NoSuchElementException) {
             ResponseEntity.notFound().build()
         }

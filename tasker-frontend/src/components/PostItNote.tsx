@@ -1,42 +1,105 @@
+import { useRef } from 'react';
 import type { Task, Category, PaperSwatchId } from '../types';
 import { PAPER_SWATCHES } from '../types';
-import { formatDeadline, isOverdue, formatDuration, rotationFromId, jitterFromId } from '../utils';
+import { formatDeadline, isOverdue, formatDuration, rotationFromId } from '../utils';
 import { WashiTape } from './WashiTape';
 
 interface PostItNoteProps {
   task: Task;
   category: Category | undefined;
-  index: number;
   leaving?: boolean;
+  isDragTarget?: boolean;
+  dropPosition?: 'before' | 'after';
   onClick: () => void;
+  onDragStart: (taskId: string) => void;
+  onDragOver: (taskId: string, position: 'before' | 'after') => void;
+  onDragEnd: () => void;
+  onDrop: (targetId: string, position: 'before' | 'after') => void;
 }
 
 const FALLBACK_SWATCH: PaperSwatchId = 'cream';
 
-export function PostItNote({ task, category, index, leaving = false, onClick }: PostItNoteProps) {
+export function PostItNote({
+  task,
+  category,
+  leaving = false,
+  isDragTarget = false,
+  dropPosition,
+  onClick,
+  onDragStart,
+  onDragOver,
+  onDragEnd,
+  onDrop,
+}: PostItNoteProps) {
   const swatchId = category?.swatchId ?? FALLBACK_SWATCH;
   const swatch = PAPER_SWATCHES.find(s => s.id === swatchId) ?? PAPER_SWATCHES[6];
 
-  const rotation = rotationFromId(task.id);
-  const translateX = jitterFromId(task.id, 1, 4);
+  // Use a subtle rotation for visual character, but keep it small in list view.
+  const rotation = rotationFromId(task.id) * 0.3;
   const tags = task.tags.slice(0, 3);
+
+  // Track last known pointer Y inside the card to determine drop half.
+  const pointerYRef = useRef<number>(0);
+  const cardRef = useRef<HTMLElement>(null);
+
+  const getDropPosition = (clientY: number): 'before' | 'after' => {
+    if (!cardRef.current) return 'after';
+    const rect = cardRef.current.getBoundingClientRect();
+    return clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+  };
+
+  const classNames = [
+    'note',
+    'note--list',
+    leaving         ? 'note--leaving'    : '',
+    isDragTarget && dropPosition === 'before' ? 'note--drop-before' : '',
+    isDragTarget && dropPosition === 'after'  ? 'note--drop-after'  : '',
+  ].filter(Boolean).join(' ');
 
   return (
     <article
-      className={`note${leaving ? ' note--leaving' : ''}`}
+      ref={cardRef}
+      className={classNames}
       style={{
-        ['--paper' as string]: swatch.paper,
+        ['--paper'     as string]: swatch.paper,
         ['--paper-edge' as string]: swatch.edge,
         ['--paper-ink' as string]: swatch.ink,
-        ['--note-rot' as string]: `${rotation.toFixed(2)}deg`,
-        ['--note-tx' as string]: `${translateX.toFixed(2)}px`,
-        ['--note-i' as string]: index,
+        ['--note-rot'  as string]: `${rotation.toFixed(2)}deg`,
       }}
+      role="listitem"
+      draggable
+      // ---- click / keyboard ----
       onClick={onClick}
-      role="button"
-      tabIndex={0}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
+      tabIndex={0}
       aria-label={`Open task: ${task.title}`}
+      // ---- drag source ----
+      onDragStart={e => {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', task.id);
+        // Slight delay so the ghost image captures the un-dimmed card.
+        requestAnimationFrame(() => (e.target as HTMLElement).classList.add('note--dragging'));
+        onDragStart(task.id);
+      }}
+      onDragEnd={e => {
+        (e.target as HTMLElement).classList.remove('note--dragging');
+        onDragEnd();
+      }}
+      // ---- drop target ----
+      onDragOver={e => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        pointerYRef.current = e.clientY;
+        onDragOver(task.id, getDropPosition(e.clientY));
+      }}
+      onDragLeave={() => {
+        // Only clear if leaving the card entirely (not a child element).
+        onDragOver(task.id, getDropPosition(pointerYRef.current));
+      }}
+      onDrop={e => {
+        e.preventDefault();
+        onDrop(task.id, getDropPosition(e.clientY));
+      }}
     >
       {task.priority === 'high' && (
         <span className="note__stamp" aria-label="High priority">!</span>
@@ -76,6 +139,11 @@ export function PostItNote({ task, category, index, leaving = false, onClick }: 
       )}
 
       <span className="note__curl" aria-hidden />
+
+      {/* Drag handle visual cue */}
+      <span className="note__drag-handle" aria-hidden title="Drag to reorder">
+        ⠿
+      </span>
     </article>
   );
 }

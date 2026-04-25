@@ -135,5 +135,6 @@
 
     <include file="db/changelog/changesets/002-spring-session.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changesets/003-demo-users.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changesets/004-add-sort-key.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

@@ -51,6 +51,7 @@ export interface Task {
   status: Status;
   categoryId: string;
   tags: Tag[];
+  sortKey: string;
   createdAt: string;
 }
 
