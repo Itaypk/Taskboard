@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import type { DragEvent } from 'react';
 import { PostItNote } from './components/PostItNote';
 import { TaskDrawer } from './components/TaskDrawer';
 import { SettingsModal } from './components/SettingsModal';
@@ -55,6 +56,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
 
   // Drag-and-drop state — kept in refs to avoid re-renders during the drag gesture.
   const dragIdRef   = useRef<string | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [dropPosition, setDropPosition] = useState<'before' | 'after'>('after');
 
@@ -141,21 +143,29 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
 
   const handleDragStart = useCallback((taskId: string) => {
     dragIdRef.current = taskId;
+    setDraggingId(taskId);
   }, []);
 
   const handleDragOver = useCallback((taskId: string, position: 'before' | 'after') => {
+    // Don't show a drop indicator on the card being dragged.
+    if (dragIdRef.current === taskId) {
+      setDropTargetId(null);
+      return;
+    }
     setDropTargetId(taskId);
     setDropPosition(position);
   }, []);
 
   const handleDragEnd = useCallback(() => {
     dragIdRef.current = null;
+    setDraggingId(null);
     setDropTargetId(null);
   }, []);
 
   const handleDrop = useCallback(async (targetId: string, position: 'before' | 'after') => {
     const draggedId = dragIdRef.current;
     dragIdRef.current = null;
+    setDraggingId(null);
     setDropTargetId(null);
 
     if (!draggedId || draggedId === targetId) return;
@@ -182,29 +192,79 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
       if (beforeId === draggedId) beforeId = targetIdx < list.length - 2 ? list[targetIdx + 2].id : null;
     }
 
-    // Optimistic update: splice the task into its new position locally.
+    // Optimistic update: splice the task into its new position locally and
+    // assign a synthetic, lexicographically-comparable sort key to every task
+    // so they sort consistently until the server confirms.
     setTasks(prev => {
-      const next = [...prev].sort((a, b) => a.sortKey < b.sortKey ? -1 : 1);
+      const next = [...prev].sort((a, b) => a.sortKey < b.sortKey ? -1 : a.sortKey > b.sortKey ? 1 : 0);
       const draggedIdx = next.findIndex(t => t.id === draggedId);
       if (draggedIdx === -1) return prev;
       const [dragged] = next.splice(draggedIdx, 1);
       const newTargetIdx = next.findIndex(t => t.id === targetId);
       const insertAt = position === 'after' ? newTargetIdx + 1 : newTargetIdx;
       next.splice(insertAt, 0, dragged);
-      // Assign a synthetic sort key just for optimistic ordering; server will confirm.
-      return next.map((t, i) => ({ ...t, sortKey: String(i).padStart(6, '0') }));
+      return next.map((t, i) => ({ ...t, sortKey: `~${String(i).padStart(6, '0')}` }));
     });
 
     try {
-      const updated = await reorderTask(draggedId, afterId, beforeId);
-      // Replace the optimistic sort key with the real one from the server.
-      setTasks(prev => prev.map(t => t.id === updated.id ? { ...t, sortKey: updated.sortKey } : t));
+      await reorderTask(draggedId, afterId, beforeId);
+      // Refetch authoritative order — the server may have rebalanced sort keys
+      // for tasks other than the moved one, and our synthetic keys would otherwise
+      // collide with the real keyspace.
+      const fresh = await fetchTasks();
+      setTasks(fresh);
     } catch (e) {
       console.error('Failed to reorder task', e);
-      // Revert: re-fetch authoritative order.
       fetchTasks().then(setTasks).catch(() => {});
     }
   }, [visibleTasks]);
+
+  // Board-level fallback drop zone: when the pointer is in the grid's gap
+  // (between cards), no card receives `dragover`/`drop`, so we'd otherwise
+  // show a stale indicator and silently lose the gesture. Find the nearest
+  // card by box distance and route the event to it.
+  const resolveBoardDropTarget = (clientX: number, clientY: number) => {
+    const cards = document.querySelectorAll<HTMLElement>('.note[data-task-id]');
+    let best: { id: string; rect: DOMRect; dist: number } | null = null;
+    cards.forEach((card) => {
+      const id = card.dataset.taskId;
+      if (!id || id === dragIdRef.current) return;
+      const r = card.getBoundingClientRect();
+      const cx = Math.max(r.left, Math.min(clientX, r.right));
+      const cy = Math.max(r.top,  Math.min(clientY, r.bottom));
+      const d = Math.hypot(clientX - cx, clientY - cy);
+      if (!best || d < best.dist) best = { id, rect: r, dist: d };
+    });
+    if (!best) return null;
+    const { id, rect } = best as { id: string; rect: DOMRect };
+    const fx = (clientX - rect.left) / rect.width;
+    const fy = (clientY - rect.top)  / rect.height;
+    const position: 'before' | 'after' = fx + fy < 1 ? 'before' : 'after';
+    return { id, position };
+  };
+
+  const handleBoardDragOver = (e: DragEvent<HTMLDivElement>) => {
+    if (!dragIdRef.current) return;
+    // If a card is already handling this dragover (target is inside a .note),
+    // let it win — its handler called preventDefault first.
+    const overCard = (e.target as HTMLElement).closest?.('.note[data-task-id]');
+    if (overCard) return;
+    const resolved = resolveBoardDropTarget(e.clientX, e.clientY);
+    if (!resolved) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    handleDragOver(resolved.id, resolved.position);
+  };
+
+  const handleBoardDrop = (e: DragEvent<HTMLDivElement>) => {
+    if (!dragIdRef.current) return;
+    const overCard = (e.target as HTMLElement).closest?.('.note[data-task-id]');
+    if (overCard) return; // a card's onDrop already handled it
+    const resolved = resolveBoardDropTarget(e.clientX, e.clientY);
+    if (!resolved) return;
+    e.preventDefault();
+    void handleDrop(resolved.id, resolved.position);
+  };
 
   // ---- Render ----
 
@@ -266,7 +326,14 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
         {visibleTasks.length === 0 ? (
           <div className="board board--empty">Nothing pinned up. Add your first task.</div>
         ) : (
-          <div className="board board--list" role="list" aria-label="Task list">
+          <div
+            className="board board--list"
+            role="list"
+            aria-label="Task list"
+            data-dragging={draggingId ? 'true' : undefined}
+            onDragOver={handleBoardDragOver}
+            onDrop={handleBoardDrop}
+          >
             {visibleTasks.map((task) => (
               <PostItNote
                 key={task.id}

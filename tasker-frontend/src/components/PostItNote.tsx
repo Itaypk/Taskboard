@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import type { DragEvent } from 'react';
 import type { Task, Category, PaperSwatchId } from '../types';
 import { PAPER_SWATCHES } from '../types';
 import { formatDeadline, isOverdue, formatDuration, rotationFromId } from '../utils';
@@ -38,14 +39,20 @@ export function PostItNote({
   const rotation = rotationFromId(task.id) * 0.3;
   const tags = task.tags.slice(0, 3);
 
-  // Track last known pointer Y inside the card to determine drop half.
-  const pointerYRef = useRef<number>(0);
   const cardRef = useRef<HTMLElement>(null);
 
-  const getDropPosition = (clientY: number): 'before' | 'after' => {
+  // Decide whether the cursor is on the "before" or "after" side of this card.
+  // The board is a row-major grid, so neighbors can be horizontal OR vertical.
+  // We use a diagonal split (anti-diagonal of the card): the upper-left
+  // triangle is "before", the lower-right triangle is "after". That single
+  // rule degrades to a top/bottom split for vertically-stacked cards and to
+  // a left/right split for horizontally-stacked cards.
+  const getDropPosition = (clientX: number, clientY: number): 'before' | 'after' => {
     if (!cardRef.current) return 'after';
     const rect = cardRef.current.getBoundingClientRect();
-    return clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+    const fx = (clientX - rect.left) / rect.width;
+    const fy = (clientY - rect.top)  / rect.height;
+    return fx + fy < 1 ? 'before' : 'after';
   };
 
   const classNames = [
@@ -67,6 +74,7 @@ export function PostItNote({
         ['--note-rot'  as string]: `${rotation.toFixed(2)}deg`,
       }}
       role="listitem"
+      data-task-id={task.id}
       draggable
       // ---- click / keyboard ----
       onClick={onClick}
@@ -74,31 +82,28 @@ export function PostItNote({
       tabIndex={0}
       aria-label={`Open task: ${task.title}`}
       // ---- drag source ----
-      onDragStart={e => {
+      onDragStart={(e: DragEvent<HTMLElement>) => {
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', task.id);
-        // Slight delay so the ghost image captures the un-dimmed card.
-        requestAnimationFrame(() => (e.target as HTMLElement).classList.add('note--dragging'));
+        const card = e.currentTarget;
+        // Defer dimming the source until after the browser snapshots the drag
+        // image, so the ghost shows the card at full opacity.
+        requestAnimationFrame(() => card.classList.add('note--dragging'));
         onDragStart(task.id);
       }}
-      onDragEnd={e => {
-        (e.target as HTMLElement).classList.remove('note--dragging');
+      onDragEnd={(e: DragEvent<HTMLElement>) => {
+        e.currentTarget.classList.remove('note--dragging');
         onDragEnd();
       }}
       // ---- drop target ----
-      onDragOver={e => {
+      onDragOver={(e: DragEvent<HTMLElement>) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
-        pointerYRef.current = e.clientY;
-        onDragOver(task.id, getDropPosition(e.clientY));
+        onDragOver(task.id, getDropPosition(e.clientX, e.clientY));
       }}
-      onDragLeave={() => {
-        // Only clear if leaving the card entirely (not a child element).
-        onDragOver(task.id, getDropPosition(pointerYRef.current));
-      }}
-      onDrop={e => {
+      onDrop={(e: DragEvent<HTMLElement>) => {
         e.preventDefault();
-        onDrop(task.id, getDropPosition(e.clientY));
+        onDrop(task.id, getDropPosition(e.clientX, e.clientY));
       }}
     >
       {task.priority === 'high' && (

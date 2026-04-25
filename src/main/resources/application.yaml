@@ -12,6 +12,7 @@ spring:
     timeout: 30d
     jdbc:
       initialize-schema: never
+      cleanup-cron: "0 0 * * * *"
 
 server:
   shutdown: graceful
