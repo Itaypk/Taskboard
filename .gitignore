@@ -43,3 +43,5 @@ out/
 .playwright-mcp/
 /constants.sh
 /tasker-frontend/.env.production
+*.log
+
