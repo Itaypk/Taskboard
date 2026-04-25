@@ -25,12 +25,13 @@ class UserAuthServiceTest {
 
     @Mock lateinit var userRepository: UserRepository
     @Mock lateinit var userService: UserService
+    @Mock lateinit var demoDataSeeder: DemoDataSeeder
 
     private val fixedNow = Instant.parse("2026-04-21T12:00:00Z")
     private val clock = Clock.fixed(fixedNow, ZoneOffset.UTC)
 
     private val service: UserAuthService by lazy {
-        UserAuthService(userRepository, userService, clock)
+        UserAuthService(userRepository, userService, demoDataSeeder, clock)
     }
 
     private fun authData(telegramId: Long = 42L) = TelegramAuthData(

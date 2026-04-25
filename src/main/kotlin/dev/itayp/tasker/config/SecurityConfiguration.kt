@@ -60,6 +60,7 @@ class SecurityConfiguration(
                 authorize("/favicon.ico", permitAll)
                 authorize("/api/auth/telegram", permitAll)
                 authorize("/api/auth/dev-login", permitAll)
+                authorize("/api/auth/demo-login", permitAll)
                 authorize("/api/auth/logout", permitAll)
                 authorize("/api/**", authenticated)
                 authorize("/actuator/health", permitAll)
@@ -69,7 +70,7 @@ class SecurityConfiguration(
             csrf {
                 csrfTokenRepository = CookieCsrfTokenRepository.withHttpOnlyFalse()
                 csrfTokenRequestHandler = SpaCsrfTokenRequestHandler()
-                ignoringRequestMatchers("/api/auth/telegram", "/api/auth/dev-login")
+                ignoringRequestMatchers("/api/auth/telegram", "/api/auth/dev-login", "/api/auth/demo-login")
             }
             sessionManagement {
                 sessionFixation { newSession() }

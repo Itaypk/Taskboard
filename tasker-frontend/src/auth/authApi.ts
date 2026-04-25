@@ -32,5 +32,8 @@ export const telegramLogin = (payload: TelegramWidgetPayload): Promise<AuthUser>
 export const devLogin = (): Promise<AuthUser> =>
     request<AuthUser>('/api/auth/dev-login', { method: 'POST' });
 
+export const demoLogin = (): Promise<AuthUser> =>
+    request<AuthUser>('/api/auth/demo-login', { method: 'POST' });
+
 export const logout = (): Promise<void> =>
     request<void>('/api/auth/logout', { method: 'POST' });
