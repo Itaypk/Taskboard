@@ -96,9 +96,9 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
 
   const closeDrawer = () => { setSelectedId(null); setIsCreating(false); };
 
-  const handleSave = async (updated: Task) => {
+  const handleSave = async (updated: Omit<Task, 'sortKey'>) => {
     try {
-      const { id: _id, createdAt: _ca, sortKey: _sk, ...payload } = updated;
+      const { id: _id, createdAt: _ca, ...payload } = updated;
       if (isCreating) {
         const created = await createTask(payload);
         setTasks(prev => [...prev, created]);

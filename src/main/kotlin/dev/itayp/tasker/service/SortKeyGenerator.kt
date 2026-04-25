@@ -38,12 +38,10 @@ object SortKeyGenerator {
      * Returns a key that sorts strictly after [a].
      * Appends a midpoint character so the result is longer and always larger.
      */
-    fun after(a: String): String {
+    fun after(a: String): String =
         // Append mid-alphabet char; the result is lexicographically after `a`
         // because it shares the same prefix and is then extended.
-        val mid = charCode((FIRST + LAST) / 2)
-        return a + mid.toChar()
-    }
+        a + INITIAL
 
     /**
      * Returns a key strictly between [a] and [b] lexicographically.
@@ -56,7 +54,6 @@ object SortKeyGenerator {
         val len = maxOf(a.length, b.length) + 1
         val result = StringBuilder()
 
-        var carry = 0
         // We'll compute (a + b) / 2 digit by digit from right to left, then reverse.
         // Simpler: build digit arrays and do big-integer average.
 
@@ -92,8 +89,8 @@ object SortKeyGenerator {
 
         val mid = result.toString()
 
-        // Safety: if the result collapsed to equal `a`, append a mid char.
-        return if (mid <= a) a + charCode((FIRST + LAST) / 2).toChar() else mid
+        // Safety: if the result collapsed to equal `a`, append a mid-char.
+        return if (mid <= a) a + INITIAL else mid
     }
 
     /**

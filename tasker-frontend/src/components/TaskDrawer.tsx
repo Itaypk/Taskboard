@@ -11,12 +11,12 @@ interface TaskDrawerProps {
   categories: Category[];
   defaultCategoryId: string | null;
   onClose: () => void;
-  onSave: (task: Task) => void;
+  onSave: (task: Omit<Task, 'sortKey'>) => void;
   onDelete: (id: string) => void;
   onMarkDone: (id: string) => void;
 }
 
-type FormState = Omit<Task, 'id' | 'createdAt'>;
+type FormState = Omit<Task, 'id' | 'createdAt' | 'sortKey'>;
 
 function makeEmpty(defaultCategoryId: string | null): FormState {
   return {

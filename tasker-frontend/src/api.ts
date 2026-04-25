@@ -48,10 +48,10 @@ function jsonBody(body: unknown): RequestInit {
 export const fetchTasks = (): Promise<Task[]> =>
     apiRequest('/tasks');
 
-export const createTask = (payload: Omit<Task, 'id' | 'createdAt'>): Promise<Task> =>
+export const createTask = (payload: Omit<Task, 'id' | 'createdAt' | 'sortKey'>): Promise<Task> =>
     apiRequest('/tasks', { method: 'POST', ...jsonBody(payload) });
 
-export const updateTask = (id: string, payload: Omit<Task, 'id' | 'createdAt'>): Promise<Task> =>
+export const updateTask = (id: string, payload: Omit<Task, 'id' | 'createdAt' | 'sortKey'>): Promise<Task> =>
     apiRequest(`/tasks/${id}`, { method: 'PUT', ...jsonBody(payload) });
 
 export const reorderTask = (id: string, afterId: string | null, beforeId: string | null): Promise<Task> =>

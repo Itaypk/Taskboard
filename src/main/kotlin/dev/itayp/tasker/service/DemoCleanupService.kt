@@ -49,7 +49,7 @@ class DemoCleanupService(
     }
 
     private fun deleteTaskDataForUser(userId: UUID) {
-        val taskIds = taskRepository.findAllByUserId(userId).mapNotNull { it.id }
+        val taskIds = taskRepository.findAllByUserIdOrderBySortKeyAsc(userId).mapNotNull { it.id }
         if (taskIds.isNotEmpty()) {
             // backlog_task_tags has no ON DELETE CASCADE, so join rows must go first
             val placeholders = taskIds.joinToString(",") { "?" }
