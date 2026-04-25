@@ -11,4 +11,6 @@ interface BacklogTaskCategoryRepository : JpaRepository<BacklogTaskCategoryEntit
     fun findAllByUserId(userId: UUID): List<BacklogTaskCategoryEntity>
 
     fun findByIdAndUserId(id: UUID, userId: UUID): BacklogTaskCategoryEntity?
+
+    fun deleteAllByUserId(userId: UUID)
 }

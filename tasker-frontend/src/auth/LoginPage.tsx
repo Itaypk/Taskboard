@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from './AuthContext';
-import { devLogin, telegramLogin, type TelegramWidgetPayload } from './authApi';
+import { demoLogin, devLogin, telegramLogin, type TelegramWidgetPayload } from './authApi';
 
 const BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME as string | undefined;
 const TELEGRAM_CALLBACK = 'onTaskerTelegramAuth';
@@ -52,6 +52,20 @@ export function LoginPage() {
         };
     }, []);
 
+    const handleDemoLogin = async () => {
+        setError(null);
+        setBusy(true);
+        try {
+            const user = await demoLogin();
+            setUser(user);
+        } catch (e) {
+            console.error('Demo login failed', e);
+            setError('Demo mode is currently unavailable. Please try again.');
+        } finally {
+            setBusy(false);
+        }
+    };
+
     const handleDevLogin = async () => {
         setError(null);
         setBusy(true);
@@ -82,6 +96,22 @@ export function LoginPage() {
                         Telegram bot username not configured (set <code>VITE_TELEGRAM_BOT_USERNAME</code>).
                     </p>
                 )}
+                <button
+                    type="button"
+                    onClick={handleDemoLogin}
+                    disabled={busy}
+                    style={{
+                        padding: '10px 20px',
+                        fontSize: 14,
+                        border: '1px dashed #aaa',
+                        background: '#f5f5f5',
+                        cursor: busy ? 'wait' : 'pointer',
+                        borderRadius: 6,
+                        color: '#555',
+                    }}
+                >
+                    Try demo (no account needed)
+                </button>
                 {import.meta.env.DEV && (
                     <button
                         type="button"

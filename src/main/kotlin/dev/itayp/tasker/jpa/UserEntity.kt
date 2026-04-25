@@ -28,6 +28,12 @@ open class UserEntity {
     @Column
     var email: String? = null
 
+    @Column(name = "is_demo", nullable = false)
+    var isDemo: Boolean = false
+
+    @Column(name = "demo_expires_at")
+    var demoExpiresAt: Instant? = null
+
     @Column(name = "created_at")
     var createdAt: Instant? = null
 

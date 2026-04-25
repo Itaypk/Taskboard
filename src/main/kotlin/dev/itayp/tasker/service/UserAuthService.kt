@@ -6,13 +6,14 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
+import java.time.Duration
 import java.util.UUID
-import java.util.logging.Logger
 
 @Service
 class UserAuthService(
     private val userRepository: UserRepository,
     private val userService: UserService,
+    private val demoDataSeeder: DemoDataSeeder,
     private val clock: Clock,
 ) {
 
@@ -58,6 +59,23 @@ class UserAuthService(
         val saved = userRepository.save(created)
         userService.initializeNewUser(saved.id!!)
         logger.info("Created dev user with id $userId and telegram id $telegramId")
+        return saved
+    }
+
+    @Transactional
+    fun createDemoUser(ttlHours: Long = 24): UserEntity {
+        val now = clock.instant()
+        val user = UserEntity().apply {
+            id = UUID.randomUUID()
+            isDemo = true
+            demoExpiresAt = now.plus(Duration.ofHours(ttlHours))
+            createdAt = now
+            lastLoginAt = now
+        }
+        val saved = userRepository.save(user)
+        userService.initializeNewUser(saved.id!!)
+        demoDataSeeder.seed(saved.id!!)
+        logger.info("Created demo user ${saved.id}, expires at ${saved.demoExpiresAt}")
         return saved
     }
 
