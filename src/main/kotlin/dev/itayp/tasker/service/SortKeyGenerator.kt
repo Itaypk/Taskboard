@@ -23,6 +23,7 @@ object SortKeyGenerator {
 
     /** The middle character of the alphabet — used as the seed for the first key. */
     val INITIAL: String = charCode((FIRST + LAST) / 2).toString()   // 'W' (85)
+    val MID_ALPHABET_LETTER = INITIAL
 
     // -------------------------------------------------------------------------
     // Public API
@@ -41,7 +42,7 @@ object SortKeyGenerator {
     fun after(a: String): String =
         // Append mid-alphabet char; the result is lexicographically after `a`
         // because it shares the same prefix and is then extended.
-        a + INITIAL
+        a + MID_ALPHABET_LETTER
 
     /**
      * Returns a key strictly between [a] and [b] lexicographically.
@@ -90,7 +91,7 @@ object SortKeyGenerator {
         val mid = result.toString()
 
         // Safety: if the result collapsed to equal `a`, append a mid-char.
-        return if (mid <= a) a + INITIAL else mid
+        return if (mid <= a) a + MID_ALPHABET_LETTER else mid
     }
 
     /**

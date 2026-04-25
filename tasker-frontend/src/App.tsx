@@ -165,8 +165,8 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
     const targetIdx = list.findIndex(t => t.id === targetId);
     if (targetIdx === -1) return;
 
-    let afterId: string | null = null;
-    let beforeId: string | null = null;
+    let afterId: string | null;
+    let beforeId: string | null;
 
     if (position === 'before') {
       // Drop before targetIdx

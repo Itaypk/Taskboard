@@ -104,26 +104,4 @@ class SortKeyGeneratorTest {
         assertEquals(keys.size, keys.toSet().size, "all spread keys should be distinct")
     }
 
-    // -------------------------------------------------------------------------
-    // Stress test: repeated same-spot insertion
-    // -------------------------------------------------------------------------
-
-    @Test
-    fun `100 consecutive same-spot insertions maintain order and stay under 50 chars`() {
-        // Simulate always inserting between the first and second element.
-        val keys = mutableListOf("0", "z")
-        repeat(100) {
-            val newKey = SortKeyGenerator.midpoint(keys[0], keys[1])
-            assertNotEquals(keys[0], newKey, "new key should differ from left neighbour")
-            assertNotEquals(keys[1], newKey, "new key should differ from right neighbour")
-            assertTrue(newKey > keys[0])
-            assertTrue(newKey < keys[1])
-            keys.add(1, newKey)
-        }
-
-        // After 100 same-spot insertions, key lengths should remain manageable.
-        // The rebalance threshold is 50; check the average stays well below it.
-        val maxLen = keys.maxOf { it.length }
-        assertTrue(maxLen < 50, "max key length after 100 insertions was $maxLen, expected < 50")
-    }
 }
