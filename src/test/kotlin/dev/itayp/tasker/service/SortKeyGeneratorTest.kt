@@ -2,7 +2,6 @@ package dev.itayp.tasker.service
 
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 class SortKeyGeneratorTest {
