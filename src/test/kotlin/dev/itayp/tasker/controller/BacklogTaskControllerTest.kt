@@ -7,6 +7,7 @@ import dev.itayp.tasker.model.CategoryColor
 import dev.itayp.tasker.model.TaskStatus
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.BacklogTaskService
+import dev.itayp.tasker.service.SortKeyGenerator
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.doThrow
@@ -24,6 +25,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
@@ -60,6 +62,7 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
         status = TaskStatus.TODO,
         category = BacklogTaskCategory(categoryId, userId, "Work", CategoryColor.SUNSHINE),
         tags = emptySet(),
+        sortKey = SortKeyGenerator.INITIAL,
         createdAt = Instant.parse("2026-01-01T00:00:00Z"),
         updatedAt = null
     )
@@ -148,6 +151,37 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
         doThrow(NoSuchElementException("not found")).whenever(backlogTaskService).deleteTask(any(), any())
 
         mockMvc.perform(delete("/api/v1/tasks/$taskId").with(authentication(auth)).with(csrf()))
+            .andExpect(status().isNotFound)
+    }
+
+    @Test
+    fun `PATCH tasks-id-reorder returns 200 with updated task`() {
+        whenever(backlogTaskService.reorderTask(eq(userId), eq(taskId), any())).thenReturn(aTask())
+
+        mockMvc.perform(
+            patch("/api/v1/tasks/$taskId/reorder")
+                .with(authentication(auth))
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"afterId":null,"beforeId":null}""")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.id").value(taskId.toString()))
+            .andExpect(jsonPath("$.sortKey").exists())
+    }
+
+    @Test
+    fun `PATCH tasks-id-reorder returns 404 when task not found`() {
+        whenever(backlogTaskService.reorderTask(any(), any(), any()))
+            .thenThrow(NoSuchElementException("not found"))
+
+        mockMvc.perform(
+            patch("/api/v1/tasks/$taskId/reorder")
+                .with(authentication(auth))
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"afterId":null,"beforeId":null}""")
+        )
             .andExpect(status().isNotFound)
     }
 }

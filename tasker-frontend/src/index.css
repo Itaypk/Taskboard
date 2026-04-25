@@ -232,6 +232,21 @@ input[type="number"] { -moz-appearance: textfield; }
   column-gap: 40px;
 }
 
+/* List view uses CSS Grid with row-major flow so visual order matches DOM
+   order. Multi-column layout (used by the default pinboard view) flows items
+   column-major, which makes drag-to-reorder visually surprising. */
+.board--list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  column-gap: 40px;
+  row-gap: 40px;
+  align-items: start;
+}
+
+.board--list .note {
+  margin-bottom: 0;
+}
+
 .board--empty {
   display: flex;
   align-items: center;
@@ -279,6 +294,12 @@ input[type="number"] { -moz-appearance: textfield; }
   outline: none;
 }
 
+@keyframes slide-in {
+  0%   { opacity: 0; transform: translateX(-12px) rotate(var(--note-rot)); }
+  100% { opacity: 1; transform: rotate(var(--note-rot)); }
+}
+
+/* Keep the original grid pin-down for when needed elsewhere */
 @keyframes pin-down {
   0%   { opacity: 0; transform: translate(var(--note-tx), -18px) rotate(calc(var(--note-rot) - 4deg)) scale(0.94); }
   60%  { opacity: 1; }
@@ -413,6 +434,23 @@ input[type="number"] { -moz-appearance: textfield; }
   pointer-events: none;
 }
 .note__tapes .washi { pointer-events: auto; }
+
+/* ─── Drag handle ───────────────────────────────────────── */
+.note__drag-handle {
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  color: var(--paper-ink);
+  opacity: 0.20;
+  cursor: grab;
+  line-height: 1;
+  user-select: none;
+  transition: opacity var(--t);
+  pointer-events: none; /* handled by the article drag events */
+}
+.note:hover .note__drag-handle { opacity: 0.45; }
 
 /* ─── Washi tape ───────────────────────────────────────── */
 .washi {
@@ -1045,11 +1083,55 @@ input[type="number"] { -moz-appearance: textfield; }
   animation: flutter-out 380ms cubic-bezier(0.4, 0, 0.6, 1) forwards;
 }
 @keyframes flutter-out {
-  0%   { opacity: 1; }
+  0%   { opacity: 1; transform: rotate(var(--note-rot)); }
   100% {
     opacity: 0;
-    transform: translate(var(--note-tx), 24px) rotate(calc(var(--note-rot) + 18deg)) scale(0.88);
+    transform: translateX(32px) rotate(calc(var(--note-rot) + 10deg)) scale(0.88);
   }
+}
+
+/* ─── Drag-and-drop states ──────────────────────────────── */
+
+/* Card being dragged — ghost stays on screen, source dims and shrinks.
+   `animation: none` is required because the pin-down keyframes set
+   opacity:1 in their final frame and would otherwise override us. */
+.note--dragging {
+  animation: none !important;
+  opacity: 0.32 !important;
+  transform: rotate(var(--note-rot)) scale(0.98) !important;
+  box-shadow: none !important;
+  transition: opacity 80ms, transform 80ms !important;
+}
+
+/* While a drag is in progress, freeze hover lift on every card so drop
+   targets don't move out from under the cursor. This is the main reason
+   "swap adjacent" felt flaky. */
+.board[data-dragging] .note,
+.board[data-dragging] .note:hover,
+.board[data-dragging] .note:focus-visible {
+  transform: rotate(var(--note-rot)) !important;
+  box-shadow: var(--shadow-note);
+}
+
+/* Drop indicators: glow the edges of the target that face the insertion
+   point. The board is a row-major grid, so the predecessor sits to the
+   left or above, and the successor to the right or below. Highlighting
+   both edges of the relevant corner works for either axis without
+   shifting the target's box. */
+.note--drop-before {
+  box-shadow:
+    inset 3px 0 0 0 var(--stamp),
+    inset 0 3px 0 0 var(--stamp),
+    var(--shadow-note) !important;
+  transition: box-shadow var(--t) !important;
+}
+
+.note--drop-after {
+  box-shadow:
+    inset -3px 0 0 0 var(--stamp),
+    inset 0 -3px 0 0 var(--stamp),
+    var(--shadow-note) !important;
+  transition: box-shadow var(--t) !important;
 }
 
 /* ─── Pineapple pet (fixed bottom-right) ───────────────── */

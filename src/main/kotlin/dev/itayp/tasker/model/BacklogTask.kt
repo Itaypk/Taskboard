@@ -47,6 +47,7 @@ data class BacklogTask(
     val status: TaskStatus,
     val category: BacklogTaskCategory,
     val tags: Set<BacklogTaskTag>,
+    val sortKey: String,
     val createdAt: Instant,
     val updatedAt: Instant?
 )

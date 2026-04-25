@@ -47,7 +47,7 @@ class DemoDataSeeder(
             }
         }
 
-        val tasks = listOf(
+        val taskList = listOf(
             task("Prepare weekly team update", "Work", TaskPriority.HIGH, estimatedMinutes = 30),
             task("Review open pull requests", "Work", TaskPriority.MEDIUM),
             task("Write Q2 retrospective notes", "Work", TaskPriority.LOW),
@@ -58,6 +58,9 @@ class DemoDataSeeder(
             task("Go for a 30-min run", "Health", TaskPriority.MEDIUM, estimatedMinutes = 35),
         ).filter { it.userId != null }
 
-        taskRepository.saveAll(tasks)
+        val sortKeys = SortKeyGenerator.spreadKeys(taskList.size)
+        taskList.zip(sortKeys).forEach { (t, key) -> t.sortKey = key }
+
+        taskRepository.saveAll(taskList)
     }
 }

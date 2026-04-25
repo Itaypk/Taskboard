@@ -64,6 +64,9 @@ open class BacklogTaskEntity {
     )
     var tags: MutableSet<BacklogTaskTagEntity> = mutableSetOf()
 
+    @Column(name = "sort_key")
+    var sortKey: String? = null
+
     @Column
     var createdAt: Instant? = null
 

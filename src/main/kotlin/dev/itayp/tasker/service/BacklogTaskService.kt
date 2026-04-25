@@ -8,6 +8,7 @@ import dev.itayp.tasker.model.TagColor
 import dev.itayp.tasker.model.TaskPriority
 import dev.itayp.tasker.model.TaskStatus
 import dev.itayp.tasker.model.request.CreateBacklogTaskRequest
+import dev.itayp.tasker.model.request.ReorderTaskRequest
 import dev.itayp.tasker.model.request.TagInput
 import dev.itayp.tasker.model.request.UpdateBacklogTaskRequest
 import dev.itayp.tasker.repository.BacklogTaskCategoryRepository
@@ -19,6 +20,8 @@ import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
 
+private const val REBALANCE_KEY_LENGTH_THRESHOLD = 50
+
 @Service
 class BacklogTaskService(
     private val backlogTaskRepository: BacklogTaskRepository,
@@ -27,13 +30,15 @@ class BacklogTaskService(
 ) {
 
     fun getAllTasksForUser(userId: UUID): List<BacklogTask> =
-        backlogTaskRepository.findAllByUserId(userId).map { it.toDomain() }
+        backlogTaskRepository.findAllByUserIdOrderBySortKeyAsc(userId).map { it.toDomain() }
 
     @Transactional
     fun createTask(userId: UUID, request: CreateBacklogTaskRequest): BacklogTask {
         val categoryId = UUID.fromString(request.categoryId)
         val category = categoryRepository.findByIdAndUserId(categoryId, userId)
             ?: throw NoSuchElementException("Category $categoryId not found")
+
+        val sortKey = computeAppendKey(userId)
 
         val entity = BacklogTaskEntity().apply {
             this.userId = userId
@@ -46,6 +51,7 @@ class BacklogTaskService(
             this.status = TaskStatus.valueOf(request.status.uppercase())
             this.category = category
             this.tags = resolveOrCreateTags(userId, request.tags)
+            this.sortKey = sortKey
             this.createdAt = Instant.now()
             this.updatedAt = null
         }
@@ -76,10 +82,72 @@ class BacklogTaskService(
         return backlogTaskRepository.save(entity).toDomain()
     }
 
+    @Transactional
+    fun reorderTask(userId: UUID, taskId: UUID, request: ReorderTaskRequest): BacklogTask {
+        val entity = backlogTaskRepository.findByIdAndUserId(taskId, userId)
+            ?: throw NoSuchElementException("Task $taskId not found")
+
+        val allTasks = backlogTaskRepository.findAllByUserIdOrderBySortKeyAsc(userId)
+
+        val afterKey: String? = request.afterId?.let { afterId ->
+            val afterUUID = UUID.fromString(afterId)
+            allTasks.find { it.id == afterUUID }?.sortKey
+                ?: throw NoSuchElementException("Task $afterId not found")
+        }
+        val beforeKey: String? = request.beforeId?.let { beforeId ->
+            val beforeUUID = UUID.fromString(beforeId)
+            allTasks.find { it.id == beforeUUID }?.sortKey
+                ?: throw NoSuchElementException("Task $beforeId not found")
+        }
+
+        val newSortKey = when {
+            afterKey == null && beforeKey == null -> SortKeyGenerator.INITIAL
+            afterKey == null -> SortKeyGenerator.before(beforeKey!!)
+            beforeKey == null -> SortKeyGenerator.after(afterKey)
+            else -> SortKeyGenerator.midpoint(afterKey, beforeKey)
+        }
+
+        entity.sortKey = newSortKey
+
+        val saved = backlogTaskRepository.save(entity)
+
+        // Rebalance lazily if any key in this user's list has grown too long.
+        if (newSortKey.length > REBALANCE_KEY_LENGTH_THRESHOLD ||
+            allTasks.any { (it.sortKey?.length ?: 0) > REBALANCE_KEY_LENGTH_THRESHOLD }
+        ) {
+            rebalanceKeys(userId)
+            // Re-fetch after rebalance to return the fresh sort key.
+            return (backlogTaskRepository.findByIdAndUserId(taskId, userId) ?: saved).toDomain()
+        }
+
+        return saved.toDomain()
+    }
+
     fun deleteTask(userId: UUID, id: UUID) {
         val entity = backlogTaskRepository.findByIdAndUserId(id, userId)
             ?: throw NoSuchElementException("Task $id not found")
         backlogTaskRepository.delete(entity)
+    }
+
+    // -------------------------------------------------------------------------
+    // Private helpers
+    // -------------------------------------------------------------------------
+
+    /** Computes a sort key that goes after all existing tasks for the user. */
+    private fun computeAppendKey(userId: UUID): String {
+        val maxKey = backlogTaskRepository.findMaxSortKeyByUserId(userId)
+        return if (maxKey == null) SortKeyGenerator.INITIAL else SortKeyGenerator.after(maxKey)
+    }
+
+    /**
+     * Reassigns evenly-spaced sort keys to all of the user's tasks.
+     * Called lazily when any key exceeds [REBALANCE_KEY_LENGTH_THRESHOLD].
+     */
+    private fun rebalanceKeys(userId: UUID) {
+        val tasks = backlogTaskRepository.findAllByUserIdOrderBySortKeyAsc(userId)
+        val freshKeys = SortKeyGenerator.spreadKeys(tasks.size)
+        tasks.zip(freshKeys).forEach { (task, key) -> task.sortKey = key }
+        backlogTaskRepository.saveAll(tasks)
     }
 
     private fun resolveOrCreateTags(userId: UUID, inputs: List<TagInput>): MutableSet<BacklogTaskTagEntity> {

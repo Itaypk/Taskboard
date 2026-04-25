@@ -39,6 +39,7 @@ data class TaskResponse(
     val status: String,
     val categoryId: String,
     val tags: List<TagResponseItem>,
+    val sortKey: String,
     val createdAt: String,
     val updatedAt: String?
 )
@@ -58,6 +59,7 @@ fun BacklogTask.toResponse() = TaskResponse(
     status = status.name.lowercase(),
     categoryId = category.id.toString(),
     tags = tags.map { TagResponseItem(it.label, it.colorId.name.lowercase()) },
+    sortKey = sortKey,
     createdAt = createdAt.toString(),
     updatedAt = updatedAt?.toString()
 )
