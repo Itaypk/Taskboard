@@ -6,6 +6,7 @@ import dev.itayp.tasker.model.response.UserSettingsResponse
 import dev.itayp.tasker.model.response.toResponse
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.UserSettingsService
+import org.springframework.http.CacheControl
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.GetMapping
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import java.time.Duration
 
 @RestController
 @RequestMapping("/api/v1/settings")
@@ -38,10 +40,12 @@ class UserSettingsController(private val userSettingsService: UserSettingsServic
 
     @GetMapping("/options")
     fun getOptions(): ResponseEntity<SettingsOptionsResponse> =
-        ResponseEntity.ok(
-            SettingsOptionsResponse(
-                timeZones = UserSettingsService.SUPPORTED_TIME_ZONES,
-                languages = UserSettingsService.SUPPORTED_LANGUAGES,
+        ResponseEntity.ok()
+            .cacheControl(CacheControl.maxAge(Duration.ofDays(1)).cachePublic())
+            .body(
+                SettingsOptionsResponse(
+                    timeZones = UserSettingsService.SUPPORTED_TIME_ZONES,
+                    languages = UserSettingsService.SUPPORTED_LANGUAGES,
+                )
             )
-        )
 }
