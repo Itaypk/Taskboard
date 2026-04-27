@@ -3,9 +3,9 @@ This file is for capturing random ideas that don't fit into the current spec but
 The scope of the individual idea is varying - could be small UI improvements, or large features that change the entire app.
 
 ### UI - Tasks
-- Reordering (in progress)
 - Better "mark as done"
 - Drawer improvements
+- Tags - autocomplete
 
 ### Following up
 - The assistant could follow up on tasks that were scheduled but not marked done after their scheduled time. 
