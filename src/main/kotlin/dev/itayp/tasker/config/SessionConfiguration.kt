@@ -17,7 +17,7 @@ import java.time.Duration
  * trying to create the SPRING_SESSION tables on startup — Liquibase (changeset 002) owns the schema.
  */
 @Configuration
-@EnableJdbcHttpSession
+@EnableJdbcHttpSession(cleanupCron = "0 0 * * * *") // top of every hour
 class SessionConfiguration {
 
     @Bean

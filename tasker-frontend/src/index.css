@@ -1092,46 +1092,23 @@ input[type="number"] { -moz-appearance: textfield; }
 
 /* ─── Drag-and-drop states ──────────────────────────────── */
 
-/* Card being dragged — ghost stays on screen, source dims and shrinks.
-   `animation: none` is required because the pin-down keyframes set
-   opacity:1 in their final frame and would otherwise override us. */
+/* Card being dragged — dnd-kit owns the inline transform, so we only tweak
+   opacity and shadow here. `animation: none` stops the pin-down keyframes
+   from snapping opacity back to 1 mid-drag. */
 .note--dragging {
   animation: none !important;
-  opacity: 0.32 !important;
-  transform: rotate(var(--note-rot)) scale(0.98) !important;
+  opacity: 0.4;
   box-shadow: none !important;
-  transition: opacity 80ms, transform 80ms !important;
+  z-index: 5;
+  cursor: grabbing;
 }
 
-/* While a drag is in progress, freeze hover lift on every card so drop
-   targets don't move out from under the cursor. This is the main reason
-   "swap adjacent" felt flaky. */
-.board[data-dragging] .note,
-.board[data-dragging] .note:hover,
-.board[data-dragging] .note:focus-visible {
-  transform: rotate(var(--note-rot)) !important;
+/* While a drag is in progress, kill hover lift on the *other* cards so they
+   don't jiggle as neighbors slide past. We can't apply this to the dragging
+   card itself — dnd-kit needs its inline transform untouched. */
+.board[data-dragging] .note:not(.note--dragging):hover,
+.board[data-dragging] .note:not(.note--dragging):focus-visible {
   box-shadow: var(--shadow-note);
-}
-
-/* Drop indicators: glow the edges of the target that face the insertion
-   point. The board is a row-major grid, so the predecessor sits to the
-   left or above, and the successor to the right or below. Highlighting
-   both edges of the relevant corner works for either axis without
-   shifting the target's box. */
-.note--drop-before {
-  box-shadow:
-    inset 3px 0 0 0 var(--stamp),
-    inset 0 3px 0 0 var(--stamp),
-    var(--shadow-note) !important;
-  transition: box-shadow var(--t) !important;
-}
-
-.note--drop-after {
-  box-shadow:
-    inset -3px 0 0 0 var(--stamp),
-    inset 0 -3px 0 0 var(--stamp),
-    var(--shadow-note) !important;
-  transition: box-shadow var(--t) !important;
 }
 
 /* ─── Pineapple pet (fixed bottom-right) ───────────────── */
