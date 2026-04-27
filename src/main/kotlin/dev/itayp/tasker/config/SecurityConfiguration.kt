@@ -52,6 +52,8 @@ class SecurityConfiguration(
             authorizeHttpRequests {
                 authorize("/", permitAll)
                 authorize("/index.html", permitAll)
+                authorize("/robots.txt", permitAll)
+                authorize("/sitemap.xml", permitAll)
                 authorize("/assets/**", permitAll)
                 authorize("/favicon.ico", permitAll)
                 authorize("/api/auth/telegram", permitAll)
