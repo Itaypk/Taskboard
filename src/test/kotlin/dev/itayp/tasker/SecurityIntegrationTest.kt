@@ -78,6 +78,18 @@ class SecurityIntegrationTest(
     }
 
     @Test
+    fun `responses include a Content-Security-Policy header`() {
+        val response = rest.getForEntity("/api/v1/tasks", String::class.java)
+        // Doesn't matter that this is a 401 — CSP should land regardless.
+        val csp = response.headers.getFirst("Content-Security-Policy")
+        assertThat(csp).isNotNull()
+        assertThat(csp).contains("default-src 'self'")
+        assertThat(csp).contains("https://telegram.org")
+        assertThat(csp).contains("frame-src https://oauth.telegram.org")
+        assertThat(csp).contains("frame-ancestors 'none'")
+    }
+
+    @Test
     fun `mutating request without CSRF token returns 403`() {
         val login = rest.postForEntity("/api/auth/dev-login", null, String::class.java)
         val sessionCookie = login.headers[HttpHeaders.SET_COOKIE]!!

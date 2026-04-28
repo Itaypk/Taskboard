@@ -43,3 +43,10 @@ tasker:
   prometheus:
     username: ${TASKER_PROMETHEUS_USERNAME:prometheus}
     password: ${TASKER_PROMETHEUS_PASSWORD:prometheus-dev}
+  rate-limit:
+    api:
+      limit: 300
+      window-seconds: 60
+    demo-login:
+      limit: 5
+      window-seconds: 3600

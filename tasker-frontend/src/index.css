@@ -859,7 +859,49 @@ input[type="number"] { -moz-appearance: textfield; }
   border-color: rgba(184, 51, 27, 0.2);
 }
 
+.btn--danger-solid {
+  background: #8E2818;
+  color: #fff;
+  border-color: #8E2818;
+}
+.btn--danger-solid:not(:disabled):hover {
+  background: #6E1B0E;
+  border-color: #6E1B0E;
+}
+
 .btn--sm { font-size: 12px; padding: 6px 12px; }
+
+/* ─── Danger zone (settings modal) ─────────────────────── */
+.danger-zone {
+  border-top: 1px solid rgba(140, 100, 60, 0.15);
+  padding-top: 18px;
+  margin-top: 6px;
+}
+.danger-zone__label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #9b3a26;
+  margin: 0 0 12px;
+}
+.danger-zone__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-start;
+}
+.danger-zone__confirm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.danger-zone__confirm-text {
+  width: 100%;
+  font-size: 13px;
+  color: #6b3020;
+}
 
 /* ─── Modal (settings) ─────────────────────────────────── */
 .modal-overlay {
@@ -1155,4 +1197,14 @@ input[type="number"] { -moz-appearance: textfield; }
   .drawer__header { padding-top: 24px; }
 
   .row-2 { grid-template-columns: 1fr; }
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent, #7a5c1e);
+  text-decoration: underline;
+  cursor: pointer;
 }

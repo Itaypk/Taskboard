@@ -91,3 +91,23 @@ export const updateUserSettings = (payload: UserSettingsPayload): Promise<UserSe
 
 export const fetchSettingsOptions = (): Promise<SettingsOptions> =>
     apiRequest('/settings/options');
+
+// --- Account ---
+
+export const deleteAccount = (): Promise<void> =>
+    apiRequest('/account', { method: 'DELETE' });
+
+export const exportAccount = async (): Promise<void> => {
+    const res = await fetch(`${BASE}/account/export`, { credentials: 'include' });
+    if (!res.ok) throw new Error(`Export failed: ${res.status}`);
+    const blob = await res.blob();
+    const disposition = res.headers.get('Content-Disposition') ?? '';
+    const filenameMatch = disposition.match(/filename="?([^"]+)"?/);
+    const filename = filenameMatch?.[1] ?? 'backlog-fyi-export.json';
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+};
