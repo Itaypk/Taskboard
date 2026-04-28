@@ -1,0 +1,43 @@
+# Production Deployment Checklist
+
+Tracking what's left before publicizing the deployment at `backlog.fyi`. Items that live in the
+infra repo are listed for completeness but not tracked here.
+
+## Already in place
+- [x] Metrics & observation (infra repo)
+- [x] Log collection (infra repo)
+- [x] Database backups (infra repo)
+- [x] Security headers via NGINX (infra repo) — everything except CSP, which belongs at the app layer
+- [x] `robots.txt` and `sitemap.xml` served from `src/main/resources/static/`
+
+## Legal & content
+- [ ] **Terms of Service** — link/modal from the index page; placeholder verbiage (in progress, owned by Itay)
+- [ ] **Privacy policy** — same treatment as ToS. Must cover Telegram login data and the planned Google Calendar scope
+- [ ] **Support / abuse contact address** referenced from ToS + PP
+- [ ] **Landing page** for logged-out visitors explaining what `backlog.fyi` is
+- [ ] **Rebranding** — replace "tasker" / "taskboard" in user-facing strings only (browser title, login page heading, logo tape, any copy). Decide canonical name first.
+
+## Security (app layer)
+- [ ] **Content-Security-Policy** header in `SecurityConfiguration`. Needs to allow `oauth.telegram.org` (login widget iframe + script) and `t.me` (avatar images); default-src `'self'` otherwise.
+- [ ] **Smoke test confirming `dev-login` returns 404/401 in prod** — currently gated by `@Profile("dev")`, but we should assert it from outside, not just trust the annotation.
+- [ ] **Dependency / CVE scanning** — Dependabot for Gradle + npm, optionally Trivy on the container image
+- [ ] **Secret rotation plan** documented: `TASKER_TELEGRAM_BOT_TOKEN`, `TASKER_PROMETHEUS_*`, DB credentials
+- [ ] **Edge protection** (Cloudflare or equivalent) in front of the host for DDoS + bot filtering
+
+## Abuse prevention
+- [ ] **Per-user rate limits** on write endpoints (and login attempts)
+- [ ] **Demo account cap** (total simultaneous demo accounts)
+- [ ] **Demo account TTL / sweeper job** so the cap doesn't block onboarding indefinitely
+
+## User data (GDPR-style)
+- [ ] **Account deletion** endpoint + UI affordance (cascades to tasks, categories, tags, sessions)
+- [ ] **Data export** endpoint returning the user's tasks/categories/tags as JSON
+
+## Operations
+- [ ] **Error tracking** (Sentry / GlitchTip) — distinct from log collection: dedup, stacktraces, release tagging
+- [ ] **Backup *restore* drill** — periodic exercise that proves backups are usable, not just present
+- [ ] **Graceful shutdown + readiness probe** wired into the deploy pipeline so rollouts don't drop in-flight requests
+
+## SPA polish
+- [ ] **404 / error route** in the React shell — currently an unknown path renders the empty app
+- [ ] **OG / Twitter meta tags** on the landing/login pages so shared links render properly
