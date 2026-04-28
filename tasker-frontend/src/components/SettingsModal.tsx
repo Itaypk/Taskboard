@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { UserSettings, Task, SettingsOptions } from '../types';
 import { CategoryEditor } from './CategoryEditor';
-import { createCategory, updateCategory, deleteCategory, updateUserSettings, fetchSettingsOptions } from '../api';
+import { createCategory, updateCategory, deleteCategory, updateUserSettings, fetchSettingsOptions, deleteAccount, exportAccount } from '../api';
 
 interface SettingsModalProps {
   settings: UserSettings;
@@ -9,26 +9,36 @@ interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
   onSave: (s: UserSettings) => void;
+  onAccountDeleted: () => void;
 }
 
-export function SettingsModal({ settings, tasks, open, onClose, onSave }: SettingsModalProps) {
+export function SettingsModal({ settings, tasks, open, onClose, onSave, onAccountDeleted }: SettingsModalProps) {
   const [form, setForm] = useState<UserSettings>(settings);
   const [wasOpen, setWasOpen] = useState(open);
   const [saving, setSaving] = useState(false);
   const [options, setOptions] = useState<SettingsOptions | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   if (open && !wasOpen) {
     setWasOpen(true);
     setForm(settings);
+    setDeleteConfirm(false);
   } else if (!open && wasOpen) {
     setWasOpen(false);
   }
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (deleteConfirm) { setDeleteConfirm(false); return; }
+        onClose();
+      }
+    };
     if (open) window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [open, onClose]);
+  }, [open, onClose, deleteConfirm]);
 
   useEffect(() => {
     if (open && !options) {
@@ -87,6 +97,29 @@ export function SettingsModal({ settings, tasks, open, onClose, onSave }: Settin
       console.error('Failed to save settings', e);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      await exportAccount();
+    } catch (e) {
+      console.error('Export failed', e);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleDeleteConfirmed = async () => {
+    setDeleting(true);
+    try {
+      await deleteAccount();
+      onAccountDeleted();
+    } catch (e) {
+      console.error('Account deletion failed', e);
+      setDeleting(false);
+      setDeleteConfirm(false);
     }
   };
 
@@ -165,6 +198,50 @@ export function SettingsModal({ settings, tasks, open, onClose, onSave }: Settin
               rows={6}
               placeholder="e.g. I prefer deep work in the morning…"
             />
+          </div>
+
+          <div className="danger-zone">
+            <p className="danger-zone__label">Danger zone</p>
+            <div className="danger-zone__actions">
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={handleExport}
+                disabled={exporting || deleting}
+              >
+                {exporting ? 'Exporting…' : 'Export my data'}
+              </button>
+              {deleteConfirm ? (
+                <div className="danger-zone__confirm">
+                  <span className="danger-zone__confirm-text">This will permanently delete your account and all data. There's no undo.</span>
+                  <button
+                    type="button"
+                    className="btn btn--danger-solid"
+                    onClick={handleDeleteConfirmed}
+                    disabled={deleting}
+                  >
+                    {deleting ? 'Deleting…' : 'Yes, delete everything'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn--ghost"
+                    onClick={() => setDeleteConfirm(false)}
+                    disabled={deleting}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn--danger"
+                  onClick={() => setDeleteConfirm(true)}
+                  disabled={saving}
+                >
+                  Delete account
+                </button>
+              )}
+            </div>
           </div>
         </div>
         <div className="modal__footer">

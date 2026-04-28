@@ -307,6 +307,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         onSave={setSettings}
+        onAccountDeleted={() => { void onSignOut(); }}
       />
     </>
   );

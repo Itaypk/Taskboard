@@ -30,8 +30,8 @@ infra repo are listed for completeness but not tracked here.
 - [ ] **Demo account TTL / sweeper job** so the cap doesn't block onboarding indefinitely
 
 ## User data (GDPR-style)
-- [ ] **Account deletion** endpoint + UI affordance (cascades to tasks, categories, tags, sessions)
-- [ ] **Data export** endpoint returning the user's tasks/categories/tags as JSON
+- [x] **Account deletion** — `DELETE /api/v1/account` (cascades tasks, tags, categories, settings, sessions); Settings modal has two-step confirmation UI + navigates to login on success
+- [x] **Data export** — `GET /api/v1/account/export` returns JSON download (`Content-Disposition: attachment`); "Export my data" button in Settings modal
 
 ## Operations
 - [ ] **Error tracking** (Sentry / GlitchTip) — distinct from log collection: dedup, stacktraces, release tagging
