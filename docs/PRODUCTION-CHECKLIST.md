@@ -18,7 +18,7 @@ infra repo are listed for completeness but not tracked here.
 - [x] **Rebranding** — "Backlog.fyi" in browser title, login heading, and board logo tape
 
 ## Security (app layer)
-- [ ] **Content-Security-Policy** header in `SecurityConfiguration`. Needs to allow `oauth.telegram.org` (login widget iframe + script) and `t.me` (avatar images); default-src `'self'` otherwise.
+- [x] **Content-Security-Policy** header in `SecurityConfiguration` — allows `telegram.org` (widget script), `oauth.telegram.org` (widget iframe), `fonts.googleapis.com` + `fonts.gstatic.com` (Google Fonts), `data:` (inline SVG textures); `frame-ancestors 'none'`. `style-src` keeps `'unsafe-inline'` because of React inline styles — revisit if we move to nonces/classes.
 - [ ] **Smoke test confirming `dev-login` returns 404/401 in prod** — currently gated by `@Profile("dev")`, but we should assert it from outside, not just trust the annotation.
 - [ ] **Dependency / CVE scanning** — Dependabot for Gradle + npm, optionally Trivy on the container image
 - [ ] **Secret rotation plan** documented: `TASKER_TELEGRAM_BOT_TOKEN`, `TASKER_PROMETHEUS_*`, DB credentials
