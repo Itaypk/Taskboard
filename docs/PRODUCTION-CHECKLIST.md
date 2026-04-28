@@ -25,7 +25,7 @@ infra repo are listed for completeness but not tracked here.
 - [ ] **Edge protection** (Cloudflare or equivalent) in front of the host for DDoS + bot filtering
 
 ## Abuse prevention
-- [ ] **Per-user rate limits** on write endpoints (and login attempts)
+- [x] **Per-user rate limits** — sliding-window in-memory limiter (300 req/min per user on all API endpoints; 5 req/hour per IP on demo-login). `RateLimiter` interface ready to swap for a Redis-backed implementation when running multiple replicas.
 - [ ] **Demo account cap** (total simultaneous demo accounts)
 - [ ] **Demo account TTL / sweeper job** so the cap doesn't block onboarding indefinitely
 

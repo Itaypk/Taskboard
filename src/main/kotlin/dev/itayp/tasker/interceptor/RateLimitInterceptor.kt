@@ -1,0 +1,45 @@
+package dev.itayp.tasker.interceptor
+
+import dev.itayp.tasker.ratelimit.RateLimiter
+import dev.itayp.tasker.security.TaskerPrincipal
+import jakarta.servlet.http.HttpServletRequest
+import jakarta.servlet.http.HttpServletResponse
+import org.springframework.http.MediaType
+import org.springframework.security.core.context.SecurityContextHolder
+import org.springframework.web.servlet.HandlerInterceptor
+
+class RateLimitInterceptor(
+    /** Applied per authenticated user ID on all API endpoints. */
+    private val apiLimiter: RateLimiter,
+    /** Applied per client IP on the demo-login endpoint, before a session exists. */
+    private val demoLoginLimiter: RateLimiter,
+) : HandlerInterceptor {
+
+    override fun preHandle(request: HttpServletRequest, response: HttpServletResponse, handler: Any): Boolean {
+        if (request.servletPath == DEMO_LOGIN_PATH) {
+            if (!demoLoginLimiter.tryConsume(request.clientIp())) return reject(response)
+            return true
+        }
+
+        val principal = SecurityContextHolder.getContext().authentication?.principal
+        if (principal is TaskerPrincipal) {
+            if (!apiLimiter.tryConsume(principal.userId.toString())) return reject(response)
+        }
+
+        return true
+    }
+
+    private fun reject(response: HttpServletResponse): Boolean {
+        response.status = 429
+        response.contentType = MediaType.APPLICATION_JSON_VALUE
+        response.writer.write("""{"error":"Too many requests. Please slow down."}""")
+        return false
+    }
+
+    companion object {
+        private const val DEMO_LOGIN_PATH = "/api/auth/demo-login"
+    }
+}
+
+private fun HttpServletRequest.clientIp(): String =
+    getHeader("X-Forwarded-For")?.substringBefore(',')?.trim() ?: remoteAddr
