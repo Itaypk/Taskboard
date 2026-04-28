@@ -11,11 +11,11 @@ infra repo are listed for completeness but not tracked here.
 - [x] `robots.txt` and `sitemap.xml` served from `src/main/resources/static/`
 
 ## Legal & content
-- [ ] **Terms of Service** — link/modal from the index page; placeholder verbiage (in progress, owned by Itay)
-- [ ] **Privacy policy** — same treatment as ToS. Must cover Telegram login data and the planned Google Calendar scope
+- [x] **Terms of Service** — link/modal on login page with placeholder verbiage; replace with final copy when ready
+- [x] **Privacy policy** — same treatment; placeholder covers Telegram data and session cookie
 - [ ] **Support / abuse contact address** referenced from ToS + PP
 - [ ] **Landing page** for logged-out visitors explaining what `backlog.fyi` is
-- [ ] **Rebranding** — replace "tasker" / "taskboard" in user-facing strings only (browser title, login page heading, logo tape, any copy). Decide canonical name first.
+- [x] **Rebranding** — "Backlog.fyi" in browser title, login heading, and board logo tape
 
 ## Security (app layer)
 - [ ] **Content-Security-Policy** header in `SecurityConfiguration`. Needs to allow `oauth.telegram.org` (login widget iframe + script) and `t.me` (avatar images); default-src `'self'` otherwise.
@@ -40,4 +40,4 @@ infra repo are listed for completeness but not tracked here.
 
 ## SPA polish
 - [ ] **404 / error route** in the React shell — currently an unknown path renders the empty app
-- [ ] **OG / Twitter meta tags** on the landing/login pages so shared links render properly
+- [x] **OG / Twitter meta tags** on the landing/login pages so shared links render properly

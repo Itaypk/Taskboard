@@ -222,7 +222,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   return (
     <>
       <header className="header">
-        <span className="logo-tape">tasker</span>
+        <span className="logo-tape">Backlog.fyi</span>
         <div className="header-right">
           <button
             type="button"

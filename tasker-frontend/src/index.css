@@ -1156,3 +1156,13 @@ input[type="number"] { -moz-appearance: textfield; }
 
   .row-2 { grid-template-columns: 1fr; }
 }
+
+.link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent, #7a5c1e);
+  text-decoration: underline;
+  cursor: pointer;
+}
