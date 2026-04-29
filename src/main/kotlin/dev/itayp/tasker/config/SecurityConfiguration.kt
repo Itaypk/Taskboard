@@ -22,16 +22,18 @@ import org.springframework.util.StringUtils
 import java.util.function.Supplier
 
 // Content-Security-Policy applied to every non-actuator response. Notes on each entry:
-//  - script-src telegram.org      : Telegram Login Widget script (telegram-widget.js)
-//  - frame-src oauth.telegram.org : the iframe the widget injects for the login flow
-//  - style-src 'unsafe-inline'    : React inline `style={{...}}` attributes (no nonces in our build)
-//  - style-src fonts.googleapis   : the Google Fonts stylesheet linked from index.html
-//  - font-src fonts.gstatic       : the actual font files referenced by that stylesheet
-//  - img-src data:                : SVG noise/mask textures used as CSS backgrounds and masks
-//  - frame-ancestors 'none'       : modern equivalent of X-Frame-Options: DENY
+//  - script-src telegram.org           : Telegram Login Widget script (telegram-widget.js)
+//  - script-src unsafe-eval            : telegram-widget.js calls eval() internally; unavoidable for this third-party widget
+//  - script-src sha256-ZswfT...        : hash of the inline <script> that bootstraps the Telegram widget on the login page
+//  - frame-src oauth.telegram.org      : the iframe the widget injects for the login flow
+//  - style-src 'unsafe-inline'         : React inline `style={{...}}` attributes (no nonces in our build)
+//  - style-src fonts.googleapis        : the Google Fonts stylesheet linked from index.html
+//  - font-src fonts.gstatic            : the actual font files referenced by that stylesheet
+//  - img-src data:                     : SVG noise/mask textures used as CSS backgrounds and masks
+//  - frame-ancestors 'none'            : modern equivalent of X-Frame-Options: DENY
 private val CSP_POLICY = listOf(
     "default-src 'self'",
-    "script-src 'self' https://telegram.org",
+    "script-src 'self' https://telegram.org 'unsafe-eval' 'sha256-ZswfTY7H35rbv8WC7NXBoiC7WNu86vSzCDChNWwZZDM='",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data:",

@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { demoLogin, devLogin, telegramLogin, type TelegramWidgetPayload } from './authApi';
+import MarkdownRenderer from '../components/MarkdownRenderer';
+import tosContent from './tos.md?raw';
+import ppContent from './privacy-policy.md?raw';
 
 const BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME as string | undefined;
 const TELEGRAM_CALLBACK = 'onTaskerTelegramAuth';
@@ -14,37 +17,8 @@ declare global {
 type PolicyKey = 'tos' | 'pp';
 
 const POLICY_CONTENT: Record<PolicyKey, { title: string; body: string }> = {
-    tos: {
-        title: 'Terms of Service',
-        body: `Last updated: April 2026 — placeholder, full terms coming soon.
-
-Backlog.fyi is a personal productivity tool. By using the service you agree to:
-• Use the service only for lawful purposes.
-• Not attempt to interfere with the service or its infrastructure.
-• Accept that the service is provided as-is, without warranties of any kind.
-
-We reserve the right to suspend or terminate accounts that abuse the service or violate these terms. We may update these terms at any time; continued use constitutes acceptance.
-
-Questions? Reach us at hello@backlog.fyi.`,
-    },
-    pp: {
-        title: 'Privacy Policy',
-        body: `Last updated: April 2026 — placeholder, full policy coming soon.
-
-What we collect
-When you sign in with Telegram, we receive the profile information Telegram provides: your numeric user ID, display name, username (if set), and profile photo URL. We store only what is necessary to identify your account.
-
-How we use it
-Your data is used solely to operate the service — to associate your tasks with your account. We do not sell, rent, or share your personal information with third parties.
-
-Data retention
-Your data is retained as long as your account exists. You may request deletion at any time by contacting hello@backlog.fyi.
-
-Cookies
-We use a single session cookie (SESSION) to keep you logged in. No third-party tracking cookies are set.
-
-Questions? Reach us at hello@backlog.fyi.`,
-    },
+    tos: { title: 'Terms of Service', body: tosContent },
+    pp:  { title: 'Privacy Policy',   body: ppContent  },
 };
 
 export function LoginPage() {
@@ -197,9 +171,7 @@ export function LoginPage() {
                         <button type="button" className="drawer__close" onClick={closePolicy} aria-label="Close">✕</button>
                     </div>
                     <div className="modal__body">
-                        <pre style={{ margin: 0, fontFamily: 'inherit', fontSize: 14, lineHeight: 1.65, whiteSpace: 'pre-wrap', color: '#444' }}>
-                            {openPolicy?.body}
-                        </pre>
+                        <MarkdownRenderer content={openPolicy?.body ?? ''} />
                     </div>
                 </div>
             </div>

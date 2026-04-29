@@ -173,7 +173,7 @@ class BacklogTaskServiceTest {
         service.createTask(userId, CreateBacklogTaskRequest(
             title = "Task",
             categoryId = catId.toString(),
-            tags = listOf(TagInput("urgent", "coral")),
+            tags = listOf(TagInput(label = "urgent", colorId = "coral")),
         ))
 
         val captor = argumentCaptor<BacklogTaskTagEntity>()
@@ -194,7 +194,7 @@ class BacklogTaskServiceTest {
         service.createTask(userId, CreateBacklogTaskRequest(
             title = "Task",
             categoryId = catId.toString(),
-            tags = listOf(TagInput("urgent", "coral")),
+            tags = listOf(TagInput(label = "urgent", colorId = "coral")),
         ))
 
         verify(tagRepository, never()).save(any())

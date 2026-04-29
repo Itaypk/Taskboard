@@ -41,6 +41,7 @@ class AccountService(
      * but does NOT delete the user row. Used by both account deletion and demo cleanup
      * (which batch-deletes user rows separately for efficiency).
      */
+    @Transactional
     fun deleteUserData(userId: UUID) {
         // Sessions: SPRING_SESSION_ATTRIBUTES cascades from SPRING_SESSION
         jdbcTemplate.update("DELETE FROM SPRING_SESSION WHERE PRINCIPAL_NAME = ?", userId.toString())
@@ -51,7 +52,7 @@ class AccountService(
             val placeholders = taskIds.joinToString(",") { "?" }
             jdbcTemplate.update(
                 "DELETE FROM backlog_task_tags WHERE task_id IN ($placeholders)",
-                *taskIds.map { it.toString() }.toTypedArray(),
+                *taskIds.toTypedArray(),
             )
         }
         taskRepository.deleteAllByUserId(userId)
