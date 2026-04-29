@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import type { Task, Tag, TagColorId, Category } from '../types';
 import { TAG_PALETTE, PAPER_SWATCHES } from '../types';
 import { WashiTape } from './WashiTape';
+import { Autocomplete } from './Autocomplete';
 import { generateId } from '../utils';
 
 interface TaskDrawerProps {
@@ -9,6 +10,7 @@ interface TaskDrawerProps {
   isNew: boolean;
   open: boolean;
   categories: Category[];
+  availableTags: Tag[];
   defaultCategoryId: string | null;
   onClose: () => void;
   onSave: (task: Omit<Task, 'sortKey'>) => void;
@@ -33,13 +35,14 @@ function makeEmpty(defaultCategoryId: string | null): FormState {
 }
 
 export function TaskDrawer({
-  task, isNew, open, categories, defaultCategoryId,
+  task, isNew, open, categories, availableTags, defaultCategoryId,
   onClose, onSave, onDelete, onMarkDone,
 }: TaskDrawerProps) {
   const [form, setForm] = useState<FormState>(makeEmpty(defaultCategoryId));
   const [showTagForm, setShowTagForm] = useState(false);
   const [tagLabel, setTagLabel] = useState('');
   const [tagColorId, setTagColorId] = useState<TagColorId>('sage');
+  const [tagId, setTagId] = useState<string | null>(null);
   const [formKey, setFormKey] = useState<string | null>(null);
 
   const targetKey = open ? (task?.id ?? '__new__') : null;
@@ -59,6 +62,7 @@ export function TaskDrawer({
       } : makeEmpty(defaultCategoryId));
       setShowTagForm(false);
       setTagLabel('');
+      setTagId(null);
     }
   }
 
@@ -90,10 +94,16 @@ export function TaskDrawer({
 
   const commitTag = () => {
     if (!tagLabel.trim() || form.tags.length >= 3) return;
-    const newTag: Tag = { label: tagLabel.trim(), colorId: tagColorId };
+    const existing = availableTags.find(t => t.label.toLowerCase() === tagLabel.trim().toLowerCase());
+    const newTag: Tag = { 
+      id: tagId || existing?.id || '', 
+      label: existing?.label || tagLabel.trim(), 
+      colorId: existing?.colorId || tagColorId 
+    };
     setForm(f => ({ ...f, tags: [...f.tags, newTag] }));
     setTagLabel('');
     setTagColorId('sage');
+    setTagId(null);
     setShowTagForm(false);
   };
 
@@ -253,31 +263,52 @@ export function TaskDrawer({
                 </button>
               )}
 
-              {showTagForm && (
+              {showTagForm && (() => {
+                const isExisting = tagId !== null || availableTags.some(t => t.label.toLowerCase() === tagLabel.trim().toLowerCase());
+                return (
                 <div className="tag-form">
-                  <input
-                    className="field__input"
-                    placeholder="Tag label…"
+                  <Autocomplete
                     value={tagLabel}
-                    onChange={e => setTagLabel(e.target.value)}
+                    onChange={(val) => {
+                      setTagLabel(val);
+                      setTagId(null);
+                      const existing = availableTags.find(t => t.label.toLowerCase() === val.trim().toLowerCase());
+                      if (existing) setTagColorId(existing.colorId);
+                    }}
+                    onSelect={(opt) => {
+                      setTagId(opt.id);
+                      setTagLabel(opt.label);
+                      if (opt.colorId) setTagColorId(opt.colorId as TagColorId);
+                    }}
                     onKeyDown={e => {
                       if (e.key === 'Enter') { e.preventDefault(); commitTag(); }
                       if (e.key === 'Escape') setShowTagForm(false);
                     }}
+                    options={availableTags
+                      .filter(t => !form.tags.some(ft => ft.id === t.id || ft.label.toLowerCase() === t.label.toLowerCase()))
+                      .map(t => ({
+                        id: t.id,
+                        label: t.label,
+                        colorId: t.colorId,
+                        color: TAG_PALETTE.find(c => c.id === t.colorId)?.text || 'currentColor'
+                      }))}
+                    placeholder="Tag label…"
                     autoFocus
                   />
-                  <div className="color-swatches">
-                    {TAG_PALETTE.map(c => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        className={`color-swatch${tagColorId === c.id ? ' color-swatch--selected' : ''}`}
-                        style={{ background: c.text }}
-                        onClick={() => setTagColorId(c.id as TagColorId)}
-                        aria-label={c.id}
-                      />
-                    ))}
-                  </div>
+                  {!isExisting && (
+                    <div className="color-swatches">
+                      {TAG_PALETTE.map(c => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          className={`color-swatch${tagColorId === c.id ? ' color-swatch--selected' : ''}`}
+                          style={{ background: c.text }}
+                          onClick={() => setTagColorId(c.id as TagColorId)}
+                          aria-label={c.id}
+                        />
+                      ))}
+                    </div>
+                  )}
                   <div className="tag-form__actions">
                     <button
                       type="button"
@@ -296,7 +327,8 @@ export function TaskDrawer({
                     </button>
                   </div>
                 </div>
-              )}
+                );
+              })()}
             </div>
           </div>
         </div>

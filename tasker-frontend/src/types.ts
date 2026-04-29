@@ -15,6 +15,7 @@ export const TAG_PALETTE = [
 export type TagColorId = typeof TAG_PALETTE[number]['id'];
 
 export interface Tag {
+  id: string;
   label: string;
   colorId: TagColorId;
 }

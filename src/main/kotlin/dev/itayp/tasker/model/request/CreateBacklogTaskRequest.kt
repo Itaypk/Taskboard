@@ -1,6 +1,7 @@
 package dev.itayp.tasker.model.request
 
 data class TagInput(
+    val id: String? = null,
     val label: String,
     val colorId: String
 )

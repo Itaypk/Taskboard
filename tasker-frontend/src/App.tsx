@@ -18,8 +18,8 @@ import { PostItNote } from './components/PostItNote';
 import { TaskDrawer } from './components/TaskDrawer';
 import { SettingsModal } from './components/SettingsModal';
 import { DEFAULT_SETTINGS } from './data';
-import { fetchTasks, fetchCategories, fetchUserSettings, createTask, updateTask, deleteTask, reorderTask } from './api';
-import type { Task, UserSettings } from './types';
+import { fetchTasks, fetchCategories, fetchUserSettings, fetchTags, createTask, updateTask, deleteTask, reorderTask } from './api';
+import type { Task, UserSettings, Tag } from './types';
 import { useAuth } from './auth/AuthContext';
 import { LoginPage } from './auth/LoginPage';
 import pineappleUrl from './assets/pineapple.png';
@@ -60,6 +60,7 @@ export default function App() {
 
 function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const [tasks, setTasks]             = useState<Task[]>([]);
+  const [tags, setTags]               = useState<Tag[]>([]);
   const [settings, setSettings]       = useState<UserSettings>({ ...DEFAULT_SETTINGS, categories: [] });
   const [selectedId, setSelectedId]   = useState<string | null>(null);
   const [isCreating, setIsCreating]   = useState(false);
@@ -77,9 +78,10 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   );
 
   useEffect(() => {
-    Promise.all([fetchTasks(), fetchCategories(), fetchUserSettings()])
-      .then(([loadedTasks, loadedCategories, loadedSettings]) => {
+    Promise.all([fetchTasks(), fetchCategories(), fetchUserSettings(), fetchTags()])
+      .then(([loadedTasks, loadedCategories, loadedSettings, loadedTags]) => {
         setTasks(loadedTasks);
+        setTags(loadedTags);
         setSettings(prev => ({
           ...prev,
           ...loadedSettings,
@@ -124,6 +126,10 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
         const saved = await updateTask(updated.id, payload);
         setTasks(prev => prev.map(t => t.id === saved.id ? saved : t));
       }
+      
+      // Refetch tags in case a new tag was created
+      fetchTags().then(setTags).catch(e => console.error('Failed to refetch tags', e));
+      
       closeDrawer();
     } catch (e) {
       console.error('Failed to save task', e);
@@ -294,6 +300,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
         isNew={isCreating}
         open={drawerOpen}
         categories={settings.categories}
+        availableTags={tags}
         defaultCategoryId={defaultCategoryId}
         onClose={closeDrawer}
         onSave={handleSave}

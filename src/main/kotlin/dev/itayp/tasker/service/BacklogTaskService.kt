@@ -152,13 +152,26 @@ class BacklogTaskService(
 
     private fun resolveOrCreateTags(userId: UUID, inputs: List<TagInput>): MutableSet<BacklogTaskTagEntity> {
         val existing = tagRepository.findAllByUserId(userId)
-        val lookup = existing.associateBy { "${it.label}::${it.colorId?.name}" }
 
         return inputs.map { input ->
-            val key = "${input.label}::${input.colorId.uppercase()}"
-            lookup[key] ?: BacklogTaskTagEntity().apply {
+            val inputId = input.id?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+            
+            // Try to find by exact ID first
+            val matchById = inputId?.let { id -> existing.find { it.id == id } }
+            if (matchById != null) {
+                return@map matchById
+            }
+            
+            // Fallback to case-insensitive label match
+            val matchByLabel = existing.find { it.label?.equals(input.label.trim(), ignoreCase = true) == true }
+            if (matchByLabel != null) {
+                return@map matchByLabel
+            }
+            
+            // Create new
+            BacklogTaskTagEntity().apply {
                 this.userId = userId
-                this.label = input.label
+                this.label = input.label.trim()
                 this.colorId = TagColor.valueOf(input.colorId.uppercase())
             }.let { tagRepository.save(it) }
         }.toMutableSet()

@@ -103,6 +103,15 @@ val buildFrontend = tasks.register<Exec>("buildFrontend") {
 }
 
 tasks.named<ProcessResources>("processResources") {
-	dependsOn(buildFrontend)
+	mustRunAfter(buildFrontend)
 	from(frontendDist) { into("static") }
+}
+
+// Full production build: npm install → frontend bundle → backend JAR with frontend embedded.
+// Default `build` / `bootRun` skip npm entirely.
+tasks.register("release") {
+	group = "build"
+	description = "Builds the full application with the frontend bundle embedded in the JAR"
+	dependsOn(buildFrontend, "build")
+	tasks.named("build") { mustRunAfter(buildFrontend) }
 }
