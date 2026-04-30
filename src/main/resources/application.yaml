@@ -37,6 +37,9 @@ management:
         enabled: true
 
 tasker:
+  ai:
+    api-key: ${TASKER_AI_API_KEY:}
+    base-url: ${TASKER_AI_BASE_URL:https://openrouter.ai/api/v1}
   telegram:
     bot-token: ${TASKER_TELEGRAM_BOT_TOKEN:}
     bot-username: ${TASKER_TELEGRAM_BOT_USERNAME:}

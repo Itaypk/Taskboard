@@ -43,9 +43,10 @@ class AuthController(
     }
 
     @GetMapping("/me")
-    fun me(@AuthenticationPrincipal principal: TaskerPrincipal): ResponseEntity<MeResponse> {
+    fun me(@AuthenticationPrincipal principal: TaskerPrincipal?): ResponseEntity<MeResponse> {
+        if (principal == null) return ResponseEntity.noContent().build()
         val user: UserEntity = userRepository.findById(principal.userId).orElse(null)
-            ?: return ResponseEntity.status(401).build()
+            ?: return ResponseEntity.noContent().build()
         return ResponseEntity.ok(user.toMeResponse())
     }
 

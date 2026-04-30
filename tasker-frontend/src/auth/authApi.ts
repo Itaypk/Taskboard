@@ -19,8 +19,8 @@ export interface TelegramWidgetPayload {
     hash: string;
 }
 
-export const fetchMe = (): Promise<AuthUser> =>
-    request<AuthUser>('/api/auth/me');
+export const fetchMe = (): Promise<AuthUser | null> =>
+    request<AuthUser | null>('/api/auth/me');
 
 export const telegramLogin = (payload: TelegramWidgetPayload): Promise<AuthUser> =>
     request<AuthUser>('/api/auth/telegram', {
