@@ -83,9 +83,9 @@ class AuthControllerTest(@Autowired val mockMvc: MockMvc) {
     }
 
     @Test
-    fun `GET me without auth returns 401`() {
+    fun `GET me without auth returns 204`() {
         mockMvc.perform(get("/api/auth/me"))
-            .andExpect(status().isUnauthorized)
+            .andExpect(status().isNoContent)
     }
 
     @Test

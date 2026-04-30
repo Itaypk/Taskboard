@@ -81,6 +81,7 @@ class SecurityConfiguration(
                 authorize("/sitemap.xml", permitAll)
                 authorize("/assets/**", permitAll)
                 authorize("/favicon.ico", permitAll)
+                authorize("/api/auth/me", permitAll)
                 authorize("/api/auth/telegram", permitAll)
                 authorize("/api/auth/dev-login", permitAll)
                 authorize("/api/auth/demo-login", permitAll)

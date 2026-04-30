@@ -30,7 +30,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const refresh = useCallback(async () => {
         try {
             const user = await fetchMe();
-            setState({ status: 'authenticated', user });
+            if (user) {
+                setState({ status: 'authenticated', user });
+            } else {
+                setState({ status: 'unauthenticated' });
+            }
         } catch {
             setState({ status: 'unauthenticated' });
         }

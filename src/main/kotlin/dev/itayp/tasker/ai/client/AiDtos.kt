@@ -1,7 +1,7 @@
 package dev.itayp.tasker.ai.client
 
-import tools.jackson.annotation.JsonInclude
-import tools.jackson.annotation.JsonProperty
+import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.annotation.JsonProperty
 
 // ── Request ──────────────────────────────────────────────────────────────────
 
