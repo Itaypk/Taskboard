@@ -6,5 +6,6 @@
 
     <include file="db/changelog/changesets/001-initial-schema.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changesets/002-ai-conversations.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changesets/003-planning-session.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

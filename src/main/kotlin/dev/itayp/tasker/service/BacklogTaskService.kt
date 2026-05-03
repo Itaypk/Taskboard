@@ -11,6 +11,7 @@ import dev.itayp.tasker.model.request.CreateBacklogTaskRequest
 import dev.itayp.tasker.model.request.ReorderTaskRequest
 import dev.itayp.tasker.model.request.TagInput
 import dev.itayp.tasker.model.request.UpdateBacklogTaskRequest
+import dev.itayp.tasker.planning.BacklogTaskChangeService
 import dev.itayp.tasker.repository.BacklogTaskCategoryRepository
 import dev.itayp.tasker.repository.BacklogTaskRepository
 import dev.itayp.tasker.repository.BacklogTaskTagRepository
@@ -26,7 +27,8 @@ private const val REBALANCE_KEY_LENGTH_THRESHOLD = 50
 class BacklogTaskService(
     private val backlogTaskRepository: BacklogTaskRepository,
     private val categoryRepository: BacklogTaskCategoryRepository,
-    private val tagRepository: BacklogTaskTagRepository
+    private val tagRepository: BacklogTaskTagRepository,
+    private val taskChangeService: BacklogTaskChangeService,
 ) {
 
     fun getAllTasksForUser(userId: UUID): List<BacklogTask> =
@@ -56,7 +58,9 @@ class BacklogTaskService(
             this.updatedAt = null
         }
 
-        return backlogTaskRepository.save(entity).toDomain()
+        val saved = backlogTaskRepository.save(entity)
+        taskChangeService.recordCreated(userId, saved.id!!, saved.title!!, saved.status!!)
+        return saved.toDomain()
     }
 
     @Transactional
@@ -68,18 +72,23 @@ class BacklogTaskService(
         val category = categoryRepository.findByIdAndUserId(categoryId, userId)
             ?: throw NoSuchElementException("Category $categoryId not found")
 
+        val previousStatus = entity.status!!
+        val newStatus = TaskStatus.valueOf(request.status.uppercase())
+
         entity.title = request.title
         entity.description = request.description
         entity.url = request.url
         entity.priority = request.priority?.let { TaskPriority.valueOf(it.uppercase()) }
         entity.deadline = request.deadline?.let { LocalDate.parse(it) }
         entity.estimatedMinutes = request.estimatedMinutes
-        entity.status = TaskStatus.valueOf(request.status.uppercase())
+        entity.status = newStatus
         entity.category = category
         entity.tags = resolveOrCreateTags(userId, request.tags)
         entity.updatedAt = Instant.now()
 
-        return backlogTaskRepository.save(entity).toDomain()
+        val saved = backlogTaskRepository.save(entity)
+        taskChangeService.recordStatusChange(userId, saved.id!!, saved.title!!, previousStatus, newStatus)
+        return saved.toDomain()
     }
 
     @Transactional
@@ -123,10 +132,14 @@ class BacklogTaskService(
         return saved.toDomain()
     }
 
+    @Transactional
     fun deleteTask(userId: UUID, id: UUID) {
         val entity = backlogTaskRepository.findByIdAndUserId(id, userId)
             ?: throw NoSuchElementException("Task $id not found")
+        val title = entity.title!!
+        val status = entity.status!!
         backlogTaskRepository.delete(entity)
+        taskChangeService.recordDeleted(userId, id, title, status)
     }
 
     // -------------------------------------------------------------------------
