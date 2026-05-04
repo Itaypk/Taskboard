@@ -1,11 +1,13 @@
 package dev.itayp.tasker.planning
 
+import dev.itayp.tasker.repository.BacklogTaskRepository
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -23,12 +25,13 @@ class PlanningSessionServiceTest {
 
     @Mock lateinit var planningSessionRepository: PlanningSessionRepository
     @Mock lateinit var backlogTaskChangeService: BacklogTaskChangeService
+    @Mock lateinit var backlogTaskRepository: BacklogTaskRepository
 
     private val now = Instant.parse("2026-05-01T12:00:00Z")
     private val clock = Clock.fixed(now, ZoneOffset.UTC)
 
     private val service by lazy {
-        PlanningSessionService(planningSessionRepository, backlogTaskChangeService, clock)
+        PlanningSessionService(planningSessionRepository, backlogTaskChangeService, backlogTaskRepository, clock)
     }
 
     private val userId = UUID.randomUUID()
@@ -113,6 +116,56 @@ class PlanningSessionServiceTest {
         assertFailsWith<NoSuchElementException> {
             service.completeSession(userId, sessionId, "summary")
         }
+    }
+
+    @Test
+    fun `startSession increments reschedule count for tasks carried from previous completed session`() {
+        val previousId = UUID.randomUUID()
+        val previous = PlanningSessionEntity().apply {
+            this.id = previousId
+            this.userId = this@PlanningSessionServiceTest.userId
+            this.status = PlanningSessionStatus.COMPLETED
+            this.startedAt = now.minusSeconds(8 * 24 * 3600)
+            this.endedAt = now.minusSeconds(7 * 24 * 3600)
+        }
+        whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
+            userId, PlanningSessionStatus.ACTIVE)).thenReturn(null)
+        whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
+            userId, PlanningSessionStatus.COMPLETED)).thenReturn(previous)
+        whenever(planningSessionRepository.save(any<PlanningSessionEntity>())).thenAnswer { it.arguments[0] }
+
+        service.startSession(userId)
+
+        verify(backlogTaskRepository).incrementRescheduleCountForUnfinishedTasks(eq(userId), eq(previousId))
+    }
+
+    @Test
+    fun `startSession does not touch reschedule counts when no prior completed session exists`() {
+        whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
+            userId, PlanningSessionStatus.ACTIVE)).thenReturn(null)
+        whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
+            userId, PlanningSessionStatus.COMPLETED)).thenReturn(null)
+        whenever(planningSessionRepository.save(any<PlanningSessionEntity>())).thenAnswer { it.arguments[0] }
+
+        service.startSession(userId)
+
+        verify(backlogTaskRepository, never()).incrementRescheduleCountForUnfinishedTasks(any(), any())
+    }
+
+    @Test
+    fun `startSession does not touch reschedule counts when there is already an active session`() {
+        val existing = PlanningSessionEntity().apply {
+            this.id = UUID.randomUUID()
+            this.userId = this@PlanningSessionServiceTest.userId
+            this.status = PlanningSessionStatus.ACTIVE
+            this.startedAt = now.minusSeconds(60)
+        }
+        whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
+            userId, PlanningSessionStatus.ACTIVE)).thenReturn(existing)
+
+        service.startSession(userId)
+
+        verify(backlogTaskRepository, never()).incrementRescheduleCountForUnfinishedTasks(any(), any())
     }
 
     @Test

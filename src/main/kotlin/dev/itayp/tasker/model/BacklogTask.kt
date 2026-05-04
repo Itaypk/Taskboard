@@ -49,5 +49,7 @@ data class BacklogTask(
     val tags: Set<BacklogTaskTag>,
     val sortKey: String,
     val createdAt: Instant,
-    val updatedAt: Instant?
+    val updatedAt: Instant?,
+    val rescheduleCount: Int,
+    val lastScheduledInSessionId: UUID?
 )

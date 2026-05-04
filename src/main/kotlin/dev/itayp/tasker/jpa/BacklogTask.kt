@@ -72,4 +72,10 @@ open class BacklogTaskEntity {
 
     @Column
     var updatedAt: Instant? = null
+
+    @Column(name = "reschedule_count", nullable = false)
+    var rescheduleCount: Int = 0
+
+    @Column(name = "last_scheduled_in_session_id")
+    var lastScheduledInSessionId: UUID? = null
 }
