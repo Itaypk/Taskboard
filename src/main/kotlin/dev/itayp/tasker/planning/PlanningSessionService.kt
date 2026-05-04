@@ -1,5 +1,6 @@
 package dev.itayp.tasker.planning
 
+import dev.itayp.tasker.repository.BacklogTaskRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
@@ -9,6 +10,7 @@ import java.util.UUID
 class PlanningSessionService(
     private val planningSessionRepository: PlanningSessionRepository,
     private val backlogTaskChangeService: BacklogTaskChangeService,
+    private val backlogTaskRepository: BacklogTaskRepository,
     private val clock: Clock,
 ) {
 
@@ -17,6 +19,14 @@ class PlanningSessionService(
         val active = planningSessionRepository
             .findFirstByUserIdAndStatusOrderByStartedAtDesc(userId, PlanningSessionStatus.ACTIVE)
         if (active != null) return active
+
+        // Bump reschedule counts for tasks that were scheduled in the previous completed
+        // session but never marked DONE — they're being carried into this new session.
+        val previous = planningSessionRepository
+            .findFirstByUserIdAndStatusOrderByStartedAtDesc(userId, PlanningSessionStatus.COMPLETED)
+        if (previous?.id != null) {
+            backlogTaskRepository.incrementRescheduleCountForUnfinishedTasks(userId, previous.id!!)
+        }
 
         return planningSessionRepository.save(PlanningSessionEntity().apply {
             this.userId = userId

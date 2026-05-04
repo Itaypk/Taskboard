@@ -19,7 +19,9 @@ fun BacklogTaskEntity.toDomain(): BacklogTask =
         tags = tags.map { it.toDomain() }.toSet(),
         sortKey = sortKey ?: throw IllegalStateException("BacklogTaskEntity must have sortKey"),
         createdAt = createdAt ?: throw IllegalStateException("BacklogTaskEntity must have createdAt"),
-        updatedAt = updatedAt
+        updatedAt = updatedAt,
+        rescheduleCount = rescheduleCount,
+        lastScheduledInSessionId = lastScheduledInSessionId
     )
 
 fun BacklogTaskCategoryEntity.toDomain(): BacklogTaskCategory =
