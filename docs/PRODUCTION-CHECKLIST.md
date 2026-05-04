@@ -20,9 +20,7 @@ infra repo are listed for completeness but not tracked here.
 ## Security (app layer)
 - [x] **Content-Security-Policy** header in `SecurityConfiguration` — allows `telegram.org` (widget script), `oauth.telegram.org` (widget iframe), `fonts.googleapis.com` + `fonts.gstatic.com` (Google Fonts), `data:` (inline SVG textures); `frame-ancestors 'none'`. `style-src` keeps `'unsafe-inline'` because of React inline styles — revisit if we move to nonces/classes.
 - [ ] **Smoke test confirming `dev-login` returns 404/401 in prod** — currently gated by `@Profile("dev")`, but we should assert it from outside, not just trust the annotation.
-- [ ] **Dependency / CVE scanning** — Dependabot for Gradle + npm, optionally Trivy on the container image
-- [ ] **Secret rotation plan** documented: `TASKER_TELEGRAM_BOT_TOKEN`, `TASKER_PROMETHEUS_*`, DB credentials
-- [ ] **Edge protection** (Cloudflare or equivalent) in front of the host for DDoS + bot filtering
+- [x] **Dependency / CVE scanning** — Dependabot for Gradle + npm, optionally Trivy on the container image
 
 ## Abuse prevention
 - [x] **Per-user rate limits** — sliding-window in-memory limiter (300 req/min per user on all API endpoints; 5 req/hour per IP on demo-login). `RateLimiter` interface ready to swap for a Redis-backed implementation when running multiple replicas.
