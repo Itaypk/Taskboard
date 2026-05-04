@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="3" author="tasker">
+        <createTable tableName="planning_session">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_planning_session_user" references="users(id)"/>
+            </column>
+            <column name="conversation_id" type="UUID">
+                <constraints nullable="true" foreignKeyName="fk_planning_session_conversation"
+                             references="ai_conversation(id)"/>
+            </column>
+            <column name="status" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="started_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ended_at" type="TIMESTAMP">
+                <constraints nullable="true"/>
+            </column>
+            <column name="summary" type="VARCHAR(4000)">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="planning_session" indexName="idx_planning_session_user_started">
+            <column name="user_id"/>
+            <column name="started_at"/>
+        </createIndex>
+
+        <createIndex tableName="planning_session" indexName="idx_planning_session_user_status">
+            <column name="user_id"/>
+            <column name="status"/>
+        </createIndex>
+
+        <createTable tableName="backlog_task_change_event">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_backlog_task_change_user" references="users(id)"/>
+            </column>
+            <!--
+                No FK to backlog_task: events outlive the task row so deleted-task history
+                is preserved for diffs across planning sessions.
+            -->
+            <column name="task_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="change_type" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="previous_status" type="VARCHAR(50)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="new_status" type="VARCHAR(50)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="task_title_snapshot" type="VARCHAR(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="planning_session_id" type="UUID">
+                <constraints nullable="true" foreignKeyName="fk_backlog_task_change_session"
+                             references="planning_session(id)"/>
+            </column>
+            <column name="occurred_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="backlog_task_change_event" indexName="idx_backlog_task_change_user_occurred">
+            <column name="user_id"/>
+            <column name="occurred_at"/>
+        </createIndex>
+
+        <createIndex tableName="backlog_task_change_event" indexName="idx_backlog_task_change_task">
+            <column name="task_id"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

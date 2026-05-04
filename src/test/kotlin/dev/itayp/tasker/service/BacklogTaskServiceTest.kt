@@ -11,6 +11,7 @@ import dev.itayp.tasker.model.request.CreateBacklogTaskRequest
 import dev.itayp.tasker.model.request.ReorderTaskRequest
 import dev.itayp.tasker.model.request.TagInput
 import dev.itayp.tasker.model.request.UpdateBacklogTaskRequest
+import dev.itayp.tasker.planning.BacklogTaskChangeService
 import dev.itayp.tasker.repository.BacklogTaskCategoryRepository
 import dev.itayp.tasker.repository.BacklogTaskRepository
 import dev.itayp.tasker.repository.BacklogTaskTagRepository
@@ -38,6 +39,7 @@ class BacklogTaskServiceTest {
     @Mock private lateinit var backlogTaskRepository: BacklogTaskRepository
     @Mock private lateinit var categoryRepository: BacklogTaskCategoryRepository
     @Mock private lateinit var tagRepository: BacklogTaskTagRepository
+    @Mock private lateinit var taskChangeService: BacklogTaskChangeService
 
     @InjectMocks private lateinit var service: BacklogTaskService
 

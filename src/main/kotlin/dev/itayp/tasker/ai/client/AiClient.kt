@@ -9,13 +9,10 @@ import org.springframework.web.client.HttpServerErrorException
 import org.springframework.web.client.RestClient
 
 @Component
-class AiClient(
-    restClientBuilder: RestClient.Builder,
-    properties: AiProperties,
-) {
+class AiClient(properties: AiProperties) {
     private val log = LoggerFactory.getLogger(AiClient::class.java)
 
-    private val client = restClientBuilder
+    private val client = RestClient.builder()
         .baseUrl(properties.baseUrl)
         .defaultHeader("Authorization", "Bearer ${properties.apiKey}")
         .build()
