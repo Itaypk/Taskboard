@@ -2,31 +2,32 @@ package dev.itayp.tasker.planning
 
 import dev.itayp.tasker.ai.AiConversationManager
 import dev.itayp.tasker.ai.ConversationConfig
+import dev.itayp.tasker.ai.RequestedToolCall
+import dev.itayp.tasker.ai.TurnOutcome
+import dev.itayp.tasker.ai.tool.AiTool
+import dev.itayp.tasker.ai.tool.ToolKind
+import dev.itayp.tasker.ai.tool.ToolRegistry
 import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ChoiceOption
 import dev.itayp.tasker.channel.ConversationChannel
 import dev.itayp.tasker.planning.dto.AgreedPlan
+import com.fasterxml.jackson.annotation.JsonProperty
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
+import tools.jackson.databind.ObjectMapper
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Drives the weekly planning interaction. State machine:
  *
- *   START → AWAITING_CAPACITY → CONVERSING → DONE
+ *   START → AWAITING_CAPACITY → CONVERSING ↔ AWAITING_INTERACTIVE_REPLY → DONE
  *
- * `start` opens a session and emits a capacity Choice.
- * `handleInbound` advances the machine: capacity selection → kicks off the AI conversation;
- * subsequent text inbounds → `AiConversationManager.sendMessage` and the assistant reply is
- * relayed via the channel. When the assistant calls `submit_plan`, the inbox surfaces the
- * agreed plan and the orchestrator completes the session.
- *
- * State lives in-memory keyed by planning session id; fine for v1 dev/testing. Persistence
- * (e.g. across pod restarts) is left for the production iteration alongside the Telegram
- * channel.
+ * The model speaks via tools (`say`, `ask_choice`, `submit_plan`); the orchestrator
+ * dispatches each call by [ToolKind], renders channel messages, queues interactive
+ * questions, and decides when to re-invoke the model. See `docs/PLANNING-FLOW.md`.
  */
 @Service
 class WeeklyPlanningOrchestrator(
@@ -34,23 +35,17 @@ class WeeklyPlanningOrchestrator(
     private val promptAssembler: WeeklyPlanningPromptAssembler,
     private val aiConversationManager: AiConversationManager,
     private val planSubmissionInbox: PlanSubmissionInbox,
+    private val toolRegistry: ToolRegistry,
+    private val objectMapper: ObjectMapper,
     @Value("\${tasker.ai.weekly-planning-model:anthropic/claude-sonnet-4.5}")
     private val model: String,
 ) {
     private val log = LoggerFactory.getLogger(WeeklyPlanningOrchestrator::class.java)
-
     private val state = ConcurrentHashMap<UUID, OrchestratorState>()
 
-    /**
-     * Starts (or rejoins) a planning session for [userId] and emits the opening message
-     * (currently the capacity question) to [channel]. Returns the session id.
-     */
     fun start(userId: UUID, channel: ConversationChannel): UUID {
         val session = planningSessionService.startSession(userId)
         val sessionId = session.id ?: error("Planning session was saved without an id")
-
-        // If we already had state for this session (e.g. the caller resumed), don't
-        // re-emit the capacity question — just return.
         if (state[sessionId] != null) return sessionId
 
         state[sessionId] = OrchestratorState(
@@ -59,7 +54,6 @@ class WeeklyPlanningOrchestrator(
             conversationId = null,
             capacityHint = null,
         )
-
         channel.send(ChannelMessage.Choice(
             prompt = promptAssembler.renderCapacityQuestion().trim(),
             options = CAPACITY_OPTIONS,
@@ -67,20 +61,19 @@ class WeeklyPlanningOrchestrator(
         return sessionId
     }
 
-    /**
-     * Feeds an inbound user reply into the session. The assistant's response (if any) is
-     * pushed onto [channel]. Returns the resulting phase so callers can detect completion.
-     */
     fun handleInbound(sessionId: UUID, inbound: ChannelInbound, channel: ConversationChannel): Phase {
         val current = state[sessionId]
             ?: throw IllegalStateException("No active orchestrator state for session $sessionId")
         return when (current.phase) {
             Phase.AWAITING_CAPACITY -> handleCapacityReply(sessionId, current, inbound, channel)
-            Phase.CONVERSING -> handleConversationTurn(sessionId, current, inbound, channel)
-            Phase.DONE -> {
-                log.debug("Inbound for already-completed session $sessionId ignored")
-                Phase.DONE
+            Phase.CONVERSING -> {
+                val text = inboundAsText(inbound)
+                val outcome = aiConversationManager.sendMessage(current.conversationId!!, text)
+                processOutcome(sessionId, outcome, channel)
+                state[sessionId]?.phase ?: Phase.DONE
             }
+            Phase.AWAITING_INTERACTIVE_REPLY -> handleInteractiveReply(sessionId, current, inbound, channel)
+            Phase.DONE -> Phase.DONE
         }
     }
 
@@ -90,6 +83,8 @@ class WeeklyPlanningOrchestrator(
         planningSessionService.abandonSession(userId, sessionId)
         state.remove(sessionId)
     }
+
+    // ── Capacity -------------------------------------------------------------------------
 
     private fun handleCapacityReply(
         sessionId: UUID,
@@ -125,54 +120,193 @@ class WeeklyPlanningOrchestrator(
             capacityHint = capacity,
         )
 
-        // Prime with a kickoff user message so the assistant produces the first turn.
         val kickoff = promptAssembler.renderKickoff(capacity).trim()
-        relayAssistantTurn(sessionId, conversationId, kickoff, channel)
-        return state[sessionId]!!.phase
+        val outcome = aiConversationManager.sendMessage(conversationId, kickoff)
+        processOutcome(sessionId, outcome, channel)
+        return state[sessionId]?.phase ?: Phase.DONE
     }
 
-    private fun handleConversationTurn(
+    // ── Turn outcome dispatch ------------------------------------------------------------
+
+    private fun processOutcome(sessionId: UUID, outcome: TurnOutcome, channel: ConversationChannel) {
+        when (outcome) {
+            is TurnOutcome.TextReply -> {
+                if (outcome.text.isNotBlank()) {
+                    log.warn("Model emitted plain text instead of using a tool. Falling back to render as text.")
+                    channel.send(ChannelMessage.Text(outcome.text))
+                }
+                markConversing(sessionId)
+            }
+            is TurnOutcome.ToolCalls -> dispatchToolCalls(sessionId, outcome.calls, channel)
+        }
+    }
+
+    private fun dispatchToolCalls(
+        sessionId: UUID,
+        calls: List<RequestedToolCall>,
+        channel: ConversationChannel,
+    ) {
+        val conversationId = state[sessionId]?.conversationId
+            ?: error("No conversation id for session $sessionId")
+
+        val pending = mutableListOf<PendingInteractive>()
+        var dataLookupRan = false
+
+        planSubmissionInbox.begin()
+        try {
+            for (call in calls) {
+                val tool = toolRegistry.get(call.name)
+                if (tool == null) {
+                    log.warn("Model called unknown tool: {}", call.name)
+                    aiConversationManager.recordToolResult(
+                        conversationId, call.id, call.name,
+                        """{"error":"unknown tool"}""",
+                    )
+                    continue
+                }
+                when (tool.kind) {
+                    ToolKind.ONE_WAY_OUTPUT -> handleOneWay(conversationId, call, tool, channel)
+                    ToolKind.INTERACTIVE_INPUT -> pending.add(parseInteractive(call))
+                    ToolKind.DATA_LOOKUP -> {
+                        val result = runCatching { tool.execute(call.arguments) }
+                            .getOrElse { e ->
+                                log.error("Tool ${call.name} threw", e)
+                                """{"error":"${e.message}"}"""
+                            }
+                        aiConversationManager.recordToolResult(conversationId, call.id, call.name, result)
+                        dataLookupRan = true
+                    }
+                }
+            }
+        } finally {
+            val submissions = planSubmissionInbox.drain()
+            if (submissions.isNotEmpty()) finalizeSubmission(sessionId, submissions.last())
+        }
+
+        if (state[sessionId]?.phase == Phase.DONE) return
+
+        if (pending.isNotEmpty()) {
+            state[sessionId] = state[sessionId]!!.copy(
+                phase = Phase.AWAITING_INTERACTIVE_REPLY,
+                pendingInteractive = pending,
+            )
+            // Render the FIRST pending question now; the rest stay queued until earlier ones resolve.
+            channel.send(pending.first().message)
+            return
+        }
+
+        if (dataLookupRan) {
+            val nextOutcome = aiConversationManager.continueConversation(conversationId)
+            processOutcome(sessionId, nextOutcome, channel)
+            return
+        }
+
+        // Only one-way calls fired (or nothing actionable). Wait for next user inbound.
+        markConversing(sessionId)
+    }
+
+    private fun handleOneWay(
+        conversationId: UUID,
+        call: RequestedToolCall,
+        tool: AiTool,
+        channel: ConversationChannel,
+    ) {
+        when (call.name) {
+            SAY_TOOL_NAME -> renderSay(call, channel)
+            // submit_plan and any other one-way tools — execute() encapsulates the side effect.
+            else -> Unit
+        }
+        val ack = runCatching { tool.execute(call.arguments) }
+            .getOrElse { e ->
+                log.error("One-way tool ${call.name} threw", e)
+                """{"error":"${e.message}"}"""
+            }
+        aiConversationManager.recordToolResult(conversationId, call.id, call.name, ack)
+    }
+
+    private fun renderSay(call: RequestedToolCall, channel: ConversationChannel) {
+        val parsed = runCatching { objectMapper.readValue(call.arguments, SayArgs::class.java) }
+            .getOrElse {
+                log.warn("Failed to parse say args: {}", it.message)
+                return
+            }
+        val completions = parsed.suggestedReplies?.takeIf { channel.capabilities.supportsAutocompletions }
+            ?: emptyList()
+        channel.send(ChannelMessage.Text(parsed.text, completions))
+    }
+
+    private fun parseInteractive(call: RequestedToolCall): PendingInteractive {
+        val parsed = objectMapper.readValue(call.arguments, AskChoiceArgs::class.java)
+        val options = parsed.options.map { ChoiceOption(it.id, it.label) }
+        return PendingInteractive(
+            toolCallId = call.id,
+            toolName = call.name,
+            message = ChannelMessage.Choice(parsed.prompt, options),
+            options = options,
+        )
+    }
+
+    // ── Interactive replies --------------------------------------------------------------
+
+    private fun handleInteractiveReply(
         sessionId: UUID,
         current: OrchestratorState,
         inbound: ChannelInbound,
         channel: ConversationChannel,
     ): Phase {
-        val text = when (inbound) {
-            is ChannelInbound.Text -> inbound.text
-            is ChannelInbound.Selection -> inbound.freeText ?: inbound.optionId
+        val pending = current.pendingInteractive.toMutableList()
+        check(pending.isNotEmpty()) { "AWAITING_INTERACTIVE_REPLY with empty queue for $sessionId" }
+        val head = pending.removeAt(0)
+        val conversationId = current.conversationId!!
+
+        val (resultJson, isEscape) = bindInbound(head, inbound)
+        aiConversationManager.recordToolResult(conversationId, head.toolCallId, head.toolName, resultJson)
+
+        if (isEscape) {
+            // Drop the rest of the queue, mark each as skipped, and re-invoke immediately.
+            for (skipped in pending) {
+                aiConversationManager.recordToolResult(
+                    conversationId, skipped.toolCallId, skipped.toolName,
+                    """{"skipped":true,"reason":"user opted out earlier in the queue"}""",
+                )
+            }
+            state[sessionId] = current.copy(phase = Phase.CONVERSING, pendingInteractive = emptyList())
+            val outcome = aiConversationManager.continueConversation(conversationId)
+            processOutcome(sessionId, outcome, channel)
+            return state[sessionId]?.phase ?: Phase.DONE
         }
-        val conversationId = current.conversationId
-            ?: error("CONVERSING phase without a conversation id for session $sessionId")
-        relayAssistantTurn(sessionId, conversationId, text, channel)
+
+        if (pending.isEmpty()) {
+            state[sessionId] = current.copy(phase = Phase.CONVERSING, pendingInteractive = emptyList())
+            val outcome = aiConversationManager.continueConversation(conversationId)
+            processOutcome(sessionId, outcome, channel)
+        } else {
+            state[sessionId] = current.copy(pendingInteractive = pending)
+            channel.send(pending.first().message)
+        }
         return state[sessionId]?.phase ?: Phase.DONE
     }
 
-    private fun relayAssistantTurn(
-        sessionId: UUID,
-        conversationId: UUID,
-        userMessage: String,
-        channel: ConversationChannel,
-    ) {
-        planSubmissionInbox.begin()
-        val reply = try {
-            aiConversationManager.sendMessage(conversationId, userMessage)
-        } catch (e: Exception) {
-            planSubmissionInbox.drain()
-            throw e
+    private fun bindInbound(head: PendingInteractive, inbound: ChannelInbound): Pair<String, Boolean> {
+        val (choiceId, label, freeText) = when (inbound) {
+            is ChannelInbound.Selection -> {
+                val matched = head.options.firstOrNull { it.id == inbound.optionId }
+                Triple(inbound.optionId, matched?.label, inbound.freeText)
+            }
+            is ChannelInbound.Text -> Triple(null, null, inbound.text)
         }
-        val submissions = planSubmissionInbox.drain()
-
-        if (reply.isNotBlank()) {
-            channel.send(ChannelMessage.Text(reply))
-        }
-
-        if (submissions.isNotEmpty()) {
-            val plan = submissions.last()
-            completeWithPlan(sessionId, plan)
-        }
+        val isEscape = choiceId == ESCAPE_OPTION_ID
+        val payload = mapOf(
+            "choice_id" to choiceId,
+            "label" to label,
+            "free_text" to freeText,
+        )
+        return objectMapper.writeValueAsString(payload) to isEscape
     }
 
-    private fun completeWithPlan(sessionId: UUID, plan: AgreedPlan) {
+    // ── Helpers --------------------------------------------------------------------------
+
+    private fun finalizeSubmission(sessionId: UUID, plan: AgreedPlan) {
         val current = state[sessionId] ?: return
         planningSessionService.completeSession(
             userId = current.userId,
@@ -182,7 +316,19 @@ class WeeklyPlanningOrchestrator(
         state[sessionId] = current.copy(phase = Phase.DONE, agreedPlan = plan)
     }
 
-    enum class Phase { AWAITING_CAPACITY, CONVERSING, DONE }
+    private fun markConversing(sessionId: UUID) {
+        val current = state[sessionId] ?: return
+        if (current.phase != Phase.DONE && current.phase != Phase.AWAITING_INTERACTIVE_REPLY) {
+            state[sessionId] = current.copy(phase = Phase.CONVERSING)
+        }
+    }
+
+    private fun inboundAsText(inbound: ChannelInbound): String = when (inbound) {
+        is ChannelInbound.Text -> inbound.text
+        is ChannelInbound.Selection -> inbound.freeText ?: inbound.optionId
+    }
+
+    enum class Phase { AWAITING_CAPACITY, CONVERSING, AWAITING_INTERACTIVE_REPLY, DONE }
 
     data class OrchestratorState(
         val phase: Phase,
@@ -190,10 +336,36 @@ class WeeklyPlanningOrchestrator(
         val conversationId: UUID?,
         val capacityHint: String?,
         val agreedPlan: AgreedPlan? = null,
+        val pendingInteractive: List<PendingInteractive> = emptyList(),
+    )
+
+    data class PendingInteractive(
+        val toolCallId: String,
+        val toolName: String,
+        val message: ChannelMessage.Choice,
+        val options: List<ChoiceOption>,
+    )
+
+    private data class SayArgs(
+        val text: String,
+        @JsonProperty("suggested_replies") val suggestedReplies: List<String>? = null,
+    )
+
+    private data class AskChoiceArgs(
+        val prompt: String,
+        val options: List<ChoiceOptionArg>,
+    )
+
+    private data class ChoiceOptionArg(
+        val id: String,
+        val label: String,
     )
 
     companion object {
         const val CONVERSATION_TYPE = "weekly_planning"
+        const val SAY_TOOL_NAME = "say"
+        const val ESCAPE_OPTION_ID = "discuss"
+
         val CAPACITY_OPTIONS = listOf(
             ChoiceOption("light", "Light week"),
             ChoiceOption("normal", "Normal week"),

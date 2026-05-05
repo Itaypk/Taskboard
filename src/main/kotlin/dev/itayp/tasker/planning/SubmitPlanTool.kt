@@ -1,6 +1,7 @@
 package dev.itayp.tasker.planning
 
 import dev.itayp.tasker.ai.tool.AiTool
+import dev.itayp.tasker.ai.tool.ToolKind
 import dev.itayp.tasker.planning.dto.AgreedPlan
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -23,6 +24,8 @@ class SubmitPlanTool(
 
     override val description: String =
         "Submit the agreed weekly plan once the user has confirmed it. Call exactly once per session."
+
+    override val kind: ToolKind = ToolKind.ONE_WAY_OUTPUT
 
     override val parameters: Map<String, Any> = mapOf(
         "type" to "object",

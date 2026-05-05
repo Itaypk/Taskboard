@@ -10,6 +10,13 @@ import org.springframework.stereotype.Service
 import tools.jackson.databind.ObjectMapper
 import java.util.UUID
 
+/**
+ * Drives a single LLM exchange at a time. The manager appends transcript messages,
+ * issues one model call per [sendMessage] / [continueConversation] invocation, and
+ * returns the [TurnOutcome] for the orchestrator to act on. Tool dispatch — including
+ * the multi-step loops needed for data-lookup tools and the suspended-queue semantics
+ * of interactive tools — is the orchestrator's job.
+ */
 @Service
 class AiConversationManager(
     private val aiClient: AiClient,
@@ -34,67 +41,80 @@ class AiConversationManager(
     }
 
     /**
-     * Appends [userMessage] to the conversation, drives the tool-call loop until the model
-     * produces a final text response, and returns that response.
+     * Appends [userMessage] to the conversation, calls the model once, and returns
+     * the resulting outcome.
      */
-    fun sendMessage(conversationId: UUID, userMessage: String): String {
+    fun sendMessage(conversationId: UUID, userMessage: String): TurnOutcome {
+        conversationService.addMessage(conversationId, "user", userMessage)
+        return invokeModel(conversationId)
+    }
+
+    /**
+     * Calls the model once with the conversation's existing transcript (no new user
+     * message). Used to resume the conversation after the orchestrator has filled in
+     * `tool_result` messages — e.g. after a data-lookup, or after the interactive
+     * queue from a previous turn has fully drained.
+     */
+    fun continueConversation(conversationId: UUID): TurnOutcome = invokeModel(conversationId)
+
+    /**
+     * Records a `tool_result` message for [toolCallId] in the conversation transcript.
+     * Every tool_call_id emitted by the model must have a matching result before the
+     * next model call.
+     */
+    fun recordToolResult(conversationId: UUID, toolCallId: String, toolName: String, result: String) {
+        conversationService.addMessage(
+            conversationId = conversationId,
+            role = "tool",
+            content = result,
+            toolCallId = toolCallId,
+            toolName = toolName,
+        )
+    }
+
+    private fun invokeModel(conversationId: UUID): TurnOutcome {
         val conversation = conversationService.findById(conversationId)
             ?: error("Conversation $conversationId not found")
 
-        conversationService.addMessage(conversationId, "user", userMessage)
-
         val tools = toolRegistry.toDefinitions().takeIf { it.isNotEmpty() }
+        val messages = conversationService.getMessages(conversationId)
+            .map { it.toChatMessage(objectMapper) }
 
-        while (true) {
-            val messages = conversationService.getMessages(conversationId)
-                .map { it.toChatMessage(objectMapper) }
+        val request = ChatRequest(
+            model = conversation.model!!,
+            messages = messages,
+            tools = tools,
+            temperature = conversation.temperature,
+        )
 
-            val request = ChatRequest(
-                model = conversation.model!!,
-                messages = messages,
-                tools = tools,
-                temperature = conversation.temperature,
-            )
+        val response = aiClient.chat(request)
+        val choice = response.choices.first()
+        val usage = response.usage
 
-            val response = aiClient.chat(request)
-            val choice = response.choices.first()
-            val usage = response.usage
+        conversationService.addMessage(
+            conversationId = conversationId,
+            role = "assistant",
+            content = choice.message.content,
+            toolCallsJson = choice.message.toolCalls
+                ?.let { objectMapper.writeValueAsString(it) },
+            promptTokens = usage?.promptTokens,
+            completionTokens = usage?.completionTokens,
+        )
 
-            conversationService.addMessage(
-                conversationId = conversationId,
-                role = "assistant",
-                content = choice.message.content,
-                toolCallsJson = choice.message.toolCalls
-                    ?.let { objectMapper.writeValueAsString(it) },
-                promptTokens = usage?.promptTokens,
-                completionTokens = usage?.completionTokens,
-            )
-
-            if (choice.finishReason == "tool_calls" && !choice.message.toolCalls.isNullOrEmpty()) {
-                choice.message.toolCalls.forEach { toolCall ->
-                    val tool = toolRegistry.get(toolCall.function.name)
-                    val result = if (tool != null) {
-                        runCatching { tool.execute(toolCall.function.arguments) }
-                            .getOrElse { e ->
-                                log.error("Tool ${toolCall.function.name} threw an exception", e)
-                                """{"error": "${e.message}"}"""
-                            }
-                    } else {
-                        log.warn("Model requested unknown tool: ${toolCall.function.name}")
-                        """{"error": "Tool '${toolCall.function.name}' is not available"}"""
-                    }
-                    conversationService.addMessage(
-                        conversationId = conversationId,
-                        role = "tool",
-                        content = result,
-                        toolCallId = toolCall.id,
-                        toolName = toolCall.function.name,
-                    )
-                }
-                // Loop back to get the model's next response.
-            } else {
-                return choice.message.content ?: ""
+        val toolCalls = choice.message.toolCalls
+        return if (!toolCalls.isNullOrEmpty()) {
+            TurnOutcome.ToolCalls(toolCalls.map { call ->
+                RequestedToolCall(
+                    id = call.id,
+                    name = call.function.name,
+                    arguments = call.function.arguments,
+                )
+            })
+        } else {
+            if (choice.message.content.isNullOrBlank()) {
+                log.warn("Model returned neither content nor tool_calls for conversation {}", conversationId)
             }
+            TurnOutcome.TextReply(choice.message.content ?: "")
         }
     }
 }
