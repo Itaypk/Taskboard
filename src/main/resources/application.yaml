@@ -53,3 +53,12 @@ tasker:
     demo-login:
       limit: 5
       window-seconds: 3600
+  email:
+    enabled: ${TASKER_EMAIL_ENABLED:false}
+    from: ${TASKER_EMAIL_FROM:}
+    from-name: ${TASKER_EMAIL_FROM_NAME:Tasker}
+    smtp:
+      host: ${TASKER_EMAIL_SMTP_HOST:smtp.protonmail.ch}
+      port: ${TASKER_EMAIL_SMTP_PORT:587}
+      username: ${TASKER_EMAIL_SMTP_USERNAME:}
+      password: ${TASKER_EMAIL_SMTP_PASSWORD:}
