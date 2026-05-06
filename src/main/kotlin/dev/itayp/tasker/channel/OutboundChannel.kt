@@ -8,5 +8,5 @@ interface OutboundChannel {
     fun send(message: OutboundMessage)
 }
 
-/** Sealed base for all outbound message types. Subtypes live in channel sub-packages. */
-sealed interface OutboundMessage
+/** Marker interface for all outbound message types. Subtypes live in channel sub-packages. */
+interface OutboundMessage

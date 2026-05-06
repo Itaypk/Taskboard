@@ -1,5 +1,6 @@
 package dev.itayp.tasker.channel.email.invitation
 
+import dev.itayp.tasker.ai.prompt.PromptTemplateLoader
 import dev.itayp.tasker.channel.OutboundChannel
 import dev.itayp.tasker.channel.email.EmailMessage
 import dev.itayp.tasker.channel.email.ICalAttachment
@@ -9,7 +10,10 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
 @Component
-class CalendarInvitationComposer(private val outboundChannel: OutboundChannel) {
+class CalendarInvitationComposer(
+    private val outboundChannel: OutboundChannel,
+    private val templateLoader: PromptTemplateLoader,
+) {
 
     fun sendInvitation(to: List<String>, event: CalendarEvent) {
         val iCalContent = buildICalContent(event)
@@ -32,7 +36,7 @@ class CalendarInvitationComposer(private val outboundChannel: OutboundChannel) {
         val lines = buildList {
             add("BEGIN:VCALENDAR")
             add("VERSION:2.0")
-            add("PRODID:-//Tasker//EN")
+            add("PRODID:-//Backlog.fyi//EN")
             add("CALSCALE:GREGORIAN")
             add("METHOD:REQUEST")
             add("BEGIN:VEVENT")
@@ -62,23 +66,19 @@ class CalendarInvitationComposer(private val outboundChannel: OutboundChannel) {
     }
 
     fun buildHtmlBody(event: CalendarEvent): String {
-        val dateRange = "${formatDisplay(event.start)} – ${formatDisplay(event.end)}"
-        val location = event.location?.let { "<p><strong>Location:</strong> ${htmlEscape(it)}</p>" } ?: ""
-        val description = event.description?.let {
-            "<p><strong>Description:</strong> ${htmlEscape(it)}</p>"
-        } ?: ""
-        return """
-            <!DOCTYPE html>
-            <html>
-            <body>
-            <h2>${htmlEscape(event.title)}</h2>
-            <p><strong>When:</strong> $dateRange</p>
-            $location
-            $description
-            <p>This invitation was sent by Tasker. Open your calendar app to accept or decline.</p>
-            </body>
-            </html>
-        """.trimIndent()
+        val template = templateLoader.loadFromClasspath("emails/invitation.html")
+        return template.render(
+            mapOf(
+                "title" to htmlEscape(event.title),
+                "date_range" to "${formatDisplay(event.start)} – ${formatDisplay(event.end)}",
+                "location_section" to (event.location?.let {
+                    "<p><strong>Location:</strong> ${htmlEscape(it)}</p>"
+                } ?: ""),
+                "description_section" to (event.description?.let {
+                    "<p><strong>Description:</strong> ${htmlEscape(it)}</p>"
+                } ?: ""),
+            ),
+        )
     }
 
     private fun formatUtc(dt: ZonedDateTime): String =
