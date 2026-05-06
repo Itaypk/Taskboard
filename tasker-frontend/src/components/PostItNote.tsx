@@ -3,6 +3,7 @@ import type { Task, Category, PaperSwatchId } from '../types';
 import { PAPER_SWATCHES } from '../types';
 import { formatDeadline, isOverdue, formatDuration, rotationFromId } from '../utils';
 import { WashiTape } from './WashiTape';
+import { MarkdownRenderer } from './MarkdownRenderer';
 
 interface PostItNoteProps {
   task: Task;
@@ -84,7 +85,9 @@ export function PostItNote({
       <h3 className="note__title">{task.title}</h3>
 
       {task.description && (
-        <p className="note__desc">{task.description}</p>
+        <div className="note__desc">
+          <MarkdownRenderer content={task.description} maxLength={120} showExpandButton={false} />
+        </div>
       )}
 
       <div className="note__meta">
