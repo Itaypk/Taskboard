@@ -24,4 +24,7 @@ open class UserSettingsEntity {
 
     @Column(name = "preferred_language", nullable = false)
     var preferredLanguage: String = "en"
+
+    @Column(name = "calendar_invite_email", nullable = false)
+    var calendarInviteEmail: Boolean = false
 }

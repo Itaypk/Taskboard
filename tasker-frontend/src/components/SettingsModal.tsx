@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { UserSettings, Task, SettingsOptions } from '../types';
 import { CategoryEditor } from './CategoryEditor';
-import { createCategory, updateCategory, deleteCategory, updateUserSettings, fetchSettingsOptions, deleteAccount, exportAccount } from '../api';
+import { createCategory, updateCategory, deleteCategory, updateUserSettings, fetchSettingsOptions, deleteAccount, exportAccount, requestEmailVerification } from '../api';
 
 interface SettingsModalProps {
   settings: UserSettings;
@@ -20,11 +20,16 @@ export function SettingsModal({ settings, tasks, open, onClose, onSave, onAccoun
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [emailInput, setEmailInput] = useState(settings.email ?? '');
+  const [verificationSent, setVerificationSent] = useState(false);
+  const [sendingVerification, setSendingVerification] = useState(false);
 
   if (open && !wasOpen) {
     setWasOpen(true);
     setForm(settings);
+    setEmailInput(settings.email ?? '');
     setDeleteConfirm(false);
+    setVerificationSent(false);
   } else if (!open && wasOpen) {
     setWasOpen(false);
   }
@@ -66,6 +71,7 @@ export function SettingsModal({ settings, tasks, open, onClose, onSave, onAccoun
           contextBlock: form.contextBlock,
           timeZone: form.timeZone,
           preferredLanguage: form.preferredLanguage,
+          calendarInviteEmail: form.calendarInviteEmail,
         }),
         ...settings.categories
           .filter(c => !newIdSet.has(c.id))
@@ -97,6 +103,19 @@ export function SettingsModal({ settings, tasks, open, onClose, onSave, onAccoun
       console.error('Failed to save settings', e);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSendVerification = async () => {
+    if (!emailInput.trim()) return;
+    setSendingVerification(true);
+    try {
+      await requestEmailVerification(emailInput.trim());
+      setVerificationSent(true);
+    } catch (e) {
+      console.error('Failed to send verification email', e);
+    } finally {
+      setSendingVerification(false);
     }
   };
 
@@ -142,6 +161,64 @@ export function SettingsModal({ settings, tasks, open, onClose, onSave, onAccoun
               onChange={e => setForm(f => ({ ...f, displayName: e.target.value }))}
               placeholder="Your name"
             />
+          </div>
+
+          <div className="field">
+            <label className="field__label" htmlFor="settings-email">Email address</label>
+            {settings.emailVerified && settings.email && settings.email === emailInput.trim() ? (
+              <p className="settings-hint settings-hint--verified">
+                {settings.email} — verified
+              </p>
+            ) : (
+              <p className="settings-hint">
+                Used to send calendar invites for planned tasks.
+                {settings.email && !settings.emailVerified && ' Not yet verified.'}
+              </p>
+            )}
+            <div className="settings-email-row">
+              <input
+                id="settings-email"
+                className="field__input"
+                type="email"
+                value={emailInput}
+                onChange={e => { setEmailInput(e.target.value); setVerificationSent(false); }}
+                placeholder="you@example.com"
+                autoComplete="email"
+              />
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={handleSendVerification}
+                disabled={
+                  sendingVerification ||
+                  !emailInput.trim() ||
+                  (settings.emailVerified && settings.email === emailInput.trim())
+                }
+              >
+                {sendingVerification ? 'Sending…' : verificationSent ? 'Sent!' : 'Send verification'}
+              </button>
+            </div>
+            {verificationSent && (
+              <p className="settings-hint">Check your inbox and click the link to verify.</p>
+            )}
+          </div>
+
+          <div className="field">
+            <label className="field__label">Notifications</label>
+            <label className="settings-toggle">
+              <input
+                type="checkbox"
+                checked={form.calendarInviteEmail}
+                onChange={e => setForm(f => ({ ...f, calendarInviteEmail: e.target.checked }))}
+                disabled={!settings.emailVerified}
+              />
+              <span>
+                Email calendar invites for tasks planned to the week
+                {!settings.emailVerified && (
+                  <span className="settings-hint"> (verify your email first)</span>
+                )}
+              </span>
+            </label>
           </div>
 
           <div className="field">

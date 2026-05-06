@@ -69,6 +69,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState<string | null>(null);
   const [draggingId, setDraggingId]   = useState<string | null>(null);
+  const [emailVerifiedBanner, setEmailVerifiedBanner] = useState(false);
 
   // Mouse: start drag after 5px to keep clicks alive.
   // Touch: long-press (~200ms) so tap-to-open and finger-scroll still work.
@@ -76,6 +77,15 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
     useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
   );
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('emailVerified') === 'true') {
+      setEmailVerifiedBanner(true);
+      window.history.replaceState({}, '', window.location.pathname);
+      setTimeout(() => setEmailVerifiedBanner(false), 5000);
+    }
+  }, []);
 
   useEffect(() => {
     Promise.all([fetchTasks(), fetchCategories(), fetchUserSettings(), fetchTags()])
@@ -294,6 +304,12 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
       </main>
 
       <img className="pineapple-pet" src={pineappleUrl} alt="" aria-hidden="true" />
+
+      {emailVerifiedBanner && (
+        <div className="email-verified-banner" role="status">
+          Email verified successfully
+        </div>
+      )}
 
       <TaskDrawer
         task={selectedTask}

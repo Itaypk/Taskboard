@@ -71,5 +71,8 @@ export interface UserSettings {
   contextBlock: string;
   timeZone: string;
   preferredLanguage: string;
+  calendarInviteEmail: boolean;
+  email: string;
+  emailVerified: boolean;
   categories: Category[];
 }

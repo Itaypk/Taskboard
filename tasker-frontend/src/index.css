@@ -1323,3 +1323,66 @@ input[type="number"] { -moz-appearance: textfield; }
   text-underline-offset: 2px;
 }
 .markdown-content a:hover { opacity: 0.75; }
+
+/* ─── Email settings ───────────────────────────────────── */
+.settings-hint--verified {
+  color: #1a7a4a;
+  font-style: normal;
+}
+
+.settings-email-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.settings-email-row .field__input {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+.settings-toggle input[type="checkbox"] {
+  margin-top: 2px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.settings-toggle input[type="checkbox"]:disabled {
+  cursor: not-allowed;
+}
+
+.settings-toggle input[type="checkbox"]:disabled + span {
+  color: var(--ink-soft);
+}
+
+/* ─── Email verified banner ────────────────────────────── */
+.email-verified-banner {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1a7a4a;
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 13.5px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+  z-index: 9999;
+  white-space: nowrap;
+  animation: banner-in 0.2s ease;
+}
+
+@keyframes banner-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}

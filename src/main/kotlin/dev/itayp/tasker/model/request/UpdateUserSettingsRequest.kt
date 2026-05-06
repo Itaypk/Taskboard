@@ -5,4 +5,5 @@ data class UpdateUserSettingsRequest(
     val contextBlock: String?,
     val timeZone: String,
     val preferredLanguage: String,
+    val calendarInviteEmail: Boolean = false,
 )
