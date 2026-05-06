@@ -10,6 +10,9 @@ interface AiTool {
      */
     val parameters: Map<String, Any>
 
+    /** How the orchestrator should dispatch this tool. See [ToolKind]. */
+    val kind: ToolKind get() = ToolKind.DATA_LOOKUP
+
     /** Receives the arguments JSON string from the model; returns the result as a string. */
     fun execute(arguments: String): String
 }
