@@ -105,7 +105,7 @@ class SecurityConfiguration(
             csrf {
                 csrfTokenRepository = CookieCsrfTokenRepository.withHttpOnlyFalse()
                 csrfTokenRequestHandler = SpaCsrfTokenRequestHandler()
-                ignoringRequestMatchers("/api/auth/telegram", "/api/auth/dev-login", "/api/auth/demo-login")
+                ignoringRequestMatchers("/api/auth/telegram", "/api/auth/dev-login", "/api/auth/demo-login", "/api/dev/**")
             }
             sessionManagement {
                 sessionFixation { newSession() }
