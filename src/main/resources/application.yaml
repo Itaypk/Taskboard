@@ -37,6 +37,8 @@ management:
         enabled: true
 
 tasker:
+  app:
+    base-url: ${TASKER_APP_BASE_URL:https://backlog.fyi}
   ai:
     api-key: ${TASKER_AI_API_KEY:}
     base-url: ${TASKER_AI_BASE_URL:https://openrouter.ai/api/v1}

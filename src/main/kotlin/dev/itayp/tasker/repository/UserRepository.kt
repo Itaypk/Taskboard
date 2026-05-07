@@ -14,4 +14,6 @@ interface UserRepository : JpaRepository<UserEntity, UUID> {
 
     @Query("SELECT u FROM UserEntity u WHERE u.isDemo = true AND u.demoExpiresAt < :now")
     fun findExpiredDemoUsers(now: Instant): List<UserEntity>
+
+    fun findByEmailVerificationToken(token: String): UserEntity?
 }

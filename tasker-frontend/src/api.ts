@@ -81,7 +81,7 @@ export const fetchTags = (): Promise<Tag[]> =>
 
 // --- User Settings ---
 
-type UserSettingsPayload = Pick<UserSettings, 'displayName' | 'contextBlock' | 'timeZone' | 'preferredLanguage'>;
+type UserSettingsPayload = Pick<UserSettings, 'displayName' | 'contextBlock' | 'timeZone' | 'preferredLanguage' | 'calendarInviteEmail'>;
 
 export const fetchUserSettings = (): Promise<UserSettingsPayload> =>
     apiRequest('/settings');
@@ -91,6 +91,9 @@ export const updateUserSettings = (payload: UserSettingsPayload): Promise<UserSe
 
 export const fetchSettingsOptions = (): Promise<SettingsOptions> =>
     apiRequest('/settings/options');
+
+export const requestEmailVerification = (email: string): Promise<void> =>
+    apiRequest('/settings/email', { method: 'POST', ...jsonBody({ email }) });
 
 // --- Account ---
 

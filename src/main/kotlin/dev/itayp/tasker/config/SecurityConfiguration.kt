@@ -86,6 +86,7 @@ class SecurityConfiguration(
                 authorize("/api/auth/dev-login", permitAll)
                 authorize("/api/auth/demo-login", permitAll)
                 authorize("/api/auth/logout", permitAll)
+                authorize("/api/v1/settings/email/verify", permitAll)
                 authorize("/api/**", authenticated)
                 authorize("/actuator/health", permitAll)
                 authorize("/actuator/health/**", permitAll)

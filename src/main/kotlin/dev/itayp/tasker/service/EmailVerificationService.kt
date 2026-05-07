@@ -1,0 +1,71 @@
+package dev.itayp.tasker.service
+
+import dev.itayp.tasker.channel.OutboundChannel
+import dev.itayp.tasker.channel.email.EmailMessage
+import dev.itayp.tasker.config.AppProperties
+import dev.itayp.tasker.repository.UserRepository
+import org.slf4j.LoggerFactory
+import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.stereotype.Service
+import java.time.Clock
+import java.time.Duration
+import java.util.UUID
+
+@Service
+@EnableConfigurationProperties(AppProperties::class)
+class EmailVerificationService(
+    private val userRepository: UserRepository,
+    private val outboundChannel: OutboundChannel,
+    private val appProperties: AppProperties,
+    private val clock: Clock,
+) {
+
+    private val log = LoggerFactory.getLogger(EmailVerificationService::class.java)
+
+    fun requestVerification(userId: UUID, email: String) {
+        val normalised = email.trim().lowercase()
+        val user = userRepository.findById(userId).orElseThrow { NoSuchElementException("User not found") }
+        val token = UUID.randomUUID().toString().replace("-", "")
+        user.email = normalised
+        user.emailVerifiedAt = null
+        user.emailVerificationToken = token
+        user.emailVerificationTokenExpiresAt = clock.instant().plus(Duration.ofHours(24))
+        userRepository.save(user)
+
+        val verifyUrl = "${appProperties.baseUrl}/api/v1/settings/email/verify?token=$token"
+        val htmlBody = loadTemplate("emails/verify-email.html")
+            .replace("{{verify_url}}", verifyUrl)
+            .replace("{{email}}", normalised)
+
+        outboundChannel.send(
+            EmailMessage(
+                to = listOf(normalised),
+                subject = "Verify your email – Backlog.fyi",
+                htmlBody = htmlBody,
+                textBody = "Click this link to verify your email address for Backlog.fyi:\n\n$verifyUrl\n\nThis link expires in 24 hours.",
+            )
+        )
+
+        log.info("Email verification requested for userId={} email={}", userId, normalised)
+    }
+
+    fun confirmVerification(token: String): Boolean {
+        val user = userRepository.findByEmailVerificationToken(token) ?: return false
+        val expiry = user.emailVerificationTokenExpiresAt ?: return false
+        if (clock.instant().isAfter(expiry)) return false
+
+        user.emailVerifiedAt = clock.instant()
+        user.emailVerificationToken = null
+        user.emailVerificationTokenExpiresAt = null
+        userRepository.save(user)
+
+        log.info("Email verified for userId={}", user.id)
+        return true
+    }
+
+    private fun loadTemplate(path: String): String =
+        javaClass.classLoader.getResourceAsStream(path)
+            ?.bufferedReader()
+            ?.readText()
+            ?: throw IllegalStateException("Email template not found: $path")
+}

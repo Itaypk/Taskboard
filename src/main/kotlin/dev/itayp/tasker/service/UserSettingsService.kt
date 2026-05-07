@@ -26,6 +26,7 @@ class UserSettingsService(private val settingsRepository: UserSettingsRepository
         entity.contextBlock = request.contextBlock
         entity.timeZone = request.timeZone
         entity.preferredLanguage = request.preferredLanguage
+        entity.calendarInviteEmail = request.calendarInviteEmail
         return settingsRepository.save(entity)
     }
 

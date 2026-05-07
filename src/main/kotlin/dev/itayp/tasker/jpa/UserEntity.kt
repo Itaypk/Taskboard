@@ -28,6 +28,15 @@ open class UserEntity {
     @Column
     var email: String? = null
 
+    @Column(name = "email_verified_at")
+    var emailVerifiedAt: Instant? = null
+
+    @Column(name = "email_verification_token", length = 64)
+    var emailVerificationToken: String? = null
+
+    @Column(name = "email_verification_token_expires_at")
+    var emailVerificationTokenExpiresAt: Instant? = null
+
     @Column(name = "is_demo", nullable = false)
     var isDemo: Boolean = false
 
