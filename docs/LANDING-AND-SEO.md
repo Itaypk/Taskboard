@@ -10,20 +10,17 @@ baseline we're improving from.
 
 ## Newcomer experience
 
-- [ ] **Hero copy** — keep current tagline, but add a one-paragraph elaboration so visitors know
-      what the product actually does before deciding to log in.
-- [ ] **"How it works"** — three steps pulled from `docs/SPEC.md`: (1) capture tasks in the
-      backlog, (2) chat with the assistant on Telegram, (3) it reads Google Calendar and writes
-      time blocks back.
+- [x] **Hero copy** — tagline kept, plus a one-paragraph elaboration on the live login page.
+- [x] **"How it works"** — three steps surfaced on the login page.
 - [ ] **Screenshot of the post-it board** — biggest single legibility win for both humans and
       link-preview bots. Doubles as the OG image.
 - [ ] **"Why Telegram?"** — one-liner; new visitors will be confused that login goes through a
       chat app.
-- [ ] **Promote the demo button** — currently buried under the Telegram widget. It's the best
-      first-touch for a curious visitor.
-- [ ] **Honest status note** — e.g. "Backlog is live; weekly planning conversation is in
-      progress." Sets expectations and signals it's a hobby project.
-- [ ] **Footer**: GitHub link, contact / about line, ToS, Privacy.
+- [x] **Promote the demo button** — now the primary CTA on the login page, above the Telegram
+      widget.
+- [x] **Honest status note** — surfaced inline on the login page.
+- [ ] **Footer**: GitHub link, contact / about line, ToS, Privacy. _(ToS/Privacy done; GitHub +
+      contact still missing.)_
 - [ ] **FAQ** _(optional)_: pricing (free, hobby), data handling, why Google Calendar, account
       deletion.
 
@@ -41,10 +38,10 @@ Already in place: `<title>`, `<meta description>`, OG + Twitter card tags, `lang
       contains hero, what-it-does, how-it-works, and status. Invisible to browsers (the SPA
       replaces `#root` above it), visible to crawlers and parsers that don't render CSS.
 - [ ] **Apple touch icon + 512×512 PNG** for share sheets on iOS/Android.
-- [ ] **Make ToS and Privacy real routes** (`/terms`, `/privacy`) instead of modal-only — they're
-      crawlable, linkable, and many directories/embeds expect URLs. Modals can stay as the
-      in-app entry point.
-- [ ] **Update `sitemap.xml`** to include `/terms` and `/privacy` once they're real routes.
+- [x] **Make ToS and Privacy real routes** (`/terms`, `/privacy`) — added `react-router-dom`,
+      `TermsPage` / `PrivacyPage` components, and `SpaForwardController` so direct loads of those
+      paths return `index.html`. Modal removed in favour of route navigation.
+- [x] **Update `sitemap.xml`** to include `/terms` and `/privacy`.
 
 ## Accessibility & polish
 
@@ -63,10 +60,10 @@ Already in place: `<title>`, `<meta description>`, OG + Twitter card tags, `lang
 
 The cheapest, highest-leverage batch first:
 
-1. Sharpen `<title>` and `<meta description>`; add canonical.
-2. Render marketing copy (hero + how-it-works + screenshot placeholder) as static HTML in
-   `index.html` so crawlers see it.
+1. ~~Sharpen `<title>` and `<meta description>`; add canonical.~~ ✅
+2. ~~Render marketing copy (hero + how-it-works + screenshot placeholder) as static HTML in
+   `index.html` so crawlers see it.~~ ✅
 3. Add a real screenshot and wire it as `og:image` / `twitter:image`.
-4. Promote the demo button and add the status note in the live login card.
-5. Promote ToS/Privacy to real routes; update sitemap.
-6. JSON-LD, `llms.txt`, `/about`.
+4. ~~Promote the demo button and add the status note in the live login card.~~ ✅
+5. ~~Promote ToS/Privacy to real routes; update sitemap.~~ ✅
+6. JSON-LD ✅, `llms.txt`, `/about`.

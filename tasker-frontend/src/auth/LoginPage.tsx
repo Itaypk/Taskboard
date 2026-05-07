@@ -1,9 +1,7 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { demoLogin, devLogin, telegramLogin, type TelegramWidgetPayload } from './authApi';
-import MarkdownRenderer from '../components/MarkdownRenderer';
-import tosContent from './tos.md?raw';
-import ppContent from './privacy-policy.md?raw';
 
 const BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME as string | undefined;
 const TELEGRAM_CALLBACK = 'onTaskerTelegramAuth';
@@ -14,20 +12,11 @@ declare global {
     }
 }
 
-type PolicyKey = 'tos' | 'pp';
-
-const POLICY_CONTENT: Record<PolicyKey, { title: string; body: string }> = {
-    tos: { title: 'Terms of Service', body: tosContent },
-    pp:  { title: 'Privacy Policy',   body: ppContent  },
-};
-
 export function LoginPage() {
     const { setUser } = useAuth();
     const widgetContainer = useRef<HTMLDivElement | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
-    const [policy, setPolicy] = useState<PolicyKey | null>(null);
-    const closePolicy = useCallback(() => setPolicy(null), []);
 
     useEffect(() => {
         window[TELEGRAM_CALLBACK] = async (payload) => {
@@ -47,12 +36,6 @@ export function LoginPage() {
             window[TELEGRAM_CALLBACK] = undefined;
         };
     }, [setUser]);
-
-    useEffect(() => {
-        const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') closePolicy(); };
-        if (policy) window.addEventListener('keydown', handler);
-        return () => window.removeEventListener('keydown', handler);
-    }, [policy, closePolicy]);
 
     useEffect(() => {
         if (!BOT_USERNAME || !widgetContainer.current) return;
@@ -98,83 +81,83 @@ export function LoginPage() {
         }
     };
 
-    const openPolicy = policy ? POLICY_CONTENT[policy] : null;
-
     return (
-        <>
-            <div className="board-wrap">
-                <div className="board board--empty" style={{ flexDirection: 'column', gap: 24 }}>
-                    <div style={{ textAlign: 'center' }}>
-                        <h1 style={{ margin: 0, fontSize: 32 }}>Backlog.fyi</h1>
-                        <p style={{ marginTop: 8, color: '#555' }}>
-                            Pin up your tasks. Let the assistant schedule your week.
-                        </p>
-                    </div>
-                    {BOT_USERNAME ? (
-                        <div ref={widgetContainer} />
-                    ) : (
-                        <p style={{ color: '#a86000', maxWidth: 400, textAlign: 'center' }}>
-                            Telegram bot username not configured (set <code>VITE_TELEGRAM_BOT_USERNAME</code>).
-                        </p>
-                    )}
+        <main className="board-wrap">
+            <div className="landing">
+                <header className="landing__hero">
+                    <h1 className="landing__title">Backlog.fyi</h1>
+                    <p className="landing__tagline">
+                        Pin up your tasks. Let the assistant schedule your week.
+                    </p>
+                </header>
+
+                <section className="landing__pitch">
+                    <p>
+                        Backlog.fyi is a hobby AI weekly planner. Capture tasks on a digital cork
+                        board as you think of them. Each week, an assistant on Telegram reads your
+                        Google Calendar, asks what you want to get done, and writes the agreed
+                        tasks back as time blocks.
+                    </p>
+                </section>
+
+                <section className="landing__how" aria-labelledby="how-it-works">
+                    <h2 id="how-it-works" className="landing__section-title">How it works</h2>
+                    <ol className="landing__steps">
+                        <li><strong>Pin tasks</strong> to the board whenever they come up.</li>
+                        <li><strong>Plan on Telegram</strong> in a short weekly chat with the assistant.</li>
+                        <li><strong>Calendar fills itself</strong> — agreed tasks become time blocks on Google Calendar.</li>
+                    </ol>
+                </section>
+
+                <section className="landing__cta" aria-labelledby="get-started">
+                    <h2 id="get-started" className="landing__section-title">Try it</h2>
                     <button
                         type="button"
                         onClick={handleDemoLogin}
                         disabled={busy}
-                        style={{
-                            padding: '10px 20px',
-                            fontSize: 14,
-                            border: '1px dashed #aaa',
-                            background: '#f5f5f5',
-                            cursor: busy ? 'wait' : 'pointer',
-                            borderRadius: 6,
-                            color: '#555',
-                        }}
+                        className="landing__demo-btn"
                     >
-                        Try demo (no account needed)
+                        Try the demo — no account needed
                     </button>
+                    <p className="landing__demo-hint">
+                        Loads a sandboxed account so you can play with the board.
+                    </p>
+
+                    <div className="landing__divider"><span>or sign in with Telegram</span></div>
+
+                    {BOT_USERNAME ? (
+                        <div ref={widgetContainer} className="landing__telegram" />
+                    ) : (
+                        <p className="landing__warning">
+                            Telegram bot username not configured (set <code>VITE_TELEGRAM_BOT_USERNAME</code>).
+                        </p>
+                    )}
+
                     {import.meta.env.DEV && (
                         <button
                             type="button"
                             onClick={handleDevLogin}
                             disabled={busy}
-                            style={{
-                                padding: '10px 20px',
-                                fontSize: 14,
-                                border: '1px dashed #888',
-                                background: '#fafafa',
-                                cursor: busy ? 'wait' : 'pointer',
-                                borderRadius: 6,
-                            }}
+                            className="landing__dev-btn"
                         >
                             Dev login (skip Telegram)
                         </button>
                     )}
-                    {error && <p style={{ color: '#c83218' }}>{error}</p>}
-                    <p style={{ margin: 0, fontSize: 12, color: '#888', textAlign: 'center' }}>
-                        By continuing you agree to our{' '}
-                        <button type="button" className="link-btn" onClick={() => setPolicy('tos')}>Terms of Service</button>
-                        {' '}and{' '}
-                        <button type="button" className="link-btn" onClick={() => setPolicy('pp')}>Privacy Policy</button>.
-                    </p>
-                </div>
-            </div>
 
-            {/* Policy modal */}
-            <div
-                className={`modal-overlay${policy ? ' modal-overlay--open' : ''}`}
-                onClick={(e) => { if (e.target === e.currentTarget) closePolicy(); }}
-            >
-                <div className="modal" role="dialog" aria-modal="true" aria-labelledby="policy-title">
-                    <div className="modal__header">
-                        <span id="policy-title" className="modal__title">{openPolicy?.title}</span>
-                        <button type="button" className="drawer__close" onClick={closePolicy} aria-label="Close">✕</button>
-                    </div>
-                    <div className="modal__body">
-                        <MarkdownRenderer content={openPolicy?.body ?? ''} />
-                    </div>
-                </div>
+                    {error && <p className="landing__error">{error}</p>}
+                </section>
+
+                <p className="landing__status" role="note">
+                    <strong>Status:</strong> the backlog is live; the Telegram weekly planning
+                    conversation and Google Calendar integration are in active development.
+                </p>
+
+                <footer className="landing__footer">
+                    By continuing you agree to our{' '}
+                    <Link to="/terms">Terms of Service</Link>{' '}and{' '}
+                    <Link to="/privacy">Privacy Policy</Link>.
+                </footer>
             </div>
-        </>
+        </main>
     );
 }
