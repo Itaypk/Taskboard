@@ -45,3 +45,4 @@ out/
 /tasker-frontend/.env.production
 *.log
 
+/.env

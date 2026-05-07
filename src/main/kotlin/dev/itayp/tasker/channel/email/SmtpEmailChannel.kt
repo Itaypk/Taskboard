@@ -36,10 +36,9 @@ class SmtpEmailChannel(
             mixed.addBodyPart(htmlPart)
 
             val icalPart = MimeBodyPart().apply {
-                setContent(
-                    message.iCalAttachment.content,
-                    "text/calendar; method=${message.iCalAttachment.method}; charset=UTF-8",
-                )
+                val icalContentType = "text/calendar; method=${message.iCalAttachment.method}; charset=UTF-8"
+                setContent(message.iCalAttachment.content, icalContentType)
+                setHeader("Content-Type", icalContentType)
                 setHeader("Content-Transfer-Encoding", "7bit")
                 fileName = message.iCalAttachment.filename
             }
@@ -47,11 +46,15 @@ class SmtpEmailChannel(
 
             mime.setContent(mixed)
         } else {
-            val helper = MimeMessageHelper(mime, false, "UTF-8")
+            val helper = MimeMessageHelper(mime, true, "UTF-8")
             helper.setFrom(properties.from, properties.fromName)
             helper.setTo(message.to.toTypedArray())
             helper.setSubject(message.subject)
-            helper.setText(message.textBody ?: "", message.htmlBody)
+            if (message.textBody != null) {
+                helper.setText(message.textBody, message.htmlBody)
+            } else {
+                helper.setText(message.htmlBody, true)
+            }
         }
 
         mailSender.send(mime)

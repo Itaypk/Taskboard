@@ -13,6 +13,7 @@ import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.mail.javamail.JavaMailSender
 import jakarta.mail.Session
+import java.util.Properties
 
 @ExtendWith(org.mockito.junit.jupiter.MockitoExtension::class)
 class SmtpEmailChannelTest {
@@ -32,7 +33,7 @@ class SmtpEmailChannelTest {
     private val channel = SmtpEmailChannel(mailSender, properties)
 
     private fun newMimeMessage(): MimeMessage {
-        val session = Session.getInstance(java.util.Properties())
+        val session = Session.getInstance(Properties())
         return MimeMessage(session)
     }
 
