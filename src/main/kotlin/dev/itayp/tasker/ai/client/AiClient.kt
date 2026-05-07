@@ -14,10 +14,11 @@ class AiClient(properties: AiProperties) {
 
     private val client = RestClient.builder()
         .baseUrl(properties.baseUrl)
-        .defaultHeader("Authorization", "Bearer ${properties.apiKey}")
+        .defaultHeader("Authorization", "Bearer ${properties.apiKey.trim()}")
         .build()
 
     fun chat(request: ChatRequest): ChatResponse = withRetry {
+        log.debug("Sending chat request to AI API: model=${request.model}, messages=${request.messages.size}")
         client.post()
             .uri("/chat/completions")
             .contentType(MediaType.APPLICATION_JSON)

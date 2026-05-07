@@ -37,7 +37,7 @@ class WeeklyPlanningOrchestrator(
     private val planSubmissionInbox: PlanSubmissionInbox,
     private val toolRegistry: ToolRegistry,
     private val objectMapper: ObjectMapper,
-    @Value("\${tasker.ai.weekly-planning-model:anthropic/claude-sonnet-4.5}")
+    @Value("\${tasker.ai.weekly-planning-model}")
     private val model: String,
 ) {
     private val log = LoggerFactory.getLogger(WeeklyPlanningOrchestrator::class.java)

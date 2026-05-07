@@ -85,6 +85,8 @@ class AiConversationManager(
             messages = messages,
             tools = tools,
             temperature = conversation.temperature,
+            // TODO: Configure
+            maxTokens = 4096,
         )
 
         val response = aiClient.chat(request)
