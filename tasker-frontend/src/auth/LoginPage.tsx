@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { demoLogin, devLogin, telegramLogin, type TelegramWidgetPayload } from './authApi';
+import styles from './LoginPage.module.css';
 
 const BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME as string | undefined;
 const TELEGRAM_CALLBACK = 'onTaskerTelegramAuth';
@@ -83,15 +84,15 @@ export function LoginPage() {
 
     return (
         <main className="board-wrap">
-            <div className="landing">
-                <header className="landing__hero">
-                    <h1 className="landing__title">Backlog.fyi</h1>
-                    <p className="landing__tagline">
+            <div className={styles.landing}>
+                <header className={styles.hero}>
+                    <h1 className={styles.title}>Backlog.fyi</h1>
+                    <p className={styles.tagline}>
                         Pin up your tasks. Let the assistant schedule your week.
                     </p>
                 </header>
 
-                <section className="landing__pitch">
+                <section className={styles.pitch}>
                     <p>
                         Backlog.fyi is a hobby AI weekly planner. Capture tasks on a digital cork
                         board as you think of them. Each week, an assistant on Telegram reads your
@@ -100,35 +101,35 @@ export function LoginPage() {
                     </p>
                 </section>
 
-                <section className="landing__how" aria-labelledby="how-it-works">
-                    <h2 id="how-it-works" className="landing__section-title">How it works</h2>
-                    <ol className="landing__steps">
+                <section aria-labelledby="how-it-works">
+                    <h2 id="how-it-works" className={styles.sectionTitle}>How it works</h2>
+                    <ol className={styles.steps}>
                         <li><strong>Pin tasks</strong> to the board whenever they come up.</li>
                         <li><strong>Plan on Telegram</strong> in a short weekly chat with the assistant.</li>
                         <li><strong>Calendar fills itself</strong> — agreed tasks become time blocks on Google Calendar.</li>
                     </ol>
                 </section>
 
-                <section className="landing__cta" aria-labelledby="get-started">
-                    <h2 id="get-started" className="landing__section-title">Try it</h2>
+                <section className={styles.cta} aria-labelledby="get-started">
+                    <h2 id="get-started" className={styles.sectionTitle}>Try it</h2>
                     <button
                         type="button"
                         onClick={handleDemoLogin}
                         disabled={busy}
-                        className="landing__demo-btn"
+                        className={styles.demoBtn}
                     >
                         Try the demo — no account needed
                     </button>
-                    <p className="landing__demo-hint">
+                    <p className={styles.demoHint}>
                         Loads a sandboxed account so you can play with the board.
                     </p>
 
-                    <div className="landing__divider"><span>or sign in with Telegram</span></div>
+                    <div className={styles.divider}><span>or sign in with Telegram</span></div>
 
                     {BOT_USERNAME ? (
-                        <div ref={widgetContainer} className="landing__telegram" />
+                        <div ref={widgetContainer} className={styles.telegram} />
                     ) : (
-                        <p className="landing__warning">
+                        <p className={styles.warning}>
                             Telegram bot username not configured (set <code>VITE_TELEGRAM_BOT_USERNAME</code>).
                         </p>
                     )}
@@ -138,21 +139,21 @@ export function LoginPage() {
                             type="button"
                             onClick={handleDevLogin}
                             disabled={busy}
-                            className="landing__dev-btn"
+                            className={styles.devBtn}
                         >
                             Dev login (skip Telegram)
                         </button>
                     )}
 
-                    {error && <p className="landing__error">{error}</p>}
+                    {error && <p className={styles.error}>{error}</p>}
                 </section>
 
-                <p className="landing__status" role="note">
+                <p className={styles.status} role="note">
                     <strong>Status:</strong> the backlog is live; the Telegram weekly planning
                     conversation and Google Calendar integration are in active development.
                 </p>
 
-                <footer className="landing__footer">
+                <footer className={styles.footer}>
                     By continuing you agree to our{' '}
                     <Link to="/terms">Terms of Service</Link>{' '}and{' '}
                     <Link to="/privacy">Privacy Policy</Link>.

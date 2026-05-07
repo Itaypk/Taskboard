@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import tosContent from './tos.md?raw';
 import ppContent from './privacy-policy.md?raw';
+import styles from './PolicyPage.module.css';
 
 interface PolicyPageProps {
     title: string;
@@ -18,8 +19,8 @@ function PolicyPage({ title, body }: PolicyPageProps) {
 
     return (
         <main className="board-wrap">
-            <article className="policy-page">
-                <header className="policy-page__header">
+            <article className={styles.page}>
+                <header className={styles.header}>
                     <h1>{title}</h1>
                     <Link to="/" className="link-btn">← Back to Backlog.fyi</Link>
                 </header>
