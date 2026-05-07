@@ -10,6 +10,7 @@ data class ChatRequest(
     val messages: List<ChatMessage>,
     val tools: List<ToolDefinition>? = null,
     val temperature: Double? = null,
+    @JsonProperty("max_tokens") val maxTokens: Int? = null,
     @JsonProperty("tool_choice") val toolChoice: String? = null,
 )
 

@@ -37,6 +37,12 @@ Early but functional:
 ./gradlew bootRun
 ```
 
+With environment variables:
+
+```bash
+export $(cat .env | xargs) && ./gradlew build
+```
+
 That's the whole flow in dev:
 
 1. Gradle runs `npm ci` and `npm run build` for the frontend.

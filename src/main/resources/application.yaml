@@ -40,6 +40,7 @@ tasker:
   ai:
     api-key: ${TASKER_AI_API_KEY:}
     base-url: ${TASKER_AI_BASE_URL:https://openrouter.ai/api/v1}
+    weekly-planning-model: ${TASKER_AI_PLANNING_MODEL:openai/gpt-oss-20b:free}
   telegram:
     bot-token: ${TASKER_TELEGRAM_BOT_TOKEN:}
     bot-username: ${TASKER_TELEGRAM_BOT_USERNAME:}
@@ -53,3 +54,12 @@ tasker:
     demo-login:
       limit: 5
       window-seconds: 3600
+  email:
+    enabled: ${TASKER_EMAIL_ENABLED:false}
+    from: ${TASKER_EMAIL_FROM:}
+    from-name: ${TASKER_EMAIL_FROM_NAME:Tasker}
+    smtp:
+      host: ${TASKER_EMAIL_SMTP_HOST:smtp.protonmail.ch}
+      port: ${TASKER_EMAIL_SMTP_PORT:587}
+      username: ${TASKER_EMAIL_SMTP_USERNAME:}
+      password: ${TASKER_EMAIL_SMTP_PASSWORD:}

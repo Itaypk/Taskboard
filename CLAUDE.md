@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this project is
 
-Tasker is an AI-powered weekly planner: a task backlog plus a Telegram-driven weekly planning conversation that reads Google Calendar and writes agreed tasks back as time blocks. The product vision (core loop, task fields, integrations, non-goals) lives in `docs/SPEC.md` — read it before making design decisions. `docs/SPEC - Deprecated.md` is superseded; don't use it.
+**Backlog.fyi** is an AI-powered weekly planner: a task backlog plus a Telegram-driven weekly planning conversation that reads Google Calendar and writes agreed tasks back as time blocks. The internal codebase package is `dev.itayp.tasker` (historical name); the public-facing product name is **Backlog.fyi** — use that name in any user-visible copy (emails, UI strings, etc.). The product vision (core loop, task fields, integrations, non-goals) lives in `docs/SPEC.md` — read it before making design decisions. `docs/SPEC - Deprecated.md` is superseded; don't use it.
 
 Current state: the backlog CRUD (tasks, categories, tags) is implemented end-to-end, with Telegram Login Widget + dev-login session auth wired up. The weekly planning conversation, Google Calendar integration, and LLM-driven planner are not yet built.
 
