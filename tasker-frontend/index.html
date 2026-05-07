@@ -4,20 +4,34 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Backlog.fyi</title>
-    <meta name="description" content="Backlog.fyi — pin up your tasks and let the AI assistant schedule them into your week." />
+    <title>Backlog.fyi — AI weekly planner for Telegram &amp; Google Calendar</title>
+    <meta name="description" content="Backlog.fyi is a hobby AI weekly planner. Pin tasks to a digital cork board, then plan your week in a Telegram chat that reads your Google Calendar and writes back time blocks." />
+    <link rel="canonical" href="https://backlog.fyi/" />
 
     <!-- Open Graph -->
     <meta property="og:type"        content="website" />
     <meta property="og:url"         content="https://backlog.fyi/" />
     <meta property="og:site_name"   content="Backlog.fyi" />
-    <meta property="og:title"       content="Backlog.fyi" />
-    <meta property="og:description" content="Pin up your tasks and let the AI assistant schedule them into your week." />
+    <meta property="og:title"       content="Backlog.fyi — AI weekly planner for Telegram &amp; Google Calendar" />
+    <meta property="og:description" content="Pin tasks to a digital cork board, then plan your week in a Telegram chat that schedules them onto your Google Calendar." />
 
     <!-- Twitter / X card -->
     <meta name="twitter:card"        content="summary" />
-    <meta name="twitter:title"       content="Backlog.fyi" />
-    <meta name="twitter:description" content="Pin up your tasks and let the AI assistant schedule them into your week." />
+    <meta name="twitter:title"       content="Backlog.fyi — AI weekly planner for Telegram &amp; Google Calendar" />
+    <meta name="twitter:description" content="Pin tasks to a digital cork board, then plan your week in a Telegram chat that schedules them onto your Google Calendar." />
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Backlog.fyi",
+      "url": "https://backlog.fyi/",
+      "description": "A hobby AI weekly planner: a task backlog plus a Telegram-driven weekly planning conversation that reads your Google Calendar and writes agreed tasks back as time blocks.",
+      "applicationCategory": "ProductivityApplication",
+      "operatingSystem": "Web",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+    }
+    </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -25,6 +39,48 @@
   </head>
   <body>
     <div id="root"></div>
+
+    <!--
+      Static fallback content for crawlers, link-preview bots, and LLM agents that don't
+      execute JavaScript. The `hidden` attribute keeps it out of the rendered page for
+      regular users (the React SPA above is what they see) while leaving the text in the
+      raw HTML source.
+    -->
+    <div id="prerendered-landing" hidden>
+      <header>
+        <h1>Backlog.fyi</h1>
+        <p>An AI-powered weekly planner. Pin up your tasks. Let the assistant schedule your week.</p>
+      </header>
+      <section>
+        <h2>What it does</h2>
+        <p>
+          Backlog.fyi is a hobby, non-commercial weekly planner. You capture tasks on a
+          digital cork board as you think of them. Once a week you have a short planning
+          conversation with an AI assistant on Telegram. The assistant reads your Google
+          Calendar, asks what you want to get done, and writes the agreed tasks back into
+          your calendar as time blocks.
+        </p>
+      </section>
+      <section>
+        <h2>How it works</h2>
+        <ol>
+          <li>Capture tasks in the backlog whenever they come up.</li>
+          <li>Each week, the assistant messages you on Telegram to plan.</li>
+          <li>It reads your Google Calendar and schedules the tasks you agree on.</li>
+        </ol>
+      </section>
+      <section>
+        <h2>Status</h2>
+        <p>
+          The backlog (tasks, categories, tags) is live. The Telegram weekly planning
+          conversation and Google Calendar integration are in active development.
+        </p>
+      </section>
+      <nav>
+        <a href="https://backlog.fyi/">Home</a>
+      </nav>
+    </div>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
