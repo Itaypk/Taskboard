@@ -70,7 +70,8 @@ Session chain details:
 
 ## Frontend specifics
 
-- React 19, Vite 8, TypeScript ~6.0.
+- React 19, Vite 8, TypeScript ~6.0. Routing via `react-router-dom` v7 (`BrowserRouter` in `main.tsx`); the SPA fallback for non-root client routes (e.g. `/terms`, `/privacy`) lives in `controller/SpaForwardController.kt` — add new top-level routes there too.
+- **Styling: co-located CSS Modules for component-specific styles.** New components add a sibling `Foo.module.css` and import it as `import styles from './Foo.module.css'`; reference classes via `styles.title` / `styles.demoBtn`. Use camelCase keys. `src/index.css` is reserved for design tokens (CSS custom properties), base element styles, and genuinely shared utilities (`.link-btn`, etc.) — don't add new component-specific rules there. See `auth/LoginPage.module.css` and `auth/PolicyPage.module.css` for the pattern.
 - Auth-aware shell in `src/App.tsx`: `AuthProvider` (in `src/auth/AuthContext.tsx`) runs `GET /api/auth/me` on mount; `LoginPage` renders the Telegram Login Widget plus a dev-login button gated on `import.meta.env.DEV`.
 - `src/api.ts` wraps `fetch` with `credentials: 'include'`, echoes the XSRF cookie as `X-XSRF-TOKEN` on mutating requests, and dispatches an `auth:unauthenticated` event on 401 so `AuthContext` can flip to the login page.
 - Required env vars (set in `tasker-frontend/.env` or via shell):

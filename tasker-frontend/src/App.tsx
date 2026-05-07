@@ -20,8 +20,10 @@ import { SettingsModal } from './components/SettingsModal';
 import { DEFAULT_SETTINGS } from './data';
 import { fetchTasks, fetchCategories, fetchUserSettings, fetchTags, createTask, updateTask, deleteTask, reorderTask } from './api';
 import type { Task, UserSettings, Tag } from './types';
+import { Routes, Route } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
 import { LoginPage } from './auth/LoginPage';
+import { TermsPage, PrivacyPage } from './auth/PolicyPage';
 import pineappleUrl from './assets/pineapple.png';
 import './App.css';
 
@@ -45,6 +47,16 @@ function SignOutIcon() {
 }
 
 export default function App() {
+  return (
+    <Routes>
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/*" element={<AuthShell />} />
+    </Routes>
+  );
+}
+
+function AuthShell() {
   const { state, signOut } = useAuth();
 
   if (state.status === 'loading') {
