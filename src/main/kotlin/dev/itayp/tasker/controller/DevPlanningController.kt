@@ -36,12 +36,12 @@ class DevPlanningController(
 
     @PostMapping("/seed")
     fun seed(@AuthenticationPrincipal principal: TaskerPrincipal): ResponseEntity<Map<String, Any>> {
-        val existing = taskRepository.findAllByUserId(principal.userId).size
+        val existing = taskRepository.findAllByUserIdOrderBySortKeyAsc(principal.userId).size
         if (existing > 0) {
             return ResponseEntity.ok(mapOf("seeded" to false, "existingTaskCount" to existing))
         }
         demoDataSeeder.seed(principal.userId)
-        val total = taskRepository.findAllByUserId(principal.userId).size
+        val total = taskRepository.findAllByUserIdOrderBySortKeyAsc(principal.userId).size
         return ResponseEntity.ok(mapOf("seeded" to true, "existingTaskCount" to total))
     }
 
