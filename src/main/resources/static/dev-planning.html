@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Planning Dev Console</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: ui-monospace, SFMono-Regular, "Cascadia Code", "Fira Code", monospace;
+      font-size: 14px;
+      background: #0d1117;
+      color: #e6edf3;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 12px 20px;
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    header h1 { font-size: 14px; font-weight: 600; color: #f0f6fc; }
+
+    #status-badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: 500;
+      background: #21262d;
+      color: #8b949e;
+      border: 1px solid #30363d;
+    }
+    #status-badge.logged-in  { background: #0d2b1b; color: #3fb950; border-color: #238636; }
+    #status-badge.planning   { background: #0c1f3f; color: #58a6ff; border-color: #1f6feb; }
+    #status-badge.done       { background: #2b1c0e; color: #e3b341; border-color: #9e6a03; }
+    #status-badge.error      { background: #2b1018; color: #f85149; border-color: #6e1a1a; }
+
+    #phase-label {
+      margin-left: auto;
+      font-size: 11px;
+      color: #8b949e;
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      max-width: 760px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 0 16px;
+    }
+
+    #setup-panel {
+      padding: 32px 0 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    #setup-panel p {
+      color: #8b949e;
+      font-size: 12px;
+      text-align: center;
+      max-width: 480px;
+      line-height: 1.6;
+    }
+
+    #messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .msg {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .msg-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .msg.assistant .msg-avatar { background: #1f6feb22; color: #58a6ff; border: 1px solid #1f6feb55; }
+    .msg.user .msg-avatar      { background: #23823422; color: #3fb950; border: 1px solid #23823455; }
+
+    .msg-bubble {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 10px 14px;
+      line-height: 1.6;
+      max-width: 100%;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .msg.user .msg-bubble {
+      background: #0c1f3f;
+      border-color: #1f6feb55;
+      color: #cae8ff;
+    }
+
+    .msg-label {
+      font-size: 10px;
+      color: #8b949e;
+      margin-bottom: 4px;
+    }
+
+    .options-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .completions {
+      margin-top: 8px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .completion-chip {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: #21262d;
+      color: #8b949e;
+      border: 1px solid #30363d;
+      cursor: pointer;
+      transition: background 0.1s, color 0.1s;
+    }
+    .completion-chip:hover { background: #30363d; color: #e6edf3; }
+
+    #reply-area {
+      padding: 14px 0 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    #reply-area.hidden { display: none; }
+
+    #reply-input {
+      width: 100%;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      color: #e6edf3;
+      padding: 10px 14px;
+      font-family: inherit;
+      font-size: 14px;
+      resize: none;
+      outline: none;
+      line-height: 1.5;
+    }
+    #reply-input:focus { border-color: #58a6ff; }
+    #reply-input::placeholder { color: #484f58; }
+
+    .reply-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+    button {
+      font-family: inherit;
+      font-size: 13px;
+      border: none;
+      border-radius: 6px;
+      padding: 7px 16px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: opacity 0.15s, background 0.15s;
+    }
+    button:disabled { opacity: 0.4; cursor: default; }
+
+    .btn-primary   { background: #238636; color: #fff; }
+    .btn-primary:hover:not(:disabled)   { background: #2ea043; }
+
+    .btn-secondary { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; }
+    .btn-secondary:hover:not(:disabled) { background: #30363d; }
+
+    .btn-choice {
+      background: #161b22;
+      color: #c9d1d9;
+      border: 1px solid #30363d;
+      padding: 6px 14px;
+      font-size: 13px;
+    }
+    .btn-choice:hover:not(:disabled) { background: #1f6feb22; border-color: #58a6ff; color: #58a6ff; }
+
+    .btn-danger { background: #6e1a1a; color: #ffa198; border: 1px solid #8b2020; }
+    .btn-danger:hover:not(:disabled) { background: #8b2020; }
+
+    .btn-setup {
+      font-size: 14px;
+      padding: 10px 28px;
+      background: #238636;
+      color: #fff;
+    }
+    .btn-setup:hover:not(:disabled) { background: #2ea043; }
+
+    #log {
+      font-size: 11px;
+      color: #484f58;
+      padding: 6px 0 8px;
+      min-height: 20px;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 12px; height: 12px;
+      border: 2px solid #30363d;
+      border-top-color: #58a6ff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .done-banner {
+      background: #0d2b1b;
+      border: 1px solid #238636;
+      border-radius: 8px;
+      padding: 16px 20px;
+      color: #3fb950;
+      text-align: center;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Planning Dev Console</h1>
+  <span id="status-badge">not logged in</span>
+  <span id="phase-label"></span>
+  <button class="btn-secondary" id="btn-abandon" style="display:none;margin-left:auto" onclick="abandon()">Abandon session</button>
+  <button class="btn-secondary" id="btn-restart" style="display:none" onclick="restart()">Restart</button>
+</header>
+
+<main>
+  <div id="setup-panel">
+    <p>Logs in as the dev user, seeds demo tasks if the backlog is empty, then starts a planning session.</p>
+    <button class="btn-setup" id="btn-start" onclick="setup()">Setup &amp; Start Planning</button>
+  </div>
+
+  <div id="messages" style="display:none"></div>
+
+  <div id="log"></div>
+
+  <div id="reply-area" class="hidden">
+    <textarea id="reply-input" rows="2" placeholder="Type a reply… (Enter to send, Shift+Enter for newline)"></textarea>
+    <div class="reply-actions">
+      <button class="btn-primary" id="btn-send" onclick="sendText()">Send</button>
+    </div>
+  </div>
+</main>
+
+<script>
+  let sessionId = null;
+  let busy = false;
+
+  // ── helpers ──────────────────────────────────────────────────────────────
+
+  function csrf() {
+    const m = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+
+  async function api(method, path, body) {
+    const opts = {
+      method,
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrf() },
+    };
+    if (body !== undefined) opts.body = JSON.stringify(body);
+    const r = await fetch(path, opts);
+    if (!r.ok) throw new Error(`${method} ${path} → ${r.status} ${r.statusText}`);
+    if (r.status === 204) return null;
+    return r.json();
+  }
+
+  function log(msg) {
+    document.getElementById('log').innerHTML = msg;
+  }
+
+  function setStatus(label, cls) {
+    const el = document.getElementById('status-badge');
+    el.textContent = label;
+    el.className = cls || '';
+  }
+
+  function setPhase(phase) {
+    document.getElementById('phase-label').textContent = phase ? `phase: ${phase}` : '';
+  }
+
+  function setBusy(val) {
+    busy = val;
+    document.getElementById('btn-send').disabled = val;
+    document.getElementById('btn-start').disabled = val;
+    document.querySelectorAll('.btn-choice').forEach(b => b.disabled = val);
+  }
+
+  // ── message rendering ────────────────────────────────────────────────────
+
+  function appendMessage(role, text, { options = [], completions = [] } = {}) {
+    const container = document.getElementById('messages');
+
+    const wrap = document.createElement('div');
+    wrap.className = `msg ${role}`;
+
+    const avatar = document.createElement('div');
+    avatar.className = 'msg-avatar';
+    avatar.textContent = role === 'assistant' ? '🤖' : '👤';
+
+    const right = document.createElement('div');
+    right.style.flex = '1';
+
+    const lbl = document.createElement('div');
+    lbl.className = 'msg-label';
+    lbl.textContent = role === 'assistant' ? 'planner' : 'you';
+    right.appendChild(lbl);
+
+    const bubble = document.createElement('div');
+    bubble.className = 'msg-bubble';
+    bubble.textContent = text;
+
+    if (completions.length) {
+      const chips = document.createElement('div');
+      chips.className = 'completions';
+      completions.forEach(c => {
+        const chip = document.createElement('span');
+        chip.className = 'completion-chip';
+        chip.textContent = c;
+        chip.onclick = () => { document.getElementById('reply-input').value = c; };
+        chips.appendChild(chip);
+      });
+      bubble.appendChild(chips);
+    }
+
+    if (options.length) {
+      const grid = document.createElement('div');
+      grid.className = 'options-grid';
+      options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = 'btn-choice';
+        btn.textContent = opt.label;
+        btn.dataset.optionId = opt.id;
+        btn.onclick = () => sendOption(opt.id, opt.label);
+        grid.appendChild(btn);
+      });
+      bubble.appendChild(grid);
+    }
+
+    right.appendChild(bubble);
+    wrap.appendChild(avatar);
+    wrap.appendChild(right);
+    container.appendChild(wrap);
+    container.scrollTop = container.scrollHeight;
+    return wrap;
+  }
+
+  function showLoading() {
+    const container = document.getElementById('messages');
+    const wrap = document.createElement('div');
+    wrap.className = 'msg assistant';
+    wrap.id = 'loading-msg';
+    wrap.innerHTML = `
+      <div class="msg-avatar">🤖</div>
+      <div style="flex:1">
+        <div class="msg-label">planner</div>
+        <div class="msg-bubble"><span class="spinner"></span>thinking…</div>
+      </div>`;
+    container.appendChild(wrap);
+    container.scrollTop = container.scrollHeight;
+  }
+
+  function removeLoading() {
+    document.getElementById('loading-msg')?.remove();
+  }
+
+  function renderResponse(data) {
+    removeLoading();
+    setPhase(data.phase);
+
+    const msgs = data.pendingMessages || [];
+    let hasChoice = false;
+
+    msgs.forEach(msg => {
+      appendMessage('assistant', msg.text, {
+        options: msg.options || [],
+        completions: msg.completions || [],
+      });
+      if (msg.type === 'choice') hasChoice = true;
+    });
+
+    if (data.phase === 'DONE') {
+      const container = document.getElementById('messages');
+      const banner = document.createElement('div');
+      banner.className = 'done-banner';
+      banner.textContent = '✓ Planning session complete.';
+      container.appendChild(banner);
+      container.scrollTop = container.scrollHeight;
+
+      document.getElementById('reply-area').classList.add('hidden');
+      document.getElementById('btn-abandon').style.display = 'none';
+      document.getElementById('btn-restart').style.display = '';
+      setStatus('done', 'done');
+    } else if (!hasChoice) {
+      document.getElementById('reply-area').classList.remove('hidden');
+      document.getElementById('reply-input').focus();
+    } else {
+      document.getElementById('reply-area').classList.add('hidden');
+    }
+  }
+
+  // ── setup flow ───────────────────────────────────────────────────────────
+
+  async function setup() {
+    setBusy(true);
+    try {
+      log('<span class="spinner"></span>Logging in as dev user…');
+      await api('POST', '/api/auth/dev-login');
+      setStatus('logged in', 'logged-in');
+
+      log('<span class="spinner"></span>Checking backlog…');
+      const seed = await api('POST', '/api/dev/planning/seed');
+      if (seed.seeded) {
+        log(`Seeded ${seed.existingTaskCount} demo tasks.`);
+      } else {
+        log(`Backlog already has ${seed.existingTaskCount} tasks — skipping seed.`);
+      }
+
+      log('<span class="spinner"></span>Starting planning session…');
+      const data = await api('POST', '/api/dev/planning/start');
+      sessionId = data.sessionId;
+
+      document.getElementById('setup-panel').style.display = 'none';
+      document.getElementById('messages').style.display = 'flex';
+      document.getElementById('btn-abandon').style.display = '';
+      setStatus('planning', 'planning');
+      log('');
+
+      renderResponse(data);
+    } catch (e) {
+      log(`<span style="color:#f85149">✗ ${e.message}</span>`);
+      setStatus('error', 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // ── reply actions ────────────────────────────────────────────────────────
+
+  async function sendText() {
+    const input = document.getElementById('reply-input');
+    const text = input.value.trim();
+    if (!text || busy) return;
+    input.value = '';
+    await sendReply({ text }, text);
+  }
+
+  async function sendOption(optionId, label) {
+    if (busy) return;
+    await sendReply({ optionId, text: label }, label);
+  }
+
+  async function sendReply(body, displayText) {
+    appendMessage('user', displayText);
+    setBusy(true);
+    showLoading();
+    document.getElementById('reply-area').classList.add('hidden');
+
+    try {
+      const data = await api('POST', `/api/dev/planning/${sessionId}/reply`, body);
+      renderResponse(data);
+    } catch (e) {
+      removeLoading();
+      log(`<span style="color:#f85149">✗ ${e.message}</span>`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function abandon() {
+    if (!sessionId || !confirm('Abandon this planning session?')) return;
+    try {
+      await api('POST', `/api/dev/planning/${sessionId}/abandon`);
+    } catch (_) {}
+    restart();
+  }
+
+  function restart() {
+    sessionId = null;
+    document.getElementById('messages').innerHTML = '';
+    document.getElementById('messages').style.display = 'none';
+    document.getElementById('setup-panel').style.display = 'flex';
+    document.getElementById('reply-area').classList.add('hidden');
+    document.getElementById('btn-abandon').style.display = 'none';
+    document.getElementById('btn-restart').style.display = 'none';
+    document.getElementById('log').innerHTML = '';
+    setStatus('not logged in', '');
+    setPhase('');
+    document.getElementById('btn-start').disabled = false;
+  }
+
+  // Enter to send, Shift+Enter for newline
+  document.getElementById('reply-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendText(); }
+  });
+</script>
+</body>
+</html>

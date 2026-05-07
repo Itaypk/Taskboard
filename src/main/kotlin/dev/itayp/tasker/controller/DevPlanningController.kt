@@ -5,7 +5,9 @@ import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ChoiceOption
 import dev.itayp.tasker.channel.InMemoryConversationChannel
 import dev.itayp.tasker.planning.WeeklyPlanningOrchestrator
+import dev.itayp.tasker.repository.BacklogTaskRepository
 import dev.itayp.tasker.security.TaskerPrincipal
+import dev.itayp.tasker.service.DemoDataSeeder
 import org.springframework.context.annotation.Profile
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
@@ -28,7 +30,20 @@ import java.util.concurrent.ConcurrentHashMap
 @Profile("dev")
 class DevPlanningController(
     private val orchestrator: WeeklyPlanningOrchestrator,
+    private val demoDataSeeder: DemoDataSeeder,
+    private val taskRepository: BacklogTaskRepository,
 ) {
+
+    @PostMapping("/seed")
+    fun seed(@AuthenticationPrincipal principal: TaskerPrincipal): ResponseEntity<Map<String, Any>> {
+        val existing = taskRepository.findAllByUserIdOrderBySortKeyAsc(principal.userId).size
+        if (existing > 0) {
+            return ResponseEntity.ok(mapOf("seeded" to false, "existingTaskCount" to existing))
+        }
+        demoDataSeeder.seed(principal.userId)
+        val total = taskRepository.findAllByUserIdOrderBySortKeyAsc(principal.userId).size
+        return ResponseEntity.ok(mapOf("seeded" to true, "existingTaskCount" to total))
+    }
 
     private val channels = ConcurrentHashMap<UUID, InMemoryConversationChannel>()
 
