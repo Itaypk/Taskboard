@@ -19,6 +19,8 @@ import org.springframework.security.web.authentication.HttpStatusEntryPoint
 import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler
 import org.springframework.security.web.csrf.*
 import org.springframework.util.StringUtils
+import org.springframework.web.cors.CorsConfiguration
+import org.springframework.web.cors.CorsConfigurationSource
 import java.util.function.Supplier
 
 // Content-Security-Policy applied to every non-actuator response. Notes on each entry:
@@ -102,6 +104,20 @@ class SecurityConfiguration(
                 contentSecurityPolicy {
                     policyDirectives = CSP_POLICY
                 }
+            }
+            cors {
+                    configurationSource = CorsConfigurationSource { request ->
+                        // CORS is only relevant for the API endpoints, and only when accessed from a browser. In both cases, we can allow all origins.
+                        if (request.requestURI.startsWith("/api/")) {
+                            val config = CorsConfiguration()
+                            config.allowedOrigins = listOf("http://localhost:63342", "http://127.0.0.1:63342")
+                            config.allowedMethods = listOf("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                            config.allowedHeaders = listOf("*")
+                            config.allowCredentials = true
+                            return@CorsConfigurationSource config
+                        }
+                        null
+                    }
             }
             csrf {
                 csrfTokenRepository = CookieCsrfTokenRepository.withHttpOnlyFalse()

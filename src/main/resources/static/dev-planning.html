@@ -295,7 +295,8 @@
       headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrf() },
     };
     if (body !== undefined) opts.body = JSON.stringify(body);
-    const r = await fetch(path, opts);
+    const fullUrl = 'http://localhost:8080' + path;
+    const r = await fetch(fullUrl, opts);
     if (!r.ok) throw new Error(`${method} ${path} → ${r.status} ${r.statusText}`);
     if (r.status === 204) return null;
     return r.json();

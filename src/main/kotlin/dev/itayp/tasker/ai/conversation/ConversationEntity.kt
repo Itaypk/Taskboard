@@ -51,4 +51,7 @@ open class ConversationEntity {
 
     @Column(name = "total_completion_tokens", nullable = false)
     var totalCompletionTokens: Int = 0
+
+    @Column(name = "system_prompt", columnDefinition = "TEXT")
+    var systemPrompt: String? = null
 }

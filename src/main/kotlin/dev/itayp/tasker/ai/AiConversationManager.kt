@@ -1,6 +1,7 @@
 package dev.itayp.tasker.ai
 
 import dev.itayp.tasker.ai.client.AiClient
+import dev.itayp.tasker.ai.client.ChatMessage
 import dev.itayp.tasker.ai.client.ChatRequest
 import dev.itayp.tasker.ai.conversation.ConversationService
 import dev.itayp.tasker.ai.conversation.toChatMessage
@@ -27,16 +28,11 @@ class AiConversationManager(
     private val log = LoggerFactory.getLogger(AiConversationManager::class.java)
 
     /**
-     * Creates a new conversation for [userId], stores the system prompt as the first message,
-     * and returns the conversation ID.
+     * Creates a new conversation for [userId] and returns the conversation ID.
+     * The system prompt is stored on the conversation entity and prepended at call time.
      */
     fun startConversation(userId: UUID, config: ConversationConfig): UUID {
         val conversation = conversationService.createConversation(userId, config)
-        conversationService.addMessage(
-            conversationId = conversation.id!!,
-            role = "system",
-            content = config.systemPrompt,
-        )
         return conversation.id!!
     }
 
@@ -77,8 +73,12 @@ class AiConversationManager(
             ?: error("Conversation $conversationId not found")
 
         val tools = toolRegistry.toDefinitions().takeIf { it.isNotEmpty() }
-        val messages = conversationService.getMessages(conversationId)
+        val storedMessages = conversationService.getMessages(conversationId)
             .map { it.toChatMessage(objectMapper) }
+        val systemMessage = conversation.systemPrompt
+            ?.let { listOf(ChatMessage(role = "system", content = it)) }
+            ?: emptyList()
+        val messages = systemMessage + storedMessages
 
         val request = ChatRequest(
             model = conversation.model!!,

@@ -1,5 +1,10 @@
 package dev.itayp.tasker
 
+import dev.itayp.tasker.ai.conversation.ConversationEntity
+import dev.itayp.tasker.ai.conversation.ConversationRepository
+import dev.itayp.tasker.ai.conversation.ConversationStatus
+import dev.itayp.tasker.ai.conversation.MessageEntity
+import dev.itayp.tasker.ai.conversation.MessageRepository
 import dev.itayp.tasker.jpa.BacklogTaskCategoryEntity
 import dev.itayp.tasker.jpa.BacklogTaskEntity
 import dev.itayp.tasker.jpa.BacklogTaskTagEntity
@@ -35,6 +40,8 @@ class PostgresIntegrationTest(
     @Autowired val tagRepository: BacklogTaskTagRepository,
     @Autowired val categoryRepository: BacklogTaskCategoryRepository,
     @Autowired val accountService: AccountService,
+    @Autowired val conversationRepository: ConversationRepository,
+    @Autowired val messageRepository: MessageRepository,
 ) {
 
     @Test
@@ -103,5 +110,74 @@ class PostgresIntegrationTest(
         assertThat(taskRepository.findAllByUserIdOrderBySortKeyAsc(user.id!!)).isEmpty()
         assertThat(tagRepository.findAllByUserId(user.id!!)).isEmpty()
         assertThat(categoryRepository.findAllByUserId(user.id!!)).isEmpty()
+    }
+
+    @Test
+    fun `ai_conversation system_prompt CLOB survives a round-trip through PostgreSQL`() {
+        val user = userRepository.save(UserEntity().apply {
+            id = UUID.randomUUID()
+            telegramId = System.nanoTime()
+            telegramFirstName = "AI Test"
+            telegramUsername = "ai_clob_test_${System.nanoTime()}"
+            createdAt = Instant.now()
+            lastLoginAt = Instant.now()
+        })
+
+        val longSystemPrompt = "x".repeat(8_000)
+
+        val conversation = conversationRepository.save(ConversationEntity().apply {
+            this.userId = user.id
+            this.conversationType = "weekly-planning"
+            this.model = "claude-sonnet-4-6"
+            this.ttlDays = 7
+            this.status = ConversationStatus.ACTIVE
+            this.createdAt = Instant.now()
+            this.lastActivityAt = Instant.now()
+            this.systemPrompt = longSystemPrompt
+        })
+
+        val loaded = conversationRepository.findById(conversation.id!!).orElseThrow()
+        assertThat(loaded.systemPrompt).hasSize(8_000)
+        assertThat(loaded.systemPrompt).isEqualTo(longSystemPrompt)
+    }
+
+    @Test
+    fun `ai_message content and tool_calls_json CLOBs survive a round-trip through PostgreSQL`() {
+        val user = userRepository.save(UserEntity().apply {
+            id = UUID.randomUUID()
+            telegramId = System.nanoTime()
+            telegramFirstName = "AI Msg Test"
+            telegramUsername = "ai_msg_clob_test_${System.nanoTime()}"
+            createdAt = Instant.now()
+            lastLoginAt = Instant.now()
+        })
+
+        val conversation = conversationRepository.save(ConversationEntity().apply {
+            this.userId = user.id
+            this.conversationType = "weekly-planning"
+            this.model = "claude-sonnet-4-6"
+            this.ttlDays = 7
+            this.status = ConversationStatus.ACTIVE
+            this.createdAt = Instant.now()
+            this.lastActivityAt = Instant.now()
+        })
+
+        val longContent = "a".repeat(8_000)
+        val longToolCallsJson = "b".repeat(8_000)
+
+        val message = messageRepository.save(MessageEntity().apply {
+            this.conversationId = conversation.id
+            this.role = "assistant"
+            this.content = longContent
+            this.toolCallsJson = longToolCallsJson
+            this.position = 0
+            this.createdAt = Instant.now()
+        })
+
+        val loaded = messageRepository.findById(message.id!!).orElseThrow()
+        assertThat(loaded.content).hasSize(8_000)
+        assertThat(loaded.content).isEqualTo(longContent)
+        assertThat(loaded.toolCallsJson).hasSize(8_000)
+        assertThat(loaded.toolCallsJson).isEqualTo(longToolCallsJson)
     }
 }

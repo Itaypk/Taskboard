@@ -27,6 +27,7 @@ class ConversationService(
             this.status = ConversationStatus.ACTIVE
             this.createdAt = now
             this.lastActivityAt = now
+            this.systemPrompt = config.systemPrompt
         })
     }
 
