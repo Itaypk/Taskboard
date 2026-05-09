@@ -1,0 +1,32 @@
+.tabList {
+  display: flex;
+  gap: 6px;
+  padding: 0 24px 0;
+  border-bottom: 1px solid var(--paper-border);
+  background: var(--paper-surface);
+}
+
+.tab {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  padding: 10px 14px 9px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  transition: color var(--t), border-color var(--t);
+  margin-bottom: -1px;
+}
+
+.tab:hover {
+  color: var(--ink);
+}
+
+.tabActive {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}

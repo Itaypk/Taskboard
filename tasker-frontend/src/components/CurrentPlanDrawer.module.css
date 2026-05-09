@@ -1,0 +1,145 @@
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.statusPill {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid;
+}
+
+.statusActive {
+  color: #0b5132;
+  background: #d6f1e0;
+  border-color: #98d4b1;
+}
+
+.statusCompleted {
+  color: var(--ink-soft);
+  background: var(--paper-surface-2);
+  border-color: var(--paper-border);
+}
+
+.timestamp {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-ghost);
+  letter-spacing: 0.04em;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sectionLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  color: var(--ink-ghost);
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.summary {
+  font-family: var(--font-serif);
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--ink);
+  white-space: pre-wrap;
+  margin: 0;
+}
+
+.summaryMuted {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--ink-ghost);
+  font-style: italic;
+  margin: 0;
+}
+
+.taskList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.taskItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: var(--r);
+  transition: background var(--t);
+}
+
+.taskItem:hover {
+  background: rgba(90, 70, 30, 0.08);
+}
+
+.statusDot {
+  flex-shrink: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1.5px solid;
+}
+
+.statusDotTodo {
+  border-color: var(--ink-soft);
+  background: transparent;
+}
+
+.statusDotDone {
+  border-color: #2c8055;
+  background: #2c8055;
+}
+
+.taskTitle {
+  font-family: var(--font-serif);
+  font-size: 14px;
+  color: var(--ink);
+  line-height: 1.35;
+}
+
+.taskTitleDone {
+  color: var(--ink-ghost);
+  text-decoration: line-through;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 32px 0;
+}
+
+.emptyTitle {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  color: var(--ink);
+  margin: 0;
+}
+
+.emptyHint {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+  margin: 0;
+}

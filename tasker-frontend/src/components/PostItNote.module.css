@@ -1,0 +1,29 @@
+/* Highlight for tasks scheduled in the current weekly plan.
+   A warm amber glow + subtle outline replaces the default note shadow,
+   so the card visibly belongs to the plan without crowding the corners. */
+.inPlan {
+  box-shadow:
+    0 0 0 1.5px rgba(208, 138, 30, 0.55),
+    0 0 22px -2px rgba(232, 168, 60, 0.55),
+    var(--shadow-note);
+}
+
+.inPlan:hover {
+  box-shadow:
+    0 0 0 1.5px rgba(208, 138, 30, 0.7),
+    0 0 28px -2px rgba(232, 168, 60, 0.65),
+    var(--shadow-note-hover);
+}
+
+/* Screen-reader-only label so the badge meaning isn't lost without the pin. */
+.planSrLabel {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
