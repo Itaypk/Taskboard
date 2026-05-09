@@ -9,6 +9,7 @@ import dev.itayp.tasker.repository.UserRepository
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.EmailVerificationService
 import dev.itayp.tasker.service.UserSettingsService
+import org.slf4j.LoggerFactory
 import org.springframework.http.CacheControl
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
@@ -30,6 +31,8 @@ class UserSettingsController(
     private val userRepository: UserRepository,
 ) {
 
+    private val log = LoggerFactory.getLogger(UserSettingsController::class.java)
+
     @GetMapping
     fun getSettings(
         @AuthenticationPrincipal principal: TaskerPrincipal,
@@ -49,6 +52,7 @@ class UserSettingsController(
             val user = userRepository.findById(principal.userId).orElseThrow()
             ResponseEntity.ok(settings.toResponse(user))
         } catch (e: IllegalArgumentException) {
+            log.warn("Invalid settings update from user {}: {}", principal.userId, e.message)
             ResponseEntity.badRequest().build()
         }
     }

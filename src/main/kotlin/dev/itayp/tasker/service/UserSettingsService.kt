@@ -40,9 +40,11 @@ class UserSettingsService(private val settingsRepository: UserSettingsRepository
     }
 
     companion object {
-        val SUPPORTED_TIME_ZONES: List<String> = ZoneId.getAvailableZoneIds()
-            .filter { it.contains('/') && !it.startsWith("Etc/") && !it.startsWith("SystemV/") }
-            .sorted()
+        val SUPPORTED_TIME_ZONES: List<String> = (
+            ZoneId.getAvailableZoneIds()
+                .filter { it.contains('/') && !it.startsWith("Etc/") && !it.startsWith("SystemV/") } +
+            listOf("UTC")
+        ).sorted()
 
         val SUPPORTED_GENDERS: List<GenderOption> = listOf(
             GenderOption("masculine", "Masculine"),

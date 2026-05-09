@@ -40,7 +40,7 @@ Early but functional:
 With environment variables:
 
 ```bash
-export $(cat .env | xargs) && ./gradlew build
+export $(cat .env | xargs) && ./gradlew bootRun
 ```
 
 That's the whole flow in dev:
