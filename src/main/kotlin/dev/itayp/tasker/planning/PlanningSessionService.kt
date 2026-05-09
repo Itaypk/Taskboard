@@ -68,6 +68,18 @@ class PlanningSessionService(
             .findFirstByUserIdAndStatusOrderByStartedAtDesc(userId, PlanningSessionStatus.ACTIVE)
 
     /**
+     * The session that should be treated as "the user's current weekly plan" in the UI.
+     * Prefers an in-progress session; falls back to the most recently completed one so the
+     * last finalized plan stays visible until a new one is started. ABANDONED sessions
+     * never count.
+     */
+    @Transactional(readOnly = true)
+    fun findCurrentPlan(userId: UUID): PlanningSessionEntity? =
+        findActiveSession(userId)
+            ?: planningSessionRepository
+                .findFirstByUserIdAndStatusOrderByStartedAtDesc(userId, PlanningSessionStatus.COMPLETED)
+
+    /**
      * Returns the session whose summary should be prepended to the next session's prompt.
      * Skips ABANDONED sessions, falling through to the most recent COMPLETED one.
      */

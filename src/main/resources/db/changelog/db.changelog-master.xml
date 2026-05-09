@@ -11,5 +11,6 @@
     <include file="db/changelog/changesets/005-email-settings.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changesets/006-ai-message-clob-system-prompt.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changesets/007-user-gender.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changesets/008-assistant-settings.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

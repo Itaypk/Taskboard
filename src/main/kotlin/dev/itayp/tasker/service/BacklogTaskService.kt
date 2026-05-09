@@ -34,6 +34,20 @@ class BacklogTaskService(
     fun getAllTasksForUser(userId: UUID): List<BacklogTask> =
         backlogTaskRepository.findAllByUserIdOrderBySortKeyAsc(userId).map { it.toDomain() }
 
+    fun getTasksForUser(userId: UUID, status: TaskStatus?): List<BacklogTask> {
+        val entities = if (status == null) {
+            backlogTaskRepository.findAllByUserIdOrderBySortKeyAsc(userId)
+        } else {
+            backlogTaskRepository.findAllByUserIdAndStatusOrderBySortKeyAsc(userId, status)
+        }
+        return entities.map { it.toDomain() }
+    }
+
+    fun getTasksScheduledInSession(userId: UUID, sessionId: UUID): List<BacklogTask> =
+        backlogTaskRepository
+            .findAllByUserIdAndLastScheduledInSessionIdOrderBySortKeyAsc(userId, sessionId)
+            .map { it.toDomain() }
+
     @Transactional
     fun createTask(userId: UUID, request: CreateBacklogTaskRequest): BacklogTask {
         val categoryId = UUID.fromString(request.categoryId)

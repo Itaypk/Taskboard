@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { UserSettings, Task, SettingsOptions } from '../types';
 import { CategoryEditor } from './CategoryEditor';
+import { Tabs } from './Tabs';
 import { createCategory, updateCategory, deleteCategory, updateUserSettings, fetchSettingsOptions, deleteAccount, exportAccount, requestEmailVerification } from '../api';
 
 interface SettingsModalProps {
@@ -12,8 +13,15 @@ interface SettingsModalProps {
   onAccountDeleted: () => void;
 }
 
+const SETTINGS_TABS = [
+  { id: 'general', label: 'General' },
+  { id: 'categories', label: 'Categories' },
+  { id: 'assistant', label: 'Assistant' },
+];
+
 export function SettingsModal({ settings, tasks, open, onClose, onSave, onAccountDeleted }: SettingsModalProps) {
   const [form, setForm] = useState<UserSettings>(settings);
+  const [activeTab, setActiveTab] = useState<'general' | 'categories' | 'assistant'>('general');
   const [wasOpen, setWasOpen] = useState(open);
   const [saving, setSaving] = useState(false);
   const [options, setOptions] = useState<SettingsOptions | null>(null);
@@ -30,6 +38,7 @@ export function SettingsModal({ settings, tasks, open, onClose, onSave, onAccoun
     setEmailInput(settings.email ?? '');
     setDeleteConfirm(false);
     setVerificationSent(false);
+    setActiveTab('general');
   } else if (!open && wasOpen) {
     setWasOpen(false);
   }
@@ -72,6 +81,9 @@ export function SettingsModal({ settings, tasks, open, onClose, onSave, onAccoun
           timeZone: form.timeZone,
           preferredLanguage: form.preferredLanguage,
           calendarInviteEmail: form.calendarInviteEmail,
+          gender: form.gender,
+          assistantName: form.assistantName,
+          assistantGender: form.assistantGender,
         }),
         ...settings.categories
           .filter(c => !newIdSet.has(c.id))
@@ -142,6 +154,8 @@ export function SettingsModal({ settings, tasks, open, onClose, onSave, onAccoun
     }
   };
 
+  const genderOptions = options?.genders ?? [];
+
   return (
     <div
       className={`modal-overlay${open ? ' modal-overlay--open' : ''}`}
@@ -152,175 +166,237 @@ export function SettingsModal({ settings, tasks, open, onClose, onSave, onAccoun
           <span className="modal__title">Settings</span>
           <button className="drawer__close" onClick={onClose} aria-label="Close settings">×</button>
         </div>
+
+        <Tabs
+          tabs={SETTINGS_TABS}
+          activeTab={activeTab}
+          onChange={id => setActiveTab(id as 'general' | 'categories' | 'assistant')}
+        />
+
         <div className="modal__body">
-          <div className="field">
-            <label className="field__label">Display name</label>
-            <input
-              className="field__input"
-              value={form.displayName}
-              onChange={e => setForm(f => ({ ...f, displayName: e.target.value }))}
-              placeholder="Your name"
-            />
-          </div>
+          {activeTab === 'general' && (
+            <>
+              <div className="field">
+                <label className="field__label">Display name</label>
+                <input
+                  className="field__input"
+                  value={form.displayName}
+                  onChange={e => setForm(f => ({ ...f, displayName: e.target.value }))}
+                  placeholder="Your name"
+                />
+              </div>
 
-          <div className="field">
-            <label className="field__label" htmlFor="settings-email">Email address</label>
-            {settings.emailVerified && settings.email && settings.email === emailInput.trim() ? (
-              <p className="settings-hint settings-hint--verified">
-                {settings.email} — verified
-              </p>
-            ) : (
-              <p className="settings-hint">
-                Used to send calendar invites for planned tasks.
-                {settings.email && !settings.emailVerified && ' Not yet verified.'}
-              </p>
-            )}
-            <div className="settings-email-row">
-              <input
-                id="settings-email"
-                className="field__input"
-                type="email"
-                value={emailInput}
-                onChange={e => { setEmailInput(e.target.value); setVerificationSent(false); }}
-                placeholder="you@example.com"
-                autoComplete="email"
-              />
-              <button
-                type="button"
-                className="btn btn--ghost"
-                onClick={handleSendVerification}
-                disabled={
-                  sendingVerification ||
-                  !emailInput.trim() ||
-                  (settings.emailVerified && settings.email === emailInput.trim())
-                }
-              >
-                {sendingVerification ? 'Sending…' : verificationSent ? 'Sent!' : 'Send verification'}
-              </button>
-            </div>
-            {verificationSent && (
-              <p className="settings-hint">Check your inbox and click the link to verify.</p>
-            )}
-          </div>
-
-          <div className="field">
-            <label className="field__label">Notifications</label>
-            <label className="settings-toggle">
-              <input
-                type="checkbox"
-                checked={form.calendarInviteEmail}
-                onChange={e => setForm(f => ({ ...f, calendarInviteEmail: e.target.checked }))}
-                disabled={!settings.emailVerified}
-              />
-              <span>
-                Email calendar invites for tasks planned to the week
-                {!settings.emailVerified && (
-                  <span className="settings-hint"> (verify your email first)</span>
+              <div className="field">
+                <label className="field__label" htmlFor="settings-email">Email address</label>
+                {settings.emailVerified && settings.email && settings.email === emailInput.trim() ? (
+                  <p className="settings-hint settings-hint--verified">
+                    {settings.email} — verified
+                  </p>
+                ) : (
+                  <p className="settings-hint">
+                    Used to send calendar invites for planned tasks.
+                    {settings.email && !settings.emailVerified && ' Not yet verified.'}
+                  </p>
                 )}
-              </span>
-            </label>
-          </div>
-
-          <div className="field">
-            <label className="field__label">Categories</label>
-            <p className="settings-hint">Post-it color on the board.</p>
-            <CategoryEditor
-              categories={form.categories}
-              usage={usage}
-              onChange={next => setForm(f => ({ ...f, categories: next }))}
-            />
-          </div>
-
-          <div className="field">
-            <label className="field__label" htmlFor="settings-tz">Time zone</label>
-            <input
-              id="settings-tz"
-              className="field__input"
-              list="settings-tz-list"
-              value={form.timeZone}
-              onChange={e => setForm(f => ({ ...f, timeZone: e.target.value }))}
-              placeholder="e.g. Europe/London"
-              autoComplete="off"
-            />
-            {options && (
-              <datalist id="settings-tz-list">
-                {options.timeZones.map(tz => <option key={tz} value={tz} />)}
-              </datalist>
-            )}
-          </div>
-
-          <div className="field">
-            <label className="field__label" htmlFor="settings-lang">Language</label>
-            <select
-              id="settings-lang"
-              className="field__input"
-              value={form.preferredLanguage}
-              onChange={e => setForm(f => ({ ...f, preferredLanguage: e.target.value }))}
-            >
-              {(options?.languages ?? []).map(opt => (
-                <option key={opt.code} value={opt.code}>{opt.label}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="field">
-            <label className="field__label">Personal context</label>
-            <p className="settings-hint">
-              Facts the AI planner will use when scheduling your week — preferences, recurring commitments, energy patterns.
-            </p>
-            <textarea
-              className="field__textarea"
-              value={form.contextBlock}
-              onChange={e => setForm(f => ({ ...f, contextBlock: e.target.value }))}
-              rows={6}
-              placeholder="e.g. I prefer deep work in the morning…"
-            />
-          </div>
-
-          <div className="danger-zone">
-            <p className="danger-zone__label">Danger zone</p>
-            <div className="danger-zone__actions">
-              <button
-                type="button"
-                className="btn btn--ghost"
-                onClick={handleExport}
-                disabled={exporting || deleting}
-              >
-                {exporting ? 'Exporting…' : 'Export my data'}
-              </button>
-              {deleteConfirm ? (
-                <div className="danger-zone__confirm">
-                  <span className="danger-zone__confirm-text">This will permanently delete your account and all data. There's no undo.</span>
-                  <button
-                    type="button"
-                    className="btn btn--danger-solid"
-                    onClick={handleDeleteConfirmed}
-                    disabled={deleting}
-                  >
-                    {deleting ? 'Deleting…' : 'Yes, delete everything'}
-                  </button>
+                <div className="settings-email-row">
+                  <input
+                    id="settings-email"
+                    className="field__input"
+                    type="email"
+                    value={emailInput}
+                    onChange={e => { setEmailInput(e.target.value); setVerificationSent(false); }}
+                    placeholder="you@example.com"
+                    autoComplete="email"
+                  />
                   <button
                     type="button"
                     className="btn btn--ghost"
-                    onClick={() => setDeleteConfirm(false)}
-                    disabled={deleting}
+                    onClick={handleSendVerification}
+                    disabled={
+                      sendingVerification ||
+                      !emailInput.trim() ||
+                      (settings.emailVerified && settings.email === emailInput.trim())
+                    }
                   >
-                    Cancel
+                    {sendingVerification ? 'Sending…' : verificationSent ? 'Sent!' : 'Send verification'}
                   </button>
                 </div>
-              ) : (
-                <button
-                  type="button"
-                  className="btn btn--danger"
-                  onClick={() => setDeleteConfirm(true)}
-                  disabled={saving}
+                {verificationSent && (
+                  <p className="settings-hint">Check your inbox and click the link to verify.</p>
+                )}
+              </div>
+
+              <div className="field">
+                <label className="field__label">Notifications</label>
+                <label className="settings-toggle">
+                  <input
+                    type="checkbox"
+                    checked={form.calendarInviteEmail}
+                    onChange={e => setForm(f => ({ ...f, calendarInviteEmail: e.target.checked }))}
+                    disabled={!settings.emailVerified}
+                  />
+                  <span>
+                    Email calendar invites for tasks planned to the week
+                    {!settings.emailVerified && (
+                      <span className="settings-hint"> (verify your email first)</span>
+                    )}
+                  </span>
+                </label>
+              </div>
+
+              <div className="field">
+                <label className="field__label" htmlFor="settings-tz">Time zone</label>
+                <input
+                  id="settings-tz"
+                  className="field__input"
+                  list="settings-tz-list"
+                  value={form.timeZone}
+                  onChange={e => setForm(f => ({ ...f, timeZone: e.target.value }))}
+                  placeholder="e.g. Europe/London"
+                  autoComplete="off"
+                />
+                {options && (
+                  <datalist id="settings-tz-list">
+                    {options.timeZones.map(tz => <option key={tz} value={tz} />)}
+                  </datalist>
+                )}
+              </div>
+
+              <div className="field">
+                <label className="field__label" htmlFor="settings-lang">Language</label>
+                <select
+                  id="settings-lang"
+                  className="field__input"
+                  value={form.preferredLanguage}
+                  onChange={e => setForm(f => ({ ...f, preferredLanguage: e.target.value }))}
                 >
-                  Delete account
-                </button>
-              )}
+                  {(options?.languages ?? []).map(opt => (
+                    <option key={opt.code} value={opt.code}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="danger-zone">
+                <p className="danger-zone__label">Danger zone</p>
+                <div className="danger-zone__actions">
+                  <button
+                    type="button"
+                    className="btn btn--ghost"
+                    onClick={handleExport}
+                    disabled={exporting || deleting}
+                  >
+                    {exporting ? 'Exporting…' : 'Export my data'}
+                  </button>
+                  {deleteConfirm ? (
+                    <div className="danger-zone__confirm">
+                      <span className="danger-zone__confirm-text">This will permanently delete your account and all data. There's no undo.</span>
+                      <button
+                        type="button"
+                        className="btn btn--danger-solid"
+                        onClick={handleDeleteConfirmed}
+                        disabled={deleting}
+                      >
+                        {deleting ? 'Deleting…' : 'Yes, delete everything'}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn--ghost"
+                        onClick={() => setDeleteConfirm(false)}
+                        disabled={deleting}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn--danger"
+                      onClick={() => setDeleteConfirm(true)}
+                      disabled={saving}
+                    >
+                      Delete account
+                    </button>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+
+          {activeTab === 'categories' && (
+            <div className="field">
+              <p className="settings-hint">Post-it color on the board.</p>
+              <CategoryEditor
+                categories={form.categories}
+                usage={usage}
+                onChange={next => setForm(f => ({ ...f, categories: next }))}
+              />
             </div>
-          </div>
+          )}
+
+          {activeTab === 'assistant' && (
+            <>
+              <div className="field">
+                <label className="field__label" htmlFor="settings-gender">How should the assistant address you?</label>
+                <p className="settings-hint">Sets pronouns and gendered language used during planning conversations.</p>
+                <select
+                  id="settings-gender"
+                  className="field__select"
+                  value={form.gender ?? ''}
+                  onChange={e => setForm(f => ({ ...f, gender: e.target.value || undefined }))}
+                >
+                  <option value="">— no preference</option>
+                  {genderOptions.map(opt => (
+                    <option key={opt.code} value={opt.code}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="field">
+                <label className="field__label" htmlFor="settings-assistant-name">Assistant name</label>
+                <p className="settings-hint">Give your assistant a name, or leave blank to use the default.</p>
+                <input
+                  id="settings-assistant-name"
+                  className="field__input"
+                  value={form.assistantName ?? ''}
+                  onChange={e => setForm(f => ({ ...f, assistantName: e.target.value || undefined }))}
+                  placeholder="e.g. Alex"
+                  maxLength={100}
+                />
+              </div>
+
+              <div className="field">
+                <label className="field__label" htmlFor="settings-assistant-gender">Assistant's voice</label>
+                <p className="settings-hint">Sets the pronouns and gendered language the assistant uses about itself.</p>
+                <select
+                  id="settings-assistant-gender"
+                  className="field__select"
+                  value={form.assistantGender ?? ''}
+                  onChange={e => setForm(f => ({ ...f, assistantGender: e.target.value || undefined }))}
+                >
+                  <option value="">— no preference</option>
+                  {genderOptions.map(opt => (
+                    <option key={opt.code} value={opt.code}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="field">
+                <label className="field__label">Personal context</label>
+                <p className="settings-hint">
+                  Facts the AI planner will use when scheduling your week — preferences, recurring commitments, energy patterns.
+                </p>
+                <textarea
+                  className="field__textarea"
+                  value={form.contextBlock}
+                  onChange={e => setForm(f => ({ ...f, contextBlock: e.target.value }))}
+                  rows={6}
+                  placeholder="e.g. I prefer deep work in the morning…"
+                />
+              </div>
+            </>
+          )}
         </div>
+
         <div className="modal__footer">
           <button className="btn btn--ghost" onClick={onClose} disabled={saving}>Cancel</button>
           <button className="btn btn--primary" onClick={handleSaveClick} disabled={saving}>

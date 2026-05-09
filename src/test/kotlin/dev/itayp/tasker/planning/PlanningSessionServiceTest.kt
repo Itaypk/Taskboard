@@ -169,6 +169,47 @@ class PlanningSessionServiceTest {
     }
 
     @Test
+    fun `findCurrentPlan prefers active session`() {
+        val active = PlanningSessionEntity().apply {
+            this.id = UUID.randomUUID()
+            this.userId = this@PlanningSessionServiceTest.userId
+            this.status = PlanningSessionStatus.ACTIVE
+            this.startedAt = now.minusSeconds(60)
+        }
+        whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
+            userId, PlanningSessionStatus.ACTIVE)).thenReturn(active)
+
+        assertSame(active, service.findCurrentPlan(userId))
+    }
+
+    @Test
+    fun `findCurrentPlan falls back to most recent completed session`() {
+        val completed = PlanningSessionEntity().apply {
+            this.id = UUID.randomUUID()
+            this.userId = this@PlanningSessionServiceTest.userId
+            this.status = PlanningSessionStatus.COMPLETED
+            this.startedAt = now.minusSeconds(7 * 24 * 3600)
+            this.endedAt = now.minusSeconds(6 * 24 * 3600)
+        }
+        whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
+            userId, PlanningSessionStatus.ACTIVE)).thenReturn(null)
+        whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
+            userId, PlanningSessionStatus.COMPLETED)).thenReturn(completed)
+
+        assertSame(completed, service.findCurrentPlan(userId))
+    }
+
+    @Test
+    fun `findCurrentPlan returns null when neither active nor completed exists`() {
+        whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
+            userId, PlanningSessionStatus.ACTIVE)).thenReturn(null)
+        whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
+            userId, PlanningSessionStatus.COMPLETED)).thenReturn(null)
+
+        assertEquals(null, service.findCurrentPlan(userId))
+    }
+
+    @Test
     fun `diffSincePreviousSession returns empty when no prior completed session`() {
         whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
             userId, PlanningSessionStatus.COMPLETED)).thenReturn(null)

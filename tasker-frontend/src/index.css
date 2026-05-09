@@ -121,13 +121,16 @@ input[type="number"] { -moz-appearance: textfield; }
   z-index: 20;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px 18px;
   padding: 18px 40px 14px;
   background: linear-gradient(180deg, rgba(240,231,210,0.98) 0%, rgba(240,231,210,0.82) 70%, rgba(240,231,210,0) 100%);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
   flex-shrink: 0;
 }
+/* Push button cluster to the far right whether or not the filter row wraps. */
+.header > .header-right { margin-left: auto; }
 
 /* Dymo-style label strip — logo sits inside embossed dark tape */
 .logo-tape {

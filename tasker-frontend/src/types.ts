@@ -54,9 +54,28 @@ export interface Task {
   tags: Tag[];
   sortKey: string;
   createdAt: string;
+  lastScheduledInSessionId?: string | null;
 }
 
+export type PlanStatus = 'active' | 'completed' | 'abandoned';
+
+export interface CurrentPlan {
+  id: string;
+  status: PlanStatus;
+  startedAt: string;
+  endedAt?: string | null;
+  summary?: string | null;
+  tasks: Task[];
+}
+
+export type TaskFilter = 'todo' | 'plan' | 'done' | 'all';
+
 export interface LanguageOption {
+  code: string;
+  label: string;
+}
+
+export interface GenderOption {
   code: string;
   label: string;
 }
@@ -64,6 +83,7 @@ export interface LanguageOption {
 export interface SettingsOptions {
   timeZones: string[];
   languages: LanguageOption[];
+  genders: GenderOption[];
 }
 
 export interface UserSettings {
@@ -72,6 +92,9 @@ export interface UserSettings {
   timeZone: string;
   preferredLanguage: string;
   calendarInviteEmail: boolean;
+  gender?: string;
+  assistantName?: string;
+  assistantGender?: string;
   email: string;
   emailVerified: boolean;
   categories: Category[];

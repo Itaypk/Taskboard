@@ -70,8 +70,8 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
     )
 
     @Test
-    fun `GET tasks returns 200 with task list`() {
-        whenever(backlogTaskService.getAllTasksForUser(userId)).thenReturn(listOf(aTask()))
+    fun `GET tasks defaults to TODO filter`() {
+        whenever(backlogTaskService.getTasksForUser(userId, TaskStatus.TODO)).thenReturn(listOf(aTask()))
 
         mockMvc.perform(get("/api/v1/tasks").with(authentication(auth)))
             .andExpect(status().isOk)
@@ -81,8 +81,33 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
     }
 
     @Test
+    fun `GET tasks with status=done filters to DONE`() {
+        whenever(backlogTaskService.getTasksForUser(userId, TaskStatus.DONE)).thenReturn(emptyList())
+
+        mockMvc.perform(get("/api/v1/tasks?status=done").with(authentication(auth)))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$").isArray)
+            .andExpect(jsonPath("$").isEmpty)
+    }
+
+    @Test
+    fun `GET tasks with status=all passes null filter`() {
+        whenever(backlogTaskService.getTasksForUser(userId, null)).thenReturn(listOf(aTask()))
+
+        mockMvc.perform(get("/api/v1/tasks?status=all").with(authentication(auth)))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$[0].title").value("Test Task"))
+    }
+
+    @Test
+    fun `GET tasks with invalid status returns 400`() {
+        mockMvc.perform(get("/api/v1/tasks?status=bogus").with(authentication(auth)))
+            .andExpect(status().isBadRequest)
+    }
+
+    @Test
     fun `GET tasks returns 200 with empty list`() {
-        whenever(backlogTaskService.getAllTasksForUser(userId)).thenReturn(emptyList())
+        whenever(backlogTaskService.getTasksForUser(userId, TaskStatus.TODO)).thenReturn(emptyList())
 
         mockMvc.perform(get("/api/v1/tasks").with(authentication(auth)))
             .andExpect(status().isOk)

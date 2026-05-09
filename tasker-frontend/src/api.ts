@@ -1,4 +1,4 @@
-import type { Task, Category, Tag, UserSettings, SettingsOptions } from './types';
+import type { Task, Category, Tag, UserSettings, SettingsOptions, CurrentPlan } from './types';
 
 const BASE = '/api/v1';
 
@@ -45,8 +45,23 @@ function jsonBody(body: unknown): RequestInit {
 
 // --- Tasks ---
 
-export const fetchTasks = (): Promise<Task[]> =>
-    apiRequest('/tasks');
+export type TaskStatusFilter = 'todo' | 'done' | 'all';
+
+export const fetchTasks = (status: TaskStatusFilter = 'todo'): Promise<Task[]> =>
+    apiRequest(`/tasks?status=${status}`);
+
+// --- Current plan ---
+
+export const fetchCurrentPlan = async (): Promise<CurrentPlan | null> => {
+    const res = await fetch(`${BASE}/plans/current`, { credentials: 'include' });
+    if (res.status === 401) {
+        window.dispatchEvent(new Event(UNAUTHENTICATED_EVENT));
+        throw new Error('unauthenticated');
+    }
+    if (res.status === 204) return null;
+    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}: /plans/current`);
+    return res.json() as Promise<CurrentPlan>;
+};
 
 export const createTask = (payload: Omit<Task, 'id' | 'createdAt' | 'sortKey'>): Promise<Task> =>
     apiRequest('/tasks', { method: 'POST', ...jsonBody(payload) });
@@ -81,7 +96,7 @@ export const fetchTags = (): Promise<Tag[]> =>
 
 // --- User Settings ---
 
-type UserSettingsPayload = Pick<UserSettings, 'displayName' | 'contextBlock' | 'timeZone' | 'preferredLanguage' | 'calendarInviteEmail'>;
+type UserSettingsPayload = Pick<UserSettings, 'displayName' | 'contextBlock' | 'timeZone' | 'preferredLanguage' | 'calendarInviteEmail' | 'gender' | 'assistantName' | 'assistantGender'>;
 
 export const fetchUserSettings = (): Promise<UserSettingsPayload> =>
     apiRequest('/settings');

@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletResponse
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.Profile
 import org.springframework.core.annotation.Order
 import org.springframework.http.HttpStatus
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
@@ -54,6 +55,26 @@ private val CSP_POLICY = listOf(
 class SecurityConfiguration(
     private val prometheusAuthProperties: PrometheusAuthProperties,
 ) {
+
+    // Dev-only chain for the H2 console. Disables CSP, CSRF, and frame restrictions
+    // because the H2 web app uses inline scripts and same-origin frames.
+    @Bean
+    @Order(0)
+    @Profile("dev")
+    fun h2ConsoleFilterChain(http: HttpSecurity): SecurityFilterChain {
+        http {
+            securityMatcher("/h2-console/**")
+            authorizeHttpRequests {
+                authorize(anyRequest, permitAll)
+            }
+            csrf { disable() }
+            headers {
+                frameOptions { disable() }
+                contentSecurityPolicy { policyDirectives = "frame-ancestors 'self'" }
+            }
+        }
+        return http.build()
+    }
 
     @Bean
     @Order(1)
@@ -110,7 +131,10 @@ class SecurityConfiguration(
                         // CORS is only relevant for the API endpoints, and only when accessed from a browser. In both cases, we can allow all origins.
                         if (request.requestURI.startsWith("/api/")) {
                             val config = CorsConfiguration()
-                            config.allowedOrigins = listOf("http://localhost:63342", "http://127.0.0.1:63342")
+                            config.allowedOrigins = listOf(
+                                "http://localhost:63342", "http://127.0.0.1:63342",
+                                "http://localhost:5173",  "http://127.0.0.1:5173",
+                            )
                             config.allowedMethods = listOf("GET", "POST", "PUT", "DELETE", "OPTIONS")
                             config.allowedHeaders = listOf("*")
                             config.allowCredentials = true

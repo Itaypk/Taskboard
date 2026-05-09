@@ -4,11 +4,13 @@ import { PAPER_SWATCHES } from '../types';
 import { formatDeadline, isOverdue, formatDuration, rotationFromId } from '../utils';
 import { WashiTape } from './WashiTape';
 import { MarkdownRenderer } from './MarkdownRenderer';
+import styles from './PostItNote.module.css';
 
 interface PostItNoteProps {
   task: Task;
   category: Category | undefined;
   leaving?: boolean;
+  inCurrentPlan?: boolean;
   onClick: () => void;
 }
 
@@ -18,6 +20,7 @@ export function PostItNote({
   task,
   category,
   leaving = false,
+  inCurrentPlan = false,
   onClick,
 }: PostItNoteProps) {
   const swatchId = category?.swatchId ?? FALLBACK_SWATCH;
@@ -38,8 +41,9 @@ export function PostItNote({
   const classNames = [
     'note',
     'note--list',
-    leaving     ? 'note--leaving'  : '',
-    isDragging  ? 'note--dragging' : '',
+    leaving        ? 'note--leaving'  : '',
+    isDragging     ? 'note--dragging' : '',
+    inCurrentPlan  ? styles.inPlan    : '',
   ].filter(Boolean).join(' ');
 
   // The base `.note` CSS applies `rotate(var(--note-rot))`. While dnd-kit is
@@ -74,6 +78,10 @@ export function PostItNote({
     >
       {task.priority === 'high' && (
         <span className="note__stamp" aria-label="High priority">!</span>
+      )}
+
+      {inCurrentPlan && (
+        <span className={styles.planSrLabel}>In this week's plan</span>
       )}
 
       {category && (

@@ -23,6 +23,8 @@ data class UserSettingsResponse(
     val preferredLanguage: String,
     val calendarInviteEmail: Boolean,
     val gender: String?,
+    val assistantName: String?,
+    val assistantGender: String?,
     val email: String?,
     val emailVerified: Boolean,
 )
@@ -34,6 +36,8 @@ fun UserSettingsEntity.toResponse(user: UserEntity) = UserSettingsResponse(
     preferredLanguage = preferredLanguage,
     calendarInviteEmail = calendarInviteEmail,
     gender = gender,
+    assistantName = assistantName,
+    assistantGender = assistantGender,
     email = user.email,
     emailVerified = user.emailVerifiedAt != null,
 )
@@ -53,7 +57,8 @@ data class TaskResponse(
     val tags: List<TagResponseItem>,
     val sortKey: String,
     val createdAt: String,
-    val updatedAt: String?
+    val updatedAt: String?,
+    val lastScheduledInSessionId: String?,
 )
 
 data class CategoryResponse(val id: String, val label: String, val swatchId: String)
@@ -73,7 +78,8 @@ fun BacklogTask.toResponse() = TaskResponse(
     tags = tags.map { TagResponseItem(it.label, it.colorId.name.lowercase()) },
     sortKey = sortKey,
     createdAt = createdAt.toString(),
-    updatedAt = updatedAt?.toString()
+    updatedAt = updatedAt?.toString(),
+    lastScheduledInSessionId = lastScheduledInSessionId?.toString(),
 )
 
 fun BacklogTaskCategory.toResponse() = CategoryResponse(

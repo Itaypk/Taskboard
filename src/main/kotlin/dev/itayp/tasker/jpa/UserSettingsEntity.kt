@@ -30,4 +30,10 @@ open class UserSettingsEntity {
 
     @Column(name = "gender")
     var gender: String? = null
+
+    @Column(name = "assistant_name", length = 100)
+    var assistantName: String? = null
+
+    @Column(name = "assistant_gender", length = 20)
+    var assistantGender: String? = null
 }

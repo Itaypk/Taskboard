@@ -17,9 +17,11 @@ import {
 import { PostItNote } from './components/PostItNote';
 import { TaskDrawer } from './components/TaskDrawer';
 import { SettingsModal } from './components/SettingsModal';
+import { BoardFilter } from './components/BoardFilter';
+import { CurrentPlanDrawer } from './components/CurrentPlanDrawer';
 import { DEFAULT_SETTINGS } from './data';
-import { fetchTasks, fetchCategories, fetchUserSettings, fetchTags, createTask, updateTask, deleteTask, reorderTask } from './api';
-import type { Task, UserSettings, Tag } from './types';
+import { fetchTasks, fetchCategories, fetchUserSettings, fetchTags, fetchCurrentPlan, createTask, updateTask, deleteTask, reorderTask } from './api';
+import type { Task, UserSettings, Tag, CurrentPlan, TaskFilter } from './types';
 import { Routes, Route } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
 import { LoginPage } from './auth/LoginPage';
@@ -32,6 +34,26 @@ function GearIcon() {
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" aria-hidden>
       <circle cx="9" cy="9" r="2.4" />
       <path d="M9 1.2v1.8M9 15v1.8M1.2 9H3M15 9h1.8M3.4 3.4l1.3 1.3M13.3 13.3l1.3 1.3M3.4 14.6l1.3-1.3M13.3 4.7l1.3-1.3" />
+    </svg>
+  );
+}
+
+function emptyMessageFor(filter: TaskFilter): string {
+  switch (filter) {
+    case 'todo': return 'Nothing pinned up. Add your first task.';
+    case 'plan': return "Nothing in this week's plan yet.";
+    case 'done': return 'No completed tasks yet.';
+    case 'all':  return 'No tasks yet.';
+  }
+}
+
+function PlanIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="3" y="3.5" width="12" height="11" rx="1.5" />
+      <path d="M3 6.5h12" />
+      <path d="M6 2.5v2M12 2.5v2" />
+      <path d="M6 9.5h6M6 12h4" />
     </svg>
   );
 }
@@ -82,6 +104,9 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const [error, setError]             = useState<string | null>(null);
   const [draggingId, setDraggingId]   = useState<string | null>(null);
   const [emailVerifiedBanner, setEmailVerifiedBanner] = useState(false);
+  const [filter, setFilter]           = useState<TaskFilter>('todo');
+  const [currentPlan, setCurrentPlan] = useState<CurrentPlan | null>(null);
+  const [planDrawerOpen, setPlanDrawerOpen] = useState(false);
 
   // Mouse: start drag after 5px to keep clicks alive.
   // Touch: long-press (~200ms) so tap-to-open and finger-scroll still work.
@@ -100,10 +125,11 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   }, []);
 
   useEffect(() => {
-    Promise.all([fetchTasks(), fetchCategories(), fetchUserSettings(), fetchTags()])
-      .then(([loadedTasks, loadedCategories, loadedSettings, loadedTags]) => {
+    Promise.all([fetchTasks('todo'), fetchCategories(), fetchUserSettings(), fetchTags(), fetchCurrentPlan()])
+      .then(([loadedTasks, loadedCategories, loadedSettings, loadedTags, loadedPlan]) => {
         setTasks(loadedTasks);
         setTags(loadedTags);
+        setCurrentPlan(loadedPlan);
         setSettings(prev => ({
           ...prev,
           ...loadedSettings,
@@ -116,6 +142,14 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
       .finally(() => setLoading(false));
   }, []);
 
+  // Refetch tasks when the filter's status dimension changes.
+  // 'plan' reuses the open-tasks fetch and applies plan-membership client-side.
+  const fetchStatus = filter === 'plan' ? 'todo' : filter;
+  useEffect(() => {
+    if (loading) return;
+    fetchTasks(fetchStatus).then(setTasks).catch(e => console.error('Failed to refetch tasks', e));
+  }, [fetchStatus, loading]);
+
   const drawerOpen   = selectedId !== null || isCreating;
   const selectedTask = tasks.find(t => t.id === selectedId) ?? null;
 
@@ -124,10 +158,18 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
     [tasks],
   );
 
-  const visibleTasks = useMemo(
-    () => sortedTasks.filter(t => t.status === 'todo' || t.id === leavingId),
-    [sortedTasks, leavingId],
-  );
+  const planId = currentPlan?.id ?? null;
+  const visibleTasks = useMemo(() => {
+    return sortedTasks.filter(t => {
+      if (t.id === leavingId) return true;
+      switch (filter) {
+        case 'todo': return t.status === 'todo';
+        case 'done': return t.status === 'done';
+        case 'all':  return true;
+        case 'plan': return t.status === 'todo' && planId !== null && t.lastScheduledInSessionId === planId;
+      }
+    });
+  }, [sortedTasks, leavingId, filter, planId]);
 
   const visibleIds = useMemo(() => visibleTasks.map(t => t.id), [visibleTasks]);
 
@@ -218,13 +260,13 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
 
     try {
       await reorderTask(draggedId, afterId, beforeId);
-      const fresh = await fetchTasks();
+      const fresh = await fetchTasks(fetchStatus);
       setTasks(fresh);
     } catch (e) {
       console.error('Failed to reorder task', e);
-      fetchTasks().then(setTasks).catch(() => {});
+      fetchTasks(fetchStatus).then(setTasks).catch(() => {});
     }
-  }, [visibleIds, visibleTasks]);
+  }, [visibleIds, visibleTasks, fetchStatus]);
 
   const handleDragCancel = () => setDraggingId(null);
 
@@ -251,6 +293,11 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
     <>
       <header className="header">
         <span className="logo-tape">Backlog.fyi</span>
+        <BoardFilter
+          value={filter}
+          onChange={setFilter}
+          hasCurrentPlan={currentPlan !== null}
+        />
         <div className="header-right">
           <button
             type="button"
@@ -260,6 +307,18 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
             title="Pin up a new task"
           >
             <span className="new-note-btn__plus">+</span>
+          </button>
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={() => {
+              fetchCurrentPlan().then(setCurrentPlan).catch(e => console.error('Failed to refetch plan', e));
+              setPlanDrawerOpen(true);
+            }}
+            aria-label="View this week's plan"
+            title="This week's plan"
+          >
+            <PlanIcon />
           </button>
           <button
             type="button"
@@ -284,7 +343,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
 
       <main className="board-wrap">
         {visibleTasks.length === 0 ? (
-          <div className="board board--empty">Nothing pinned up. Add your first task.</div>
+          <div className="board board--empty">{emptyMessageFor(filter)}</div>
         ) : (
           <DndContext
             sensors={sensors}
@@ -306,6 +365,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
                     task={task}
                     category={categoryById.get(task.categoryId)}
                     leaving={leavingId === task.id}
+                    inCurrentPlan={planId !== null && task.lastScheduledInSessionId === planId}
                     onClick={() => { setIsCreating(false); setSelectedId(task.id); }}
                   />
                 ))}
@@ -334,6 +394,17 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
         onSave={handleSave}
         onDelete={handleDelete}
         onMarkDone={handleMarkDone}
+      />
+
+      <CurrentPlanDrawer
+        plan={currentPlan}
+        open={planDrawerOpen}
+        onClose={() => setPlanDrawerOpen(false)}
+        onTaskClick={(taskId) => {
+          setPlanDrawerOpen(false);
+          setIsCreating(false);
+          setSelectedId(taskId);
+        }}
       />
 
       <SettingsModal

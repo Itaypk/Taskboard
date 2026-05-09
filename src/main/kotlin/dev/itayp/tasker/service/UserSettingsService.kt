@@ -25,6 +25,9 @@ class UserSettingsService(private val settingsRepository: UserSettingsRepository
         request.gender?.let {
             require(SUPPORTED_GENDERS.any { g -> g.code == it }) { "Unsupported gender: $it" }
         }
+        request.assistantGender?.let {
+            require(SUPPORTED_GENDERS.any { g -> g.code == it }) { "Unsupported assistant gender: $it" }
+        }
         val entity = getOrCreate(userId)
         entity.displayName = request.displayName
         entity.contextBlock = request.contextBlock
@@ -32,6 +35,8 @@ class UserSettingsService(private val settingsRepository: UserSettingsRepository
         entity.preferredLanguage = request.preferredLanguage
         entity.calendarInviteEmail = request.calendarInviteEmail
         entity.gender = request.gender
+        entity.assistantName = request.assistantName
+        entity.assistantGender = request.assistantGender
         return settingsRepository.save(entity)
     }
 

@@ -1,5 +1,6 @@
 package dev.itayp.tasker.controller
 
+import dev.itayp.tasker.model.TaskStatus
 import dev.itayp.tasker.model.request.CreateBacklogTaskRequest
 import dev.itayp.tasker.model.request.ReorderTaskRequest
 import dev.itayp.tasker.model.request.UpdateBacklogTaskRequest
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import java.util.UUID
 
@@ -29,8 +31,27 @@ class BacklogTaskController(private val backlogTaskService: BacklogTaskService) 
     @GetMapping("/tasks")
     fun getBacklogTasks(
         @AuthenticationPrincipal principal: TaskerPrincipal,
-    ): ResponseEntity<List<TaskResponse>> =
-        ResponseEntity.ok(backlogTaskService.getAllTasksForUser(principal.userId).map { it.toResponse() })
+        @RequestParam(required = false) status: String?,
+    ): ResponseEntity<List<TaskResponse>> {
+        val statusFilter = parseStatusFilter(status)
+            ?: return ResponseEntity.badRequest().build()
+        return ResponseEntity.ok(
+            backlogTaskService.getTasksForUser(principal.userId, statusFilter.value).map { it.toResponse() }
+        )
+    }
+
+    /**
+     * `null` value with `null` wrapped means "all"; non-null wrapped value means filter to that status.
+     * Outer `null` means the param was malformed.
+     */
+    private data class StatusFilter(val value: TaskStatus?)
+
+    private fun parseStatusFilter(raw: String?): StatusFilter? = when (raw?.lowercase()) {
+        null, "todo" -> StatusFilter(TaskStatus.TODO)
+        "done" -> StatusFilter(TaskStatus.DONE)
+        "all" -> StatusFilter(null)
+        else -> null
+    }
 
     @PostMapping("/tasks")
     fun createBacklogTask(
