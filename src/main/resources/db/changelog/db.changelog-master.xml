@@ -10,5 +10,6 @@
     <include file="db/changelog/changesets/004-task-reschedule-tracking.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changesets/005-email-settings.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changesets/006-ai-message-clob-system-prompt.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changesets/007-user-gender.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

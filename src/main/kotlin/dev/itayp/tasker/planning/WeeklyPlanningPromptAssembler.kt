@@ -55,6 +55,9 @@ class WeeklyPlanningPromptAssembler(
             "today_iso" to today.format(DateTimeFormatter.ISO_LOCAL_DATE),
             "user_timezone" to zone.id,
             "preferred_language" to UserSettingsService.SUPPORTED_LANGUAGES.first { settings.preferredLanguage == it.code }.label,
+            "user_gender" to genderInstruction(settings.gender),
+            "assistant_name" to ASSISTANT_NAME,
+            "assistant_gender" to ASSISTANT_GENDER,
         ))
     }
 
@@ -63,8 +66,11 @@ class WeeklyPlanningPromptAssembler(
             "capacity_hint" to capacityHint.ifBlank { "Not stated." },
         ))
 
-    fun renderCapacityQuestion(): String =
-        templateLoader.load("weekly-planning/capacity-question.md").render(emptyMap())
+    private fun genderInstruction(gender: String?): String = when (gender) {
+        "masculine" -> "masculine grammatical gender (he/him forms)"
+        "feminine" -> "feminine grammatical gender (she/her forms)"
+        else -> "gender-neutral language (they/them forms or avoid gendering)"
+    }
 
     private fun renderTaskList(tasks: List<BacklogTask>): String {
         if (tasks.isEmpty()) return "_(none)_"
@@ -102,5 +108,10 @@ class WeeklyPlanningPromptAssembler(
             lines += "Deleted: " + diff.deleted.joinToString(", ") { it.title }
         }
         return lines.joinToString("\n")
+    }
+
+    companion object {
+        const val ASSISTANT_NAME = "Backlog"
+        const val ASSISTANT_GENDER = "neutral"
     }
 }

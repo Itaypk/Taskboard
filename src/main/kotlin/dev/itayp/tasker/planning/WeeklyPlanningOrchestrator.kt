@@ -12,11 +12,14 @@ import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ChoiceOption
 import dev.itayp.tasker.channel.ConversationChannel
 import dev.itayp.tasker.planning.dto.AgreedPlan
+import dev.itayp.tasker.service.UserSettingsService
 import com.fasterxml.jackson.annotation.JsonProperty
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.context.MessageSource
 import org.springframework.stereotype.Service
 import tools.jackson.databind.ObjectMapper
+import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -37,6 +40,8 @@ class WeeklyPlanningOrchestrator(
     private val planSubmissionInbox: PlanSubmissionInbox,
     private val toolRegistry: ToolRegistry,
     private val objectMapper: ObjectMapper,
+    private val messageSource: MessageSource,
+    private val userSettingsService: UserSettingsService,
     @Value("\${tasker.ai.weekly-planning-model}")
     private val model: String,
 ) {
@@ -54,9 +59,10 @@ class WeeklyPlanningOrchestrator(
             conversationId = null,
             capacityHint = null,
         )
+        val locale = userLocale(userId)
         channel.send(ChannelMessage.Choice(
-            prompt = promptAssembler.renderCapacityQuestion().trim(),
-            options = CAPACITY_OPTIONS,
+            prompt = messageSource.getMessage("planning.capacity.question", null, locale),
+            options = buildCapacityOptions(locale),
         ))
         return sessionId
     }
@@ -94,8 +100,7 @@ class WeeklyPlanningOrchestrator(
     ): Phase {
         val capacity = when (inbound) {
             is ChannelInbound.Selection -> {
-                val label = CAPACITY_OPTIONS.firstOrNull { it.id == inbound.optionId }?.label
-                    ?: inbound.optionId
+                val label = CAPACITY_EN_LABELS[inbound.optionId] ?: inbound.optionId
                 inbound.freeText?.let { "$label ($it)" } ?: label
             }
             is ChannelInbound.Text -> inbound.text
@@ -307,6 +312,18 @@ class WeeklyPlanningOrchestrator(
 
     // ── Helpers --------------------------------------------------------------------------
 
+    private fun userLocale(userId: UUID): Locale {
+        val lang = userSettingsService.getOrCreate(userId).preferredLanguage
+        return Locale.forLanguageTag(lang)
+    }
+
+    private fun buildCapacityOptions(locale: Locale) = listOf(
+        ChoiceOption("light", messageSource.getMessage("planning.capacity.option.light", null, locale)),
+        ChoiceOption("normal", messageSource.getMessage("planning.capacity.option.normal", null, locale)),
+        ChoiceOption("heavy", messageSource.getMessage("planning.capacity.option.heavy", null, locale)),
+        ChoiceOption("skip", messageSource.getMessage("planning.capacity.option.skip", null, locale)),
+    )
+
     private fun finalizeSubmission(sessionId: UUID, plan: AgreedPlan) {
         val current = state[sessionId] ?: return
         planningSessionService.completeSession(
@@ -367,11 +384,11 @@ class WeeklyPlanningOrchestrator(
         const val SAY_TOOL_NAME = "say"
         const val ESCAPE_OPTION_ID = "discuss"
 
-        val CAPACITY_OPTIONS = listOf(
-            ChoiceOption("light", "Light week"),
-            ChoiceOption("normal", "Normal week"),
-            ChoiceOption("heavy", "Heavy week — keep it minimal"),
-            ChoiceOption("skip", "Prefer to explain in words"),
+        // Canonical English labels used as capacity context for the LLM (language-independent).
+        private val CAPACITY_EN_LABELS = mapOf(
+            "light" to "Light week",
+            "normal" to "Normal week",
+            "heavy" to "Heavy week — keep it minimal",
         )
     }
 }

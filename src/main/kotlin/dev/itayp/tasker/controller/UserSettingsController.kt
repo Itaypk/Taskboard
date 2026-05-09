@@ -76,6 +76,7 @@ class UserSettingsController(
                 SettingsOptionsResponse(
                     timeZones = UserSettingsService.SUPPORTED_TIME_ZONES,
                     languages = UserSettingsService.SUPPORTED_LANGUAGES,
+                    genders = UserSettingsService.SUPPORTED_GENDERS,
                 )
             )
 }

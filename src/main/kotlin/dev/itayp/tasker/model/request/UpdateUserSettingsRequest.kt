@@ -6,4 +6,5 @@ data class UpdateUserSettingsRequest(
     val timeZone: String,
     val preferredLanguage: String,
     val calendarInviteEmail: Boolean = false,
+    val gender: String? = null,
 )

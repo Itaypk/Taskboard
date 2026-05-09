@@ -59,6 +59,8 @@
       padding: 0 16px;
     }
 
+    /* ── setup panel ── */
+
     #setup-panel {
       padding: 32px 0 20px;
       display: flex;
@@ -74,6 +76,90 @@
       max-width: 480px;
       line-height: 1.6;
     }
+
+    /* ── settings panel ── */
+
+    #settings-panel {
+      padding: 24px 0 16px;
+      display: none;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .settings-heading {
+      font-size: 12px;
+      font-weight: 600;
+      color: #f0f6fc;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      border-bottom: 1px solid #21262d;
+      padding-bottom: 8px;
+    }
+
+    .settings-desc {
+      font-size: 12px;
+      color: #8b949e;
+      line-height: 1.6;
+    }
+
+    .fields-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .field.full { grid-column: 1 / -1; }
+
+    .field label {
+      font-size: 11px;
+      color: #8b949e;
+      font-weight: 500;
+    }
+
+    .field input,
+    .field select,
+    .field textarea {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #e6edf3;
+      padding: 7px 10px;
+      font-family: inherit;
+      font-size: 13px;
+      outline: none;
+      width: 100%;
+    }
+
+    .field input:focus,
+    .field select:focus,
+    .field textarea:focus { border-color: #58a6ff; }
+
+    .field input::placeholder,
+    .field textarea::placeholder { color: #484f58; }
+
+    .field textarea { resize: vertical; line-height: 1.5; }
+
+    .field select option { background: #161b22; }
+
+    .field-hint {
+      color: #484f58;
+      font-weight: 400;
+    }
+
+    .panel-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      padding-top: 4px;
+    }
+
+    /* ── messages ── */
 
     #messages {
       flex: 1;
@@ -298,8 +384,45 @@
 
 <main>
   <div id="setup-panel">
-    <p>Logs in as the dev user, seeds demo tasks if the backlog is empty, then starts a planning session.</p>
+    <p>Logs in as the dev user, seeds demo tasks if the backlog is empty, then lets you review preferences before starting a planning session.</p>
     <button class="btn-setup" id="btn-start" onclick="setup()">Setup &amp; Start Planning</button>
+  </div>
+
+  <div id="settings-panel">
+    <div class="settings-heading">User preferences</div>
+    <p class="settings-desc">Adjust preferences before starting the session. These will be saved to the dev user's settings.</p>
+    <div class="fields-grid">
+      <div class="field">
+        <label for="f-display-name">Display name</label>
+        <input type="text" id="f-display-name" placeholder="Your name" />
+      </div>
+      <div class="field">
+        <label for="f-language">Language</label>
+        <select id="f-language"></select>
+      </div>
+      <div class="field">
+        <label for="f-gender">Gender address</label>
+        <select id="f-gender">
+          <option value="">— not set (neutral) —</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="f-timezone">Timezone</label>
+        <input type="text" id="f-timezone" placeholder="e.g. America/New_York" list="tz-list" />
+        <datalist id="tz-list"></datalist>
+      </div>
+      <div class="field full">
+        <label for="f-context">
+          Context block
+          <span class="field-hint">(optional — extra context for the assistant)</span>
+        </label>
+        <textarea id="f-context" rows="3" placeholder="Anything the assistant should know about you…"></textarea>
+      </div>
+    </div>
+    <div class="panel-actions">
+      <button class="btn-secondary" id="btn-skip" onclick="startPlanning()">Skip</button>
+      <button class="btn-setup" id="btn-save-start" onclick="saveAndStart()">Save &amp; Start Planning</button>
+    </div>
   </div>
 
   <div id="messages" style="display:none"></div>
@@ -317,6 +440,7 @@
 <script>
   let sessionId = null;
   let busy = false;
+  let currentSettings = null;
 
   // ── helpers ──────────────────────────────────────────────────────────────
 
@@ -332,15 +456,38 @@
       headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrf() },
     };
     if (body !== undefined) opts.body = JSON.stringify(body);
-    const fullUrl = 'http://localhost:8080' + path;
-    const r = await fetch(fullUrl, opts);
+    const r = await fetch('http://localhost:8080' + path, opts);
     if (!r.ok) throw new Error(`${method} ${path} → ${r.status} ${r.statusText}`);
     if (r.status === 204) return null;
     return r.json();
   }
 
-  function log(msg) {
-    document.getElementById('log').innerHTML = msg;
+  function logClear() {
+    const el = document.getElementById('log');
+    el.textContent = '';
+    el.style.color = '';
+  }
+
+  function logSpinner(text) {
+    const el = document.getElementById('log');
+    el.textContent = '';
+    el.style.color = '';
+    const spinner = document.createElement('span');
+    spinner.className = 'spinner';
+    el.appendChild(spinner);
+    el.appendChild(document.createTextNode(text));
+  }
+
+  function logText(text) {
+    const el = document.getElementById('log');
+    el.textContent = text;
+    el.style.color = '';
+  }
+
+  function logError(text) {
+    const el = document.getElementById('log');
+    el.textContent = '✗ ' + text;
+    el.style.color = '#f85149';
   }
 
   function setStatus(label, cls) {
@@ -350,14 +497,139 @@
   }
 
   function setPhase(phase) {
-    document.getElementById('phase-label').textContent = phase ? `phase: ${phase}` : '';
+    document.getElementById('phase-label').textContent = phase ? 'phase: ' + phase : '';
   }
 
   function setBusy(val) {
     busy = val;
     document.getElementById('btn-send').disabled = val;
     document.getElementById('btn-start').disabled = val;
-    document.querySelectorAll('.btn-choice').forEach(b => b.disabled = val);
+    const skip = document.getElementById('btn-skip');
+    const save = document.getElementById('btn-save-start');
+    if (skip) skip.disabled = val;
+    if (save) save.disabled = val;
+    document.querySelectorAll('.btn-choice').forEach(b => { b.disabled = val; });
+  }
+
+  // ── settings panel ───────────────────────────────────────────────────────
+
+  function populateSettingsForm(settings, options) {
+    currentSettings = settings;
+
+    document.getElementById('f-display-name').value = settings.displayName || '';
+    document.getElementById('f-context').value = settings.contextBlock || '';
+    document.getElementById('f-timezone').value = settings.timeZone || 'UTC';
+
+    const tzList = document.getElementById('tz-list');
+    tzList.textContent = '';
+    (options.timeZones || []).forEach(tz => {
+      const opt = document.createElement('option');
+      opt.value = tz;
+      tzList.appendChild(opt);
+    });
+
+    const langSel = document.getElementById('f-language');
+    langSel.textContent = '';
+    (options.languages || []).forEach(lang => {
+      const opt = document.createElement('option');
+      opt.value = lang.code;
+      opt.textContent = lang.label;
+      if (lang.code === settings.preferredLanguage) opt.selected = true;
+      langSel.appendChild(opt);
+    });
+
+    const genderSel = document.getElementById('f-gender');
+    while (genderSel.options.length > 1) genderSel.remove(1);
+    (options.genders || []).forEach(g => {
+      const opt = document.createElement('option');
+      opt.value = g.code;
+      opt.textContent = g.label;
+      if (g.code === settings.gender) opt.selected = true;
+      genderSel.appendChild(opt);
+    });
+    if (!settings.gender) genderSel.value = '';
+  }
+
+  function readSettingsForm() {
+    return {
+      displayName: document.getElementById('f-display-name').value.trim() || null,
+      contextBlock: document.getElementById('f-context').value.trim() || null,
+      timeZone: document.getElementById('f-timezone').value.trim() || 'UTC',
+      preferredLanguage: document.getElementById('f-language').value,
+      calendarInviteEmail: currentSettings ? currentSettings.calendarInviteEmail : false,
+      gender: document.getElementById('f-gender').value || null,
+    };
+  }
+
+  // ── setup flow ───────────────────────────────────────────────────────────
+
+  async function setup() {
+    setBusy(true);
+    try {
+      logSpinner('Logging in as dev user…');
+      await api('POST', '/api/auth/dev-login');
+      setStatus('logged in', 'logged-in');
+
+      logSpinner('Checking backlog…');
+      const seed = await api('POST', '/api/dev/planning/seed');
+      if (seed.seeded) {
+        logText('Seeded ' + seed.existingTaskCount + ' demo tasks.');
+      } else {
+        logText('Backlog already has ' + seed.existingTaskCount + ' tasks — skipping seed.');
+      }
+
+      logSpinner('Loading preferences…');
+      const [settings, options] = await Promise.all([
+        api('GET', '/api/v1/settings'),
+        api('GET', '/api/v1/settings/options'),
+      ]);
+
+      populateSettingsForm(settings, options);
+
+      document.getElementById('setup-panel').style.display = 'none';
+      document.getElementById('settings-panel').style.display = 'flex';
+      logClear();
+    } catch (e) {
+      logError(e.message);
+      setStatus('error', 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveAndStart() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      logSpinner('Saving preferences…');
+      await api('PUT', '/api/v1/settings', readSettingsForm());
+      await startPlanning();
+    } catch (e) {
+      logError(e.message);
+      setStatus('error', 'error');
+      setBusy(false);
+    }
+  }
+
+  async function startPlanning() {
+    try {
+      logSpinner('Starting planning session…');
+      const data = await api('POST', '/api/dev/planning/start');
+      sessionId = data.sessionId;
+
+      document.getElementById('settings-panel').style.display = 'none';
+      document.getElementById('messages').style.display = 'flex';
+      document.getElementById('btn-abandon').style.display = '';
+      setStatus('planning', 'planning');
+      logClear();
+
+      renderResponse(data);
+    } catch (e) {
+      logError(e.message);
+      setStatus('error', 'error');
+    } finally {
+      setBusy(false);
+    }
   }
 
   // ── message rendering ────────────────────────────────────────────────────
@@ -366,7 +638,7 @@
     const container = document.getElementById('messages');
 
     const wrap = document.createElement('div');
-    wrap.className = `msg ${role}`;
+    wrap.className = 'msg ' + role;
 
     const avatar = document.createElement('div');
     avatar.className = 'msg-avatar';
@@ -421,15 +693,35 @@
 
   function showLoading() {
     const container = document.getElementById('messages');
+
     const wrap = document.createElement('div');
     wrap.className = 'msg assistant';
     wrap.id = 'loading-msg';
-    wrap.innerHTML = `
-      <div class="msg-avatar">🤖</div>
-      <div style="flex:1">
-        <div class="msg-label">planner</div>
-        <div class="msg-bubble"><span class="spinner"></span>thinking…</div>
-      </div>`;
+
+    const avatar = document.createElement('div');
+    avatar.className = 'msg-avatar';
+    avatar.textContent = '🤖';
+
+    const right = document.createElement('div');
+    right.style.flex = '1';
+
+    const lbl = document.createElement('div');
+    lbl.className = 'msg-label';
+    lbl.textContent = 'planner';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'msg-bubble';
+
+    const spinner = document.createElement('span');
+    spinner.className = 'spinner';
+    bubble.appendChild(spinner);
+    bubble.appendChild(document.createTextNode('thinking…'));
+
+    right.appendChild(lbl);
+    right.appendChild(bubble);
+    wrap.appendChild(avatar);
+    wrap.appendChild(right);
+
     container.appendChild(wrap);
     container.scrollTop = container.scrollHeight;
   }
@@ -527,42 +819,6 @@
     }
   }
 
-  // ── setup flow ───────────────────────────────────────────────────────────
-
-  async function setup() {
-    setBusy(true);
-    try {
-      log('<span class="spinner"></span>Logging in as dev user…');
-      await api('POST', '/api/auth/dev-login');
-      setStatus('logged in', 'logged-in');
-
-      log('<span class="spinner"></span>Checking backlog…');
-      const seed = await api('POST', '/api/dev/planning/seed');
-      if (seed.seeded) {
-        log(`Seeded ${seed.existingTaskCount} demo tasks.`);
-      } else {
-        log(`Backlog already has ${seed.existingTaskCount} tasks — skipping seed.`);
-      }
-
-      log('<span class="spinner"></span>Starting planning session…');
-      const data = await api('POST', '/api/dev/planning/start');
-      sessionId = data.sessionId;
-
-      document.getElementById('setup-panel').style.display = 'none';
-      document.getElementById('messages').style.display = 'flex';
-      document.getElementById('btn-abandon').style.display = '';
-      setStatus('planning', 'planning');
-      log('');
-
-      renderResponse(data);
-    } catch (e) {
-      log(`<span style="color:#f85149">✗ ${e.message}</span>`);
-      setStatus('error', 'error');
-    } finally {
-      setBusy(false);
-    }
-  }
-
   // ── reply actions ────────────────────────────────────────────────────────
 
   async function sendText() {
@@ -585,11 +841,11 @@
     document.getElementById('reply-area').classList.add('hidden');
 
     try {
-      const data = await api('POST', `/api/dev/planning/${sessionId}/reply`, body);
+      const data = await api('POST', '/api/dev/planning/' + sessionId + '/reply', body);
       renderResponse(data);
     } catch (e) {
       removeLoading();
-      log(`<span style="color:#f85149">✗ ${e.message}</span>`);
+      logError(e.message);
     } finally {
       setBusy(false);
     }
@@ -598,20 +854,22 @@
   async function abandon() {
     if (!sessionId || !confirm('Abandon this planning session?')) return;
     try {
-      await api('POST', `/api/dev/planning/${sessionId}/abandon`);
+      await api('POST', '/api/dev/planning/' + sessionId + '/abandon');
     } catch (_) {}
     restart();
   }
 
   function restart() {
     sessionId = null;
-    document.getElementById('messages').innerHTML = '';
+    currentSettings = null;
+    document.getElementById('messages').textContent = '';
     document.getElementById('messages').style.display = 'none';
+    document.getElementById('settings-panel').style.display = 'none';
     document.getElementById('setup-panel').style.display = 'flex';
     document.getElementById('reply-area').classList.add('hidden');
     document.getElementById('btn-abandon').style.display = 'none';
     document.getElementById('btn-restart').style.display = 'none';
-    document.getElementById('log').innerHTML = '';
+    logClear();
     setStatus('not logged in', '');
     setPhase('');
     document.getElementById('btn-start').disabled = false;

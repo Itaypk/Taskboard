@@ -8,9 +8,12 @@ import dev.itayp.tasker.model.BacklogTaskTag
 
 data class LanguageOption(val code: String, val label: String)
 
+data class GenderOption(val code: String, val label: String)
+
 data class SettingsOptionsResponse(
     val timeZones: List<String>,
     val languages: List<LanguageOption>,
+    val genders: List<GenderOption>,
 )
 
 data class UserSettingsResponse(
@@ -19,6 +22,7 @@ data class UserSettingsResponse(
     val timeZone: String,
     val preferredLanguage: String,
     val calendarInviteEmail: Boolean,
+    val gender: String?,
     val email: String?,
     val emailVerified: Boolean,
 )
@@ -29,6 +33,7 @@ fun UserSettingsEntity.toResponse(user: UserEntity) = UserSettingsResponse(
     timeZone = timeZone,
     preferredLanguage = preferredLanguage,
     calendarInviteEmail = calendarInviteEmail,
+    gender = gender,
     email = user.email,
     emailVerified = user.emailVerifiedAt != null,
 )

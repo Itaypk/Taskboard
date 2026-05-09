@@ -2,6 +2,7 @@ package dev.itayp.tasker.service
 
 import dev.itayp.tasker.jpa.UserSettingsEntity
 import dev.itayp.tasker.model.request.UpdateUserSettingsRequest
+import dev.itayp.tasker.model.response.GenderOption
 import dev.itayp.tasker.model.response.LanguageOption
 import dev.itayp.tasker.repository.UserSettingsRepository
 import org.springframework.stereotype.Service
@@ -21,12 +22,16 @@ class UserSettingsService(private val settingsRepository: UserSettingsRepository
         require(SUPPORTED_LANGUAGES.any { it.code == request.preferredLanguage }) {
             "Unsupported language: ${request.preferredLanguage}"
         }
+        request.gender?.let {
+            require(SUPPORTED_GENDERS.any { g -> g.code == it }) { "Unsupported gender: $it" }
+        }
         val entity = getOrCreate(userId)
         entity.displayName = request.displayName
         entity.contextBlock = request.contextBlock
         entity.timeZone = request.timeZone
         entity.preferredLanguage = request.preferredLanguage
         entity.calendarInviteEmail = request.calendarInviteEmail
+        entity.gender = request.gender
         return settingsRepository.save(entity)
     }
 
@@ -38,6 +43,12 @@ class UserSettingsService(private val settingsRepository: UserSettingsRepository
         val SUPPORTED_TIME_ZONES: List<String> = ZoneId.getAvailableZoneIds()
             .filter { it.contains('/') && !it.startsWith("Etc/") && !it.startsWith("SystemV/") }
             .sorted()
+
+        val SUPPORTED_GENDERS: List<GenderOption> = listOf(
+            GenderOption("masculine", "Masculine"),
+            GenderOption("feminine", "Feminine"),
+            GenderOption("neutral", "Neutral"),
+        )
 
         val SUPPORTED_LANGUAGES: List<LanguageOption> = listOf(
             LanguageOption("ar", "Arabic"),

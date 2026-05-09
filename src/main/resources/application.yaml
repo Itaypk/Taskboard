@@ -1,6 +1,9 @@
 spring:
   application:
     name: taskboard
+  messages:
+    basename: messages
+    encoding: UTF-8
   jpa:
     hibernate:
       ddl-auto: validate
