@@ -156,6 +156,7 @@ class WeeklyPlanningOrchestrator(
         try {
             for (call in calls) {
                 val tool = toolRegistry.get(call.name)
+                channel.logToolCall(call.name, call.arguments)
                 if (tool == null) {
                     log.warn("Model called unknown tool: {}", call.name)
                     aiConversationManager.recordToolResult(

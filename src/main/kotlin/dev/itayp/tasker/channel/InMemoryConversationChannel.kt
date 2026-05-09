@@ -15,9 +15,14 @@ class InMemoryConversationChannel(
 ) : ConversationChannel {
 
     private val outbox: ConcurrentLinkedQueue<ChannelMessage> = ConcurrentLinkedQueue()
+    private val debugOutbox: ConcurrentLinkedQueue<ToolCallEvent> = ConcurrentLinkedQueue()
 
     override fun send(message: ChannelMessage) {
         outbox.add(message)
+    }
+
+    override fun logToolCall(name: String, arguments: String) {
+        debugOutbox.add(ToolCallEvent(name, arguments))
     }
 
     fun drain(): List<ChannelMessage> {
@@ -28,4 +33,15 @@ class InMemoryConversationChannel(
         }
         return drained
     }
+
+    fun drainToolCallEvents(): List<ToolCallEvent> {
+        val drained = mutableListOf<ToolCallEvent>()
+        while (true) {
+            val event = debugOutbox.poll() ?: break
+            drained.add(event)
+        }
+        return drained
+    }
 }
+
+data class ToolCallEvent(val name: String, val arguments: String)

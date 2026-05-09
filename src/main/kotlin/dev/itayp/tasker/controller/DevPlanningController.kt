@@ -4,6 +4,7 @@ import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ChoiceOption
 import dev.itayp.tasker.channel.InMemoryConversationChannel
+import dev.itayp.tasker.channel.ToolCallEvent
 import dev.itayp.tasker.planning.WeeklyPlanningOrchestrator
 import dev.itayp.tasker.repository.BacklogTaskRepository
 import dev.itayp.tasker.security.TaskerPrincipal
@@ -52,7 +53,7 @@ class DevPlanningController(
         val channel = InMemoryConversationChannel()
         val sessionId = orchestrator.start(principal.userId, channel)
         channels[sessionId] = channel
-        return ResponseEntity.ok(DevPlanningResponse.from(sessionId, orchestrator.phase(sessionId), channel.drain()))
+        return ResponseEntity.ok(DevPlanningResponse.from(sessionId, orchestrator.phase(sessionId), channel.drain(), channel.drainToolCallEvents()))
     }
 
     @PostMapping("/{sessionId}/reply")
@@ -69,7 +70,7 @@ class DevPlanningController(
             else -> return ResponseEntity.badRequest().build()
         }
         orchestrator.handleInbound(sessionId, inbound, channel)
-        return ResponseEntity.ok(DevPlanningResponse.from(sessionId, orchestrator.phase(sessionId), channel.drain()))
+        return ResponseEntity.ok(DevPlanningResponse.from(sessionId, orchestrator.phase(sessionId), channel.drain(), channel.drainToolCallEvents()))
     }
 
     @GetMapping("/{sessionId}")
@@ -79,7 +80,7 @@ class DevPlanningController(
     ): ResponseEntity<DevPlanningResponse> {
         val channel = channels[sessionId]
             ?: return ResponseEntity.notFound().build()
-        return ResponseEntity.ok(DevPlanningResponse.from(sessionId, orchestrator.phase(sessionId), channel.drain()))
+        return ResponseEntity.ok(DevPlanningResponse.from(sessionId, orchestrator.phase(sessionId), channel.drain(), channel.drainToolCallEvents()))
     }
 
     @PostMapping("/{sessionId}/abandon")
@@ -102,16 +103,19 @@ data class DevPlanningResponse(
     val sessionId: UUID,
     val phase: String,
     val pendingMessages: List<RenderedMessage>,
+    val toolCalls: List<ToolCallEvent> = emptyList(),
 ) {
     companion object {
         fun from(
             sessionId: UUID,
             phase: WeeklyPlanningOrchestrator.Phase?,
             messages: List<ChannelMessage>,
+            toolCalls: List<ToolCallEvent> = emptyList(),
         ): DevPlanningResponse = DevPlanningResponse(
             sessionId = sessionId,
             phase = phase?.name ?: "UNKNOWN",
             pendingMessages = messages.map(RenderedMessage::from),
+            toolCalls = toolCalls,
         )
     }
 }

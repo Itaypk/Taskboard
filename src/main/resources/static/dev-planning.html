@@ -247,6 +247,43 @@
       text-align: center;
       line-height: 1.6;
     }
+
+    .tool-call {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 6px 10px;
+      background: #161b22;
+      border: 1px solid #21262d;
+      border-left: 3px solid #6e40c9;
+      border-radius: 6px;
+      font-size: 11px;
+      color: #8b5cf6;
+    }
+
+    .tool-call-icon { flex-shrink: 0; }
+
+    .tool-call-name {
+      font-weight: 600;
+      color: #a78bfa;
+      margin-right: 6px;
+    }
+
+    .tool-call-args {
+      color: #6e7681;
+      font-size: 10px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      margin-top: 2px;
+    }
+
+    .tool-call-args-toggle {
+      cursor: pointer;
+      color: #6e40c9;
+      font-size: 10px;
+      margin-left: 4px;
+      text-decoration: underline dotted;
+    }
   </style>
 </head>
 <body>
@@ -401,9 +438,63 @@
     document.getElementById('loading-msg')?.remove();
   }
 
+  function appendToolCall(call) {
+    const container = document.getElementById('messages');
+    const wrap = document.createElement('div');
+    wrap.className = 'tool-call';
+
+    let argsExpanded = false;
+    const argsPreview = call.arguments.length > 80
+      ? call.arguments.slice(0, 80) + '…'
+      : call.arguments;
+
+    const icon = document.createElement('span');
+    icon.className = 'tool-call-icon';
+    icon.textContent = '⚙';
+
+    const body = document.createElement('div');
+    body.style.cssText = 'flex:1;min-width:0';
+
+    const header = document.createElement('div');
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'tool-call-name';
+    nameSpan.textContent = call.name;
+
+    const toggle = document.createElement('span');
+    toggle.className = 'tool-call-args-toggle';
+    toggle.title = 'Toggle full args';
+    toggle.textContent = '[args]';
+
+    header.appendChild(nameSpan);
+    header.appendChild(toggle);
+
+    const argsEl = document.createElement('div');
+    argsEl.className = 'tool-call-args';
+    argsEl.textContent = argsPreview;
+
+    toggle.addEventListener('click', () => {
+      argsExpanded = !argsExpanded;
+      argsEl.textContent = argsExpanded ? call.arguments : argsPreview;
+      toggle.textContent = argsExpanded ? '[hide]' : '[args]';
+    });
+
+    body.appendChild(header);
+    body.appendChild(argsEl);
+    wrap.appendChild(icon);
+    wrap.appendChild(body);
+    container.appendChild(wrap);
+    container.scrollTop = container.scrollHeight;
+  }
+
   function renderResponse(data) {
     removeLoading();
     setPhase(data.phase);
+
+    (data.toolCalls || []).forEach(call => {
+      console.debug('[tool-call]', call.name, call.arguments);
+      appendToolCall(call);
+    });
 
     const msgs = data.pendingMessages || [];
     let hasChoice = false;

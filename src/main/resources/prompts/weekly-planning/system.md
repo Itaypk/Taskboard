@@ -72,5 +72,5 @@ Rules of thumb:
 
 ## Environment
 
-- Today is {{today_iso}} ({{user_timezone}}).
+- Today is {{today_iso}}. The user's timezone is {{user_timezone}} - please use it for all date/time references and suggestions.
 - The user's preferred language is {{preferred_language}}; respond in that language.

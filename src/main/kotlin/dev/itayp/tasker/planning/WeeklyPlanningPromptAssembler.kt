@@ -54,7 +54,7 @@ class WeeklyPlanningPromptAssembler(
             "capacity_hint" to capacityHint.ifBlank { "Not stated." },
             "today_iso" to today.format(DateTimeFormatter.ISO_LOCAL_DATE),
             "user_timezone" to zone.id,
-            "preferred_language" to settings.preferredLanguage,
+            "preferred_language" to UserSettingsService.SUPPORTED_LANGUAGES.first { settings.preferredLanguage == it.code }.label,
         ))
     }
 
