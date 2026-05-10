@@ -7,6 +7,5 @@ data class UpdateUserSettingsRequest(
     val preferredLanguage: String,
     val calendarInviteEmail: Boolean = false,
     val gender: String? = null,
-    val assistantName: String? = null,
-    val assistantGender: String? = null,
+    val agentDescription: String? = null,
 )

@@ -82,8 +82,7 @@ export function SettingsModal({ settings, tasks, open, onClose, onSave, onAccoun
           preferredLanguage: form.preferredLanguage,
           calendarInviteEmail: form.calendarInviteEmail,
           gender: form.gender,
-          assistantName: form.assistantName,
-          assistantGender: form.assistantGender,
+          agentDescription: form.agentDescription,
         }),
         ...settings.categories
           .filter(c => !newIdSet.has(c.id))
@@ -343,35 +342,6 @@ export function SettingsModal({ settings, tasks, open, onClose, onSave, onAccoun
                   className="field__select"
                   value={form.gender ?? ''}
                   onChange={e => setForm(f => ({ ...f, gender: e.target.value || undefined }))}
-                >
-                  <option value="">— no preference</option>
-                  {genderOptions.map(opt => (
-                    <option key={opt.code} value={opt.code}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="field">
-                <label className="field__label" htmlFor="settings-assistant-name">Assistant name</label>
-                <p className="settings-hint">Give your assistant a name, or leave blank to use the default.</p>
-                <input
-                  id="settings-assistant-name"
-                  className="field__input"
-                  value={form.assistantName ?? ''}
-                  onChange={e => setForm(f => ({ ...f, assistantName: e.target.value || undefined }))}
-                  placeholder="e.g. Alex"
-                  maxLength={100}
-                />
-              </div>
-
-              <div className="field">
-                <label className="field__label" htmlFor="settings-assistant-gender">Assistant's voice</label>
-                <p className="settings-hint">Sets the pronouns and gendered language the assistant uses about itself.</p>
-                <select
-                  id="settings-assistant-gender"
-                  className="field__select"
-                  value={form.assistantGender ?? ''}
-                  onChange={e => setForm(f => ({ ...f, assistantGender: e.target.value || undefined }))}
                 >
                   <option value="">— no preference</option>
                   {genderOptions.map(opt => (

@@ -93,8 +93,7 @@ export interface UserSettings {
   preferredLanguage: string;
   calendarInviteEmail: boolean;
   gender?: string;
-  assistantName?: string;
-  assistantGender?: string;
+  agentDescription?: string;
   email: string;
   emailVerified: boolean;
   categories: Category[];

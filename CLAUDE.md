@@ -57,12 +57,14 @@ Session chain details:
 - **UUIDs everywhere**: user ids, task ids, category/tag ids. Stored as `UUID` columns with foreign keys to `users(id)`.
 - Liquibase runs on startup against H2 (dev/test) and Postgres (prod). `spring.jpa.hibernate.ddl-auto: validate` — Hibernate does **not** manage schema. The master changelog is `src/main/resources/db/changelog/db.changelog-master.xml`; additional changesets live under `src/main/resources/db/changelog/changesets/` and are wired in via `<include>`.
 - **The app is deployed against a real Postgres database, so migrations are additive only.** Never edit a previously-applied changeset (including `id="1"`) — add a new changeset with the next integer id instead. Renames, column-type changes, and drops must be done through new changesets that preserve existing data.
+- **Large text columns**: use `type="LONGVARCHAR"` in Liquibase and `@Column(columnDefinition = "TEXT")` in the JPA entity. Liquibase maps `LONGVARCHAR` → `TEXT` in Postgres and `VARCHAR` in H2; both satisfy Hibernate's schema validation for a `String` field. Do **not** use `type="TEXT"` in Liquibase — H2 maps that to CLOB, which fails validation. `context_block` (changeset 1) is a legacy exception: it's `VARCHAR(4096)` and has no `columnDefinition`.
 
 ## Stack notes that affect how you write code
 
 - **JVM 25** via Gradle toolchain (`build.gradle.kts`). `HELP.md` notes a past downgrade to 24 for Kotlin compat; check Kotlin 2.3.20's supported JVM targets before changing Java versions.
 - **Kotlin Spring plugins**: `kotlin-spring` (auto-opens Spring-managed classes) and `kotlin-jpa` with `allOpen` for `@Entity`, `@MappedSuperclass`, `@Embeddable`. Don't mark JPA entities `open` manually.
 - **Jackson**: uses `tools.jackson.module:jackson-module-kotlin` (Jackson 3.x, `tools.jackson` package), not `com.fasterxml.jackson.*`. Import accordingly.
+- **Handlebars**: uses Handlebars.java for AI prompts and email templates. Prompt templates live in `src/main/resources/prompts/`, emails under `src/main/resources/emails`. 
 - **Spring Boot 4.0.x**: several starter artifacts moved. Notable: `TestRestTemplate` lives in `org.springframework.boot.resttestclient` and requires `spring-boot-restclient` + `spring-boot-resttestclient` as `testImplementation` (already declared).
 - **LLM**: Spring AI is **not** the chosen approach. Use a thin, hand-rolled abstraction over the Claude API when the planner is built.
 - **Databases**: H2 in-memory for dev (`application-dev.yaml`) and unit/slice tests. Postgres for prod (`application-prod.yaml`). Integration tests under `@ActiveProfiles("prod")` spin up a real Postgres instance via TestContainers (`AbstractIntegrationTest.Initializer`). Config is split across `application.yaml` (base), `application-dev.yaml`, and `application-prod.yaml`.

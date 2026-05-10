@@ -23,8 +23,7 @@ data class UserSettingsResponse(
     val preferredLanguage: String,
     val calendarInviteEmail: Boolean,
     val gender: String?,
-    val assistantName: String?,
-    val assistantGender: String?,
+    val agentDescription: String?,
     val email: String?,
     val emailVerified: Boolean,
 )
@@ -36,8 +35,7 @@ fun UserSettingsEntity.toResponse(user: UserEntity) = UserSettingsResponse(
     preferredLanguage = preferredLanguage,
     calendarInviteEmail = calendarInviteEmail,
     gender = gender,
-    assistantName = assistantName,
-    assistantGender = assistantGender,
+    agentDescription = agentDescription,
     email = user.email,
     emailVerified = user.emailVerifiedAt != null,
 )

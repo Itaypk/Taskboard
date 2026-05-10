@@ -6,7 +6,7 @@ import java.nio.charset.StandardCharsets
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Loads templates from the classpath and caches the parsed result.
+ * Loads templates from the classpath and caches the compiled result.
  * Templates are versioned with the code under `src/main/resources/`.
  *
  * [load] is a convenience wrapper that resolves relative to `classpath:prompts/`.
@@ -17,14 +17,12 @@ class PromptTemplateLoader {
 
     private val cache = ConcurrentHashMap<String, PromptTemplate>()
 
-    /** Loads a template relative to `classpath:prompts/` (e.g. `weekly-planning/system.md`). */
     fun load(path: String): PromptTemplate = loadFromClasspath("prompts/$path")
 
-    /** Loads a template by its full classpath path (e.g. `emails/invitation.html`). */
     fun loadFromClasspath(path: String): PromptTemplate = cache.computeIfAbsent(path) {
         val resource = ClassPathResource(path)
         require(resource.exists()) { "Template not found: $path" }
         val source = resource.inputStream.use { it.readBytes().toString(StandardCharsets.UTF_8) }
-        PromptTemplate(source)
+        PromptTemplate.compile(source)
     }
 }

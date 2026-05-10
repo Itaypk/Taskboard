@@ -2,40 +2,57 @@ package dev.itayp.tasker.ai.prompt
 
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 
 class PromptTemplateTest {
 
+    private fun compile(source: String) = PromptTemplate.compile(source)
+
     @Test
-    fun `renders with all placeholders filled`() {
-        val template = PromptTemplate("Hello {{name}}, you have {{count}} tasks.")
-        val result = template.render(mapOf("name" to "Itay", "count" to "3"))
+    fun `renders with all variables filled`() {
+        val result = compile("Hello {{name}}, you have {{count}} tasks.")
+            .render(mapOf("name" to "Itay", "count" to "3"))
         assertEquals("Hello Itay, you have 3 tasks.", result)
     }
 
     @Test
     fun `repeated placeholders are all replaced`() {
-        val template = PromptTemplate("{{x}} + {{x}} = {{y}}")
-        assertEquals("1 + 1 = 2", template.render(mapOf("x" to "1", "y" to "2")))
+        val result = compile("{{x}} + {{x}} = {{y}}")
+            .render(mapOf("x" to "1", "y" to "2"))
+        assertEquals("1 + 1 = 2", result)
     }
 
     @Test
-    fun `missing variable throws`() {
-        val template = PromptTemplate("Hi {{name}}")
-        assertFailsWith<IllegalArgumentException> { template.render(emptyMap()) }
+    fun `if block renders when condition is true`() {
+        val result = compile("{{#if show}}visible{{/if}}")
+            .render(mapOf("show" to true))
+        assertEquals("visible", result)
     }
 
     @Test
-    fun `unknown variable throws`() {
-        val template = PromptTemplate("Hi {{name}}")
-        assertFailsWith<IllegalArgumentException> {
-            template.render(mapOf("name" to "x", "stranger" to "y"))
-        }
+    fun `if block is skipped when condition is false`() {
+        val result = compile("{{#if show}}visible{{/if}}")
+            .render(mapOf("show" to false))
+        assertEquals("", result)
     }
 
     @Test
-    fun `placeholders are detected`() {
-        val template = PromptTemplate("{{a}} {{b}} {{a}}")
-        assertEquals(setOf("a", "b"), template.placeholders())
+    fun `if-else block renders else branch when condition is false`() {
+        val result = compile("{{#if flag}}yes{{else}}no{{/if}}")
+            .render(mapOf("flag" to false))
+        assertEquals("no", result)
+    }
+
+    @Test
+    fun `if block treats non-empty string as truthy`() {
+        val result = compile("{{#if value}}present{{/if}}")
+            .render(mapOf("value" to "hello"))
+        assertEquals("present", result)
+    }
+
+    @Test
+    fun `if block treats empty string as falsy`() {
+        val result = compile("{{#if value}}present{{/if}}")
+            .render(mapOf("value" to ""))
+        assertEquals("", result)
     }
 }

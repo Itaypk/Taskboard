@@ -16,7 +16,7 @@ open class UserSettingsEntity {
     @Column(name = "display_name")
     var displayName: String? = null
 
-    @Column(name = "context_block", columnDefinition = "TEXT")
+    @Column(name = "context_block")
     var contextBlock: String? = null
 
     @Column(name = "time_zone", nullable = false)
@@ -31,9 +31,6 @@ open class UserSettingsEntity {
     @Column(name = "gender")
     var gender: String? = null
 
-    @Column(name = "assistant_name", length = 100)
-    var assistantName: String? = null
-
-    @Column(name = "assistant_gender", length = 20)
-    var assistantGender: String? = null
+    @Column(name = "agent_description", columnDefinition = "TEXT")
+    var agentDescription: String? = null
 }
