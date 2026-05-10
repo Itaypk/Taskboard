@@ -12,6 +12,8 @@ spring:
     driver-class-name: org.postgresql.Driver
 
 tasker:
+  telegram:
+    enabled: true
   prometheus:
     username: ${TASKER_PROMETHEUS_USERNAME}
     password: ${TASKER_PROMETHEUS_PASSWORD}

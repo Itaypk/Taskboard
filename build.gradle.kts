@@ -36,6 +36,8 @@ dependencies {
 	implementation("io.micrometer:micrometer-registry-prometheus:1.16.5")
 	implementation("net.logstash.logback:logstash-logback-encoder:9.0")
 	implementation("com.github.jknack:handlebars:4.5.1")
+	implementation("org.telegram:telegrambots-springboot-longpolling-starter:9.5.0")
+	implementation("org.telegram:telegrambots-client:9.5.0")
 	runtimeOnly("com.h2database:h2")
 	runtimeOnly("org.postgresql:postgresql")
 	testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")

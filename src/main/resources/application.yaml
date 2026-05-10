@@ -15,6 +15,9 @@ spring:
     timeout: 30d
     jdbc:
       initialize-schema: never
+  threads:
+    virtual:
+      enabled: true
 
 server:
   shutdown: graceful
@@ -49,6 +52,7 @@ tasker:
   telegram:
     bot-token: ${TASKER_TELEGRAM_BOT_TOKEN:}
     bot-username: ${TASKER_TELEGRAM_BOT_USERNAME:}
+    enabled: ${TASKER_TELEGRAM_ENABLED:false}
   prometheus:
     username: ${TASKER_PROMETHEUS_USERNAME:prometheus}
     password: ${TASKER_PROMETHEUS_PASSWORD:prometheus-dev}

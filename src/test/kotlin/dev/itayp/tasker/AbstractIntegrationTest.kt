@@ -21,7 +21,8 @@ class AbstractIntegrationTest {
                 "spring.datasource.username=${postgresContainer.username}",
                 "spring.datasource.password=${postgresContainer.password}",
                 "spring.datasource.driverClassName=org.postgresql.Driver",
-                "spring.datasource.url=$jdbcUrl"
+                "spring.datasource.url=$jdbcUrl",
+                "tasker.telegram.enabled=false",
             ).applyTo(configurableApplicationContext.environment)
         }
     }
