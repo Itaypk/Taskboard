@@ -1,6 +1,9 @@
 package dev.itayp.tasker.channel.telegram
 
 import dev.itayp.tasker.channel.ChannelInbound
+import dev.itayp.tasker.channel.ChannelMessage
+import dev.itayp.tasker.channel.telegram.commands.BotCommandContext
+import dev.itayp.tasker.channel.telegram.commands.BotCommandDispatcher
 import dev.itayp.tasker.planning.WeeklyPlanningOrchestrator
 import dev.itayp.tasker.planning.WeeklyPlanningOrchestrator.Phase
 import dev.itayp.tasker.repository.UserRepository
@@ -19,8 +22,6 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage
 import org.telegram.telegrambots.meta.api.objects.Update
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException
 import org.telegram.telegrambots.meta.generics.TelegramClient
-import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
 
 @Component
 @ConditionalOnProperty(prefix = "tasker.telegram", name = ["enabled"], havingValue = "true")
@@ -29,10 +30,11 @@ class TelegramChannel(
     @Value("\${tasker.telegram.bot-token}") private val botToken: String,
     private val userRepository: UserRepository,
     private val orchestrator: WeeklyPlanningOrchestrator,
+    private val sessionRegistry: TelegramSessionRegistry,
+    private val commandDispatcher: BotCommandDispatcher,
 ) : SpringLongPollingBot, LongPollingSingleThreadUpdateConsumer {
 
     private val telegramClient: TelegramClient = OkHttpTelegramClient(botToken)
-    private val chatSessions = ConcurrentHashMap<Long, UUID>()
 
     override fun getBotToken(): String = botToken
 
@@ -74,27 +76,28 @@ class TelegramChannel(
             return
         }
         val userId = user.id!!
-
         val channel = TelegramConversationChannel(chatId, telegramClient)
 
-        val existingSessionId = chatSessions[chatId]
-        if (existingSessionId == null) {
-            val sessionId = orchestrator.start(userId, channel)
-            chatSessions[chatId] = sessionId
+        if (inbound is ChannelInbound.Text && inbound.text.startsWith("/")) {
+            val context = BotCommandContext(userId, chatId, "", channel, sessionRegistry)
+            val handled = commandDispatcher.dispatch(inbound.text, context)
+            if (!handled) {
+                channel.send(ChannelMessage.Text("Unknown command. Use /plan to start a planning session."))
+            }
             return
         }
 
-        if (orchestrator.phase(existingSessionId) == null) {
-            chatSessions.remove(chatId)
-            val sessionId = orchestrator.start(userId, channel)
-            chatSessions[chatId] = sessionId
+        val sessionId = sessionRegistry.get(chatId)
+        if (sessionId == null || orchestrator.phase(sessionId) == null) {
+            sessionRegistry.remove(chatId)
+            channel.send(ChannelMessage.Text("Use /plan to start a planning session."))
             return
         }
 
-        orchestrator.handleInbound(existingSessionId, inbound, channel)
+        orchestrator.handleInbound(sessionId, inbound, channel)
 
-        if (orchestrator.phase(existingSessionId) == Phase.DONE) {
-            chatSessions.remove(chatId)
+        if (orchestrator.phase(sessionId) == Phase.DONE) {
+            sessionRegistry.remove(chatId)
         }
     }
 
