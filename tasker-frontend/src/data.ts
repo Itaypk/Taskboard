@@ -6,6 +6,8 @@ export const DEFAULT_SETTINGS: UserSettings = {
   timeZone: 'UTC',
   preferredLanguage: 'en',
   calendarInviteEmail: false,
+  planningCron: null,
+  weekStartDay: null,
   email: '',
   emailVerified: false,
   categories: [],

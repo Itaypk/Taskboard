@@ -19,6 +19,36 @@ const SETTINGS_TABS = [
   { id: 'assistant', label: 'Assistant' },
 ];
 
+const DAYS_OF_WEEK: { value: string; cron: string; label: string }[] = [
+  { value: 'MONDAY', cron: 'MON', label: 'Monday' },
+  { value: 'TUESDAY', cron: 'TUE', label: 'Tuesday' },
+  { value: 'WEDNESDAY', cron: 'WED', label: 'Wednesday' },
+  { value: 'THURSDAY', cron: 'THU', label: 'Thursday' },
+  { value: 'FRIDAY', cron: 'FRI', label: 'Friday' },
+  { value: 'SATURDAY', cron: 'SAT', label: 'Saturday' },
+  { value: 'SUNDAY', cron: 'SUN', label: 'Sunday' },
+];
+
+// Spring CronExpression: "second minute hour day-of-month month day-of-week"
+function composeCron(day: string, time: string): string | null {
+  if (!day || !time) return null;
+  const [hh, mm] = time.split(':');
+  if (hh == null || mm == null) return null;
+  return `0 ${Number(mm)} ${Number(hh)} * * ${day}`;
+}
+
+function parseCron(cron: string | null | undefined): { day: string; time: string } {
+  if (!cron) return { day: '', time: '09:00' };
+  const parts = cron.trim().split(/\s+/);
+  if (parts.length !== 6) return { day: '', time: '09:00' };
+  const [, minute, hour, , , dow] = parts;
+  const h = Number(hour);
+  const m = Number(minute);
+  if (Number.isNaN(h) || Number.isNaN(m)) return { day: '', time: '09:00' };
+  const time = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  return { day: dow.toUpperCase(), time };
+}
+
 export function SettingsModal({ settings, tasks, open, onClose, onSave, onAccountDeleted }: SettingsModalProps) {
   const [form, setForm] = useState<UserSettings>(settings);
   const [activeTab, setActiveTab] = useState<'general' | 'categories' | 'assistant'>('general');
@@ -60,6 +90,8 @@ export function SettingsModal({ settings, tasks, open, onClose, onSave, onAccoun
     }
   }, [open, options]);
 
+  const planningParts = useMemo(() => parseCron(form.planningCron), [form.planningCron]);
+
   const usage = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const t of tasks) {
@@ -83,6 +115,8 @@ export function SettingsModal({ settings, tasks, open, onClose, onSave, onAccoun
           calendarInviteEmail: form.calendarInviteEmail,
           gender: form.gender,
           agentDescription: form.agentDescription,
+          planningCron: form.planningCron ?? null,
+          weekStartDay: form.weekStartDay ?? null,
         }),
         ...settings.categories
           .filter(c => !newIdSet.has(c.id))
@@ -273,6 +307,50 @@ export function SettingsModal({ settings, tasks, open, onClose, onSave, onAccoun
                     <option key={opt.code} value={opt.code}>{opt.label}</option>
                   ))}
                 </select>
+              </div>
+
+              <div className="field">
+                <label className="field__label" htmlFor="settings-week-start">First day of the week</label>
+                <p className="settings-hint">Used to frame "this week" during your planning sessions.</p>
+                <select
+                  id="settings-week-start"
+                  className="field__input"
+                  value={form.weekStartDay ?? ''}
+                  onChange={e => setForm(f => ({ ...f, weekStartDay: e.target.value || null }))}
+                >
+                  <option value="">Not set</option>
+                  {DAYS_OF_WEEK.map(d => (
+                    <option key={d.value} value={d.value}>{d.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="field">
+                <label className="field__label">Weekly planning schedule</label>
+                <p className="settings-hint">We'll start your planning session via Telegram at this time each week.</p>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <select
+                    aria-label="Planning day"
+                    className="field__input"
+                    style={{ width: 'auto' }}
+                    value={planningParts.day}
+                    onChange={e => setForm(f => ({ ...f, planningCron: composeCron(e.target.value, planningParts.time) }))}
+                  >
+                    <option value="">Off</option>
+                    {DAYS_OF_WEEK.map(d => (
+                      <option key={d.value} value={d.cron}>{d.label}</option>
+                    ))}
+                  </select>
+                  <input
+                    aria-label="Planning time"
+                    type="time"
+                    className="field__input"
+                    style={{ width: 'auto' }}
+                    value={planningParts.time}
+                    disabled={!planningParts.day}
+                    onChange={e => setForm(f => ({ ...f, planningCron: composeCron(planningParts.day, e.target.value) }))}
+                  />
+                </div>
               </div>
 
               <div className="danger-zone">

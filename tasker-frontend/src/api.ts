@@ -96,7 +96,7 @@ export const fetchTags = (): Promise<Tag[]> =>
 
 // --- User Settings ---
 
-type UserSettingsPayload = Pick<UserSettings, 'displayName' | 'contextBlock' | 'timeZone' | 'preferredLanguage' | 'calendarInviteEmail' | 'gender' | 'agentDescription'>;
+type UserSettingsPayload = Pick<UserSettings, 'displayName' | 'contextBlock' | 'timeZone' | 'preferredLanguage' | 'calendarInviteEmail' | 'gender' | 'agentDescription' | 'planningCron' | 'weekStartDay'>;
 
 export const fetchUserSettings = (): Promise<UserSettingsPayload> =>
     apiRequest('/settings');

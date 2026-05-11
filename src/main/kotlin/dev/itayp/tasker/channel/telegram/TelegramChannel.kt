@@ -11,7 +11,6 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.stereotype.Component
-import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient
 import org.telegram.telegrambots.longpolling.BotSession
 import org.telegram.telegrambots.longpolling.interfaces.LongPollingUpdateConsumer
 import org.telegram.telegrambots.longpolling.starter.AfterBotRegistration
@@ -32,9 +31,8 @@ class TelegramChannel(
     private val orchestrator: WeeklyPlanningOrchestrator,
     private val sessionRegistry: TelegramSessionRegistry,
     private val commandDispatcher: BotCommandDispatcher,
+    private val telegramClient: TelegramClient,
 ) : SpringLongPollingBot, LongPollingSingleThreadUpdateConsumer {
-
-    private val telegramClient: TelegramClient = OkHttpTelegramClient(botToken)
 
     override fun getBotToken(): String = botToken
 
