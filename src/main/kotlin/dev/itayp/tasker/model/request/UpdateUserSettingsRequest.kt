@@ -8,4 +8,6 @@ data class UpdateUserSettingsRequest(
     val calendarInviteEmail: Boolean = false,
     val gender: String? = null,
     val agentDescription: String? = null,
+    val planningCron: String? = null,
+    val weekStartDay: String? = null,
 )

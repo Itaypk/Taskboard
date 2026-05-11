@@ -5,12 +5,20 @@ import dev.itayp.tasker.model.request.UpdateUserSettingsRequest
 import dev.itayp.tasker.model.response.GenderOption
 import dev.itayp.tasker.model.response.LanguageOption
 import dev.itayp.tasker.repository.UserSettingsRepository
+import org.springframework.context.ApplicationEventPublisher
+import org.springframework.scheduling.support.CronExpression
 import org.springframework.stereotype.Service
+import java.time.DayOfWeek
 import java.time.ZoneId
 import java.util.UUID
 
+data class UserPlanningScheduleChangedEvent(val userId: UUID)
+
 @Service
-class UserSettingsService(private val settingsRepository: UserSettingsRepository) {
+class UserSettingsService(
+    private val settingsRepository: UserSettingsRepository,
+    private val eventPublisher: ApplicationEventPublisher,
+) {
 
     fun getOrCreate(userId: UUID): UserSettingsEntity =
         settingsRepository.findById(userId).orElseGet {
@@ -25,7 +33,15 @@ class UserSettingsService(private val settingsRepository: UserSettingsRepository
         request.gender?.let {
             require(SUPPORTED_GENDERS.any { g -> g.code == it }) { "Unsupported gender: $it" }
         }
+        request.planningCron?.let {
+            require(CronExpression.isValidExpression(it)) { "Invalid cron expression: $it" }
+        }
+        request.weekStartDay?.let {
+            require(runCatching { DayOfWeek.valueOf(it) }.isSuccess) { "Unsupported week start day: $it" }
+        }
         val entity = getOrCreate(userId)
+        val scheduleChanged = entity.planningCron != request.planningCron ||
+            entity.timeZone != request.timeZone
         entity.displayName = request.displayName
         entity.contextBlock = request.contextBlock
         entity.timeZone = request.timeZone
@@ -33,7 +49,13 @@ class UserSettingsService(private val settingsRepository: UserSettingsRepository
         entity.calendarInviteEmail = request.calendarInviteEmail
         entity.gender = request.gender
         entity.agentDescription = request.agentDescription
-        return settingsRepository.save(entity)
+        entity.planningCron = request.planningCron
+        entity.weekStartDay = request.weekStartDay
+        val saved = settingsRepository.save(entity)
+        if (scheduleChanged) {
+            eventPublisher.publishEvent(UserPlanningScheduleChangedEvent(userId))
+        }
+        return saved
     }
 
     fun initializeForNewUser(userId: UUID) {

@@ -33,4 +33,10 @@ open class UserSettingsEntity {
 
     @Column(name = "agent_description", columnDefinition = "TEXT")
     var agentDescription: String? = null
+
+    @Column(name = "planning_cron")
+    var planningCron: String? = null
+
+    @Column(name = "week_start_day")
+    var weekStartDay: String? = null
 }

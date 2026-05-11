@@ -16,6 +16,16 @@
                 <constraints nullable="true"/>
             </column>
         </addColumn>
+        <addColumn tableName="user_settings">
+            <column name="planning_cron" type="VARCHAR(64)">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+        <addColumn tableName="user_settings">
+            <column name="week_start_day" type="VARCHAR(10)">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
     </changeSet>
 
 </databaseChangeLog>

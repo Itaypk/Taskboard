@@ -94,6 +94,8 @@ export interface UserSettings {
   calendarInviteEmail: boolean;
   gender?: string;
   agentDescription?: string;
+  planningCron?: string | null;
+  weekStartDay?: string | null;
   email: string;
   emailVerified: boolean;
   categories: Category[];

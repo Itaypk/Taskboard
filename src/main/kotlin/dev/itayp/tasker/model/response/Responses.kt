@@ -24,6 +24,8 @@ data class UserSettingsResponse(
     val calendarInviteEmail: Boolean,
     val gender: String?,
     val agentDescription: String?,
+    val planningCron: String?,
+    val weekStartDay: String?,
     val email: String?,
     val emailVerified: Boolean,
 )
@@ -36,6 +38,8 @@ fun UserSettingsEntity.toResponse(user: UserEntity) = UserSettingsResponse(
     calendarInviteEmail = calendarInviteEmail,
     gender = gender,
     agentDescription = agentDescription,
+    planningCron = planningCron,
+    weekStartDay = weekStartDay,
     email = user.email,
     emailVerified = user.emailVerifiedAt != null,
 )
