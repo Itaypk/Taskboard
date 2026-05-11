@@ -38,8 +38,8 @@ class PlanningSessionSchedulerTest {
     private val userId = UUID.randomUUID()
 
     private fun newScheduler(
-        client: Optional<TelegramClient> = Optional.of(telegramClient),
-        registry: Optional<TelegramSessionRegistry> = Optional.of(sessionRegistry),
+        client: TelegramClient? = telegramClient,
+        registry: TelegramSessionRegistry? = sessionRegistry,
     ) = PlanningSessionScheduler(
         taskScheduler, settingsRepository, userRepository, orchestrator, client, registry,
     )
@@ -83,7 +83,7 @@ class PlanningSessionSchedulerTest {
 
     @Test
     fun `runPlanningSession skips when telegram client unavailable`() {
-        newScheduler(client = Optional.empty()).runPlanningSession(userId)
+        newScheduler(client = null).runPlanningSession(userId)
         verify(orchestrator, never()).start(any(), any())
     }
 

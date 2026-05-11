@@ -1,6 +1,5 @@
 package dev.itayp.tasker.planning
 
-import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ConversationChannel
 import dev.itayp.tasker.channel.telegram.TelegramConversationChannel
 import dev.itayp.tasker.channel.telegram.TelegramSessionRegistry
@@ -15,7 +14,6 @@ import org.springframework.scheduling.support.CronTrigger
 import org.springframework.stereotype.Component
 import org.telegram.telegrambots.meta.generics.TelegramClient
 import java.time.ZoneId
-import java.util.Optional
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ScheduledFuture
@@ -35,8 +33,8 @@ class PlanningSessionScheduler(
     private val settingsRepository: UserSettingsRepository,
     private val userRepository: UserRepository,
     private val orchestrator: WeeklyPlanningOrchestrator,
-    private val telegramClient: Optional<TelegramClient>,
-    private val sessionRegistry: Optional<TelegramSessionRegistry>,
+    private val telegramClient: TelegramClient?,
+    private val sessionRegistry: TelegramSessionRegistry?,
 ) {
     private val log = LoggerFactory.getLogger(PlanningSessionScheduler::class.java)
     private val futures = ConcurrentHashMap<UUID, ScheduledFuture<*>>()
@@ -78,32 +76,21 @@ class PlanningSessionScheduler(
 
     internal fun runPlanningSession(userId: UUID) {
         try {
-            val channel = openChannel(userId) ?: return
-            val sessionId = orchestrator.start(userId, channel)
-            val user = userRepository.findById(userId).orElse(null)
-            val chatId = user?.telegramId
-            if (chatId != null) {
-                sessionRegistry.ifPresent { it.put(chatId, sessionId) }
+            val client = telegramClient
+            if (client == null) {
+                log.warn("Telegram is not configured; cannot start scheduled session for user {}", userId)
+                return
             }
+            val chatId = userRepository.findById(userId).orElse(null)?.telegramId
+            if (chatId == null) {
+                log.warn("User {} has no Telegram id; cannot start scheduled session", userId)
+                return
+            }
+            val channel: ConversationChannel = TelegramConversationChannel(chatId, client)
+            val sessionId = orchestrator.start(userId, channel)
+            sessionRegistry?.put(chatId, sessionId)
         } catch (e: Exception) {
             log.error("Failed to run scheduled planning session for user {}", userId, e)
         }
-    }
-
-    private fun openChannel(userId: UUID): ConversationChannel? {
-        val client = telegramClient.orElse(null)
-        if (client == null) {
-            log.warn("Telegram is not configured; cannot start scheduled session for user {}", userId)
-            return null
-        }
-        val user = userRepository.findById(userId).orElse(null)
-        val chatId = user?.telegramId
-        if (chatId == null) {
-            log.warn("User {} has no Telegram id; cannot start scheduled session", userId)
-            return null
-        }
-        val channel = TelegramConversationChannel(chatId, client)
-        channel.send(ChannelMessage.Text("Time for your weekly planning session!"))
-        return channel
     }
 }
