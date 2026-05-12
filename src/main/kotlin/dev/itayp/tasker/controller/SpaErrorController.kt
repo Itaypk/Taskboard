@@ -21,10 +21,14 @@ import org.springframework.web.context.request.ServletWebRequest
 @RequestMapping("/error")
 class SpaErrorController(private val errorAttributes: ErrorAttributes) : ErrorController {
 
-    // Browser navigation (Accept: text/html) — forward to index.html so React Router
-    // renders NotFoundPage (or a generic error view) for any unrecognised path.
+    // Browser navigation (Accept: text/html).
+    // 5xx → static error.html (no JS, no API calls — works even when the app is broken).
+    // Everything else → index.html so React Router renders the appropriate page (e.g. NotFoundPage).
     @RequestMapping(produces = [MediaType.TEXT_HTML_VALUE])
-    fun errorHtml(): String = "forward:/index.html"
+    fun errorHtml(request: HttpServletRequest): String {
+        val status = request.getAttribute(RequestDispatcher.ERROR_STATUS_CODE) as? Int ?: 0
+        return if (status >= 500) "forward:/error.html" else "forward:/index.html"
+    }
 
     // API and programmatic clients — return Spring Boot's standard JSON error body.
     @RequestMapping

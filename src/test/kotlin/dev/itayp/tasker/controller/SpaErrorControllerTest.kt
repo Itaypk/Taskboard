@@ -51,6 +51,17 @@ class SpaErrorControllerTest(@Autowired val mockMvc: MockMvc) {
     }
 
     @Test
+    fun `HTML request for server error is forwarded to error html`() {
+        mockMvc.perform(
+            get("/error")
+                .requestAttr(RequestDispatcher.ERROR_STATUS_CODE, 500)
+                .requestAttr(RequestDispatcher.ERROR_REQUEST_URI, "/api/v1/tasks")
+                .accept(MediaType.TEXT_HTML),
+        )
+            .andExpect(forwardedUrl("/error.html"))
+    }
+
+    @Test
     fun `JSON request returns error attributes with correct status`() {
         whenever(errorAttributes.getErrorAttributes(any(), any<ErrorAttributeOptions>())).thenReturn(
             mapOf("status" to 404, "error" to "Not Found"),
