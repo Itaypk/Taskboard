@@ -3,7 +3,7 @@ package dev.itayp.tasker.controller
 import jakarta.servlet.RequestDispatcher
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
-import org.springframework.boot.webmvc.error.ErrorAttributeOptions
+import org.springframework.boot.web.error.ErrorAttributeOptions
 import org.springframework.boot.webmvc.error.ErrorAttributes
 import org.springframework.boot.webmvc.error.ErrorController
 import org.springframework.http.HttpStatus
