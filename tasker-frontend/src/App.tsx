@@ -26,6 +26,7 @@ import { Routes, Route } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
 import { LoginPage } from './auth/LoginPage';
 import { TermsPage, PrivacyPage } from './auth/PolicyPage';
+import { NotFoundPage } from './NotFoundPage';
 import pineappleUrl from './assets/pineapple.png';
 import './App.css';
 
@@ -73,7 +74,8 @@ export default function App() {
     <Routes>
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/privacy" element={<PrivacyPage />} />
-      <Route path="/*" element={<AuthShell />} />
+      <Route path="/" element={<AuthShell />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }

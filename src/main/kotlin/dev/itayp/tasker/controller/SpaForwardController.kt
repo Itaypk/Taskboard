@@ -4,16 +4,19 @@ import org.springframework.stereotype.Controller
 import org.springframework.web.bind.annotation.GetMapping
 
 /**
- * SPA fallback for client-side routes that don't correspond to real static files.
- * Forwards to /index.html so the React router can take over after the bundle loads.
+ * SPA fallback: forwards any path that looks like a client-side route (no file extension)
+ * to /index.html so React Router can render the correct page, including the 404 view.
  *
- * Add a new mapping here for each top-level SPA route that users may visit directly
- * (i.e. by typing the URL or following an external link). Routes scoped under "/" are
- * already handled by Spring's static resource serving.
+ * The regex [^\\.] excludes dots, so static assets (*.js, *.css, *.png …) fall through
+ * to Spring's resource handler. /api/** is matched by @RestController beans first and
+ * never reaches here.
  */
 @Controller
 class SpaForwardController {
 
-    @GetMapping("/terms", "/privacy")
-    fun forwardToIndex(): String = "forward:/index.html"
+    @GetMapping("/{path:[^\\\\.]*}")
+    fun forwardSingleSegment(): String = "forward:/index.html"
+
+    @GetMapping("/**/{path:[^\\\\.]*}")
+    fun forwardNestedSegment(): String = "forward:/index.html"
 }
