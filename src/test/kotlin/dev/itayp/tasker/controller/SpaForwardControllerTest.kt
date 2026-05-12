@@ -15,13 +15,6 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 class SpaForwardControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @Test
-    fun `unknown top-level route is forwarded to index html`() {
-        mockMvc.perform(get("/unknown-page"))
-            .andExpect(status().isOk)
-            .andExpect(forwardedUrl("/index.html"))
-    }
-
-    @Test
     fun `terms route is forwarded to index html`() {
         mockMvc.perform(get("/terms"))
             .andExpect(status().isOk)
@@ -31,29 +24,6 @@ class SpaForwardControllerTest(@Autowired val mockMvc: MockMvc) {
     @Test
     fun `privacy route is forwarded to index html`() {
         mockMvc.perform(get("/privacy"))
-            .andExpect(status().isOk)
-            .andExpect(forwardedUrl("/index.html"))
-    }
-
-    @Test
-    fun `nested path is forwarded to index html`() {
-        mockMvc.perform(get("/some/nested/path"))
-            .andExpect(status().isOk)
-            .andExpect(forwardedUrl("/index.html"))
-    }
-
-    @Test
-    fun `path with file extension is not forwarded to index html`() {
-        mockMvc.perform(get("/assets/app.js"))
-            .andExpect(forwardedUrl(null))
-    }
-
-    @Test
-    fun `authenticated user on unknown route is forwarded to index html`() {
-        mockMvc.perform(get("/dashboard").with { req ->
-            req.addHeader("Cookie", "SESSION=fake")
-            req
-        })
             .andExpect(status().isOk)
             .andExpect(forwardedUrl("/index.html"))
     }

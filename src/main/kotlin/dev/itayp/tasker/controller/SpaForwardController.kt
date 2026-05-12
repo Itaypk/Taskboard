@@ -3,15 +3,12 @@ package dev.itayp.tasker.controller
 import org.springframework.stereotype.Controller
 import org.springframework.web.bind.annotation.GetMapping
 
-// Forwards any extensionless path to index.html so React Router handles routing,
-// including rendering the 404 page. Static assets (*.js, *.css …) and /api/** routes
-// are matched before these mappings and are not affected.
+// Fast-path forward for known top-level SPA routes that users may bookmark or share.
+// Unknown routes are handled by SpaErrorController, which intercepts 404s and forwards
+// to index.html so React Router can render the appropriate page.
 @Controller
 class SpaForwardController {
 
-    @GetMapping("/{path:[^.]*}")
-    fun forwardSingleSegment(): String = "forward:/index.html"
-
-    @GetMapping("/**/{path:[^.]*}")
-    fun forwardNestedSegment(): String = "forward:/index.html"
+    @GetMapping("/terms", "/privacy")
+    fun forwardToIndex(): String = "forward:/index.html"
 }
