@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Something went wrong — Backlog.fyi</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100svh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background-color: #F0E7D2;
+      background-image: repeating-linear-gradient(
+        0deg, transparent, transparent 27px,
+        rgba(90, 70, 30, 0.07) 27px, rgba(90, 70, 30, 0.07) 28px
+      );
+      font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+      color: #1C1A14;
+    }
+
+    .card {
+      max-width: 480px;
+      width: 100%;
+      background: #FBF7EC;
+      border: 1px solid #D8CDB3;
+      border-radius: 10px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+      padding: 48px 40px;
+      text-align: center;
+    }
+
+    h1 {
+      font-family: 'Fraunces', 'Hoefler Text', Georgia, serif;
+      font-size: 28px;
+      font-weight: 600;
+      color: #1C1A14;
+      margin-bottom: 16px;
+    }
+
+    p {
+      font-size: 15px;
+      color: #6B5E48;
+      line-height: 1.6;
+      margin-bottom: 32px;
+    }
+
+    a {
+      display: inline-block;
+      font-size: 14px;
+      font-weight: 600;
+      color: #B8331B;
+      text-decoration: none;
+      border: 1.5px solid #B8331B;
+      border-radius: 6px;
+      padding: 8px 20px;
+      transition: background 160ms ease, color 160ms ease;
+    }
+
+    a:hover { background: #B8331B; color: #fff; }
+
+    @media (max-width: 600px) {
+      .card { padding: 32px 24px; }
+      h1 { font-size: 22px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Something went wrong</h1>
+    <p>
+      We ran into an unexpected problem on our end.<br>
+      Try refreshing — if the issue persists, we're already looking into it.
+    </p>
+    <a href="/">Back to Backlog.fyi</a>
+  </div>
+</body>
+</html>

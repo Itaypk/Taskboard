@@ -37,5 +37,5 @@ infra repo are listed for completeness but not tracked here.
 - [ ] **Graceful shutdown + readiness probe** wired into the deploy pipeline so rollouts don't drop in-flight requests
 
 ## SPA polish
-- [ ] **404 / error route** in the React shell — currently an unknown path renders the empty app
+- [x] **404 / error route** — `SpaForwardController` forwards all extensionless paths to `index.html`; React Router renders `NotFoundPage` for any path that doesn't match `/`, `/terms`, or `/privacy`. Works for both authenticated and unauthenticated users. Covered by `SpaForwardControllerTest`.
 - [x] **OG / Twitter meta tags** on the landing/login pages so shared links render properly
