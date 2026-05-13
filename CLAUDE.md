@@ -22,6 +22,10 @@ Current state: the backlog CRUD (tasks, categories, tags) is implemented end-to-
 - `docs/SPEC.md` — product spec (source of truth for intent).
 - `tools/` — ad-hoc scripts (currently just an image background-remover).
 
+## Web environment note
+
+When running via **claude.ai/code** (the web environment), the sandbox does not have the project's JVM 25 toolchain installed. Do not attempt to compile, run tests, or start the server — those commands will fail. Instead, write the code, commit, and push; then wait for CI results to confirm correctness.
+
 ## Common commands
 
 Backend (run from repo root):
