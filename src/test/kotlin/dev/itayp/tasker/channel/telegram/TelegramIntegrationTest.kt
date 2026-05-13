@@ -3,16 +3,24 @@ package dev.itayp.tasker.channel.telegram
 import dev.itayp.tasker.EnvTest
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ChoiceOption
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient
+import org.telegram.telegrambots.meta.api.methods.updates.GetUpdates
 
 /**
- * Manual integration tests that send real messages through Telegram.
+ * Manual integration tests that send and receive real messages through Telegram.
  *
- * They are skipped automatically unless `.env.test` in the project root
- * contains all required keys (see `.env.test.example`).  Because Telegram
- * is interactive, you will see the messages arrive in the target chat as
- * each test runs.
+ * Send tests skip automatically unless `.env.test` in the project root contains
+ * all required keys (see `.env.test.example`).
+ *
+ * Receive tests are additionally marked `@Disabled` because they block waiting
+ * for user interaction — enable one at a time, run it, and send/tap the expected
+ * input in your Telegram client within the polling window.
  *
  * Run all tests in this class:
  *   ./gradlew test --tests "dev.itayp.tasker.channel.telegram.TelegramIntegrationTest.*"
@@ -78,5 +86,73 @@ class TelegramIntegrationTest {
                 ),
             ),
         )
+    }
+
+    // -------------------------------------------------------------------------
+    // Receive tests — @Disabled because they block for user interaction.
+    // Enable one at a time, run it, then send/tap the expected input in Telegram
+    // within the polling window shown in the test name.
+    // -------------------------------------------------------------------------
+
+    @Disabled("Requires sending a text message to the bot within the 30-second polling window")
+    @Test
+    fun `receives a text message sent to the bot (30s window)`() {
+        val env = EnvTest.requireEnv(*REQUIRED_KEYS)
+        val client = OkHttpTelegramClient(env.getValue("TASKER_TELEGRAM_BOT_TOKEN"))
+
+        val updates = client.execute(
+            GetUpdates().apply {
+                timeout = 30
+                limit = 5
+                allowedUpdates = listOf("message")
+            },
+        )
+
+        assumeTrue(updates.isNotEmpty(), "No updates received — send a message to the bot and retry")
+
+        val update = updates.first { it.hasMessage() && it.message.hasText() }
+        val message = update.message
+        assertNotNull(message.text, "message.text should not be null")
+        assertNotNull(message.from, "message.from should not be null")
+        assertTrue(message.chatId != 0L, "chatId should be non-zero")
+        println("Received text '${message.text}' from userId=${message.from.id} in chatId=${message.chatId}")
+    }
+
+    @Disabled("Requires tapping an inline button within the 60-second polling window after the choice message appears")
+    @Test
+    fun `receives a callback query after sending an inline keyboard (60s window)`() {
+        val env = EnvTest.requireEnv(*REQUIRED_KEYS)
+        val client = OkHttpTelegramClient(env.getValue("TASKER_TELEGRAM_BOT_TOKEN"))
+        val channel = buildChannel(env)
+
+        val options = listOf(
+            ChoiceOption(id = "opt_yes", label = "Yes"),
+            ChoiceOption(id = "opt_no", label = "No"),
+            ChoiceOption(id = "opt_maybe", label = "Maybe"),
+        )
+        channel.send(
+            ChannelMessage.Choice(
+                prompt = "<b>[Integration Test]</b> Tap one of the buttons below within 60 seconds:",
+                options = options,
+            ),
+        )
+
+        val updates = client.execute(
+            GetUpdates().apply {
+                timeout = 60
+                limit = 5
+                allowedUpdates = listOf("callback_query")
+            },
+        )
+
+        assumeTrue(updates.isNotEmpty(), "No callback received — tap a button in the chat and retry")
+
+        val update = updates.first { it.hasCallbackQuery() }
+        val query = update.callbackQuery
+        val expectedIds = options.map { it.id }.toSet()
+        assertTrue(query.data in expectedIds, "callbackData '${query.data}' was not one of $expectedIds")
+        assertNotNull(query.from, "callbackQuery.from should not be null")
+        assertEquals(env.getValue("TEST_TELEGRAM_CHAT_ID").toLong(), query.message.chatId)
+        println("Received callback '${query.data}' from userId=${query.from.id}")
     }
 }
