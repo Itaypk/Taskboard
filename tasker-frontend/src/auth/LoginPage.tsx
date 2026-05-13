@@ -88,37 +88,34 @@ export function LoginPage() {
                 <header className={styles.hero}>
                     <h1 className={styles.title}>Backlog.fyi</h1>
                     <p className={styles.tagline}>
-                        Pin up your tasks. Let the assistant schedule your week.
+                        Capture tasks. Commit to a week. Let the assistant schedule it.
                     </p>
                 </header>
 
                 <section className={styles.pitch}>
                     <p>
-                        Backlog.fyi is a hobby AI weekly planner. Capture tasks on a digital cork
-                        board as you think of them. Each week, an assistant on Telegram reads your
-                        Google Calendar, asks what you want to get done, and writes the agreed
-                        tasks back as time blocks.
+                        Backlog.fyi is a personal planner that turns your task backlog into a realistic weekly plan – using tried-and-true methods.
                     </p>
                 </section>
 
                 <section aria-labelledby="how-it-works">
                     <h2 id="how-it-works" className={styles.sectionTitle}>How it works</h2>
                     <ol className={styles.steps}>
-                        <li><strong>Pin tasks</strong> to the board whenever they come up.</li>
-                        <li><strong>Plan on Telegram</strong> in a short weekly chat with the assistant.</li>
-                        <li><strong>Calendar fills itself</strong> — agreed tasks become time blocks on Google Calendar.</li>
+                        <li><strong>Capture tasks</strong> as they come up.</li>
+                        <li><strong>Plan your week</strong> in a quick chat – the assistant proposes a plan based on your priorities and availability.</li>
+                        <li><strong>Commit to it</strong> – agreed tasks are scheduled as time blocks on your calendar.</li>
+                        <li><strong>Follow up and adjust</strong> – didn't get it this time? Unfinished tasks never go missing.</li>
                     </ol>
                 </section>
 
                 <section className={styles.cta} aria-labelledby="get-started">
-                    <h2 id="get-started" className={styles.sectionTitle}>Try it</h2>
                     <button
                         type="button"
                         onClick={handleDemoLogin}
                         disabled={busy}
                         className={styles.demoBtn}
                     >
-                        Try the demo — no account needed
+                        Try it – no registration needed
                     </button>
                     <p className={styles.demoHint}>
                         Loads a sandboxed account so you can play with the board.
@@ -149,8 +146,8 @@ export function LoginPage() {
                 </section>
 
                 <p className={styles.status} role="note">
-                    <strong>Status:</strong> the backlog is live; the Telegram weekly planning
-                    conversation and Google Calendar integration are in active development.
+                    <strong>Status:</strong> The Backlog.fyi application is a work in progress.
+                    Some features are incomplete, and some aspects might change through the development process.
                 </p>
 
                 <footer className={styles.footer}>
