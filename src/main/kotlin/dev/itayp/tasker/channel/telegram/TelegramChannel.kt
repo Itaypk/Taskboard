@@ -4,7 +4,13 @@ import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.telegram.commands.BotCommandContext
 import dev.itayp.tasker.channel.telegram.commands.BotCommandDispatcher
+import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry
+import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_KEEP
+import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_NEW
 import dev.itayp.tasker.planning.WeeklyPlanningOrchestrator
+import dev.itayp.tasker.service.UserSettingsService
+import org.springframework.context.MessageSource
+import java.util.Locale
 import dev.itayp.tasker.planning.WeeklyPlanningOrchestrator.Phase
 import dev.itayp.tasker.repository.UserRepository
 import org.slf4j.LoggerFactory
@@ -31,6 +37,9 @@ class TelegramChannel(
     private val orchestrator: WeeklyPlanningOrchestrator,
     private val sessionRegistry: TelegramSessionRegistry,
     private val commandDispatcher: BotCommandDispatcher,
+    private val planConfirmationRegistry: PlanConfirmationRegistry,
+    private val userSettingsService: UserSettingsService,
+    private val messageSource: MessageSource,
     private val telegramClient: TelegramClient,
 ) : SpringLongPollingBot, LongPollingSingleThreadUpdateConsumer {
 
@@ -85,6 +94,29 @@ class TelegramChannel(
             return
         }
 
+        // Intercept replies to the "keep vs. redo" plan confirmation choice
+        val pendingConfirmation = planConfirmationRegistry.get(chatId)
+        if (pendingConfirmation != null) {
+            val locale = userLocale(pendingConfirmation.userId)
+            when {
+                inbound is ChannelInbound.Selection && inbound.optionId == OPTION_KEEP -> {
+                    planConfirmationRegistry.remove(chatId)
+                    channel.send(ChannelMessage.Text(messageSource.getMessage("planning.confirm.kept", null, locale)))
+                }
+                inbound is ChannelInbound.Selection && inbound.optionId == OPTION_NEW -> {
+                    planConfirmationRegistry.remove(chatId)
+                    pendingConfirmation.existingSessionId?.let { sid ->
+                        orchestrator.abandon(pendingConfirmation.userId, sid)
+                        sessionRegistry.remove(chatId)
+                    }
+                    val sessionId = orchestrator.start(pendingConfirmation.userId, channel)
+                    sessionRegistry.put(chatId, sessionId)
+                }
+                else -> channel.send(ChannelMessage.Text(messageSource.getMessage("planning.confirm.choose", null, locale)))
+            }
+            return
+        }
+
         val sessionId = sessionRegistry.get(chatId)
         if (sessionId == null || orchestrator.phase(sessionId) == null) {
             sessionRegistry.remove(chatId)
@@ -97,6 +129,11 @@ class TelegramChannel(
         if (orchestrator.phase(sessionId) == Phase.DONE) {
             sessionRegistry.remove(chatId)
         }
+    }
+
+    private fun userLocale(userId: java.util.UUID): Locale {
+        val lang = userSettingsService.getOrCreate(userId).preferredLanguage
+        return Locale.forLanguageTag(lang)
     }
 
     @AfterBotRegistration

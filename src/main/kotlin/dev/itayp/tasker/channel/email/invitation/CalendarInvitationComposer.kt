@@ -50,7 +50,8 @@ class CalendarInvitationComposer(
             val organizerCn = event.organizerName?.let { ";CN=${escapeParam(it)}" } ?: ""
             add(fold("ORGANIZER${organizerCn}:mailto:${event.organizerEmail}"))
             for (email in event.attendeeEmails) {
-                add(fold("ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:$email"))
+                val rsvp = if (event.rsvp) "TRUE" else "FALSE"
+                add(fold("ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=$rsvp:mailto:$email"))
             }
             add("SEQUENCE:0")
             add("STATUS:CONFIRMED")

@@ -23,7 +23,7 @@ open class UserSettingsEntity {
     var timeZone: String = "UTC"
 
     @Column(name = "preferred_language", nullable = false)
-    var preferredLanguage: String = "en"
+    var preferredLanguage: String = "en-US"
 
     @Column(name = "calendar_invite_email", nullable = false)
     var calendarInviteEmail: Boolean = false

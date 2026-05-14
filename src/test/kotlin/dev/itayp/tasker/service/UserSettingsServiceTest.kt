@@ -34,7 +34,7 @@ class UserSettingsServiceTest {
         displayName = null,
         contextBlock = null,
         timeZone = tz,
-        preferredLanguage = "en",
+        preferredLanguage = "en-US",
         calendarInviteEmail = false,
         gender = null,
         agentDescription = null,

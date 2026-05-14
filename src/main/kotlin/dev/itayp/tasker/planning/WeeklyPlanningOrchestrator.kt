@@ -11,6 +11,7 @@ import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ChoiceOption
 import dev.itayp.tasker.channel.ConversationChannel
+import dev.itayp.tasker.jpa.UserSettingsEntity
 import dev.itayp.tasker.planning.dto.AgreedPlan
 import dev.itayp.tasker.service.UserSettingsService
 import com.fasterxml.jackson.annotation.JsonProperty
@@ -19,6 +20,12 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.MessageSource
 import org.springframework.stereotype.Service
 import tools.jackson.databind.ObjectMapper
+import java.time.Clock
+import java.time.Duration
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -43,6 +50,7 @@ class WeeklyPlanningOrchestrator(
     private val objectMapper: ObjectMapper,
     private val messageSource: MessageSource,
     private val userSettingsService: UserSettingsService,
+    private val clock: Clock,
     @Value("\${tasker.ai.weekly-planning-model}")
     private val model: String,
 ) {
@@ -60,9 +68,11 @@ class WeeklyPlanningOrchestrator(
             conversationId = null,
             capacityHint = null,
         )
-        val locale = userLocale(userId)
+        val settings = userSettingsService.getOrCreate(userId)
+        val locale = Locale.forLanguageTag(settings.preferredLanguage)
+        val prompt = buildCapacityPrompt(settings, locale)
         channel.send(ChannelMessage.Choice(
-            prompt = messageSource.getMessage("planning.capacity.question", null, locale),
+            prompt = prompt,
             options = buildCapacityOptions(locale),
         ))
         return sessionId
@@ -75,6 +85,7 @@ class WeeklyPlanningOrchestrator(
             Phase.AWAITING_CAPACITY -> handleCapacityReply(sessionId, current, inbound, channel)
             Phase.CONVERSING -> {
                 val text = inboundAsText(inbound)
+                channel.indicateTyping()
                 val outcome = aiConversationManager.sendMessage(current.conversationId!!, text)
                 processOutcome(sessionId, outcome, channel)
                 state[sessionId]?.phase ?: Phase.DONE
@@ -108,7 +119,7 @@ class WeeklyPlanningOrchestrator(
         }
 
         val systemPrompt = promptAssembler.assembleSystemPrompt(current.userId, capacity)
-        log.debug("Weekly planning system prompt for session {}:\n{}", sessionId, systemPrompt)
+        log.trace("Weekly planning system prompt for session {}:\n{}", sessionId, systemPrompt)
 
         val conversationId = aiConversationManager.startConversation(
             userId = current.userId,
@@ -127,6 +138,7 @@ class WeeklyPlanningOrchestrator(
         )
 
         val kickoff = promptAssembler.renderKickoff(capacity).trim()
+        channel.indicateTyping()
         val outcome = aiConversationManager.sendMessage(conversationId, kickoff)
         processOutcome(sessionId, outcome, channel)
         return state[sessionId]?.phase ?: Phase.DONE
@@ -203,6 +215,7 @@ class WeeklyPlanningOrchestrator(
         }
 
         if (dataLookupRan) {
+            channel.indicateTyping()
             val nextOutcome = aiConversationManager.continueConversation(conversationId)
             processOutcome(sessionId, nextOutcome, channel)
             return
@@ -278,6 +291,7 @@ class WeeklyPlanningOrchestrator(
                 )
             }
             state[sessionId] = current.copy(phase = Phase.CONVERSING, pendingInteractive = emptyList())
+            channel.indicateTyping()
             val outcome = aiConversationManager.continueConversation(conversationId)
             processOutcome(sessionId, outcome, channel)
             return state[sessionId]?.phase ?: Phase.DONE
@@ -285,6 +299,7 @@ class WeeklyPlanningOrchestrator(
 
         if (pending.isEmpty()) {
             state[sessionId] = current.copy(phase = Phase.CONVERSING, pendingInteractive = emptyList())
+            channel.indicateTyping()
             val outcome = aiConversationManager.continueConversation(conversationId)
             processOutcome(sessionId, outcome, channel)
         } else {
@@ -312,6 +327,17 @@ class WeeklyPlanningOrchestrator(
     }
 
     // ── Helpers --------------------------------------------------------------------------
+
+    private fun buildCapacityPrompt(settings: UserSettingsEntity, locale: Locale): String {
+        val zone = runCatching { ZoneId.of(settings.timeZone) }.getOrDefault(ZoneId.of("UTC"))
+        val now = clock.instant()
+        val today = LocalDate.ofInstant(now, zone)
+        val weekEnd = LocalDate.ofInstant(now.plus(Duration.ofDays(7)), zone)
+        val fmt = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale)
+        val period = "${today.format(fmt)} – ${weekEnd.format(fmt)}"
+        val question = messageSource.getMessage("planning.capacity.question", null, locale)
+        return "<b>$period</b>\n$question"
+    }
 
     private fun userLocale(userId: UUID): Locale {
         val lang = userSettingsService.getOrCreate(userId).preferredLanguage

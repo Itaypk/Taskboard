@@ -3,6 +3,7 @@ package dev.itayp.tasker.channel.telegram
 import dev.itayp.tasker.channel.ChannelCapabilities
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ConversationChannel
+import org.telegram.telegrambots.meta.api.methods.send.SendChatAction
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup
@@ -22,6 +23,17 @@ class TelegramConversationChannel(
         supportsAutocompletions = true,
         supportsInlineButtons = true,
     )
+
+    override fun indicateTyping() {
+        runCatching {
+            telegramClient.execute(
+                SendChatAction.builder()
+                    .chatId(chatId)
+                    .action("typing")
+                    .build()
+            )
+        }
+    }
 
     override fun send(message: ChannelMessage) = when (message) {
         is ChannelMessage.Text -> sendText(message)

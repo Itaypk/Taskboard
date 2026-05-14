@@ -13,4 +13,5 @@ data class CalendarEvent(
     val organizerEmail: String,
     val organizerName: String? = null,
     val attendeeEmails: List<String>,
+    val rsvp: Boolean = false,
 )

@@ -9,6 +9,7 @@ package dev.itayp.tasker.channel
 interface ConversationChannel {
     val capabilities: ChannelCapabilities
     fun send(message: ChannelMessage)
+    fun indicateTyping() = Unit
     fun logToolCall(name: String, arguments: String) = Unit
 }
 
