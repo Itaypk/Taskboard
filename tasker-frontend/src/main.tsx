@@ -4,12 +4,14 @@ import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from './auth/AuthContext'
+import { ErrorToastStack } from './components/ErrorToast'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <AuthProvider>
         <App />
+        <ErrorToastStack />
       </AuthProvider>
     </BrowserRouter>
   </StrictMode>,

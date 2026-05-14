@@ -159,3 +159,10 @@ Startup fails fast if any of the database or Prometheus credentials are absent (
 - **Postgres integration tests** — `AbstractIntegrationTest.Initializer` starts a TestContainers `PostgreSQLContainer` and wires it into the Spring context. Tests run under `@ActiveProfiles("prod")` and exercise JPA and the health endpoints against a real database (`PostgresIntegrationTest`, `SecurityIntegrationProdProfileTest`).
 
 All time-dependent code takes an injected `Clock`, so tests can use `Clock.fixed(...)` and assert deterministic behavior.
+
+### Running
+
+For specific tests:
+```bash
+./gradlew --info test --tests dev.itayp.tasker.channel.email.EmailIntegrationTest
+```

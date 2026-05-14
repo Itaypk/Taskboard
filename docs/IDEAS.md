@@ -1,3 +1,7 @@
+## Next Things To Do
+- Client side error messages - more friendly? error reference? email support?
+- AI assistant is not very fast - need some "thinking..." or the such while it works on a response
+
 ## Ideas File
 This file is for capturing random ideas that don't fit into the current spec but might be worth exploring later. 
 The scope of the individual idea is varying - could be small UI improvements, or large features that change the entire app.

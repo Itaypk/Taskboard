@@ -51,9 +51,10 @@ private val CSP_POLICY = listOf(
 
 @Configuration
 @EnableWebSecurity
-@EnableConfigurationProperties(PrometheusAuthProperties::class)
+@EnableConfigurationProperties(PrometheusAuthProperties::class, AppProperties::class)
 class SecurityConfiguration(
     private val prometheusAuthProperties: PrometheusAuthProperties,
+    private val appProperties: AppProperties,
 ) {
 
     // Dev-only chain for the H2 console. Disables CSP, CSRF, and frame restrictions
@@ -132,6 +133,7 @@ class SecurityConfiguration(
                         if (request.requestURI.startsWith("/api/")) {
                             val config = CorsConfiguration()
                             config.allowedOrigins = listOf(
+                                appProperties.baseUrl,
                                 "http://localhost:63342", "http://127.0.0.1:63342",
                                 "http://localhost:5173",  "http://127.0.0.1:5173",
                             )

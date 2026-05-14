@@ -22,6 +22,8 @@ interface BacklogTaskRepository : JpaRepository<BacklogTaskEntity, UUID> {
         lastScheduledInSessionId: UUID,
     ): List<BacklogTaskEntity>
 
+    fun findAllByUserIdAndIdIn(userId: UUID, ids: List<UUID>): List<BacklogTaskEntity>
+
     fun findByIdAndUserId(id: UUID, userId: UUID): BacklogTaskEntity?
 
     fun existsByCategoryIdAndUserId(categoryId: UUID, userId: UUID): Boolean

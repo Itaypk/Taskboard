@@ -59,6 +59,13 @@ class AccountService(
         tagRepository.deleteAllByUserId(userId)
         categoryRepository.deleteAllByUserId(userId)
         settingsRepository.deleteById(userId)
+
+        // backlog_task_change_event has FKs to both users and planning_session, so it goes first
+        jdbcTemplate.update("DELETE FROM backlog_task_change_event WHERE user_id = ?", userId)
+        // planning_session has FKs to both users and ai_conversation
+        jdbcTemplate.update("DELETE FROM planning_session WHERE user_id = ?", userId)
+        // ai_message cascades automatically from ai_conversation (ON DELETE CASCADE in schema)
+        jdbcTemplate.update("DELETE FROM ai_conversation WHERE user_id = ?", userId)
     }
 
     @Transactional(readOnly = true)

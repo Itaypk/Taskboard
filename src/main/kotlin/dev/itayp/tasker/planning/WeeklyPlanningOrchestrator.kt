@@ -35,6 +35,7 @@ import java.util.concurrent.ConcurrentHashMap
 @Service
 class WeeklyPlanningOrchestrator(
     private val planningSessionService: PlanningSessionService,
+    private val planFinalizationService: PlanFinalizationService,
     private val promptAssembler: WeeklyPlanningPromptAssembler,
     private val aiConversationManager: AiConversationManager,
     private val planSubmissionInbox: PlanSubmissionInbox,
@@ -326,11 +327,7 @@ class WeeklyPlanningOrchestrator(
 
     private fun finalizeSubmission(sessionId: UUID, plan: AgreedPlan) {
         val current = state[sessionId] ?: return
-        planningSessionService.completeSession(
-            userId = current.userId,
-            sessionId = sessionId,
-            summary = plan.summary,
-        )
+        planFinalizationService.complete(current.userId, sessionId, plan)
         state[sessionId] = current.copy(phase = Phase.DONE, agreedPlan = plan)
     }
 

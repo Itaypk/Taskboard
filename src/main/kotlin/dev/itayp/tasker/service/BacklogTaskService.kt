@@ -49,6 +49,15 @@ class BacklogTaskService(
             .map { it.toDomain() }
 
     @Transactional
+    fun stampPlanningSession(userId: UUID, taskIds: List<UUID>, sessionId: UUID) {
+        val entities = backlogTaskRepository.findAllByUserIdAndIdIn(userId, taskIds)
+        for (entity in entities) {
+            entity.lastScheduledInSessionId = sessionId
+        }
+        backlogTaskRepository.saveAll(entities)
+    }
+
+    @Transactional
     fun createTask(userId: UUID, request: CreateBacklogTaskRequest): BacklogTask {
         val categoryId = UUID.fromString(request.categoryId)
         val category = categoryRepository.findByIdAndUserId(categoryId, userId)
