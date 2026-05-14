@@ -26,6 +26,8 @@ class PlanBotCommand(
 
     override val command = "plan"
 
+    override val description = "Start or review your weekly planning session"
+
     override fun handle(context: BotCommandContext) {
         val locale = userLocale(context)
         val existingSessionId = context.sessionRegistry.get(context.chatId)

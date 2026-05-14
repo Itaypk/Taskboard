@@ -4,6 +4,7 @@ import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.telegram.commands.BotCommandContext
 import dev.itayp.tasker.channel.telegram.commands.BotCommandDispatcher
+import dev.itayp.tasker.channel.telegram.commands.BotCommandHandler
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_KEEP
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_NEW
@@ -23,8 +24,10 @@ import org.telegram.telegrambots.longpolling.starter.AfterBotRegistration
 import org.telegram.telegrambots.longpolling.starter.SpringLongPollingBot
 import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer
 import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery
+import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage
 import org.telegram.telegrambots.meta.api.objects.Update
+import org.telegram.telegrambots.meta.api.objects.commands.BotCommand
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException
 import org.telegram.telegrambots.meta.generics.TelegramClient
 
@@ -37,6 +40,7 @@ class TelegramChannel(
     private val orchestrator: WeeklyPlanningOrchestrator,
     private val sessionRegistry: TelegramSessionRegistry,
     private val commandDispatcher: BotCommandDispatcher,
+    private val commandHandlers: List<BotCommandHandler>,
     private val planConfirmationRegistry: PlanConfirmationRegistry,
     private val userSettingsService: UserSettingsService,
     private val messageSource: MessageSource,
@@ -89,7 +93,7 @@ class TelegramChannel(
             val context = BotCommandContext(userId, chatId, "", channel, sessionRegistry)
             val handled = commandDispatcher.dispatch(inbound.text, context)
             if (!handled) {
-                channel.send(ChannelMessage.Text("Unknown command. Use /plan to start a planning session."))
+                channel.send(ChannelMessage.Text("Unknown command. Send /help to see what I can do."))
             }
             return
         }
@@ -120,7 +124,7 @@ class TelegramChannel(
         val sessionId = sessionRegistry.get(chatId)
         if (sessionId == null || orchestrator.phase(sessionId) == null) {
             sessionRegistry.remove(chatId)
-            channel.send(ChannelMessage.Text("Use /plan to start a planning session."))
+            channel.send(ChannelMessage.Text("Send /help to see what I can do."))
             return
         }
 
@@ -139,6 +143,24 @@ class TelegramChannel(
     @AfterBotRegistration
     fun afterRegistration(botSession: BotSession) {
         logger.info("Registered bot {}, running state is: {}", botUsername, botSession.isRunning())
+        publishCommandMenu()
+    }
+
+    /**
+     * Publishes the bot's command menu to Telegram so users see the available slash commands
+     * in the chat UI's "/" menu. Best-effort: if the call fails (transient network, invalid
+     * token), we log and continue — the bot still works without the menu.
+     */
+    private fun publishCommandMenu() {
+        val commands = commandHandlers
+            .sortedBy { it.command }
+            .map { BotCommand(it.command, it.description) }
+        try {
+            telegramClient.execute(SetMyCommands.builder().commands(commands).build())
+            logger.info("Published {} bot commands to Telegram menu", commands.size)
+        } catch (e: TelegramApiException) {
+            logger.warn("Failed to publish bot command menu: {}", e.message)
+        }
     }
 
     companion object {
