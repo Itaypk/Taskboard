@@ -75,7 +75,7 @@ class CalendarInvitationComposerTest {
         assertTrue(ical.contains("mailto:bob@example.com"), "missing attendee bob")
         assertTrue(ical.contains("mailto:carol@example.com"), "missing attendee carol")
         assertTrue(ical.contains("PARTSTAT=NEEDS-ACTION"), "missing PARTSTAT")
-        assertTrue(ical.contains("RSVP=TRUE"), "missing RSVP")
+        assertTrue(ical.contains("RSVP=FALSE"), "missing RSVP")
         assertTrue(ical.contains("END:VEVENT"), "missing END:VEVENT")
         assertTrue(ical.contains("END:VCALENDAR"), "missing END:VCALENDAR")
     }

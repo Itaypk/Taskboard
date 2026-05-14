@@ -1,6 +1,6 @@
-## Next Things To Do
+## Small Improvements and Concerns
 - Client side error messages - more friendly? error reference? email support?
-- AI assistant is not very fast - need some "thinking..." or the such while it works on a response
+- AI assistant is not very fast - need some "thinking..." or the such while it works on a response (added "Typing" indicator but I'm not sure if that works)
 
 ## Ideas File
 This file is for capturing random ideas that don't fit into the current spec but might be worth exploring later. 
@@ -10,6 +10,10 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Better "mark as done"
 - Drawer improvements
 - Tags - autocomplete
+
+### Assistant - Mid-week response
+- New "add" command for adding tasks directly from Telegram.
+- When texting the assistant out of the blue, respond with the correct context.
 
 ### Following up
 - The assistant could follow up on tasks that were scheduled but not marked done after their scheduled time. 
