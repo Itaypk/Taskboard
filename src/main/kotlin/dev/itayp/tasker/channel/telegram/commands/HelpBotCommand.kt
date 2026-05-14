@@ -6,6 +6,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.MessageSource
 import org.springframework.context.annotation.Lazy
 import org.springframework.stereotype.Component
+import org.springframework.web.util.HtmlUtils
 import java.util.Locale
 
 /**
@@ -33,16 +34,11 @@ class HelpBotCommand(
             .joinToString(separator = "\n") { handler ->
                 "/${handler.command} — ${handler.description}"
             }
-        context.channel.send(ChannelMessage.Text("<b>${escapeHtml(header)}</b>\n$lines"))
+        context.channel.send(ChannelMessage.Text("<b>${HtmlUtils.htmlEscape(header)}</b>\n$lines"))
     }
 
     private fun userLocale(context: BotCommandContext): Locale {
         val lang = userSettingsService.getOrCreate(context.userId).preferredLanguage
         return Locale.forLanguageTag(lang)
     }
-
-    private fun escapeHtml(input: String): String = input
-        .replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
 }

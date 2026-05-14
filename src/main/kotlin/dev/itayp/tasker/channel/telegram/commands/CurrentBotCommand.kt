@@ -9,6 +9,7 @@ import dev.itayp.tasker.service.UserSettingsService
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.MessageSource
 import org.springframework.stereotype.Component
+import org.springframework.web.util.HtmlUtils
 import java.util.Locale
 
 /**
@@ -57,7 +58,7 @@ class CurrentBotCommand(
         val summaryBlock = plan.summary?.takeIf { it.isNotBlank() }
             ?.let {
                 val label = messageSource.getMessage("command.current.summary.label", null, locale)
-                "<b>${escapeHtml(label)}</b>\n${escapeHtml(it)}"
+                "<b>${HtmlUtils.htmlEscape(label)}</b>\n${HtmlUtils.htmlEscape(it)}"
             }
             ?: messageSource.getMessage("command.current.summary.empty", null, locale)
 
@@ -71,14 +72,14 @@ class CurrentBotCommand(
             )
             val lines = tasks.joinToString(separator = "\n") { task ->
                 val mark = if (task.status == TaskStatus.DONE) "✅" else "▫️"
-                val title = escapeHtml(task.title)
+                val title = HtmlUtils.htmlEscape(task.title)
                 val styled = if (task.status == TaskStatus.DONE) "<s>$title</s>" else title
                 "$mark $styled"
             }
-            "<b>${escapeHtml(header)}</b>\n$lines"
+            "<b>${HtmlUtils.htmlEscape(header)}</b>\n$lines"
         }
 
-        val header = "<b>${escapeHtml(statusLabel)}</b>"
+        val header = "<b>${HtmlUtils.htmlEscape(statusLabel)}</b>"
         val body = listOf(header, summaryBlock, taskBlock).joinToString(separator = "\n\n")
 
         context.channel.send(ChannelMessage.Text(body))
@@ -88,9 +89,4 @@ class CurrentBotCommand(
         val lang = userSettingsService.getOrCreate(context.userId).preferredLanguage
         return Locale.forLanguageTag(lang)
     }
-
-    private fun escapeHtml(input: String): String = input
-        .replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
 }
