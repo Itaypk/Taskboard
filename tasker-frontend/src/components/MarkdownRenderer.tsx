@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { marked } from 'marked';
+import markedBidi from 'marked-bidi';
 import DOMPurify from 'dompurify';
+
+marked.use(markedBidi());
 
 interface MarkdownRendererProps {
     content: string;
@@ -24,8 +27,8 @@ function renderMarkdown(markdown: string): string {
         return DOMPurify.sanitize(html, {
             ALLOWED_TAGS: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'br', 'strong', 'em', 'b', 'i', 'u',
                            'code', 'pre', 'ul', 'ol', 'li', 'blockquote', 'a', 'img',
-                           'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr'],
-            ALLOWED_ATTR: ['href', 'title', 'src', 'alt', 'align'],
+                           'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr', 'input'],
+            ALLOWED_ATTR: ['href', 'title', 'src', 'alt', 'align', 'dir', 'type', 'checked', 'disabled'],
         });
     } catch (error) {
         console.error('Error rendering markdown:', error);
