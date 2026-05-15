@@ -14,7 +14,7 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Better "mark as done"
 - Drawer improvements
 - Edit existing tags
-- Support Markdown for "task lists" (i.e. `- [ ]`)
+- Task list Markdown (subtasks) checkboxes - makes it possible to check directly from the main screen
 
 ### Assistant - Mid-week response
 - Rejected: new "add" command for adding tasks directly from Telegram (rejection reason: even for the most basic "add" we need a category; it would be either complicated or unhelpful). 
