@@ -339,11 +339,6 @@ class WeeklyPlanningOrchestrator(
         return "<b>$period</b>\n$question"
     }
 
-    private fun userLocale(userId: UUID): Locale {
-        val lang = userSettingsService.getOrCreate(userId).preferredLanguage
-        return Locale.forLanguageTag(lang)
-    }
-
     private fun buildCapacityOptions(locale: Locale) = listOf(
         ChoiceOption("light", messageSource.getMessage("planning.capacity.option.light", null, locale)),
         ChoiceOption("normal", messageSource.getMessage("planning.capacity.option.normal", null, locale)),

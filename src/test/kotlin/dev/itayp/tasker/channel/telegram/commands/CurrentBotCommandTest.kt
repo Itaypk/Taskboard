@@ -3,7 +3,6 @@ package dev.itayp.tasker.channel.telegram.commands
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.telegram.TelegramConversationChannel
 import dev.itayp.tasker.channel.telegram.TelegramSessionRegistry
-import dev.itayp.tasker.jpa.UserSettingsEntity
 import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.CategoryColor
@@ -61,8 +60,7 @@ class CurrentBotCommandTest {
 
     @BeforeEach
     fun setUp() {
-        val settings = UserSettingsEntity().apply { preferredLanguage = "en" }
-        whenever(userSettingsService.getOrCreate(userId)).thenReturn(settings)
+        whenever(userSettingsService.getLocale(userId)).thenReturn(Locale.ENGLISH)
     }
 
     @Test

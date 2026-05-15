@@ -1,18 +1,23 @@
-## Small Improvements and Concerns
-- Client side error messages - more friendly? error reference? email support?
-- AI assistant is not very fast - need some "thinking..." or the such while it works on a response (added "Typing" indicator but I'm not sure if that works)
-
 ## Ideas File
 This file is for capturing random ideas that don't fit into the current spec but might be worth exploring later. 
 The scope of the individual idea is varying - could be small UI improvements, or large features that change the entire app.
 
+## Small Improvements and Concerns
+- Client side error messages - more friendly? error reference? email support?
+- AI assistant is not very fast - need some "thinking..." or the such while it works on a response (added "Typing" indicator, but I'm not sure if that works)
+- AI assistant should be aware of the notification delivery methods (e.g., invitation emails, nothing)
+- Fonts look bad in Hebrew (especially the header - serif - ones). Either choose one that support multilanguage, or use language-specific ones.
+- Tasks that are only relevant in the future - special field for that, do not display in default view
+- Translations: first start with emails, then consider the application itself
+
 ### UI - Tasks
 - Better "mark as done"
 - Drawer improvements
-- Tags - autocomplete
+- Edit existing tags
+- Support Markdown for "task lists" (i.e. `- [ ]`)
 
 ### Assistant - Mid-week response
-- New "add" command for adding tasks directly from Telegram.
+- Rejected: new "add" command for adding tasks directly from Telegram (rejection reason: even for the most basic "add" we need a category; it would be either complicated or unhelpful). 
 - When texting the assistant out of the blue, respond with the correct context.
 
 ### Following up

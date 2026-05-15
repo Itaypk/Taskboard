@@ -4,7 +4,6 @@ import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ChoiceOption
 import dev.itayp.tasker.channel.telegram.TelegramConversationChannel
 import dev.itayp.tasker.channel.telegram.TelegramSessionRegistry
-import dev.itayp.tasker.jpa.UserSettingsEntity
 import dev.itayp.tasker.planning.PlanningSessionEntity
 import dev.itayp.tasker.planning.PlanningSessionService
 import dev.itayp.tasker.planning.PlanningSessionStatus
@@ -63,8 +62,7 @@ class PlanBotCommandTest {
 
     @BeforeEach
     fun setUp() {
-        val settings = UserSettingsEntity().apply { preferredLanguage = "en" }
-        whenever(userSettingsService.getOrCreate(userId)).thenReturn(settings)
+        whenever(userSettingsService.getLocale(userId)).thenReturn(Locale.ENGLISH)
     }
 
     @Test

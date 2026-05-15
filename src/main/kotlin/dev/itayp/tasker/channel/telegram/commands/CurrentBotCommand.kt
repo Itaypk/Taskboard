@@ -10,8 +10,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.MessageSource
 import org.springframework.stereotype.Component
 import org.springframework.web.util.HtmlUtils
-import java.util.Locale
-
 /**
  * Renders the user's current weekly plan over Telegram: session summary plus the list of
  * tasks scheduled in that session. Mirrors what the web "Current Plan" drawer shows —
@@ -36,7 +34,7 @@ class CurrentBotCommand(
     override val description = "Show your current weekly plan"
 
     override fun handle(context: BotCommandContext) {
-        val locale = userLocale(context)
+        val locale = userSettingsService.getLocale(context.userId)
         val plan = planningSessionService.findCurrentPlan(context.userId)
 
         if (plan?.id == null) {
@@ -85,8 +83,4 @@ class CurrentBotCommand(
         context.channel.send(ChannelMessage.Text(body))
     }
 
-    private fun userLocale(context: BotCommandContext): Locale {
-        val lang = userSettingsService.getOrCreate(context.userId).preferredLanguage
-        return Locale.forLanguageTag(lang)
-    }
 }

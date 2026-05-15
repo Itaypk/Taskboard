@@ -101,7 +101,7 @@ class TelegramChannel(
         // Intercept replies to the "keep vs. redo" plan confirmation choice
         val pendingConfirmation = planConfirmationRegistry.get(chatId)
         if (pendingConfirmation != null) {
-            val locale = userLocale(pendingConfirmation.userId)
+            val locale = userSettingsService.getLocale(pendingConfirmation.userId)
             when {
                 inbound is ChannelInbound.Selection && inbound.optionId == OPTION_KEEP -> {
                     planConfirmationRegistry.remove(chatId)
@@ -133,11 +133,6 @@ class TelegramChannel(
         if (orchestrator.phase(sessionId) == Phase.DONE) {
             sessionRegistry.remove(chatId)
         }
-    }
-
-    private fun userLocale(userId: java.util.UUID): Locale {
-        val lang = userSettingsService.getOrCreate(userId).preferredLanguage
-        return Locale.forLanguageTag(lang)
     }
 
     @AfterBotRegistration

@@ -7,7 +7,6 @@ import org.springframework.context.MessageSource
 import org.springframework.context.annotation.Lazy
 import org.springframework.stereotype.Component
 import org.springframework.web.util.HtmlUtils
-import java.util.Locale
 
 /**
  * Lists the bot's available commands. Iterates the live [BotCommandHandler] beans
@@ -27,7 +26,7 @@ class HelpBotCommand(
     override val description = "List available commands"
 
     override fun handle(context: BotCommandContext) {
-        val locale = userLocale(context)
+        val locale = userSettingsService.getLocale(context.userId)
         val header = messageSource.getMessage("command.help.header", null, locale)
         val lines = allCommands
             .sortedBy { it.command }
@@ -37,8 +36,4 @@ class HelpBotCommand(
         context.channel.send(ChannelMessage.Text("<b>${HtmlUtils.htmlEscape(header)}</b>\n$lines"))
     }
 
-    private fun userLocale(context: BotCommandContext): Locale {
-        val lang = userSettingsService.getOrCreate(context.userId).preferredLanguage
-        return Locale.forLanguageTag(lang)
-    }
 }

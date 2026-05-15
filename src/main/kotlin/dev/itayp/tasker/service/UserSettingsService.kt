@@ -10,6 +10,7 @@ import org.springframework.scheduling.support.CronExpression
 import org.springframework.stereotype.Service
 import java.time.DayOfWeek
 import java.time.ZoneId
+import java.util.Locale
 import java.util.UUID
 
 data class UserPlanningScheduleChangedEvent(val userId: UUID)
@@ -57,6 +58,8 @@ class UserSettingsService(
         }
         return saved
     }
+
+    fun getLocale(userId: UUID): Locale = Locale.forLanguageTag(getOrCreate(userId).preferredLanguage)
 
     fun initializeForNewUser(userId: UUID) {
         settingsRepository.save(UserSettingsEntity().apply { this.userId = userId })

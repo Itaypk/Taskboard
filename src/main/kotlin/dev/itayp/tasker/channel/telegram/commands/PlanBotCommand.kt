@@ -12,7 +12,6 @@ import dev.itayp.tasker.service.UserSettingsService
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.MessageSource
 import org.springframework.stereotype.Component
-import java.util.Locale
 
 @Component
 @ConditionalOnProperty(prefix = "tasker.telegram", name = ["enabled"], havingValue = "true")
@@ -29,7 +28,7 @@ class PlanBotCommand(
     override val description = "Start or review your weekly planning session"
 
     override fun handle(context: BotCommandContext) {
-        val locale = userLocale(context)
+        val locale = userSettingsService.getLocale(context.userId)
         val existingSessionId = context.sessionRegistry.get(context.chatId)
 
         // Case 1: active session still alive in memory
@@ -74,8 +73,4 @@ class PlanBotCommand(
         context.sessionRegistry.put(context.chatId, sessionId)
     }
 
-    private fun userLocale(context: BotCommandContext): Locale {
-        val lang = userSettingsService.getOrCreate(context.userId).preferredLanguage
-        return Locale.forLanguageTag(lang)
-    }
 }
