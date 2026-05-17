@@ -16,6 +16,7 @@ interface TaskDrawerProps {
   onSave: (task: Omit<Task, 'sortKey'>) => void;
   onDelete: (id: string) => void;
   onMarkDone: (id: string) => void;
+  onMarkTodo: (id: string) => void;
 }
 
 type FormState = Omit<Task, 'id' | 'createdAt' | 'sortKey'>;
@@ -36,7 +37,7 @@ function makeEmpty(defaultCategoryId: string | null): FormState {
 
 export function TaskDrawer({
   task, isNew, open, categories, availableTags, defaultCategoryId,
-  onClose, onSave, onDelete, onMarkDone,
+  onClose, onSave, onDelete, onMarkDone, onMarkTodo,
 }: TaskDrawerProps) {
   const [form, setForm] = useState<FormState>(makeEmpty(defaultCategoryId));
   const [showTagForm, setShowTagForm] = useState(false);
@@ -337,13 +338,23 @@ export function TaskDrawer({
           <div className="drawer__footer-left">
             {!isNew && (
               <>
-                <button
-                  type="button"
-                  className="btn btn--ghost btn--sm"
-                  onClick={() => { onMarkDone(task!.id); onClose(); }}
-                >
-                  ✓ Mark done
-                </button>
+                {task?.status === 'done' ? (
+                  <button
+                    type="button"
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => { onMarkTodo(task!.id); onClose(); }}
+                  >
+                    ↺ Mark to-do
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => { onMarkDone(task!.id); onClose(); }}
+                  >
+                    ✓ Mark done
+                  </button>
+                )}
                 <button
                   type="button"
                   className="btn btn--danger btn--sm"

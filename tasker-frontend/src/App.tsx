@@ -227,6 +227,17 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
     });
   }, [tasks]);
 
+  const handleMarkTodo = useCallback((id: string) => {
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+    const { id: _id, createdAt: _ca, sortKey: _sk, ...payload } = task;
+    updateTask(id, { ...payload, status: 'todo' }).then(() => {
+      setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'todo' } : t));
+    }).catch(e => {
+      console.error('Failed to mark task todo', e);
+    });
+  }, [tasks]);
+
   const handleDragStart = (event: DragStartEvent) => {
     setDraggingId(String(event.active.id));
   };
@@ -396,6 +407,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
         onSave={handleSave}
         onDelete={handleDelete}
         onMarkDone={handleMarkDone}
+        onMarkTodo={handleMarkTodo}
       />
 
       <CurrentPlanDrawer
