@@ -93,6 +93,14 @@ Session chain details:
 - Backend env vars for the production database (required when running with `prod` profile):
   - `TASKER_DB_URL` — JDBC URL, e.g. `jdbc:postgresql://host:5432/taskboard`.
   - `TASKER_DB_USERNAME` / `TASKER_DB_PASSWORD` — Postgres credentials.
+- Backend env vars for the email integration:
+  - `TASKER_EMAIL_ENABLED` - toggle email integration (default: false).
+  - `TASKER_EMAIL_FROM` - email address to use in the "from" field.
+  - `TASKER_EMAIL_FROM_NAME` - name to use in the "from" field.
+  - `TASKER_EMAIL_SMTP_HOST` - SMTP host (default: smtp.protonmail.ch).
+  - `TASKER_EMAIL_SMTP_PORT` - SMTP port (default: 587).
+  - `TASKER_EMAIL_SMTP_USERNAME` - SMTP username (this is the email we use).
+  - `TASKER_EMAIL_SMTP_PASSWORD` - SMTP token, used as password.
 
 ## Internationalization
 Use the user's selected language and locale in the various communication channels (Telegram, email). We are using Spring's `MessageSource`, with message bundles (on `src/main/resources`).

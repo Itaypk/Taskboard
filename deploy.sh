@@ -7,6 +7,9 @@ set -e
 echo `pwd`
 . ./constants.sh
 
+# Build
+./gradlew clean release -x test
+
 # Set the file to be copied and the service to be restarted
 SOURCE_FILE="./build/libs/tasker-0.0.1-SNAPSHOT.jar"
 SERVICE_NAME="tasks"

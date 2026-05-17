@@ -6,14 +6,15 @@ Product spec: [`docs/SPEC.md`](docs/SPEC.md).
 
 ## Status
 
-Early but functional:
+Incomplete, but functional:
 
-- ✅ Backlog CRUD (tasks, categories, tags) with a pinboard-style React frontend.
-- ✅ Passwordless auth — Telegram Login Widget + dev-login bypass for local iteration.
-- ✅ Session-cookie security, CSRF, Liquibase-managed schema.
-- ✅ Prometheus metrics (`/actuator/prometheus`), health probes (`/actuator/health/liveness`, `/actuator/health/readiness`), structured JSON logging via Logstash encoder.
-- ✅ Production config: PostgreSQL via env vars, secure session cookie, graceful shutdown.
-- ⏳ Weekly planning conversation, Google Calendar integration, LLM-driven planner.
+- [x] Backlog CRUD (tasks, categories, tags) with a pinboard-style React frontend.
+- [x] Passwordless auth — Telegram Login Widget + dev-login bypass for local iteration.
+- [x] Session-cookie security, CSRF, Liquibase-managed schema.
+- [x] Prometheus metrics (`/actuator/prometheus`), health probes (`/actuator/health/liveness`, `/actuator/health/readiness`), structured JSON logging via Logstash encoder.
+- [x] Production config: PostgreSQL via env vars, secure session cookie, graceful shutdown.
+- [x] Weekly planning conversation.
+- [ ] Google Calendar integration
 
 ## Stack
 
@@ -160,7 +161,7 @@ Startup fails fast if any of the database or Prometheus credentials are absent (
 
 All time-dependent code takes an injected `Clock`, so tests can use `Clock.fixed(...)` and assert deterministic behavior.
 
-### Running
+### Running the Tests
 
 For specific tests:
 ```bash
