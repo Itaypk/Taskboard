@@ -43,6 +43,7 @@ class BacklogTaskService(
         return entities.map { it.toDomain() }
     }
 
+    @Transactional(readOnly = true)
     fun getTasksScheduledInSession(userId: UUID, sessionId: UUID): List<BacklogTask> =
         backlogTaskRepository
             .findAllByUserIdAndLastScheduledInSessionIdOrderBySortKeyAsc(userId, sessionId)

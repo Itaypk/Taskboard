@@ -56,6 +56,33 @@ class TelegramChannel(
             handleUpdate(update)
         } catch (e: TelegramApiException) {
             logger.error("Telegram API error handling update {}: {}", update.updateId, e.message, e)
+        } catch (e: Exception) {
+            logger.error("Unhandled error handling update {}", update.updateId, e)
+            notifyUpdateFailed(update)
+        }
+    }
+
+    private fun notifyUpdateFailed(update: Update) {
+        try {
+            val chatId = when {
+                update.hasMessage() && update.message.hasText() -> update.message.chatId
+                update.hasCallbackQuery() -> update.callbackQuery.message.chatId
+                else -> return
+            }
+            val locale = runCatching {
+                val telegramUserId = when {
+                    update.hasMessage() -> update.message.from?.id
+                    update.hasCallbackQuery() -> update.callbackQuery.from?.id
+                    else -> null
+                }
+                telegramUserId
+                    ?.let { userRepository.findByTelegramId(it)?.id }
+                    ?.let { userSettingsService.getLocale(it) }
+            }.getOrDefault(Locale.ENGLISH)
+            val text = messageSource.getMessage("command.handleUpdateFailed", null, locale)
+            telegramClient.execute(SendMessage.builder().chatId(chatId).text(text).build())
+        } catch (e: Exception) {
+            logger.error("Failed to send error reply to user for update {}", update.updateId, e)
         }
     }
 
