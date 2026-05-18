@@ -56,6 +56,8 @@ class TelegramChannel(
             handleUpdate(update)
         } catch (e: TelegramApiException) {
             logger.error("Telegram API error handling update {}: {}", update.updateId, e.message, e)
+        } catch (e: Exception) {
+            logger.error("Unhandled error handling update {}", update.updateId, e)
         }
     }
 
