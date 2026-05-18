@@ -47,3 +47,4 @@ out/
 
 /.env
 /.env.test
+/.claude/settings.local.json
