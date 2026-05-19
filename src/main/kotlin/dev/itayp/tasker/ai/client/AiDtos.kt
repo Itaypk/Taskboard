@@ -5,6 +5,10 @@ import com.fasterxml.jackson.annotation.JsonProperty
 
 // ── Request ──────────────────────────────────────────────────────────────────
 
+data class ProviderPreferences(
+    val zdr: Boolean = true,
+)
+
 data class ChatRequest(
     val model: String,
     val messages: List<ChatMessage>,
@@ -12,6 +16,7 @@ data class ChatRequest(
     val temperature: Double? = null,
     @JsonProperty("max_tokens") val maxTokens: Int? = null,
     @JsonProperty("tool_choice") val toolChoice: String? = null,
+    val provider: ProviderPreferences = ProviderPreferences(),
 )
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
