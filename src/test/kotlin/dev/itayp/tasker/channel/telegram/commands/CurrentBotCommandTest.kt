@@ -62,6 +62,9 @@ class CurrentBotCommandTest {
     @BeforeEach
     fun setUp() {
         whenever(userSettingsService.getLocale(userId)).thenReturn(Locale.ENGLISH)
+    }
+
+    private fun stubUserSettings() {
         whenever(userSettingsService.getOrCreate(userId)).thenReturn(
             UserSettingsEntity().apply { this.userId = this@CurrentBotCommandTest.userId }
         )
@@ -81,6 +84,7 @@ class CurrentBotCommandTest {
 
     @Test
     fun `renders summary and tasks for a completed plan`() {
+        stubUserSettings()
         val sessionId = UUID.randomUUID()
         val plan = PlanningSessionEntity().apply {
             id = sessionId
@@ -113,6 +117,7 @@ class CurrentBotCommandTest {
 
     @Test
     fun `renders in-progress label when plan is active`() {
+        stubUserSettings()
         val sessionId = UUID.randomUUID()
         val plan = PlanningSessionEntity().apply {
             id = sessionId
@@ -137,6 +142,7 @@ class CurrentBotCommandTest {
 
     @Test
     fun `escapes HTML in task titles`() {
+        stubUserSettings()
         val sessionId = UUID.randomUUID()
         val plan = PlanningSessionEntity().apply {
             id = sessionId
