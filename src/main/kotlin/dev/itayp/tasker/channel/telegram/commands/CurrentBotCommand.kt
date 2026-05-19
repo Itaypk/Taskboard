@@ -10,6 +10,9 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.MessageSource
 import org.springframework.stereotype.Component
 import org.springframework.web.util.HtmlUtils
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 /**
  * Renders the user's current weekly plan over Telegram: session summary plus the list of
  * tasks scheduled in that session. Mirrors what the web "Current Plan" drawer shows —
@@ -53,6 +56,13 @@ class CurrentBotCommand(
         }
         val statusLabel = messageSource.getMessage(statusKey, null, locale)
 
+        val userSettings = userSettingsService.getOrCreate(context.userId)
+        val zone = runCatching { ZoneId.of(userSettings.timeZone) }.getOrDefault(ZoneId.of("UTC"))
+        val fmt = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale)
+        val weekStart = plan.startedAt!!.atZone(zone).toLocalDate()
+        val weekEnd = weekStart.plusDays(6)
+        val period = "${weekStart.format(fmt)} – ${weekEnd.format(fmt)}"
+
         val summaryBlock = plan.summary?.takeIf { it.isNotBlank() }
             ?.let {
                 val label = messageSource.getMessage("command.current.summary.label", null, locale)
@@ -77,7 +87,7 @@ class CurrentBotCommand(
             "<b>${HtmlUtils.htmlEscape(header)}</b>\n$lines"
         }
 
-        val header = "<b>${HtmlUtils.htmlEscape(statusLabel)}</b>"
+        val header = "<b>${HtmlUtils.htmlEscape(statusLabel)}</b>\n<i>${HtmlUtils.htmlEscape(period)}</i>"
         val body = listOf(header, summaryBlock, taskBlock).joinToString(separator = "\n\n")
 
         context.channel.send(ChannelMessage.Text(body))

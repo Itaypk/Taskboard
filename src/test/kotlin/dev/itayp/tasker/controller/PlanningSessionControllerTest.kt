@@ -1,6 +1,7 @@
 package dev.itayp.tasker.controller
 
 import dev.itayp.tasker.config.SecurityConfiguration
+import dev.itayp.tasker.jpa.UserSettingsEntity
 import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.CategoryColor
@@ -11,6 +12,7 @@ import dev.itayp.tasker.planning.PlanningSessionStatus
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.BacklogTaskService
 import dev.itayp.tasker.service.SortKeyGenerator
+import dev.itayp.tasker.service.UserSettingsService
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
@@ -37,6 +39,9 @@ class PlanningSessionControllerTest(@Autowired val mockMvc: MockMvc) {
     @MockitoBean
     lateinit var backlogTaskService: BacklogTaskService
 
+    @MockitoBean
+    lateinit var userSettingsService: UserSettingsService
+
     private val userId = UUID.fromString("00000000-0000-0000-0000-000000000099")
     private val sessionId = UUID.fromString("00000000-0000-0000-0000-0000000000aa")
     private val categoryId = UUID.fromString("00000000-0000-0000-0000-000000000002")
@@ -46,6 +51,12 @@ class PlanningSessionControllerTest(@Autowired val mockMvc: MockMvc) {
         null,
         listOf(SimpleGrantedAuthority("ROLE_USER")),
     )
+
+    private fun defaultUserSettings() = UserSettingsEntity().apply {
+        this.userId = this@PlanningSessionControllerTest.userId
+        this.timeZone = "UTC"
+        this.weekStartDay = "MONDAY"
+    }
 
     private fun aSession(status: PlanningSessionStatus = PlanningSessionStatus.ACTIVE) = PlanningSessionEntity().apply {
         this.id = sessionId
@@ -88,6 +99,7 @@ class PlanningSessionControllerTest(@Autowired val mockMvc: MockMvc) {
         whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(aSession(PlanningSessionStatus.ACTIVE))
         whenever(backlogTaskService.getTasksScheduledInSession(userId, sessionId))
             .thenReturn(listOf(aTask()))
+        whenever(userSettingsService.getOrCreate(userId)).thenReturn(defaultUserSettings())
 
         mockMvc.perform(get("/api/v1/plans/current").with(authentication(auth)))
             .andExpect(status().isOk)
@@ -96,6 +108,9 @@ class PlanningSessionControllerTest(@Autowired val mockMvc: MockMvc) {
             .andExpect(jsonPath("$.endedAt").doesNotExist())
             .andExpect(jsonPath("$.tasks[0].title").value("Planned task"))
             .andExpect(jsonPath("$.tasks[0].lastScheduledInSessionId").value(sessionId.toString()))
+            // startedAt=2026-05-01, UTC → weekStart=2026-05-01, weekEnd=2026-05-07 (startedAt + 6 days)
+            .andExpect(jsonPath("$.weekStart").value("2026-05-01"))
+            .andExpect(jsonPath("$.weekEnd").value("2026-05-07"))
     }
 
     @Test
@@ -103,6 +118,7 @@ class PlanningSessionControllerTest(@Autowired val mockMvc: MockMvc) {
         whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(aSession(PlanningSessionStatus.COMPLETED))
         whenever(backlogTaskService.getTasksScheduledInSession(userId, sessionId))
             .thenReturn(emptyList())
+        whenever(userSettingsService.getOrCreate(userId)).thenReturn(defaultUserSettings())
 
         mockMvc.perform(get("/api/v1/plans/current").with(authentication(auth)))
             .andExpect(status().isOk)

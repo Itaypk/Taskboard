@@ -5,6 +5,7 @@ import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.CategoryColor
 import dev.itayp.tasker.model.TaskStatus
+import dev.itayp.tasker.planning.BacklogTaskChangeService
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.BacklogTaskService
 import dev.itayp.tasker.service.SortKeyGenerator
@@ -30,6 +31,7 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import java.time.Clock
 import java.time.Instant
 import java.util.UUID
 
@@ -39,6 +41,14 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @MockitoBean
     lateinit var backlogTaskService: BacklogTaskService
+
+    @MockitoBean
+    lateinit var backlogTaskChangeService: BacklogTaskChangeService
+
+    @MockitoBean
+    lateinit var clock: Clock
+
+    private val fixedNow = Instant.parse("2026-05-19T10:00:00Z")
 
     private val userId = UUID.fromString("00000000-0000-0000-0000-000000000099")
     private val taskId = UUID.fromString("00000000-0000-0000-0000-000000000001")
@@ -210,5 +220,40 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
                 .content("""{"afterId":null,"beforeId":null}""")
         )
             .andExpect(status().isNotFound)
+    }
+
+    @Test
+    fun `GET tasks-has-changes returns hasChanges=true when events exist`() {
+        val since = "2026-05-19T09:00:00Z"
+        whenever(clock.instant()).thenReturn(fixedNow)
+        whenever(backlogTaskChangeService.hasChangesSince(eq(userId), any())).thenReturn(true)
+
+        mockMvc.perform(get("/api/v1/tasks/has-changes?since=$since").with(authentication(auth)))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.hasChanges").value(true))
+            .andExpect(jsonPath("$.checkedAt").value(fixedNow.toString()))
+    }
+
+    @Test
+    fun `GET tasks-has-changes returns hasChanges=false when no events`() {
+        val since = "2026-05-19T09:00:00Z"
+        whenever(clock.instant()).thenReturn(fixedNow)
+        whenever(backlogTaskChangeService.hasChangesSince(eq(userId), any())).thenReturn(false)
+
+        mockMvc.perform(get("/api/v1/tasks/has-changes?since=$since").with(authentication(auth)))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.hasChanges").value(false))
+    }
+
+    @Test
+    fun `GET tasks-has-changes returns 400 for invalid since parameter`() {
+        mockMvc.perform(get("/api/v1/tasks/has-changes?since=not-a-date").with(authentication(auth)))
+            .andExpect(status().isBadRequest)
+    }
+
+    @Test
+    fun `GET tasks-has-changes unauthenticated returns 401`() {
+        mockMvc.perform(get("/api/v1/tasks/has-changes?since=2026-05-19T09:00:00Z"))
+            .andExpect(status().isUnauthorized)
     }
 }

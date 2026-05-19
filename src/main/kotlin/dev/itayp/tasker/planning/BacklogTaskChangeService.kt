@@ -74,6 +74,10 @@ class BacklogTaskChangeService(
     }
 
     @Transactional(readOnly = true)
+    fun hasChangesSince(userId: UUID, since: Instant): Boolean =
+        eventRepository.existsByUserIdAndOccurredAtGreaterThanEqual(userId, since)
+
+    @Transactional(readOnly = true)
     fun summarizeBetween(userId: UUID, from: Instant, to: Instant): TaskChangeSummary {
         val events = eventRepository
             .findAllByUserIdAndOccurredAtBetweenOrderByOccurredAtAsc(userId, from, to)

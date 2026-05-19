@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   DndContext,
   MouseSensor,
@@ -20,7 +20,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { BoardFilter } from './components/BoardFilter';
 import { CurrentPlanDrawer } from './components/CurrentPlanDrawer';
 import { DEFAULT_SETTINGS } from './data';
-import { fetchTasks, fetchCategories, fetchUserSettings, fetchTags, fetchCurrentPlan, createTask, updateTask, deleteTask, reorderTask } from './api';
+import { fetchTasks, fetchCategories, fetchUserSettings, fetchTags, fetchCurrentPlan, checkTaskChanges, createTask, updateTask, deleteTask, reorderTask } from './api';
 import type { Task, UserSettings, Tag, CurrentPlan, TaskFilter } from './types';
 import { Routes, Route } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
@@ -109,6 +109,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const [filter, setFilter]           = useState<TaskFilter>('todo');
   const [currentPlan, setCurrentPlan] = useState<CurrentPlan | null>(null);
   const [planDrawerOpen, setPlanDrawerOpen] = useState(false);
+  const lastSyncedAt = useRef(new Date().toISOString());
 
   // Mouse: start drag after 5px to keep clicks alive.
   // Touch: long-press (~200ms) so tap-to-open and finger-scroll still work.
@@ -153,6 +154,26 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   }, [fetchStatus, loading]);
 
   const drawerOpen   = selectedId !== null || isCreating;
+
+  // Periodic sync — check for task changes every 60 s; skip while task drawer is open.
+  useEffect(() => {
+    if (loading) return;
+    const id = setInterval(async () => {
+      if (drawerOpen) return;
+      try {
+        const { hasChanges, checkedAt } = await checkTaskChanges(lastSyncedAt.current);
+        lastSyncedAt.current = checkedAt;
+        const [freshPlan, freshTags] = await Promise.all([fetchCurrentPlan(), fetchTags()]);
+        setCurrentPlan(freshPlan);
+        setTags(freshTags);
+        if (hasChanges) {
+          const freshTasks = await fetchTasks(fetchStatus);
+          setTasks(freshTasks);
+        }
+      } catch { /* silent — don't surface background network blips */ }
+    }, 60_000);
+    return () => clearInterval(id);
+  }, [loading, drawerOpen, fetchStatus]);
   const selectedTask = tasks.find(t => t.id === selectedId) ?? null;
 
   const sortedTasks = useMemo(

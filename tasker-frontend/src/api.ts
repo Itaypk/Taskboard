@@ -129,6 +129,9 @@ export type TaskStatusFilter = 'todo' | 'done' | 'all';
 export const fetchTasks = (status: TaskStatusFilter = 'todo'): Promise<Task[]> =>
     apiRequest(`/tasks?status=${status}`);
 
+export const checkTaskChanges = (since: string): Promise<{ hasChanges: boolean; checkedAt: string }> =>
+    apiRequest(`/tasks/has-changes?since=${encodeURIComponent(since)}`);
+
 // --- Current plan ---
 
 export const fetchCurrentPlan = async (): Promise<CurrentPlan | null> => {

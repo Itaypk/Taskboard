@@ -4,8 +4,10 @@ import dev.itayp.tasker.model.TaskStatus
 import dev.itayp.tasker.model.request.CreateBacklogTaskRequest
 import dev.itayp.tasker.model.request.ReorderTaskRequest
 import dev.itayp.tasker.model.request.UpdateBacklogTaskRequest
+import dev.itayp.tasker.model.response.HasChangesResponse
 import dev.itayp.tasker.model.response.TaskResponse
 import dev.itayp.tasker.model.response.toResponse
+import dev.itayp.tasker.planning.BacklogTaskChangeService
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.BacklogTaskService
 import org.slf4j.LoggerFactory
@@ -22,11 +24,30 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
+import java.time.Clock
+import java.time.Instant
 import java.util.UUID
 
 @RestController
 @RequestMapping("/api/v1")
-class BacklogTaskController(private val backlogTaskService: BacklogTaskService) {
+class BacklogTaskController(
+    private val backlogTaskService: BacklogTaskService,
+    private val backlogTaskChangeService: BacklogTaskChangeService,
+    private val clock: Clock,
+) {
+
+    @GetMapping("/tasks/has-changes")
+    fun hasTaskChanges(
+        @AuthenticationPrincipal principal: TaskerPrincipal,
+        @RequestParam since: String,
+    ): ResponseEntity<HasChangesResponse> {
+        val sinceInstant = runCatching { Instant.parse(since) }.getOrElse {
+            return ResponseEntity.badRequest().build()
+        }
+        val checkedAt = clock.instant()
+        val hasChanges = backlogTaskChangeService.hasChangesSince(principal.userId, sinceInstant)
+        return ResponseEntity.ok(HasChangesResponse(hasChanges = hasChanges, checkedAt = checkedAt.toString()))
+    }
 
     @GetMapping("/tasks")
     fun getBacklogTasks(
