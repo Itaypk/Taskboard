@@ -108,9 +108,9 @@ class PlanningSessionControllerTest(@Autowired val mockMvc: MockMvc) {
             .andExpect(jsonPath("$.endedAt").doesNotExist())
             .andExpect(jsonPath("$.tasks[0].title").value("Planned task"))
             .andExpect(jsonPath("$.tasks[0].lastScheduledInSessionId").value(sessionId.toString()))
-            // startedAt=2026-05-01 (Friday), UTC, MONDAY week start → week of Apr 27 – May 3
-            .andExpect(jsonPath("$.weekStart").value("2026-04-27"))
-            .andExpect(jsonPath("$.weekEnd").value("2026-05-03"))
+            // startedAt=2026-05-01, UTC → weekStart=2026-05-01, weekEnd=2026-05-07 (startedAt + 6 days)
+            .andExpect(jsonPath("$.weekStart").value("2026-05-01"))
+            .andExpect(jsonPath("$.weekEnd").value("2026-05-07"))
     }
 
     @Test

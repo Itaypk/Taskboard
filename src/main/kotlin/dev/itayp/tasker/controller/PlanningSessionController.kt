@@ -11,7 +11,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
-import java.time.DayOfWeek
 import java.time.Instant
 import java.time.ZoneId
 
@@ -39,7 +38,6 @@ class PlanningSessionController(
         val (weekStart, weekEnd) = computeWeekRange(
             startedAt = session.startedAt!!,
             timeZone = userSettings.timeZone,
-            weekStartDayName = userSettings.weekStartDay,
         )
 
         return ResponseEntity.ok(
@@ -59,13 +57,9 @@ class PlanningSessionController(
     private fun computeWeekRange(
         startedAt: Instant,
         timeZone: String,
-        weekStartDayName: String?,
     ): Pair<java.time.LocalDate, java.time.LocalDate> {
         val zone = runCatching { ZoneId.of(timeZone) }.getOrDefault(ZoneId.of("UTC"))
-        val weekStartDay = weekStartDayName?.let { runCatching { DayOfWeek.valueOf(it) }.getOrNull() } ?: DayOfWeek.MONDAY
-        val sessionDate = startedAt.atZone(zone).toLocalDate()
-        val daysBack = ((sessionDate.dayOfWeek.value - weekStartDay.value) + 7) % 7
-        val weekStart = sessionDate.minusDays(daysBack.toLong())
+        val weekStart = startedAt.atZone(zone).toLocalDate()
         val weekEnd = weekStart.plusDays(6)
         return weekStart to weekEnd
     }
