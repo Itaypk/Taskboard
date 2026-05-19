@@ -61,7 +61,7 @@ class CurrentBotCommand(
         val fmt = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale)
         val weekStart = plan.startedAt!!.atZone(zone).toLocalDate()
         val weekEnd = weekStart.plusDays(6)
-        val period = "${weekStart.format(fmt)} – ${weekEnd.format(fmt)}"
+        val period = "${weekStart.format(fmt)} - ${weekEnd.format(fmt)}"
 
         val summaryBlock = plan.summary?.takeIf { it.isNotBlank() }
             ?.let {
