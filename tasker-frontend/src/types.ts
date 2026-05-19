@@ -66,6 +66,8 @@ export interface CurrentPlan {
   endedAt?: string | null;
   summary?: string | null;
   tasks: Task[];
+  weekStart: string;
+  weekEnd: string;
 }
 
 export type TaskFilter = 'todo' | 'plan' | 'done' | 'all';

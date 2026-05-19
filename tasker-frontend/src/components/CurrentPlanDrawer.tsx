@@ -30,7 +30,10 @@ export function CurrentPlanDrawer({ plan, open, onClose, onTaskClick }: CurrentP
         aria-label="This week's plan"
       >
         <div className="drawer__header">
-          <span className="drawer__label">This week's plan</span>
+          <div className={styles.titleGroup}>
+            <span className="drawer__label">This week's plan</span>
+            {plan && <span className={styles.weekRange}>{formatWeekRange(plan.weekStart, plan.weekEnd)}</span>}
+          </div>
           <button className="drawer__close" onClick={onClose} aria-label="Close">×</button>
         </div>
 
@@ -98,6 +101,21 @@ export function CurrentPlanDrawer({ plan, open, onClose, onTaskClick }: CurrentP
       </aside>
     </>
   );
+}
+
+function formatWeekRange(weekStart: string, weekEnd: string): string {
+  const start = new Date(`${weekStart}T00:00:00`);
+  const end = new Date(`${weekEnd}T00:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return '';
+  const year = start.getFullYear();
+  const startMonth = start.toLocaleDateString(undefined, { month: 'short' });
+  const endMonth = end.toLocaleDateString(undefined, { month: 'short' });
+  const startDay = start.getDate();
+  const endDay = end.getDate();
+  if (startMonth === endMonth) {
+    return `${startMonth} ${startDay}–${endDay}, ${year}`;
+  }
+  return `${startMonth} ${startDay} – ${endMonth} ${endDay}, ${year}`;
 }
 
 function formatRelative(iso: string): string {
