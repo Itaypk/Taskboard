@@ -3,6 +3,7 @@ package dev.itayp.tasker.channel.telegram.commands
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.telegram.TelegramConversationChannel
 import dev.itayp.tasker.channel.telegram.TelegramSessionRegistry
+import dev.itayp.tasker.jpa.UserSettingsEntity
 import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.CategoryColor
@@ -61,6 +62,9 @@ class CurrentBotCommandTest {
     @BeforeEach
     fun setUp() {
         whenever(userSettingsService.getLocale(userId)).thenReturn(Locale.ENGLISH)
+        whenever(userSettingsService.getOrCreate(userId)).thenReturn(
+            UserSettingsEntity().apply { this.userId = this@CurrentBotCommandTest.userId }
+        )
     }
 
     @Test
@@ -82,6 +86,7 @@ class CurrentBotCommandTest {
             id = sessionId
             this.userId = this@CurrentBotCommandTest.userId
             status = PlanningSessionStatus.COMPLETED
+            startedAt = Instant.parse("2026-05-14T10:00:00Z")
             summary = "Wrap up the launch & ship docs"
         }
         whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(plan)
@@ -113,6 +118,7 @@ class CurrentBotCommandTest {
             id = sessionId
             this.userId = this@CurrentBotCommandTest.userId
             status = PlanningSessionStatus.ACTIVE
+            startedAt = Instant.parse("2026-05-14T10:00:00Z")
             summary = null
         }
         whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(plan)
@@ -136,6 +142,7 @@ class CurrentBotCommandTest {
             id = sessionId
             this.userId = this@CurrentBotCommandTest.userId
             status = PlanningSessionStatus.COMPLETED
+            startedAt = Instant.parse("2026-05-14T10:00:00Z")
             summary = "ok"
         }
         whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(plan)
