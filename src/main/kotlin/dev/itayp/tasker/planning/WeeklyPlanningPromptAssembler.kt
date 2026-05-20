@@ -5,7 +5,6 @@ import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.service.UserSettingsService
 import org.springframework.stereotype.Service
 import java.time.Clock
-import java.time.Duration
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -26,7 +25,7 @@ class WeeklyPlanningPromptAssembler(
     private val clock: Clock,
 ) {
 
-    fun assembleSystemPrompt(userId: UUID, capacityHint: String): String {
+    fun assembleSystemPrompt(userId: UUID, capacityHint: String, weekStart: LocalDate): String {
         val settings = userSettingsService.getOrCreate(userId)
         val displayName = settings.displayName?.takeIf { it.isNotBlank() } ?: "there"
         val zone = runCatching { ZoneId.of(settings.timeZone) }.getOrDefault(ZoneId.of("UTC"))
@@ -36,11 +35,12 @@ class WeeklyPlanningPromptAssembler(
             ?.summary?.takeIf { it.isNotBlank() }
         val diff = planningSessionService.diffSincePreviousSession(userId)
 
-        val now = clock.instant()
-        val weekEnd = now.plus(Duration.ofDays(7))
-        val calendar = calendarWindowProvider.describeWindow(userId, now, weekEnd)
+        val weekEnd = weekStart.plusDays(7)
+        val calendarFrom = weekStart.atStartOfDay(zone).toInstant()
+        val calendarTo = weekEnd.atStartOfDay(zone).toInstant()
+        val calendar = calendarWindowProvider.describeWindow(userId, calendarFrom, calendarTo)
 
-        val today = LocalDate.ofInstant(now, zone)
+        val today = LocalDate.ofInstant(clock.instant(), zone)
 
         return templateLoader.load("weekly-planning/system.md").render(mapOf(
             "display_name" to displayName,
@@ -53,6 +53,8 @@ class WeeklyPlanningPromptAssembler(
             "calendar_window" to calendar,
             "capacity_hint" to capacityHint.ifBlank { "Not stated." },
             "today_iso" to today.format(DateTimeFormatter.ISO_LOCAL_DATE),
+            "week_start_iso" to weekStart.format(DateTimeFormatter.ISO_LOCAL_DATE),
+            "week_end_iso" to weekStart.plusDays(6).format(DateTimeFormatter.ISO_LOCAL_DATE),
             "user_timezone" to zone.id,
             "preferred_language" to UserSettingsService.SUPPORTED_LANGUAGES.first { settings.preferredLanguage == it.code }.label,
             "user_gender" to genderInstruction(settings.gender),

@@ -4,6 +4,7 @@ import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ChoiceOption
 import dev.itayp.tasker.channel.telegram.TelegramConversationChannel
 import dev.itayp.tasker.channel.telegram.TelegramSessionRegistry
+import dev.itayp.tasker.jpa.UserSettingsEntity
 import dev.itayp.tasker.planning.PlanningSessionEntity
 import dev.itayp.tasker.planning.PlanningSessionService
 import dev.itayp.tasker.planning.PlanningSessionStatus
@@ -17,10 +18,13 @@ import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
-import org.mockito.kotlin.eq
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import java.time.Clock
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
 import java.util.Locale
 import java.util.UUID
 import kotlin.test.assertEquals
@@ -38,6 +42,9 @@ class PlanBotCommandTest {
 
     private val planConfirmationRegistry = PlanConfirmationRegistry()
 
+    // Fixed Wednesday 2026-05-13 UTC
+    private val clock = Clock.fixed(Instant.parse("2026-05-13T10:00:00Z"), ZoneOffset.UTC)
+
     private val command by lazy {
         PlanBotCommand(
             orchestrator,
@@ -51,7 +58,11 @@ class PlanBotCommandTest {
                 src.addMessage("planning.confirm.completed.prompt", Locale.ENGLISH, "Current plan: {0}")
                 src.addMessage("planning.confirm.completed.keep", Locale.ENGLISH, "Keep")
                 src.addMessage("planning.confirm.completed.new", Locale.ENGLISH, "Plan again")
+                src.addMessage("planning.choose_week.prompt", Locale.ENGLISH, "Which week?")
+                src.addMessage("planning.choose_week.this_week", Locale.ENGLISH, "This week ({0} – {1})")
+                src.addMessage("planning.choose_week.next_week", Locale.ENGLISH, "Next week ({0} – {1})")
             },
+            clock,
         )
     }
 
@@ -65,11 +76,29 @@ class PlanBotCommandTest {
         whenever(userSettingsService.getLocale(userId)).thenReturn(Locale.ENGLISH)
     }
 
+    private fun stubUserSettings(weekStartDay: String? = "MONDAY") {
+        whenever(userSettingsService.getOrCreate(userId)).thenReturn(
+            UserSettingsEntity().apply {
+                this.userId = this@PlanBotCommandTest.userId
+                this.timeZone = "UTC"
+                this.weekStartDay = weekStartDay
+            }
+        )
+    }
+
     @Test
     fun `sends active-session choice and registers confirmation when session is in progress`() {
         val sessionId = UUID.randomUUID()
         whenever(sessionRegistry.get(chatId)).thenReturn(sessionId)
         whenever(orchestrator.phase(sessionId)).thenReturn(WeeklyPlanningOrchestrator.Phase.CONVERSING)
+        whenever(planningSessionService.findById(userId, sessionId)).thenReturn(
+            PlanningSessionEntity().apply {
+                id = sessionId
+                this.userId = this@PlanBotCommandTest.userId
+                status = PlanningSessionStatus.ACTIVE
+                weekStart = LocalDate.parse("2026-05-11")
+            }
+        )
 
         command.handle(context())
 
@@ -79,15 +108,16 @@ class PlanBotCommandTest {
         assertEquals("Session in progress", msg.prompt)
         assertEquals(listOf(
             ChoiceOption(PlanConfirmationRegistry.OPTION_KEEP, "Continue"),
-            ChoiceOption(PlanConfirmationRegistry.OPTION_NEW, "Abandon"),
+            ChoiceOption(PlanConfirmationRegistry.OPTION_THIS_WEEK, "Abandon"),
         ), msg.options)
 
         val pending = planConfirmationRegistry.get(chatId)
         assertNotNull(pending)
         assertEquals(userId, pending.userId)
         assertEquals(sessionId, pending.existingSessionId)
+        assertEquals(LocalDate.parse("2026-05-11"), pending.replanWeekStart)
 
-        verify(orchestrator, never()).start(any(), any())
+        verify(orchestrator, never()).start(any(), any(), any())
     }
 
     @Test
@@ -97,6 +127,7 @@ class PlanBotCommandTest {
             id = UUID.randomUUID()
             this.userId = this@PlanBotCommandTest.userId
             status = PlanningSessionStatus.COMPLETED
+            weekStart = LocalDate.parse("2026-05-11")
             summary = "Week 20 plan summary"
         }
         whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(completedPlan)
@@ -109,63 +140,83 @@ class PlanBotCommandTest {
         assertEquals("Current plan: Week 20 plan summary", msg.prompt)
         assertEquals(listOf(
             ChoiceOption(PlanConfirmationRegistry.OPTION_KEEP, "Keep"),
-            ChoiceOption(PlanConfirmationRegistry.OPTION_NEW, "Plan again"),
+            ChoiceOption(PlanConfirmationRegistry.OPTION_THIS_WEEK, "Plan again"),
         ), msg.options)
 
         val pending = planConfirmationRegistry.get(chatId)
         assertNotNull(pending)
         assertEquals(userId, pending.userId)
         assertNull(pending.existingSessionId)
+        assertEquals(LocalDate.parse("2026-05-11"), pending.replanWeekStart)
 
-        verify(orchestrator, never()).start(any(), any())
+        verify(orchestrator, never()).start(any(), any(), any())
     }
 
     @Test
-    fun `starts new session normally when no existing plan or active session`() {
+    fun `prompts week picker when no existing plan or active session`() {
         whenever(sessionRegistry.get(chatId)).thenReturn(null)
         whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(null)
-        val newSessionId = UUID.randomUUID()
-        whenever(orchestrator.start(eq(userId), eq(channel))).thenReturn(newSessionId)
+        stubUserSettings()
 
         command.handle(context())
 
-        verify(orchestrator).start(userId, channel)
-        verify(sessionRegistry).put(chatId, newSessionId)
-        verify(channel, never()).send(any())
-        assertNull(planConfirmationRegistry.get(chatId))
+        val captor = argumentCaptor<ChannelMessage>()
+        verify(channel).send(captor.capture())
+        val msg = captor.firstValue as ChannelMessage.Choice
+        assertEquals("Which week?", msg.prompt)
+        // Wednesday 2026-05-13 with Monday week-start → this week = 2026-05-11, next = 2026-05-18
+        assertEquals(PlanConfirmationRegistry.OPTION_THIS_WEEK, msg.options[0].id)
+        assertEquals(PlanConfirmationRegistry.OPTION_NEXT_WEEK, msg.options[1].id)
+
+        val pending = planConfirmationRegistry.get(chatId)
+        assertNotNull(pending)
+        assertNull(pending.existingSessionId)
+        assertNull(pending.replanWeekStart)
+
+        verify(orchestrator, never()).start(any(), any(), any())
     }
 
     @Test
-    fun `starts new session when completed plan exists but has no summary`() {
+    fun `prompts week picker when completed plan exists but has no summary`() {
         whenever(sessionRegistry.get(chatId)).thenReturn(null)
         val completedPlan = PlanningSessionEntity().apply {
             id = UUID.randomUUID()
             this.userId = this@PlanBotCommandTest.userId
             status = PlanningSessionStatus.COMPLETED
+            weekStart = LocalDate.parse("2026-05-11")
             summary = null
         }
         whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(completedPlan)
-        val newSessionId = UUID.randomUUID()
-        whenever(orchestrator.start(eq(userId), eq(channel))).thenReturn(newSessionId)
+        stubUserSettings()
 
         command.handle(context())
 
-        verify(orchestrator).start(userId, channel)
-        verify(sessionRegistry).put(chatId, newSessionId)
+        val captor = argumentCaptor<ChannelMessage>()
+        verify(channel).send(captor.capture())
+        val msg = captor.firstValue as ChannelMessage.Choice
+        // No summary → fall through to the week picker rather than the keep/replan prompt
+        assertEquals("Which week?", msg.prompt)
+
+        val pending = planConfirmationRegistry.get(chatId)
+        assertNotNull(pending)
+        assertNull(pending.replanWeekStart)
     }
 
     @Test
-    fun `starts new session when active session is stale (no orchestrator phase)`() {
+    fun `prompts week picker when active session is stale (no orchestrator phase)`() {
         val staleSessionId = UUID.randomUUID()
         whenever(sessionRegistry.get(chatId)).thenReturn(staleSessionId)
         whenever(orchestrator.phase(staleSessionId)).thenReturn(null)
         whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(null)
-        val newSessionId = UUID.randomUUID()
-        whenever(orchestrator.start(eq(userId), eq(channel))).thenReturn(newSessionId)
+        stubUserSettings()
 
         command.handle(context())
 
-        verify(orchestrator).start(userId, channel)
-        verify(sessionRegistry).put(chatId, newSessionId)
+        val captor = argumentCaptor<ChannelMessage>()
+        verify(channel).send(captor.capture())
+        val msg = captor.firstValue as ChannelMessage.Choice
+        assertEquals("Which week?", msg.prompt)
+
+        verify(orchestrator, never()).start(any(), any(), any())
     }
 }

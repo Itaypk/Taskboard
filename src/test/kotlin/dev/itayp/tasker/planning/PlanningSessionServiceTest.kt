@@ -13,6 +13,7 @@ import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.time.Clock
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneOffset
 import java.util.UUID
 import kotlin.test.assertEquals
@@ -35,22 +36,44 @@ class PlanningSessionServiceTest {
     }
 
     private val userId = UUID.randomUUID()
+    private val weekStart = LocalDate.parse("2026-04-27")
 
     @Test
-    fun `startSession returns existing active session if one already exists`() {
+    fun `startSession returns existing active session if one already exists for the same week`() {
         val existing = PlanningSessionEntity().apply {
             this.id = UUID.randomUUID()
             this.userId = this@PlanningSessionServiceTest.userId
             this.status = PlanningSessionStatus.ACTIVE
             this.startedAt = now.minusSeconds(60)
+            this.weekStart = this@PlanningSessionServiceTest.weekStart
         }
         whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
             userId, PlanningSessionStatus.ACTIVE)).thenReturn(existing)
 
-        val result = service.startSession(userId)
+        val result = service.startSession(userId, weekStart)
 
         assertSame(existing, result)
         verify(planningSessionRepository, never()).save(any())
+    }
+
+    @Test
+    fun `startSession creates a fresh session when active session is for a different week`() {
+        val existing = PlanningSessionEntity().apply {
+            this.id = UUID.randomUUID()
+            this.userId = this@PlanningSessionServiceTest.userId
+            this.status = PlanningSessionStatus.ACTIVE
+            this.startedAt = now.minusSeconds(60)
+            this.weekStart = LocalDate.parse("2026-04-20")
+        }
+        whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
+            userId, PlanningSessionStatus.ACTIVE)).thenReturn(existing)
+        whenever(planningSessionRepository.save(any<PlanningSessionEntity>())).thenAnswer { it.arguments[0] }
+
+        service.startSession(userId, weekStart)
+
+        val captor = argumentCaptor<PlanningSessionEntity>()
+        verify(planningSessionRepository).save(captor.capture())
+        assertEquals(weekStart, captor.firstValue.weekStart)
     }
 
     @Test
@@ -60,7 +83,7 @@ class PlanningSessionServiceTest {
         whenever(planningSessionRepository.save(any<PlanningSessionEntity>())).thenAnswer { it.arguments[0] }
         val convId = UUID.randomUUID()
 
-        service.startSession(userId, conversationId = convId)
+        service.startSession(userId, weekStart, conversationId = convId)
 
         val captor = argumentCaptor<PlanningSessionEntity>()
         verify(planningSessionRepository).save(captor.capture())
@@ -68,6 +91,7 @@ class PlanningSessionServiceTest {
         assertEquals(convId, captor.firstValue.conversationId)
         assertEquals(PlanningSessionStatus.ACTIVE, captor.firstValue.status)
         assertEquals(now, captor.firstValue.startedAt)
+        assertEquals(weekStart, captor.firstValue.weekStart)
     }
 
     @Test
@@ -134,7 +158,7 @@ class PlanningSessionServiceTest {
             userId, PlanningSessionStatus.COMPLETED)).thenReturn(previous)
         whenever(planningSessionRepository.save(any<PlanningSessionEntity>())).thenAnswer { it.arguments[0] }
 
-        service.startSession(userId)
+        service.startSession(userId, weekStart)
 
         verify(backlogTaskRepository).incrementRescheduleCountForUnfinishedTasks(eq(userId), eq(previousId))
     }
@@ -147,23 +171,24 @@ class PlanningSessionServiceTest {
             userId, PlanningSessionStatus.COMPLETED)).thenReturn(null)
         whenever(planningSessionRepository.save(any<PlanningSessionEntity>())).thenAnswer { it.arguments[0] }
 
-        service.startSession(userId)
+        service.startSession(userId, weekStart)
 
         verify(backlogTaskRepository, never()).incrementRescheduleCountForUnfinishedTasks(any(), any())
     }
 
     @Test
-    fun `startSession does not touch reschedule counts when there is already an active session`() {
+    fun `startSession does not touch reschedule counts when there is already an active session for the same week`() {
         val existing = PlanningSessionEntity().apply {
             this.id = UUID.randomUUID()
             this.userId = this@PlanningSessionServiceTest.userId
             this.status = PlanningSessionStatus.ACTIVE
             this.startedAt = now.minusSeconds(60)
+            this.weekStart = this@PlanningSessionServiceTest.weekStart
         }
         whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
             userId, PlanningSessionStatus.ACTIVE)).thenReturn(existing)
 
-        service.startSession(userId)
+        service.startSession(userId, weekStart)
 
         verify(backlogTaskRepository, never()).incrementRescheduleCountForUnfinishedTasks(any(), any())
     }

@@ -10,7 +10,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.MessageSource
 import org.springframework.stereotype.Component
 import org.springframework.web.util.HtmlUtils
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 /**
@@ -56,10 +55,8 @@ class CurrentBotCommand(
         }
         val statusLabel = messageSource.getMessage(statusKey, null, locale)
 
-        val userSettings = userSettingsService.getOrCreate(context.userId)
-        val zone = runCatching { ZoneId.of(userSettings.timeZone) }.getOrDefault(ZoneId.of("UTC"))
         val fmt = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale)
-        val weekStart = plan.startedAt!!.atZone(zone).toLocalDate()
+        val weekStart = plan.weekStart!!
         val weekEnd = weekStart.plusDays(6)
         val period = "${weekStart.format(fmt)} - ${weekEnd.format(fmt)}"
 

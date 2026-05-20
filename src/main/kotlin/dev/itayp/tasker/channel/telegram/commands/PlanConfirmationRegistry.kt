@@ -2,6 +2,7 @@ package dev.itayp.tasker.channel.telegram.commands
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.stereotype.Component
+import java.time.LocalDate
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -13,13 +14,16 @@ class PlanConfirmationRegistry {
 
     data class PendingConfirmation(
         val userId: UUID,
-        /** Non-null when there is an active in-memory session to abandon if the user picks [OPTION_NEW]. */
+        /** Non-null when there is an active in-memory session to abandon if the user picks a "replan" option. */
         val existingSessionId: UUID?,
+        /** Set when there's an existing session whose week should be reused on replan; null when the user must pick. */
+        val replanWeekStart: LocalDate? = null,
     )
 
     companion object {
         const val OPTION_KEEP = "plan_keep"
-        const val OPTION_NEW = "plan_new"
+        const val OPTION_THIS_WEEK = "plan_this_week"
+        const val OPTION_NEXT_WEEK = "plan_next_week"
     }
 
     fun set(chatId: Long, confirmation: PendingConfirmation) {

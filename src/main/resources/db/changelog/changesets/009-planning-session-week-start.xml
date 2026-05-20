@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="9" author="tasker">
+        <addColumn tableName="planning_session">
+            <column name="week_start" type="DATE" defaultValueComputed="CURRENT_DATE">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+
+        <createIndex tableName="planning_session" indexName="idx_planning_session_user_week_start">
+            <column name="user_id"/>
+            <column name="week_start"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>
