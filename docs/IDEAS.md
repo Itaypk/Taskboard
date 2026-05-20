@@ -16,6 +16,7 @@ Currently the planning period displayed to the user (in Telegram `/current` and 
 - Fonts look bad in Hebrew (especially the header - serif - ones). Either choose one that support multilanguage, or use language-specific ones.
 - Tasks that are only relevant in the future - special field for that, do not display in default view
 - Translations: first start with emails, then consider the application itself
+- Auto update (UI) - do we consider changes in tasks, or just additions/deletions?
 
 ### UI - Tasks
 - Better "mark as done"
