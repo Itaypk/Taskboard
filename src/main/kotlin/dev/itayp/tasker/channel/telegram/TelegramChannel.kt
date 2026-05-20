@@ -17,6 +17,7 @@ import org.springframework.context.MessageSource
 import java.time.Clock
 import java.time.LocalDate
 import java.time.ZoneId
+import java.util.Locale
 import dev.itayp.tasker.planning.WeeklyPlanningOrchestrator.Phase
 import dev.itayp.tasker.repository.UserRepository
 import org.slf4j.LoggerFactory
