@@ -9,6 +9,7 @@ import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
 import java.time.Instant
+import java.time.LocalDate
 import java.util.UUID
 
 @Entity
@@ -30,6 +31,9 @@ open class PlanningSessionEntity {
 
     @Column(name = "started_at", nullable = false)
     var startedAt: Instant? = null
+
+    @Column(name = "week_start", nullable = false)
+    var weekStart: LocalDate? = null
 
     @Column(name = "ended_at")
     var endedAt: Instant? = null

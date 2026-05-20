@@ -3,15 +3,24 @@ package dev.itayp.tasker.channel.telegram.commands
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ChoiceOption
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_KEEP
-import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_NEW
+import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_NEXT_WEEK
+import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_THIS_WEEK
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.PendingConfirmation
 import dev.itayp.tasker.planning.PlanningSessionService
 import dev.itayp.tasker.planning.PlanningSessionStatus
+import dev.itayp.tasker.planning.WeekOffset
+import dev.itayp.tasker.planning.WeekResolver
 import dev.itayp.tasker.planning.WeeklyPlanningOrchestrator
 import dev.itayp.tasker.service.UserSettingsService
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.MessageSource
 import org.springframework.stereotype.Component
+import java.time.Clock
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
+import java.util.Locale
 
 @Component
 @ConditionalOnProperty(prefix = "tasker.telegram", name = ["enabled"], havingValue = "true")
@@ -21,6 +30,7 @@ class PlanBotCommand(
     private val planConfirmationRegistry: PlanConfirmationRegistry,
     private val userSettingsService: UserSettingsService,
     private val messageSource: MessageSource,
+    private val clock: Clock,
 ) : BotCommandHandler {
 
     override val command = "plan"
@@ -33,26 +43,35 @@ class PlanBotCommand(
 
         // Case 1: active session still alive in memory
         if (existingSessionId != null && orchestrator.phase(existingSessionId) != null) {
+            val activeSession = planningSessionService.findById(context.userId, existingSessionId)
             planConfirmationRegistry.set(
                 context.chatId,
-                PendingConfirmation(context.userId, existingSessionId),
+                PendingConfirmation(
+                    userId = context.userId,
+                    existingSessionId = existingSessionId,
+                    replanWeekStart = activeSession?.weekStart,
+                ),
             )
             context.channel.send(ChannelMessage.Choice(
                 prompt = messageSource.getMessage("planning.confirm.active.prompt", null, locale),
                 options = listOf(
                     ChoiceOption(OPTION_KEEP, messageSource.getMessage("planning.confirm.active.continue", null, locale)),
-                    ChoiceOption(OPTION_NEW, messageSource.getMessage("planning.confirm.active.abandon", null, locale)),
+                    ChoiceOption(OPTION_THIS_WEEK, messageSource.getMessage("planning.confirm.active.abandon", null, locale)),
                 ),
             ))
             return
         }
 
-        // Case 2: completed plan exists in DB — show it and ask whether to redo
+        // Case 2: completed plan exists in DB — show it and ask whether to redo for the same week
         val existingPlan = planningSessionService.findCurrentPlan(context.userId)
         if (existingPlan?.status == PlanningSessionStatus.COMPLETED && existingPlan.summary != null) {
             planConfirmationRegistry.set(
                 context.chatId,
-                PendingConfirmation(context.userId, existingSessionId = null),
+                PendingConfirmation(
+                    userId = context.userId,
+                    existingSessionId = null,
+                    replanWeekStart = existingPlan.weekStart,
+                ),
             )
             context.channel.send(ChannelMessage.Choice(
                 prompt = messageSource.getMessage(
@@ -62,15 +81,44 @@ class PlanBotCommand(
                 ),
                 options = listOf(
                     ChoiceOption(OPTION_KEEP, messageSource.getMessage("planning.confirm.completed.keep", null, locale)),
-                    ChoiceOption(OPTION_NEW, messageSource.getMessage("planning.confirm.completed.new", null, locale)),
+                    ChoiceOption(OPTION_THIS_WEEK, messageSource.getMessage("planning.confirm.completed.new", null, locale)),
                 ),
             ))
             return
         }
 
-        // Case 3: no existing plan — start normally
-        val sessionId = orchestrator.start(context.userId, context.channel)
-        context.sessionRegistry.put(context.chatId, sessionId)
+        // Case 3: no existing plan — ask which week to plan for
+        planConfirmationRegistry.set(
+            context.chatId,
+            PendingConfirmation(
+                userId = context.userId,
+                existingSessionId = null,
+                replanWeekStart = null,
+            ),
+        )
+        val settings = userSettingsService.getOrCreate(context.userId)
+        val zone = runCatching { ZoneId.of(settings.timeZone) }.getOrDefault(ZoneId.of("UTC"))
+        val today = LocalDate.now(clock.withZone(zone))
+        val weekStartDay = WeekResolver.parseWeekStartDay(settings.weekStartDay)
+        val thisWeek = WeekResolver.resolveWeekStart(today, weekStartDay, WeekOffset.CURRENT)
+        val nextWeek = WeekResolver.resolveWeekStart(today, weekStartDay, WeekOffset.NEXT)
+        val fmt = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale)
+        val thisLabel = messageSource.getMessage(
+            "planning.choose_week.this_week",
+            arrayOf<Any>(thisWeek.format(fmt), thisWeek.plusDays(6).format(fmt)),
+            locale,
+        )
+        val nextLabel = messageSource.getMessage(
+            "planning.choose_week.next_week",
+            arrayOf<Any>(nextWeek.format(fmt), nextWeek.plusDays(6).format(fmt)),
+            locale,
+        )
+        context.channel.send(ChannelMessage.Choice(
+            prompt = messageSource.getMessage("planning.choose_week.prompt", null, locale),
+            options = listOf(
+                ChoiceOption(OPTION_THIS_WEEK, thisLabel),
+                ChoiceOption(OPTION_NEXT_WEEK, nextLabel),
+            ),
+        ))
     }
-
 }

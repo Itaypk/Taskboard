@@ -4,6 +4,7 @@ import dev.itayp.tasker.repository.BacklogTaskRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
+import java.time.LocalDate
 import java.util.UUID
 
 @Service
@@ -15,10 +16,14 @@ class PlanningSessionService(
 ) {
 
     @Transactional
-    fun startSession(userId: UUID, conversationId: UUID? = null): PlanningSessionEntity {
+    fun startSession(
+        userId: UUID,
+        weekStart: LocalDate,
+        conversationId: UUID? = null,
+    ): PlanningSessionEntity {
         val active = planningSessionRepository
             .findFirstByUserIdAndStatusOrderByStartedAtDesc(userId, PlanningSessionStatus.ACTIVE)
-        if (active != null) return active
+        if (active != null && active.weekStart == weekStart) return active
 
         // Bump reschedule counts for tasks that were scheduled in the previous completed
         // session but never marked DONE — they're being carried into this new session.
@@ -33,8 +38,13 @@ class PlanningSessionService(
             this.conversationId = conversationId
             this.status = PlanningSessionStatus.ACTIVE
             this.startedAt = clock.instant()
+            this.weekStart = weekStart
         })
     }
+
+    @Transactional(readOnly = true)
+    fun findSessionForWeek(userId: UUID, weekStart: LocalDate): PlanningSessionEntity? =
+        planningSessionRepository.findFirstByUserIdAndWeekStartOrderByStartedAtDesc(userId, weekStart)
 
     @Transactional
     fun completeSession(userId: UUID, sessionId: UUID, summary: String?): PlanningSessionEntity =

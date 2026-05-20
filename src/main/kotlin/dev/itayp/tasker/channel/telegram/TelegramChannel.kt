@@ -7,11 +7,16 @@ import dev.itayp.tasker.channel.telegram.commands.BotCommandDispatcher
 import dev.itayp.tasker.channel.telegram.commands.BotCommandHandler
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_KEEP
-import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_NEW
+import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_NEXT_WEEK
+import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_THIS_WEEK
+import dev.itayp.tasker.planning.WeekOffset
+import dev.itayp.tasker.planning.WeekResolver
 import dev.itayp.tasker.planning.WeeklyPlanningOrchestrator
 import dev.itayp.tasker.service.UserSettingsService
 import org.springframework.context.MessageSource
-import java.util.Locale
+import java.time.Clock
+import java.time.LocalDate
+import java.time.ZoneId
 import dev.itayp.tasker.planning.WeeklyPlanningOrchestrator.Phase
 import dev.itayp.tasker.repository.UserRepository
 import org.slf4j.LoggerFactory
@@ -45,6 +50,7 @@ class TelegramChannel(
     private val userSettingsService: UserSettingsService,
     private val messageSource: MessageSource,
     private val telegramClient: TelegramClient,
+    private val clock: Clock,
 ) : SpringLongPollingBot, LongPollingSingleThreadUpdateConsumer {
 
     override fun getBotToken(): String = botToken
@@ -125,22 +131,28 @@ class TelegramChannel(
             return
         }
 
-        // Intercept replies to the "keep vs. redo" plan confirmation choice
+        // Intercept replies to the plan confirmation / week-picker choice
         val pendingConfirmation = planConfirmationRegistry.get(chatId)
         if (pendingConfirmation != null) {
             val locale = userSettingsService.getLocale(pendingConfirmation.userId)
-            when {
-                inbound is ChannelInbound.Selection && inbound.optionId == OPTION_KEEP -> {
+            val selection = inbound as? ChannelInbound.Selection
+            when (selection?.optionId) {
+                OPTION_KEEP -> {
                     planConfirmationRegistry.remove(chatId)
                     channel.send(ChannelMessage.Text(messageSource.getMessage("planning.confirm.kept", null, locale)))
                 }
-                inbound is ChannelInbound.Selection && inbound.optionId == OPTION_NEW -> {
+                OPTION_THIS_WEEK, OPTION_NEXT_WEEK -> {
                     planConfirmationRegistry.remove(chatId)
                     pendingConfirmation.existingSessionId?.let { sid ->
                         orchestrator.abandon(pendingConfirmation.userId, sid)
                         sessionRegistry.remove(chatId)
                     }
-                    val sessionId = orchestrator.start(pendingConfirmation.userId, channel)
+                    val weekStart = resolveWeekStartForSelection(
+                        pendingConfirmation.userId,
+                        pendingConfirmation.replanWeekStart,
+                        selection.optionId,
+                    )
+                    val sessionId = orchestrator.start(pendingConfirmation.userId, channel, weekStart)
                     sessionRegistry.put(chatId, sessionId)
                 }
                 else -> channel.send(ChannelMessage.Text(messageSource.getMessage("planning.confirm.choose", null, locale)))
@@ -160,6 +172,23 @@ class TelegramChannel(
         if (orchestrator.phase(sessionId) == Phase.DONE) {
             sessionRegistry.remove(chatId)
         }
+    }
+
+    private fun resolveWeekStartForSelection(
+        userId: java.util.UUID,
+        replanWeekStart: LocalDate?,
+        optionId: String,
+    ): LocalDate {
+        // When the user is replanning an existing session we reuse that session's week,
+        // regardless of which of THIS_WEEK / NEXT_WEEK they tapped (case 1/2 only offer one
+        // active "replan" option that's bound to the existing week).
+        if (replanWeekStart != null) return replanWeekStart
+        val settings = userSettingsService.getOrCreate(userId)
+        val zone = runCatching { ZoneId.of(settings.timeZone) }.getOrDefault(ZoneId.of("UTC"))
+        val today = LocalDate.now(clock.withZone(zone))
+        val weekStartDay = WeekResolver.parseWeekStartDay(settings.weekStartDay)
+        val offset = if (optionId == OPTION_NEXT_WEEK) WeekOffset.NEXT else WeekOffset.CURRENT
+        return WeekResolver.resolveWeekStart(today, weekStartDay, offset)
     }
 
     @AfterBotRegistration

@@ -11,7 +11,6 @@ import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ChoiceOption
 import dev.itayp.tasker.channel.ConversationChannel
-import dev.itayp.tasker.jpa.UserSettingsEntity
 import dev.itayp.tasker.planning.dto.AgreedPlan
 import dev.itayp.tasker.service.UserSettingsService
 import com.fasterxml.jackson.annotation.JsonProperty
@@ -20,10 +19,7 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.MessageSource
 import org.springframework.stereotype.Service
 import tools.jackson.databind.ObjectMapper
-import java.time.Clock
-import java.time.Duration
 import java.time.LocalDate
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
@@ -50,15 +46,14 @@ class WeeklyPlanningOrchestrator(
     private val objectMapper: ObjectMapper,
     private val messageSource: MessageSource,
     private val userSettingsService: UserSettingsService,
-    private val clock: Clock,
     @Value("\${tasker.ai.weekly-planning-model}")
     private val model: String,
 ) {
     private val log = LoggerFactory.getLogger(WeeklyPlanningOrchestrator::class.java)
     private val state = ConcurrentHashMap<UUID, OrchestratorState>()
 
-    fun start(userId: UUID, channel: ConversationChannel): UUID {
-        val session = planningSessionService.startSession(userId)
+    fun start(userId: UUID, channel: ConversationChannel, weekStart: LocalDate): UUID {
+        val session = planningSessionService.startSession(userId, weekStart)
         val sessionId = session.id ?: error("Planning session was saved without an id")
         if (state[sessionId] != null) return sessionId
 
@@ -70,7 +65,7 @@ class WeeklyPlanningOrchestrator(
         )
         val settings = userSettingsService.getOrCreate(userId)
         val locale = Locale.forLanguageTag(settings.preferredLanguage)
-        val prompt = buildCapacityPrompt(settings, locale)
+        val prompt = buildCapacityPrompt(weekStart, locale)
         channel.send(ChannelMessage.Choice(
             prompt = prompt,
             options = buildCapacityOptions(locale),
@@ -118,7 +113,9 @@ class WeeklyPlanningOrchestrator(
             is ChannelInbound.Text -> inbound.text
         }
 
-        val systemPrompt = promptAssembler.assembleSystemPrompt(current.userId, capacity)
+        val weekStart = planningSessionService.findById(current.userId, sessionId)?.weekStart
+            ?: error("Planning session $sessionId is missing weekStart")
+        val systemPrompt = promptAssembler.assembleSystemPrompt(current.userId, capacity, weekStart)
         log.trace("Weekly planning system prompt for session {}:\n{}", sessionId, systemPrompt)
 
         val conversationId = aiConversationManager.startConversation(
@@ -328,13 +325,10 @@ class WeeklyPlanningOrchestrator(
 
     // ── Helpers --------------------------------------------------------------------------
 
-    private fun buildCapacityPrompt(settings: UserSettingsEntity, locale: Locale): String {
-        val zone = runCatching { ZoneId.of(settings.timeZone) }.getOrDefault(ZoneId.of("UTC"))
-        val now = clock.instant()
-        val today = LocalDate.ofInstant(now, zone)
-        val weekEnd = LocalDate.ofInstant(now.plus(Duration.ofDays(7)), zone)
+    private fun buildCapacityPrompt(weekStart: LocalDate, locale: Locale): String {
+        val weekEnd = weekStart.plusDays(6)
         val fmt = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale)
-        val period = "${today.format(fmt)} – ${weekEnd.format(fmt)}"
+        val period = "${weekStart.format(fmt)} – ${weekEnd.format(fmt)}"
         val question = messageSource.getMessage("planning.capacity.question", null, locale)
         return "<b>$period</b>\n$question"
     }

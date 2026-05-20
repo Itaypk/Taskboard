@@ -5,21 +5,17 @@ import dev.itayp.tasker.model.response.toResponse
 import dev.itayp.tasker.planning.PlanningSessionService
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.BacklogTaskService
-import dev.itayp.tasker.service.UserSettingsService
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
-import java.time.Instant
-import java.time.ZoneId
 
 @RestController
 @RequestMapping("/api/v1")
 class PlanningSessionController(
     private val planningSessionService: PlanningSessionService,
     private val backlogTaskService: BacklogTaskService,
-    private val userSettingsService: UserSettingsService,
 ) {
 
     @GetMapping("/plans/current")
@@ -34,11 +30,8 @@ class PlanningSessionController(
             .getTasksScheduledInSession(principal.userId, sessionId)
             .map { it.toResponse() }
 
-        val userSettings = userSettingsService.getOrCreate(principal.userId)
-        val (weekStart, weekEnd) = computeWeekRange(
-            startedAt = session.startedAt!!,
-            timeZone = userSettings.timeZone,
-        )
+        val weekStart = session.weekStart!!
+        val weekEnd = weekStart.plusDays(6)
 
         return ResponseEntity.ok(
             CurrentPlanResponse(
@@ -52,15 +45,5 @@ class PlanningSessionController(
                 weekEnd = weekEnd.toString(),
             )
         )
-    }
-
-    private fun computeWeekRange(
-        startedAt: Instant,
-        timeZone: String,
-    ): Pair<java.time.LocalDate, java.time.LocalDate> {
-        val zone = runCatching { ZoneId.of(timeZone) }.getOrDefault(ZoneId.of("UTC"))
-        val weekStart = startedAt.atZone(zone).toLocalDate()
-        val weekEnd = weekStart.plusDays(6)
-        return weekStart to weekEnd
     }
 }

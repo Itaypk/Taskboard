@@ -3,7 +3,6 @@ package dev.itayp.tasker.channel.telegram.commands
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.telegram.TelegramConversationChannel
 import dev.itayp.tasker.channel.telegram.TelegramSessionRegistry
-import dev.itayp.tasker.jpa.UserSettingsEntity
 import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.CategoryColor
@@ -64,12 +63,6 @@ class CurrentBotCommandTest {
         whenever(userSettingsService.getLocale(userId)).thenReturn(Locale.ENGLISH)
     }
 
-    private fun stubUserSettings() {
-        whenever(userSettingsService.getOrCreate(userId)).thenReturn(
-            UserSettingsEntity().apply { this.userId = this@CurrentBotCommandTest.userId }
-        )
-    }
-
     @Test
     fun `sends empty message when there is no current plan`() {
         whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(null)
@@ -84,13 +77,13 @@ class CurrentBotCommandTest {
 
     @Test
     fun `renders summary and tasks for a completed plan`() {
-        stubUserSettings()
         val sessionId = UUID.randomUUID()
         val plan = PlanningSessionEntity().apply {
             id = sessionId
             this.userId = this@CurrentBotCommandTest.userId
             status = PlanningSessionStatus.COMPLETED
             startedAt = Instant.parse("2026-05-14T10:00:00Z")
+            weekStart = java.time.LocalDate.parse("2026-05-11")
             summary = "Wrap up the launch & ship docs"
         }
         whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(plan)
@@ -117,13 +110,13 @@ class CurrentBotCommandTest {
 
     @Test
     fun `renders in-progress label when plan is active`() {
-        stubUserSettings()
         val sessionId = UUID.randomUUID()
         val plan = PlanningSessionEntity().apply {
             id = sessionId
             this.userId = this@CurrentBotCommandTest.userId
             status = PlanningSessionStatus.ACTIVE
             startedAt = Instant.parse("2026-05-14T10:00:00Z")
+            weekStart = java.time.LocalDate.parse("2026-05-11")
             summary = null
         }
         whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(plan)
@@ -142,13 +135,13 @@ class CurrentBotCommandTest {
 
     @Test
     fun `escapes HTML in task titles`() {
-        stubUserSettings()
         val sessionId = UUID.randomUUID()
         val plan = PlanningSessionEntity().apply {
             id = sessionId
             this.userId = this@CurrentBotCommandTest.userId
             status = PlanningSessionStatus.COMPLETED
             startedAt = Instant.parse("2026-05-14T10:00:00Z")
+            weekStart = java.time.LocalDate.parse("2026-05-11")
             summary = "ok"
         }
         whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(plan)

@@ -12,5 +12,6 @@
     <include file="db/changelog/changesets/006-ai-message-clob-system-prompt.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changesets/007-agent-description.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changesets/008-preferred-language-regional.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changesets/009-planning-session-week-start.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

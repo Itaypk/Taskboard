@@ -5,10 +5,13 @@ import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ChoiceOption
 import dev.itayp.tasker.channel.InMemoryConversationChannel
 import dev.itayp.tasker.channel.ToolCallEvent
+import dev.itayp.tasker.planning.WeekOffset
+import dev.itayp.tasker.planning.WeekResolver
 import dev.itayp.tasker.planning.WeeklyPlanningOrchestrator
 import dev.itayp.tasker.repository.BacklogTaskRepository
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.DemoDataSeeder
+import dev.itayp.tasker.service.UserSettingsService
 import org.springframework.context.annotation.Profile
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
@@ -18,6 +21,9 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import java.time.Clock
+import java.time.LocalDate
+import java.time.ZoneId
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -33,6 +39,8 @@ class DevPlanningController(
     private val orchestrator: WeeklyPlanningOrchestrator,
     private val demoDataSeeder: DemoDataSeeder,
     private val taskRepository: BacklogTaskRepository,
+    private val userSettingsService: UserSettingsService,
+    private val clock: Clock,
 ) {
 
     @PostMapping("/seed")
@@ -51,7 +59,15 @@ class DevPlanningController(
     @PostMapping("/start")
     fun start(@AuthenticationPrincipal principal: TaskerPrincipal): ResponseEntity<DevPlanningResponse> {
         val channel = InMemoryConversationChannel()
-        val sessionId = orchestrator.start(principal.userId, channel)
+        val settings = userSettingsService.getOrCreate(principal.userId)
+        val zone = runCatching { ZoneId.of(settings.timeZone) }.getOrDefault(ZoneId.of("UTC"))
+        val today = LocalDate.now(clock.withZone(zone))
+        val weekStart = WeekResolver.resolveWeekStart(
+            today,
+            WeekResolver.parseWeekStartDay(settings.weekStartDay),
+            WeekOffset.CURRENT,
+        )
+        val sessionId = orchestrator.start(principal.userId, channel, weekStart)
         channels[sessionId] = channel
         return ResponseEntity.ok(DevPlanningResponse.from(sessionId, orchestrator.phase(sessionId), channel.drain(), channel.drainToolCallEvents()))
     }
