@@ -7,6 +7,8 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Profile
 import org.springframework.core.annotation.Order
+import org.springframework.core.env.Environment
+import org.springframework.core.env.Profiles
 import org.springframework.http.HttpStatus
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
@@ -55,6 +57,7 @@ private val CSP_POLICY = listOf(
 class SecurityConfiguration(
     private val prometheusAuthProperties: PrometheusAuthProperties,
     private val appProperties: AppProperties,
+    private val environment: Environment,
 ) {
 
     // Dev-only chain for the H2 console. Disables CSP, CSRF, and frame restrictions
@@ -128,17 +131,21 @@ class SecurityConfiguration(
                 }
             }
             cors {
+                    val isDev = environment.acceptsProfiles(Profiles.of("dev"))
+                    val allowedOrigins = buildList {
+                        add(appProperties.baseUrl)
+                        if (isDev) {
+                            add("http://localhost:63342"); add("http://127.0.0.1:63342")
+                            add("http://localhost:5173");  add("http://127.0.0.1:5173")
+                        }
+                    }
                     configurationSource = CorsConfigurationSource { request ->
-                        // CORS is only relevant for the API endpoints, and only when accessed from a browser. In both cases, we can allow all origins.
+                        // CORS is only relevant for the API endpoints, and only when accessed from a browser.
                         if (request.requestURI.startsWith("/api/")) {
                             val config = CorsConfiguration()
-                            config.allowedOrigins = listOf(
-                                appProperties.baseUrl,
-                                "http://localhost:63342", "http://127.0.0.1:63342",
-                                "http://localhost:5173",  "http://127.0.0.1:5173",
-                            )
+                            config.allowedOrigins = allowedOrigins
                             config.allowedMethods = listOf("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
-                            config.allowedHeaders = listOf("*")
+                            config.allowedHeaders = listOf("Content-Type", "Accept", "X-XSRF-TOKEN", "X-Requested-With")
                             config.allowCredentials = true
                             return@CorsConfigurationSource config
                         }

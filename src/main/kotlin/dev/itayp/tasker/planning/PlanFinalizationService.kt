@@ -13,6 +13,7 @@ import java.util.UUID
 class PlanFinalizationService(
     private val planningSessionService: PlanningSessionService,
     private val backlogTaskService: BacklogTaskService,
+    private val plannedTaskService: PlannedTaskService,
     private val userRepository: UserRepository,
     private val userSettingsService: UserSettingsService,
     private val planInviteDispatcher: PlanInviteDispatcher,
@@ -23,6 +24,7 @@ class PlanFinalizationService(
     fun complete(userId: UUID, sessionId: UUID, plan: AgreedPlan) {
         log.debug("Completing agreed plan {}", plan)
         planningSessionService.completeSession(userId, sessionId, plan.summary)
+        plannedTaskService.persist(sessionId, userId, plan.tasks)
 
         val taskIds = plan.tasks.mapNotNull { it.taskId }
         if (taskIds.isNotEmpty()) {

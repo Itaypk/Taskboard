@@ -13,5 +13,6 @@
     <include file="db/changelog/changesets/007-agent-description.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changesets/008-preferred-language-regional.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changesets/009-planning-session-week-start.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changesets/010-planned-tasks.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

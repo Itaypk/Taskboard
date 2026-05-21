@@ -6,6 +6,7 @@ import dev.itayp.tasker.model.response.CategoryResponse
 import dev.itayp.tasker.model.response.toResponse
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.BacklogTaskCategoryService
+import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
@@ -32,7 +33,7 @@ class BacklogTaskCategoryController(private val categoryService: BacklogTaskCate
     @PostMapping
     fun createCategory(
         @AuthenticationPrincipal principal: TaskerPrincipal,
-        @RequestBody request: CreateCategoryRequest,
+        @Valid @RequestBody request: CreateCategoryRequest,
     ): ResponseEntity<CategoryResponse> {
         val category = categoryService.createCategory(principal.userId, request)
         return ResponseEntity.status(HttpStatus.CREATED).body(category.toResponse())
@@ -42,7 +43,7 @@ class BacklogTaskCategoryController(private val categoryService: BacklogTaskCate
     fun updateCategory(
         @AuthenticationPrincipal principal: TaskerPrincipal,
         @PathVariable id: UUID,
-        @RequestBody request: UpdateCategoryRequest,
+        @Valid @RequestBody request: UpdateCategoryRequest,
     ): ResponseEntity<CategoryResponse> {
         return try {
             ResponseEntity.ok(categoryService.updateCategory(principal.userId, id, request).toResponse())

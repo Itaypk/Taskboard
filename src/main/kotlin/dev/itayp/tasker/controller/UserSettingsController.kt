@@ -9,6 +9,7 @@ import dev.itayp.tasker.repository.UserRepository
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.EmailVerificationService
 import dev.itayp.tasker.service.UserSettingsService
+import jakarta.validation.Valid
 import org.slf4j.LoggerFactory
 import org.springframework.http.CacheControl
 import org.springframework.http.ResponseEntity
@@ -45,7 +46,7 @@ class UserSettingsController(
     @PutMapping
     fun updateSettings(
         @AuthenticationPrincipal principal: TaskerPrincipal,
-        @RequestBody request: UpdateUserSettingsRequest,
+        @Valid @RequestBody request: UpdateUserSettingsRequest,
     ): ResponseEntity<UserSettingsResponse> {
         return try {
             val settings = userSettingsService.update(principal.userId, request)
@@ -60,7 +61,7 @@ class UserSettingsController(
     @PostMapping("/email")
     fun requestEmailVerification(
         @AuthenticationPrincipal principal: TaskerPrincipal,
-        @RequestBody request: UpdateEmailRequest,
+        @Valid @RequestBody request: UpdateEmailRequest,
     ): ResponseEntity<Unit> {
         emailVerificationService.requestVerification(principal.userId, request.email)
         return ResponseEntity.noContent().build()
