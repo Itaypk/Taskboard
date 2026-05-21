@@ -4,7 +4,9 @@ import dev.itayp.tasker.interceptor.MdcUserInterceptor
 import dev.itayp.tasker.interceptor.RateLimitInterceptor
 import dev.itayp.tasker.ratelimit.InMemoryRateLimiter
 import dev.itayp.tasker.ratelimit.RateLimiter
+import dev.itayp.tasker.security.AbsoluteSessionLifetimeFilter
 import org.slf4j.LoggerFactory
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.web.servlet.FilterRegistrationBean
 import org.springframework.context.annotation.Bean
@@ -12,6 +14,7 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.web.filter.ShallowEtagHeaderFilter
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
+import java.time.Clock
 
 @Configuration
 @EnableConfigurationProperties(RateLimitProperties::class)
@@ -38,10 +41,26 @@ class WebConfiguration(private val rateLimitProperties: RateLimitProperties) : W
         windowMillis = rateLimitProperties.demoLogin.windowSeconds * 1_000,
     )
 
+    @Bean
+    fun telegramLoginRateLimiter(): RateLimiter = InMemoryRateLimiter(
+        limit = rateLimitProperties.telegramLogin.limit,
+        windowMillis = rateLimitProperties.telegramLogin.windowSeconds * 1_000,
+    )
+
+    // Only registered when a Clock bean is present (i.e. full app context, not @WebMvcTest slices,
+    // which don't load TimeConfiguration). The filter is non-essential for slice tests anyway —
+    // they exercise individual controllers, not session lifetime.
+    @Bean
+    @ConditionalOnBean(Clock::class)
+    fun absoluteSessionLifetimeFilter(clock: Clock): AbsoluteSessionLifetimeFilter =
+        AbsoluteSessionLifetimeFilter(clock)
+
     override fun addInterceptors(registry: InterceptorRegistry) {
         logger.info("Registering MdcUserInterceptor and RateLimitInterceptor")
         registry.addInterceptor(MdcUserInterceptor())
-        registry.addInterceptor(RateLimitInterceptor(apiRateLimiter(), demoLoginRateLimiter()))
+        registry.addInterceptor(
+            RateLimitInterceptor(apiRateLimiter(), demoLoginRateLimiter(), telegramLoginRateLimiter()),
+        )
     }
 
     companion object {

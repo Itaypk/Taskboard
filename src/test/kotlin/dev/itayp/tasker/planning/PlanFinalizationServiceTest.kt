@@ -28,6 +28,7 @@ class PlanFinalizationServiceTest {
 
     @Mock lateinit var planningSessionService: PlanningSessionService
     @Mock lateinit var backlogTaskService: BacklogTaskService
+    @Mock lateinit var plannedTaskService: PlannedTaskService
     @Mock lateinit var userRepository: UserRepository
     @Mock lateinit var userSettingsService: UserSettingsService
     @Mock lateinit var planInviteDispatcher: PlanInviteDispatcher
@@ -40,7 +41,7 @@ class PlanFinalizationServiceTest {
 
     private val service by lazy {
         PlanFinalizationService(
-            planningSessionService, backlogTaskService,
+            planningSessionService, backlogTaskService, plannedTaskService,
             userRepository, userSettingsService,
             planInviteDispatcher, emailProps,
         )

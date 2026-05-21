@@ -90,6 +90,27 @@ class SecurityIntegrationTest(
     }
 
     @Test
+    fun `login rotates the session id (session-fixation defense)`() {
+        // First login creates session A.
+        val first = rest.postForEntity("/api/auth/dev-login", null, String::class.java)
+        val firstSessionCookie = first.headers[HttpHeaders.SET_COOKIE]!!
+            .first { it.startsWith("SESSION=") }
+            .substringBefore(";")
+
+        // Second login while presenting session A's cookie. SessionAuthenticator should call
+        // request.changeSessionId(), so the response must set a different SESSION value.
+        val headers = HttpHeaders().apply { add(HttpHeaders.COOKIE, firstSessionCookie) }
+        val second = rest.exchange(
+            "/api/auth/dev-login", HttpMethod.POST, HttpEntity<Void>(headers), String::class.java,
+        )
+        assertThat(second.statusCode).isEqualTo(HttpStatus.OK)
+        val secondSessionCookie = second.headers[HttpHeaders.SET_COOKIE]!!
+            .first { it.startsWith("SESSION=") }
+            .substringBefore(";")
+        assertThat(secondSessionCookie).isNotEqualTo(firstSessionCookie)
+    }
+
+    @Test
     fun `mutating request without CSRF token returns 403`() {
         val login = rest.postForEntity("/api/auth/dev-login", null, String::class.java)
         val sessionCookie = login.headers[HttpHeaders.SET_COOKIE]!!

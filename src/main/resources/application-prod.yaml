@@ -14,6 +14,7 @@ spring:
 tasker:
   telegram:
     enabled: true
+    bot-token: ${TASKER_TELEGRAM_BOT_TOKEN:?TASKER_TELEGRAM_BOT_TOKEN is required in prod}
   prometheus:
-    username: ${TASKER_PROMETHEUS_USERNAME}
-    password: ${TASKER_PROMETHEUS_PASSWORD}
+    username: ${TASKER_PROMETHEUS_USERNAME:?TASKER_PROMETHEUS_USERNAME is required in prod}
+    password: ${TASKER_PROMETHEUS_PASSWORD:?TASKER_PROMETHEUS_PASSWORD is required in prod}

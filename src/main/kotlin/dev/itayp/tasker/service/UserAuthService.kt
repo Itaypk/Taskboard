@@ -58,7 +58,7 @@ class UserAuthService(
         }
         val saved = userRepository.save(created)
         userService.initializeNewUser(saved.id!!)
-        logger.info("Created dev user with id $userId and telegram id $telegramId")
+        logger.debug("Created dev user with id $userId and telegram id $telegramId")
         return saved
     }
 

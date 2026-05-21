@@ -10,6 +10,7 @@ import dev.itayp.tasker.model.response.toResponse
 import dev.itayp.tasker.planning.BacklogTaskChangeService
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.BacklogTaskService
+import jakarta.validation.Valid
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -77,7 +78,7 @@ class BacklogTaskController(
     @PostMapping("/tasks")
     fun createBacklogTask(
         @AuthenticationPrincipal principal: TaskerPrincipal,
-        @RequestBody request: CreateBacklogTaskRequest,
+        @Valid @RequestBody request: CreateBacklogTaskRequest,
     ): ResponseEntity<TaskResponse> {
         logger.info("Creating backlog task: ${request.title}")
         val task = backlogTaskService.createTask(principal.userId, request)
@@ -88,7 +89,7 @@ class BacklogTaskController(
     fun updateBacklogTask(
         @AuthenticationPrincipal principal: TaskerPrincipal,
         @PathVariable id: UUID,
-        @RequestBody request: UpdateBacklogTaskRequest,
+        @Valid @RequestBody request: UpdateBacklogTaskRequest,
     ): ResponseEntity<TaskResponse> {
         return try {
             ResponseEntity.ok(backlogTaskService.updateTask(principal.userId, id, request).toResponse())

@@ -7,6 +7,7 @@ import dev.itayp.tasker.repository.UserRepository
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.stereotype.Service
+import org.springframework.web.util.HtmlUtils
 import java.time.Clock
 import java.time.Duration
 import java.util.UUID
@@ -33,9 +34,11 @@ class EmailVerificationService(
         userRepository.save(user)
 
         val verifyUrl = "${appProperties.baseUrl}/api/v1/settings/email/verify?token=$token"
+        // verifyUrl is built from server-controlled values + a UUID token, so no escaping
+        // needed there. `normalised` is attacker-controlled at signup, so HTML-escape it.
         val htmlBody = loadTemplate("emails/verify-email.html")
             .replace("{{verify_url}}", verifyUrl)
-            .replace("{{email}}", normalised)
+            .replace("{{email}}", HtmlUtils.htmlEscape(normalised))
 
         outboundChannel.send(
             EmailMessage(
@@ -46,7 +49,8 @@ class EmailVerificationService(
             )
         )
 
-        log.info("Email verification requested for userId={} email={}", userId, normalised)
+        log.info("Email verification requested for userId={}", userId)
+        log.debug("Email verification email value: {}", normalised)
     }
 
     fun confirmVerification(token: String): Boolean {
