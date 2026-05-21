@@ -2,13 +2,6 @@
 This file is for capturing random ideas that don't fit into the current spec but might be worth exploring later. 
 The scope of the individual idea is varying - could be small UI improvements, or large features that change the entire app.
 
-## Open Questions
-
-### Planning session date range alignment
-Currently the planning period displayed to the user (in Telegram `/current` and the web drawer) starts on the day the session was initiated (`startedAt`), not on the user's configured `weekStartDay`. This means a session started on a Wednesday shows "Wed – Tue" rather than "Mon – Sun". Options:
-- **Keep as-is**: simple, sessions are forward-looking from whenever you start them; `weekStartDay` only affects prompts.
-- **Bind to week start**: when the orchestrator starts a session, compute the week-start date from the user's `weekStartDay` and use that as the display period start (even if the session started mid-week). Requires the period to be stored on the session entity or always re-derived from `weekStartDay` + `startedAt`.
-
 ## Small Improvements and Concerns
 - Client side error messages - more friendly? error reference? email support?
 - AI assistant is not very fast - need some "thinking..." or the such while it works on a response (added "Typing" indicator, but I'm not sure if that works)

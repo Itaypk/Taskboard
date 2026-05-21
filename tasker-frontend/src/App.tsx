@@ -32,10 +32,24 @@ import './App.css';
 
 function GearIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" aria-hidden>
-      <circle cx="9" cy="9" r="2.4" />
-      <path d="M9 1.2v1.8M9 15v1.8M1.2 9H3M15 9h1.8M3.4 3.4l1.3 1.3M13.3 13.3l1.3 1.3M3.4 14.6l1.3-1.3M13.3 4.7l1.3-1.3" />
-    </svg>
+      <svg
+          width="18"
+          height="18"
+          viewBox="0 0 18 18"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+      >
+        <path d="M3 4h12" />
+        <circle cx="7" cy="4" r="1.5" />
+        <path d="M3 9h12" />
+        <circle cx="11" cy="9" r="1.5" />
+        <path d="M3 14h12" />
+        <circle cx="6" cy="14" r="1.5" />
+      </svg>
   );
 }
 
