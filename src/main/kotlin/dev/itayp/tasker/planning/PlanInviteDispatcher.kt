@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Component
 import java.time.OffsetDateTime
+import java.util.Locale
 
 @Component
 class PlanInviteDispatcher(
@@ -15,7 +16,7 @@ class PlanInviteDispatcher(
     private val log = LoggerFactory.getLogger(PlanInviteDispatcher::class.java)
 
     @Async
-    fun dispatch(userEmail: String, organizerEmail: String, organizerName: String, plan: AgreedPlan) {
+    fun dispatch(userEmail: String, organizerEmail: String, organizerName: String, plan: AgreedPlan, locale: Locale) {
         for (task in plan.tasks) {
             for (slot in task.slots) {
                 runCatching {
@@ -34,6 +35,7 @@ class PlanInviteDispatcher(
                             organizerEmail = organizerEmail,
                             organizerName = organizerName,
                             attendeeEmails = listOf(userEmail),
+                            locale = locale,
                         ),
                     )
                 }.onFailure { e ->

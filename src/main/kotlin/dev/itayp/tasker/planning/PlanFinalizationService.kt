@@ -41,11 +41,14 @@ class PlanFinalizationService(
         val user = userRepository.findById(userId).orElse(null) ?: return
         if (user.emailVerifiedAt == null || user.email.isNullOrBlank()) return
 
+        val locale = userSettingsService.getLocale(userId)
+
         planInviteDispatcher.dispatch(
             userEmail = user.email!!,
             organizerEmail = emailProperties.from,
             organizerName = emailProperties.fromName,
             plan = plan,
+            locale = locale,
         )
     }
 }

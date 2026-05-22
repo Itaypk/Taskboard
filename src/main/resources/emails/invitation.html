@@ -3,13 +3,19 @@
 <head><meta charset="UTF-8"></head>
 <body style="font-family: sans-serif; color: #1a1a1a; max-width: 600px; margin: 0 auto; padding: 24px;">
   <h2 style="margin-top: 0;">{{title}}</h2>
-  <p><strong>When:</strong> {{date_range}}</p>
-  {{location_section}}
-  {{description_section}}
+  <p><strong>{{message "email.invitation.when"}}:</strong> {{date_range}}</p>
+  
+  {{#if location}}
+  <p><strong>{{message "email.invitation.location"}}:</strong> {{location}}</p>
+  {{/if}}
+
+  {{#if description}}
+  <p><strong>{{message "email.invitation.description"}}:</strong> {{description}}</p>
+  {{/if}}
+
   <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 24px 0;">
   <p style="font-size: 0.85em; color: #666;">
-    This invitation was sent by <a href="https://backlog.fyi">Backlog.fyi</a>.
-    Open your calendar app to accept or decline.
+    {{{message "email.invitation.footer"}}}
   </p>
 </body>
 </html>

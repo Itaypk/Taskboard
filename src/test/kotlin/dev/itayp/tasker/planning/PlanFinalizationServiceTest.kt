@@ -110,6 +110,7 @@ class PlanFinalizationServiceTest {
     fun `complete dispatches invites when user has verified email and opted in`() {
         val user = verifiedUser("alice@example.com")
         whenever(userSettingsService.getOrCreate(userId)).thenReturn(settings(calendarInviteEmail = true))
+        whenever(userSettingsService.getLocale(userId)).thenReturn(java.util.Locale.ENGLISH)
         whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
 
         service.complete(userId, sessionId, planWithTasks)
@@ -119,6 +120,7 @@ class PlanFinalizationServiceTest {
             eq("noreply@backlog.fyi"),
             eq("Backlog.fyi"),
             eq(planWithTasks),
+            any(),
         )
     }
 
@@ -128,7 +130,7 @@ class PlanFinalizationServiceTest {
 
         service.complete(userId, sessionId, planWithTasks)
 
-        verify(planInviteDispatcher, never()).dispatch(any(), any(), any(), any())
+        verify(planInviteDispatcher, never()).dispatch(any(), any(), any(), any(), any())
     }
 
     @Test
@@ -143,7 +145,7 @@ class PlanFinalizationServiceTest {
 
         service.complete(userId, sessionId, planWithTasks)
 
-        verify(planInviteDispatcher, never()).dispatch(any(), any(), any(), any())
+        verify(planInviteDispatcher, never()).dispatch(any(), any(), any(), any(), any())
     }
 
     @Test
@@ -153,7 +155,7 @@ class PlanFinalizationServiceTest {
 
         service.complete(userId, sessionId, planWithTasks)
 
-        verify(planInviteDispatcher, never()).dispatch(any(), any(), any(), any())
+        verify(planInviteDispatcher, never()).dispatch(any(), any(), any(), any(), any())
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
