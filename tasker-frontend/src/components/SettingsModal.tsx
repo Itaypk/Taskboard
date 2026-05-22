@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import styles from './SettingsModal.module.css';
 import type { UserSettings, Task, SettingsOptions } from '../types';
 import { CategoryEditor } from './CategoryEditor';
 import { Tabs } from './Tabs';
@@ -265,7 +266,7 @@ export function SettingsModal({ settings, tasks, open, onClose, onSave, onAccoun
                 <p className="settings-hint">Automatically archive done tasks after this many days. Leave blank to disable.</p>
                 <input
                   id="settings-auto-archive"
-                  className="field__input"
+                  className={`field__input ${styles.archiveDaysInput}`}
                   type="number"
                   min={1}
                   value={form.autoArchiveDays ?? ''}
@@ -274,7 +275,6 @@ export function SettingsModal({ settings, tasks, open, onClose, onSave, onAccoun
                     autoArchiveDays: e.target.value ? Number(e.target.value) : null,
                   }))}
                   placeholder="7"
-                  style={{ width: '80px' }}
                 />
               </div>
 

@@ -19,7 +19,7 @@ class TaskAutoArchiveService(
     private val clock: Clock,
 ) {
 
-    @Scheduled(cron = "0 30 2 * * *")
+    @Scheduled(cron = "0 30 2 * * *", zone = "UTC")
     @Transactional
     fun archiveStaleDoneTasks() {
         val users = userSettingsRepository.findAllByAutoArchiveDaysIsNotNull()
@@ -29,16 +29,17 @@ class TaskAutoArchiveService(
         var totalArchived = 0
 
         for (settings in users) {
+            val userId = settings.userId ?: continue
             val cutoff = now.minus(settings.autoArchiveDays!!.toLong(), ChronoUnit.DAYS)
             val stale = backlogTaskRepository
-                .findAllByUserIdAndStatusAndUpdatedAtBeforeOrderBySortKeyAsc(settings.userId!!, TaskStatus.DONE, cutoff)
+                .findAllByUserIdAndStatusAndUpdatedAtBeforeOrderBySortKeyAsc(userId, TaskStatus.DONE, cutoff)
 
             for (entity in stale) {
                 entity.status = TaskStatus.ARCHIVED
                 entity.updatedAt = now
                 backlogTaskRepository.save(entity)
                 taskChangeService.recordStatusChange(
-                    settings.userId!!, entity.id!!, entity.title!!, TaskStatus.DONE, TaskStatus.ARCHIVED
+                    userId, entity.id!!, entity.title!!, TaskStatus.DONE, TaskStatus.ARCHIVED
                 )
             }
             totalArchived += stale.size

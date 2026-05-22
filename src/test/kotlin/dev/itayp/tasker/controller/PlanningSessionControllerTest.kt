@@ -75,6 +75,7 @@ class PlanningSessionControllerTest(@Autowired val mockMvc: MockMvc) {
         updatedAt = null,
         rescheduleCount = 0,
         lastScheduledInSessionId = sessionId,
+        relevantFrom = null,
     )
 
     @Test
