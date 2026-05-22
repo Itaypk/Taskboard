@@ -6,4 +6,5 @@ import java.util.UUID
 
 interface UserSettingsRepository : JpaRepository<UserSettingsEntity, UUID> {
     fun findAllByPlanningCronIsNotNull(): List<UserSettingsEntity>
+    fun findAllByAutoArchiveDaysIsNotNull(): List<UserSettingsEntity>
 }

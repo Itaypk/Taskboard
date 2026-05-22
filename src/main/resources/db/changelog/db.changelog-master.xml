@@ -14,5 +14,7 @@
     <include file="db/changelog/changesets/008-preferred-language-regional.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changesets/009-planning-session-week-start.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changesets/010-planned-tasks.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changesets/011-auto-archive-setting.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changesets/012-relevant-from.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

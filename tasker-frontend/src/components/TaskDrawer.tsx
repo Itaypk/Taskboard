@@ -28,6 +28,7 @@ function makeEmpty(defaultCategoryId: string | null): FormState {
     url: '',
     priority: undefined,
     deadline: '',
+    relevantFrom: '',
     estimatedMinutes: undefined,
     status: 'todo',
     categoryId: defaultCategoryId ?? '',
@@ -56,6 +57,7 @@ export function TaskDrawer({
         url: task.url ?? '',
         priority: task.priority,
         deadline: task.deadline ?? '',
+        relevantFrom: task.relevantFrom ?? '',
         estimatedMinutes: task.estimatedMinutes,
         status: task.status,
         categoryId: task.categoryId,
@@ -89,6 +91,7 @@ export function TaskDrawer({
       description: form.description?.trim() || undefined,
       url: form.url?.trim() || undefined,
       deadline: form.deadline || undefined,
+      relevantFrom: form.relevantFrom || undefined,
       estimatedMinutes: form.estimatedMinutes || undefined,
     });
   };
@@ -217,20 +220,30 @@ export function TaskDrawer({
               />
             </div>
             <div className="field">
-              <label className="field__label">Est. minutes</label>
+              <label className="field__label">Available from</label>
               <input
                 className="field__input"
-                type="number"
-                min={0}
-                step={15}
-                value={form.estimatedMinutes ?? ''}
-                onChange={e => setForm(f => ({
-                  ...f,
-                  estimatedMinutes: e.target.value ? Number(e.target.value) : undefined,
-                }))}
-                placeholder="90"
+                type="date"
+                value={form.relevantFrom}
+                onChange={e => setForm(f => ({ ...f, relevantFrom: e.target.value }))}
               />
             </div>
+          </div>
+
+          <div className="field">
+            <label className="field__label">Est. minutes</label>
+            <input
+              className="field__input"
+              type="number"
+              min={0}
+              step={15}
+              value={form.estimatedMinutes ?? ''}
+              onChange={e => setForm(f => ({
+                ...f,
+                estimatedMinutes: e.target.value ? Number(e.target.value) : undefined,
+              }))}
+              placeholder="90"
+            />
           </div>
 
           <div className="field">
@@ -338,7 +351,15 @@ export function TaskDrawer({
           <div className="drawer__footer-left">
             {!isNew && (
               <>
-                {task?.status === 'done' ? (
+                {task?.status === 'archived' ? (
+                  <button
+                    type="button"
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => { onMarkTodo(task!.id); onClose(); }}
+                  >
+                    ↺ Unarchive
+                  </button>
+                ) : task?.status === 'done' ? (
                   <button
                     type="button"
                     className="btn btn--ghost btn--sm"

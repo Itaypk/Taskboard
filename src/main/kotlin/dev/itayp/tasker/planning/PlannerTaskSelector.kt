@@ -31,9 +31,11 @@ class PlannerTaskSelector(
         urgentSlots: Int = DEFAULT_URGENT_SLOTS,
         staleSlots: Int = DEFAULT_STALE_SLOTS,
     ): PlannerTaskSelection {
+        val today = LocalDate.ofInstant(clock.instant(), ZoneOffset.UTC)
         val tasks = backlogTaskRepository
             .findAllByUserIdAndStatus(userId, TaskStatus.TODO)
             .map { it.toDomain() }
+            .filter { it.relevantFrom == null || !it.relevantFrom.isAfter(today) }
 
         val totalSlots = urgentSlots + staleSlots
         if (tasks.size <= totalSlots) {

@@ -35,7 +35,7 @@ class EmailVerificationService(
 
         val verifyUrl = "${appProperties.baseUrl}/api/v1/settings/email/verify?token=$token"
         // verifyUrl is built from server-controlled values + a UUID token, so no escaping
-        // needed there. `normalised` is attacker-controlled at signup, so HTML-escape it.
+        // needed there. `normalized` is attacker-controlled at signup, so HTML-escape it.
         val htmlBody = loadTemplate("emails/verify-email.html")
             .replace("{{verify_url}}", verifyUrl)
             .replace("{{email}}", HtmlUtils.htmlEscape(normalised))

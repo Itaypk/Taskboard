@@ -21,7 +21,8 @@ fun BacklogTaskEntity.toDomain(): BacklogTask =
         createdAt = createdAt ?: throw IllegalStateException("BacklogTaskEntity must have createdAt"),
         updatedAt = updatedAt,
         rescheduleCount = rescheduleCount,
-        lastScheduledInSessionId = lastScheduledInSessionId
+        lastScheduledInSessionId = lastScheduledInSessionId,
+        relevantFrom = relevantFrom
     )
 
 fun BacklogTaskCategoryEntity.toDomain(): BacklogTaskCategory =

@@ -17,6 +17,7 @@ import dev.itayp.tasker.repository.BacklogTaskRepository
 import dev.itayp.tasker.repository.BacklogTaskTagRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
@@ -29,18 +30,23 @@ class BacklogTaskService(
     private val categoryRepository: BacklogTaskCategoryRepository,
     private val tagRepository: BacklogTaskTagRepository,
     private val taskChangeService: BacklogTaskChangeService,
+    private val clock: Clock,
 ) {
 
     fun getAllTasksForUser(userId: UUID): List<BacklogTask> =
         backlogTaskRepository.findAllByUserIdOrderBySortKeyAsc(userId).map { it.toDomain() }
 
     fun getTasksForUser(userId: UUID, status: TaskStatus?): List<BacklogTask> {
-        val entities = if (status == null) {
-            backlogTaskRepository.findAllByUserIdOrderBySortKeyAsc(userId)
-        } else {
-            backlogTaskRepository.findAllByUserIdAndStatusOrderBySortKeyAsc(userId, status)
+        val entities = when (status) {
+            null -> backlogTaskRepository.findAllByUserIdAndStatusNotOrderBySortKeyAsc(userId, TaskStatus.ARCHIVED)
+            else -> backlogTaskRepository.findAllByUserIdAndStatusOrderBySortKeyAsc(userId, status)
         }
-        return entities.map { it.toDomain() }
+        val tasks = entities.map { it.toDomain() }
+        // Hide future-dated tasks from the To Do view; all other statuses show them regardless.
+        return if (status == TaskStatus.TODO) {
+            val today = LocalDate.now(clock)
+            tasks.filter { it.relevantFrom == null || !it.relevantFrom.isAfter(today) }
+        } else tasks
     }
 
     @Transactional(readOnly = true)
@@ -80,6 +86,7 @@ class BacklogTaskService(
             this.sortKey = sortKey
             this.createdAt = Instant.now()
             this.updatedAt = null
+            this.relevantFrom = request.relevantFrom?.let { LocalDate.parse(it) }
         }
 
         val saved = backlogTaskRepository.save(entity)
@@ -108,6 +115,7 @@ class BacklogTaskService(
         entity.status = newStatus
         entity.category = category
         entity.tags = resolveOrCreateTags(userId, request.tags)
+        entity.relevantFrom = request.relevantFrom?.let { LocalDate.parse(it) }
         entity.updatedAt = Instant.now()
 
         val saved = backlogTaskRepository.save(entity)

@@ -124,7 +124,7 @@ function jsonBody(body: unknown): RequestInit {
 
 // --- Tasks ---
 
-export type TaskStatusFilter = 'todo' | 'done' | 'all';
+export type TaskStatusFilter = 'todo' | 'done' | 'all' | 'archived';
 
 export const fetchTasks = (status: TaskStatusFilter = 'todo'): Promise<Task[]> =>
     apiRequest(`/tasks?status=${status}`);
@@ -174,7 +174,7 @@ export const fetchTags = (): Promise<Tag[]> =>
 
 // --- User Settings ---
 
-type UserSettingsPayload = Pick<UserSettings, 'displayName' | 'contextBlock' | 'timeZone' | 'preferredLanguage' | 'calendarInviteEmail' | 'gender' | 'agentDescription' | 'planningCron' | 'weekStartDay'>;
+type UserSettingsPayload = Pick<UserSettings, 'displayName' | 'contextBlock' | 'timeZone' | 'preferredLanguage' | 'calendarInviteEmail' | 'gender' | 'agentDescription' | 'planningCron' | 'weekStartDay' | 'autoArchiveDays'>;
 
 export const fetchUserSettings = (): Promise<UserSettingsPayload> =>
     apiRequest('/settings');

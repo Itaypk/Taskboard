@@ -19,5 +19,6 @@ data class CreateBacklogTaskRequest(
     val estimatedMinutes: Int? = null,
     @field:Size(max = 32) val status: String = "todo",
     @field:NotBlank @field:Size(max = 64) val categoryId: String,
-    @field:Size(max = 32) val tags: List<TagInput> = emptyList()
+    @field:Size(max = 32) val tags: List<TagInput> = emptyList(),
+    @field:Size(max = 64) val relevantFrom: String? = null,
 )

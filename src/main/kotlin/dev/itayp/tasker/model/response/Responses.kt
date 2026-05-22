@@ -26,6 +26,7 @@ data class UserSettingsResponse(
     val agentDescription: String?,
     val planningCron: String?,
     val weekStartDay: String?,
+    val autoArchiveDays: Int?,
     val email: String?,
     val emailVerified: Boolean,
 )
@@ -40,6 +41,7 @@ fun UserSettingsEntity.toResponse(user: UserEntity) = UserSettingsResponse(
     agentDescription = agentDescription,
     planningCron = planningCron,
     weekStartDay = weekStartDay,
+    autoArchiveDays = autoArchiveDays,
     email = user.email,
     emailVerified = user.emailVerifiedAt != null,
 )
@@ -61,6 +63,7 @@ data class TaskResponse(
     val createdAt: String,
     val updatedAt: String?,
     val lastScheduledInSessionId: String?,
+    val relevantFrom: String?,
 )
 
 data class CategoryResponse(val id: String, val label: String, val swatchId: String)
@@ -82,6 +85,7 @@ fun BacklogTask.toResponse() = TaskResponse(
     createdAt = createdAt.toString(),
     updatedAt = updatedAt?.toString(),
     lastScheduledInSessionId = lastScheduledInSessionId?.toString(),
+    relevantFrom = relevantFrom?.toString(),
 )
 
 fun BacklogTaskCategory.toResponse() = CategoryResponse(

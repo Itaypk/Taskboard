@@ -9,7 +9,7 @@ enum class TaskPriority {
 }
 
 enum class TaskStatus {
-    TODO, DONE
+    TODO, DONE, ARCHIVED
 }
 
 enum class TagColor {
@@ -51,5 +51,6 @@ data class BacklogTask(
     val createdAt: Instant,
     val updatedAt: Instant?,
     val rescheduleCount: Int,
-    val lastScheduledInSessionId: UUID?
+    val lastScheduledInSessionId: UUID?,
+    val relevantFrom: LocalDate?
 )

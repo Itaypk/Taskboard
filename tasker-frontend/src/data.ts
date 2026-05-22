@@ -8,6 +8,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   calendarInviteEmail: false,
   planningCron: null,
   weekStartDay: null,
+  autoArchiveDays: null,
   email: '',
   emailVerified: false,
   categories: [],

@@ -1,1 +1,1 @@
-rootProject.name = "tasker"
+rootProject.name = "Taskboard"

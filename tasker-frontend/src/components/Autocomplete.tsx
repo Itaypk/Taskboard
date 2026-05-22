@@ -5,7 +5,7 @@ export interface AutocompleteOption {
   id: string;
   label: string;
   color?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface AutocompleteProps {

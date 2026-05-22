@@ -20,7 +20,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { BoardFilter } from './components/BoardFilter';
 import { CurrentPlanDrawer } from './components/CurrentPlanDrawer';
 import { DEFAULT_SETTINGS } from './data';
-import { fetchTasks, fetchCategories, fetchUserSettings, fetchTags, fetchCurrentPlan, checkTaskChanges, createTask, updateTask, deleteTask, reorderTask } from './api';
+import { fetchTasks, fetchCategories, fetchUserSettings, fetchTags, fetchCurrentPlan, checkTaskChanges, createTask, updateTask, deleteTask, reorderTask, type TaskStatusFilter } from './api';
 import type { Task, UserSettings, Tag, CurrentPlan, TaskFilter } from './types';
 import { Routes, Route } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
@@ -119,8 +119,12 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState<string | null>(null);
   const [draggingId, setDraggingId]   = useState<string | null>(null);
-  const [emailVerifiedBanner, setEmailVerifiedBanner] = useState(false);
+  const [emailVerifiedBanner, setEmailVerifiedBanner] = useState(
+    () => new URLSearchParams(window.location.search).get('emailVerified') === 'true'
+  );
   const [filter, setFilter]           = useState<TaskFilter>('todo');
+  const [showArchived, setShowArchived] = useState(false);
+  const [archivedTasks, setArchivedTasks] = useState<Task[]>([]);
   const [currentPlan, setCurrentPlan] = useState<CurrentPlan | null>(null);
   const [planDrawerOpen, setPlanDrawerOpen] = useState(false);
   const lastSyncedAt = useRef(new Date().toISOString());
@@ -133,13 +137,11 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   );
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('emailVerified') === 'true') {
-      setEmailVerifiedBanner(true);
-      window.history.replaceState({}, '', window.location.pathname);
-      setTimeout(() => setEmailVerifiedBanner(false), 5000);
-    }
-  }, []);
+    if (!emailVerifiedBanner) return;
+    window.history.replaceState({}, '', window.location.pathname);
+    const timer = setTimeout(() => setEmailVerifiedBanner(false), 5000);
+    return () => clearTimeout(timer);
+  }, [emailVerifiedBanner]);
 
   useEffect(() => {
     Promise.all([fetchTasks('todo'), fetchCategories(), fetchUserSettings(), fetchTags(), fetchCurrentPlan()])
@@ -161,7 +163,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
 
   // Refetch tasks when the filter's status dimension changes.
   // 'plan' reuses the open-tasks fetch and applies plan-membership client-side.
-  const fetchStatus = filter === 'plan' ? 'todo' : filter;
+  const fetchStatus: TaskStatusFilter = filter === 'plan' ? 'todo' : filter;
   useEffect(() => {
     if (loading) return;
     fetchTasks(fetchStatus).then(setTasks).catch(e => console.error('Failed to refetch tasks', e));
@@ -196,17 +198,22 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   );
 
   const planId = currentPlan?.id ?? null;
+  const sortedArchivedTasks = useMemo(
+    () => [...archivedTasks].sort((a, b) => a.sortKey < b.sortKey ? -1 : a.sortKey > b.sortKey ? 1 : 0),
+    [archivedTasks],
+  );
   const visibleTasks = useMemo(() => {
-    return sortedTasks.filter(t => {
+    const base = sortedTasks.filter(t => {
       if (t.id === leavingId) return true;
       switch (filter) {
         case 'todo': return t.status === 'todo';
         case 'done': return t.status === 'done';
-        case 'all':  return true;
+        case 'all':  return t.status !== 'archived';
         case 'plan': return t.status === 'todo' && planId !== null && t.lastScheduledInSessionId === planId;
       }
     });
-  }, [sortedTasks, leavingId, filter, planId]);
+    return filter === 'all' && showArchived ? [...base, ...sortedArchivedTasks] : base;
+  }, [sortedTasks, sortedArchivedTasks, leavingId, filter, planId, showArchived]);
 
   const visibleIds = useMemo(() => visibleTasks.map(t => t.id), [visibleTasks]);
 
@@ -263,15 +270,21 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   }, [tasks]);
 
   const handleMarkTodo = useCallback((id: string) => {
-    const task = tasks.find(t => t.id === id);
+    const task = tasks.find(t => t.id === id) ?? archivedTasks.find(t => t.id === id);
     if (!task) return;
     const { id: _id, createdAt: _ca, sortKey: _sk, ...payload } = task;
     updateTask(id, { ...payload, status: 'todo' }).then(() => {
-      setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'todo' } : t));
+      setTasks(prev => {
+        const existing = prev.find(t => t.id === id);
+        return existing
+          ? prev.map(t => t.id === id ? { ...t, status: 'todo' } : t)
+          : [...prev, { ...task, status: 'todo' }];
+      });
+      setArchivedTasks(prev => prev.filter(t => t.id !== id));
     }).catch(e => {
       console.error('Failed to mark task todo', e);
     });
-  }, [tasks]);
+  }, [tasks, archivedTasks]);
 
   const handleDragStart = (event: DragStartEvent) => {
     setDraggingId(String(event.active.id));
@@ -320,6 +333,13 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
 
   const defaultCategoryId = settings.categories[0]?.id ?? null;
 
+  const handleToggleArchived = () => {
+    if (!showArchived && archivedTasks.length === 0) {
+      fetchTasks('archived').then(setArchivedTasks).catch(e => console.error('Failed to fetch archived tasks', e));
+    }
+    setShowArchived(v => !v);
+  };
+
   const openNew = () => {
     if (settings.categories.length === 0) {
       setSettingsOpen(true);
@@ -343,7 +363,10 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
         <span className="logo-tape">Backlog.fyi</span>
         <BoardFilter
           value={filter}
-          onChange={setFilter}
+          onChange={(f) => {
+            if (f !== 'all') { setShowArchived(false); setArchivedTasks([]); }
+            setFilter(f);
+          }}
           hasCurrentPlan={currentPlan !== null}
         />
         <div className="header-right">
@@ -422,6 +445,14 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
           </DndContext>
         )}
       </main>
+
+      {filter === 'all' && (
+        <div className="show-archived-wrap">
+          <button type="button" className="show-archived-btn" onClick={handleToggleArchived}>
+            {showArchived ? 'Hide archived' : 'Show archived'}
+          </button>
+        </div>
+      )}
 
       <img className="pineapple-pet" src={pineappleUrl} alt="" aria-hidden="true" />
 

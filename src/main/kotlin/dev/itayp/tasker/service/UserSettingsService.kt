@@ -52,6 +52,7 @@ class UserSettingsService(
         entity.agentDescription = request.agentDescription
         entity.planningCron = request.planningCron
         entity.weekStartDay = request.weekStartDay
+        entity.autoArchiveDays = request.autoArchiveDays
         val saved = settingsRepository.save(entity)
         if (scheduleChanged) {
             eventPublisher.publishEvent(UserPlanningScheduleChangedEvent(userId))

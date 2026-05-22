@@ -41,11 +41,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, []);
 
     useEffect(() => {
-        refresh();
+        let mounted = true;
+        fetchMe()
+            .then(user => {
+                if (!mounted) return;
+                setState(user ? { status: 'authenticated', user } : { status: 'unauthenticated' });
+            })
+            .catch(() => { if (mounted) setState({ status: 'unauthenticated' }); });
         const onUnauth = () => setState({ status: 'unauthenticated' });
         window.addEventListener(UNAUTHENTICATED_EVENT, onUnauth);
-        return () => window.removeEventListener(UNAUTHENTICATED_EVENT, onUnauth);
-    }, [refresh]);
+        return () => {
+            mounted = false;
+            window.removeEventListener(UNAUTHENTICATED_EVENT, onUnauth);
+        };
+    }, []);
 
     const signOut = useCallback(async () => {
         try {
@@ -68,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth(): AuthContextValue {
     const ctx = useContext(AuthContext);
     if (!ctx) throw new Error('useAuth must be used inside AuthProvider');

@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.stereotype.Repository
+import java.time.Instant
 import java.util.UUID
 
 @Repository
@@ -16,6 +17,14 @@ interface BacklogTaskRepository : JpaRepository<BacklogTaskEntity, UUID> {
     fun findAllByUserIdAndStatus(userId: UUID, status: TaskStatus): List<BacklogTaskEntity>
 
     fun findAllByUserIdAndStatusOrderBySortKeyAsc(userId: UUID, status: TaskStatus): List<BacklogTaskEntity>
+
+    fun findAllByUserIdAndStatusNotOrderBySortKeyAsc(userId: UUID, status: TaskStatus): List<BacklogTaskEntity>
+
+    fun findAllByUserIdAndStatusAndUpdatedAtBeforeOrderBySortKeyAsc(
+        userId: UUID,
+        status: TaskStatus,
+        before: Instant,
+    ): List<BacklogTaskEntity>
 
     fun findAllByUserIdAndLastScheduledInSessionIdOrderBySortKeyAsc(
         userId: UUID,

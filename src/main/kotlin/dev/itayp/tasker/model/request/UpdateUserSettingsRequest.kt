@@ -1,5 +1,6 @@
 package dev.itayp.tasker.model.request
 
+import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
 
@@ -13,4 +14,5 @@ data class UpdateUserSettingsRequest(
     @field:Size(max = 2000) val agentDescription: String? = null,
     @field:Size(max = 100) val planningCron: String? = null,
     @field:Size(max = 16) val weekStartDay: String? = null,
+    @field:Min(1) val autoArchiveDays: Int? = null,
 )
