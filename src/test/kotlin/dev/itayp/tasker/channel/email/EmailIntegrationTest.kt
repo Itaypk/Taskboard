@@ -86,7 +86,13 @@ class EmailIntegrationTest {
         val to = env.getValue("TEST_EMAIL_TO")
         val from = env.getValue("TASKER_EMAIL_FROM")
 
-        val emailTemplateEngine = EmailTemplateEngine(StaticMessageSource())
+        val messageSource = StaticMessageSource().apply {
+            addMessage("email.invitation.when", java.util.Locale.ENGLISH, "When")
+            addMessage("email.invitation.location", java.util.Locale.ENGLISH, "Location")
+            addMessage("email.invitation.description", java.util.Locale.ENGLISH, "Description")
+            addMessage("email.invitation.footer", java.util.Locale.ENGLISH, "Footer")
+        }
+        val emailTemplateEngine = EmailTemplateEngine(messageSource)
         val composer = CalendarInvitationComposer(channel, emailTemplateEngine)
 
         val now = ZonedDateTime.now(ZoneOffset.UTC)

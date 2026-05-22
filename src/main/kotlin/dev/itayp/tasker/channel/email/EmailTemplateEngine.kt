@@ -6,6 +6,7 @@ import com.github.jknack.handlebars.Template
 import org.springframework.context.MessageSource
 import org.springframework.core.io.ClassPathResource
 import org.springframework.stereotype.Component
+import org.springframework.web.util.HtmlUtils
 import java.nio.charset.StandardCharsets
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
@@ -22,7 +23,9 @@ class EmailTemplateEngine(
         registerHelper("message", Helper<String> { context, options ->
             val model = options.context.model() as? Map<*, *>
             val locale = model?.get("locale") as? Locale ?: Locale.ENGLISH
-            val args = options.params.map { it }.toTypedArray()
+            val args = options.params.map { arg ->
+                arg?.toString()?.let { HtmlUtils.htmlEscape(it) } ?: ""
+            }.toTypedArray()
             messageSource.getMessage(context, args, locale)
         })
     }
