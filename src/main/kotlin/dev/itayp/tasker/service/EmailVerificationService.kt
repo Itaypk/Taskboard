@@ -8,6 +8,8 @@ import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.stereotype.Service
 import org.springframework.web.util.HtmlUtils
+import dev.itayp.tasker.channel.email.EmailTemplateEngine
+import org.springframework.context.MessageSource
 import java.time.Clock
 import java.time.Duration
 import java.util.UUID
@@ -19,6 +21,9 @@ class EmailVerificationService(
     private val outboundChannel: OutboundChannel,
     private val appProperties: AppProperties,
     private val clock: Clock,
+    private val emailTemplateEngine: EmailTemplateEngine,
+    private val userSettingsService: UserSettingsService,
+    private val messageSource: MessageSource,
 ) {
 
     private val log = LoggerFactory.getLogger(EmailVerificationService::class.java)
@@ -34,18 +39,22 @@ class EmailVerificationService(
         userRepository.save(user)
 
         val verifyUrl = "${appProperties.baseUrl}/api/v1/settings/email/verify?token=$token"
-        // verifyUrl is built from server-controlled values + a UUID token, so no escaping
-        // needed there. `normalised` is attacker-controlled at signup, so HTML-escape it.
-        val htmlBody = loadTemplate("emails/verify-email.html")
-            .replace("{{verify_url}}", verifyUrl)
-            .replace("{{email}}", HtmlUtils.htmlEscape(normalised))
+        
+        val locale = userSettingsService.getLocale(userId)
+        val htmlBody = emailTemplateEngine.render(
+            "emails/verify-email.html",
+            mapOf("verify_url" to verifyUrl, "email" to normalised),
+            locale
+        )
+        val subject = messageSource.getMessage("email.verify.subject", null, locale)
+        val textBody = messageSource.getMessage("email.verify.textBody", arrayOf(verifyUrl), locale)
 
         outboundChannel.send(
             EmailMessage(
                 to = listOf(normalised),
-                subject = "Verify your email – Backlog.fyi",
+                subject = subject,
                 htmlBody = htmlBody,
-                textBody = "Click this link to verify your email address for Backlog.fyi:\n\n$verifyUrl\n\nThis link expires in 24 hours.",
+                textBody = textBody,
             )
         )
 
@@ -67,9 +76,5 @@ class EmailVerificationService(
         return true
     }
 
-    private fun loadTemplate(path: String): String =
-        javaClass.classLoader.getResourceAsStream(path)
-            ?.bufferedReader()
-            ?.readText()
-            ?: throw IllegalStateException("Email template not found: $path")
+
 }

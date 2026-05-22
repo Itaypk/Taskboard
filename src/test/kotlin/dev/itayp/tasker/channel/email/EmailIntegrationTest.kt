@@ -1,7 +1,8 @@
 package dev.itayp.tasker.channel.email
 
 import dev.itayp.tasker.EnvTest
-import dev.itayp.tasker.ai.prompt.PromptTemplateLoader
+import dev.itayp.tasker.channel.email.EmailTemplateEngine
+import org.springframework.context.support.StaticMessageSource
 import dev.itayp.tasker.channel.email.invitation.CalendarEvent
 import dev.itayp.tasker.channel.email.invitation.CalendarInvitationComposer
 import org.junit.jupiter.api.Test
@@ -85,8 +86,8 @@ class EmailIntegrationTest {
         val to = env.getValue("TEST_EMAIL_TO")
         val from = env.getValue("TASKER_EMAIL_FROM")
 
-        val templateLoader = PromptTemplateLoader()
-        val composer = CalendarInvitationComposer(channel, templateLoader)
+        val emailTemplateEngine = EmailTemplateEngine(StaticMessageSource())
+        val composer = CalendarInvitationComposer(channel, emailTemplateEngine)
 
         val now = ZonedDateTime.now(ZoneOffset.UTC)
         val event = CalendarEvent(

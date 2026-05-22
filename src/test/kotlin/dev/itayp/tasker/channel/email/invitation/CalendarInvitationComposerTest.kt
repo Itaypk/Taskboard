@@ -1,6 +1,7 @@
 package dev.itayp.tasker.channel.email.invitation
 
-import dev.itayp.tasker.ai.prompt.PromptTemplateLoader
+import dev.itayp.tasker.channel.email.EmailTemplateEngine
+import org.springframework.context.support.StaticMessageSource
 import dev.itayp.tasker.channel.OutboundChannel
 import dev.itayp.tasker.channel.email.EmailMessage
 import dev.itayp.tasker.channel.email.ICalAttachment
@@ -19,8 +20,14 @@ import java.time.ZonedDateTime
 class CalendarInvitationComposerTest {
 
     private val outboundChannel: OutboundChannel = mock()
-    private val templateLoader = PromptTemplateLoader()
-    private val composer = CalendarInvitationComposer(outboundChannel, templateLoader)
+    private val messageSource = StaticMessageSource().apply {
+        addMessage("email.invitation.when", java.util.Locale.ENGLISH, "When")
+        addMessage("email.invitation.location", java.util.Locale.ENGLISH, "Location")
+        addMessage("email.invitation.description", java.util.Locale.ENGLISH, "Description")
+        addMessage("email.invitation.footer", java.util.Locale.ENGLISH, "Footer")
+    }
+    private val emailTemplateEngine = EmailTemplateEngine(messageSource)
+    private val composer = CalendarInvitationComposer(outboundChannel, emailTemplateEngine)
 
     private val fixedStart = ZonedDateTime.of(2026, 5, 7, 9, 0, 0, 0, ZoneOffset.UTC)
     private val fixedEnd = ZonedDateTime.of(2026, 5, 7, 10, 0, 0, 0, ZoneOffset.UTC)

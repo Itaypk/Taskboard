@@ -31,6 +31,7 @@ class PlanInviteDispatcherTest {
     private val organizerEmail = "noreply@backlog.fyi"
     private val organizerName = "Backlog.fyi"
     private val taskId = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+    private val locale = java.util.Locale.ENGLISH
 
     // ── Slot dispatch ────────────────────────────────────────────────────────
 
@@ -43,7 +44,7 @@ class PlanInviteDispatcherTest {
             ),
         )
 
-        dispatcher.dispatch(userEmail, organizerEmail, organizerName, plan)
+        dispatcher.dispatch(userEmail, organizerEmail, organizerName, plan, locale)
 
         verify(composer, times(2)).sendInvitation(any(), any())
     }
@@ -52,7 +53,7 @@ class PlanInviteDispatcherTest {
     fun `builds CalendarEvent with correct to address and organizer`() {
         val plan = plan(task(taskId, "Write spec", slot("2026-05-11T09:00:00+02:00", "2026-05-11T11:00:00+02:00")))
 
-        dispatcher.dispatch(userEmail, organizerEmail, organizerName, plan)
+        dispatcher.dispatch(userEmail, organizerEmail, organizerName, plan, locale)
 
         val toCaptor = argumentCaptor<List<String>>()
         val eventCaptor = argumentCaptor<CalendarEvent>()
@@ -71,7 +72,7 @@ class PlanInviteDispatcherTest {
         val startIso = "2026-05-11T09:00:00+02:00"
         val plan = plan(task(taskId, "Write spec", slot(startIso, "2026-05-11T11:00:00+02:00")))
 
-        dispatcher.dispatch(userEmail, organizerEmail, organizerName, plan)
+        dispatcher.dispatch(userEmail, organizerEmail, organizerName, plan, locale)
 
         val eventCaptor = argumentCaptor<CalendarEvent>()
         verify(composer).sendInvitation(any(), eventCaptor.capture())
@@ -84,7 +85,7 @@ class PlanInviteDispatcherTest {
         val startIso = "2026-05-11T09:00:00+02:00"
         val plan = plan(task(null, title, slot(startIso, "2026-05-11T10:00:00+02:00")))
 
-        dispatcher.dispatch(userEmail, organizerEmail, organizerName, plan)
+        dispatcher.dispatch(userEmail, organizerEmail, organizerName, plan, locale)
 
         val eventCaptor = argumentCaptor<CalendarEvent>()
         verify(composer).sendInvitation(any(), eventCaptor.capture())
@@ -95,7 +96,7 @@ class PlanInviteDispatcherTest {
     fun `sends nothing when all tasks have no slots`() {
         val plan = plan(task(taskId, "Empty task"))
 
-        dispatcher.dispatch(userEmail, organizerEmail, organizerName, plan)
+        dispatcher.dispatch(userEmail, organizerEmail, organizerName, plan, locale)
 
         verify(composer, never()).sendInvitation(any(), any())
     }
@@ -112,7 +113,7 @@ class PlanInviteDispatcherTest {
             .doNothing()
             .`when`(composer).sendInvitation(any(), any())
 
-        dispatcher.dispatch(userEmail, organizerEmail, organizerName, plan)
+        dispatcher.dispatch(userEmail, organizerEmail, organizerName, plan, locale)
 
         verify(composer, times(2)).sendInvitation(any(), any())
     }
@@ -121,7 +122,7 @@ class PlanInviteDispatcherTest {
     fun `parses ISO-8601 offset datetime into correct start and end`() {
         val plan = plan(task(taskId, "Deep work", slot("2026-05-11T09:00:00+02:00", "2026-05-11T11:00:00+02:00")))
 
-        dispatcher.dispatch(userEmail, organizerEmail, organizerName, plan)
+        dispatcher.dispatch(userEmail, organizerEmail, organizerName, plan, locale)
 
         val eventCaptor = argumentCaptor<CalendarEvent>()
         verify(composer).sendInvitation(any(), eventCaptor.capture())

@@ -1,6 +1,6 @@
 package dev.itayp.tasker.channel.email.invitation
 
-import dev.itayp.tasker.ai.prompt.PromptTemplateLoader
+import dev.itayp.tasker.channel.email.EmailTemplateEngine
 import dev.itayp.tasker.channel.OutboundChannel
 import dev.itayp.tasker.channel.email.EmailMessage
 import dev.itayp.tasker.channel.email.ICalAttachment
@@ -8,11 +8,12 @@ import org.springframework.stereotype.Component
 import java.time.ZoneOffset
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Component
 class CalendarInvitationComposer(
     private val outboundChannel: OutboundChannel,
-    private val templateLoader: PromptTemplateLoader,
+    private val emailTemplateEngine: EmailTemplateEngine,
 ) {
 
     fun sendInvitation(to: List<String>, event: CalendarEvent) {
@@ -62,26 +63,23 @@ class CalendarInvitationComposer(
     }
 
     fun buildHtmlBody(event: CalendarEvent): String {
-        val template = templateLoader.loadFromClasspath("emails/invitation.html")
-        return template.render(
+        return emailTemplateEngine.render(
+            "emails/invitation.html",
             mapOf(
-                "title" to htmlEscape(event.title),
-                "date_range" to "${formatDisplay(event.start)} – ${formatDisplay(event.end)}",
-                "location_section" to (event.location?.let {
-                    "<p><strong>Location:</strong> ${htmlEscape(it)}</p>"
-                } ?: ""),
-                "description_section" to (event.description?.let {
-                    "<p><strong>Description:</strong> ${htmlEscape(it)}</p>"
-                } ?: ""),
+                "title" to event.title,
+                "date_range" to "${formatDisplay(event.start, event.locale)} – ${formatDisplay(event.end, event.locale)}",
+                "location" to event.location,
+                "description" to event.description,
             ),
+            event.locale
         )
     }
 
     private fun formatUtc(dt: ZonedDateTime): String =
         dt.withZoneSameInstant(ZoneOffset.UTC).format(ICAL_UTC_FORMAT)
 
-    private fun formatDisplay(dt: ZonedDateTime): String =
-        dt.format(DateTimeFormatter.ofPattern("EEE, MMM d yyyy HH:mm z"))
+    private fun formatDisplay(dt: ZonedDateTime, locale: Locale): String =
+        dt.format(DateTimeFormatter.ofPattern("EEE, MMM d yyyy HH:mm z").withLocale(locale))
 
     // RFC 5545 §3.3.11 — escape backslash, semicolon, comma, newlines in text values
     private fun escapeText(s: String): String = s

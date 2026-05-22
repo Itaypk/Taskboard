@@ -1,6 +1,7 @@
 package dev.itayp.tasker.channel.email.invitation
 
 import java.time.ZonedDateTime
+import java.util.Locale
 import java.util.UUID
 
 data class CalendarEvent(
@@ -14,4 +15,5 @@ data class CalendarEvent(
     val organizerName: String? = null,
     val attendeeEmails: List<String>,
     val rsvp: Boolean = false,
+    val locale: Locale = Locale.ENGLISH,
 )
