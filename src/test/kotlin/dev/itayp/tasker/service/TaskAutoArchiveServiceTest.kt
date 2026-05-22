@@ -58,7 +58,7 @@ class TaskAutoArchiveServiceTest {
         whenever(backlogTaskRepository.findAllByUserIdAndStatusAndUpdatedAtBeforeOrderBySortKeyAsc(
             userId, TaskStatus.DONE, expectedCutoff
         )).thenReturn(listOf(staleTask))
-        whenever(backlogTaskRepository.save(any())).thenAnswer { it.arguments[0] }
+        whenever(backlogTaskRepository.save(any<BacklogTaskEntity>())).thenAnswer { it.arguments[0] }
 
         service.archiveStaleDoneTasks()
 
