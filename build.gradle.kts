@@ -79,6 +79,8 @@ tasks.withType<Test> {
 }
 
 tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
+	// Disables the C2 JIT compiler for faster startup (though worse performance)
+	jvmArgs("-XX:TieredStopAtLevel=1")
 	args("--spring.profiles.active=dev")
 }
 
@@ -88,7 +90,8 @@ val isWindows = System.getProperty("os.name").lowercase().contains("windows")
 val npmCmd = if (isWindows) "npm.cmd" else "npm"
 
 val npmInstall = tasks.register<Exec>("npmInstall") {
-	workingDir = frontendDir.asFile
+	description = "Runs the NPM install step"
+    workingDir = frontendDir.asFile
 	commandLine(npmCmd, "ci")
 	inputs.file(frontendDir.file("package.json"))
 	inputs.file(frontendDir.file("package-lock.json"))
@@ -96,7 +99,8 @@ val npmInstall = tasks.register<Exec>("npmInstall") {
 }
 
 val buildFrontend = tasks.register<Exec>("buildFrontend") {
-	dependsOn(npmInstall)
+	description = "Builds the frontend"
+    dependsOn(npmInstall)
 	workingDir = frontendDir.asFile
 	commandLine(npmCmd, "run", "build")
 	inputs.dir(frontendDir.dir("src"))
