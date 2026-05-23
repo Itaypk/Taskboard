@@ -101,12 +101,16 @@ class BacklogTaskChangeService(
                 }
                 BacklogTaskChangeType.STATUS_CHANGED -> {
                     val changed = ChangedTask(taskId, title)
-                    if (event.newStatus == TaskStatus.DONE) {
-                        completed[taskId] = changed
-                        reopened.remove(taskId)
-                    } else if (event.newStatus == TaskStatus.TODO && event.previousStatus == TaskStatus.DONE) {
-                        reopened[taskId] = changed
-                        completed.remove(taskId)
+                    when {
+                        event.newStatus == TaskStatus.DONE -> {
+                            completed[taskId] = changed
+                            reopened.remove(taskId)
+                        }
+                        event.newStatus == TaskStatus.TODO && event.previousStatus != TaskStatus.TODO -> {
+                            reopened[taskId] = changed
+                            completed.remove(taskId)
+                        }
+                        // DONE → ARCHIVED: silent, already counted as completed
                     }
                 }
                 BacklogTaskChangeType.DELETED -> {

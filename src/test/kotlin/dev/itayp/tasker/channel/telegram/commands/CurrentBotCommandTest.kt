@@ -182,6 +182,7 @@ class CurrentBotCommandTest {
             updatedAt = null,
             rescheduleCount = 0,
             lastScheduledInSessionId = null,
+            relevantFrom = null,
         )
     }
 }

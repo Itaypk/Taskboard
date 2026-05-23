@@ -39,4 +39,7 @@ open class UserSettingsEntity {
 
     @Column(name = "week_start_day")
     var weekStartDay: String? = null
+
+    @Column(name = "auto_archive_days")
+    var autoArchiveDays: Int? = null
 }

@@ -71,6 +71,7 @@ class BacklogTaskController(
     private fun parseStatusFilter(raw: String?): StatusFilter? = when (raw?.lowercase()) {
         null, "todo" -> StatusFilter(TaskStatus.TODO)
         "done" -> StatusFilter(TaskStatus.DONE)
+        "archived" -> StatusFilter(TaskStatus.ARCHIVED)
         "all" -> StatusFilter(null)
         else -> null
     }

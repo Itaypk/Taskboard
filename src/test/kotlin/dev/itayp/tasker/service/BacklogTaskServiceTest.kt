@@ -25,6 +25,7 @@ import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import java.time.Clock
 import java.time.Instant
 import java.util.UUID
 import kotlin.test.assertEquals
@@ -40,6 +41,7 @@ class BacklogTaskServiceTest {
     @Mock private lateinit var categoryRepository: BacklogTaskCategoryRepository
     @Mock private lateinit var tagRepository: BacklogTaskTagRepository
     @Mock private lateinit var taskChangeService: BacklogTaskChangeService
+    @Mock private lateinit var clock: Clock
 
     @InjectMocks private lateinit var service: BacklogTaskService
 

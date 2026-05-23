@@ -1,5 +1,5 @@
 export type Priority = 'low' | 'medium' | 'high';
-export type Status = 'todo' | 'done';
+export type Status = 'todo' | 'done' | 'archived';
 
 export const TAG_PALETTE = [
   { id: 'sage',   bg: '#E8F5EE', text: '#1A7A4A', border: '#BEE8D0' },
@@ -55,6 +55,7 @@ export interface Task {
   sortKey: string;
   createdAt: string;
   lastScheduledInSessionId?: string | null;
+  relevantFrom?: string; // YYYY-MM-DD
 }
 
 export type PlanStatus = 'active' | 'completed' | 'abandoned';
@@ -98,6 +99,7 @@ export interface UserSettings {
   agentDescription?: string;
   planningCron?: string | null;
   weekStartDay?: string | null;
+  autoArchiveDays?: number | null;
   email: string;
   emailVerified: boolean;
   categories: Category[];

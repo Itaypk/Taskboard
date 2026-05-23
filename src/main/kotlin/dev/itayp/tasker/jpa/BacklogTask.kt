@@ -78,4 +78,7 @@ open class BacklogTaskEntity {
 
     @Column(name = "last_scheduled_in_session_id")
     var lastScheduledInSessionId: UUID? = null
+
+    @Column(name = "relevant_from")
+    var relevantFrom: LocalDate? = null
 }

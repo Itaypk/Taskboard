@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import styles from './SettingsModal.module.css';
 import type { UserSettings, Task, SettingsOptions } from '../types';
 import { CategoryEditor } from './CategoryEditor';
 import { Tabs } from './Tabs';
@@ -117,6 +118,7 @@ export function SettingsModal({ settings, tasks, open, onClose, onSave, onAccoun
           agentDescription: form.agentDescription,
           planningCron: form.planningCron ?? null,
           weekStartDay: form.weekStartDay ?? null,
+          autoArchiveDays: form.autoArchiveDays ?? null,
         }),
         ...settings.categories
           .filter(c => !newIdSet.has(c.id))
@@ -257,6 +259,23 @@ export function SettingsModal({ settings, tasks, open, onClose, onSave, onAccoun
                 {verificationSent && (
                   <p className="settings-hint">Check your inbox and click the link to verify.</p>
                 )}
+              </div>
+
+              <div className="field">
+                <label className="field__label" htmlFor="settings-auto-archive">Auto-archive done tasks</label>
+                <p className="settings-hint">Automatically archive done tasks after this many days. Leave blank to disable.</p>
+                <input
+                  id="settings-auto-archive"
+                  className={`field__input ${styles.archiveDaysInput}`}
+                  type="number"
+                  min={1}
+                  value={form.autoArchiveDays ?? ''}
+                  onChange={e => setForm(f => ({
+                    ...f,
+                    autoArchiveDays: e.target.value ? Number(e.target.value) : null,
+                  }))}
+                  placeholder="7"
+                />
               </div>
 
               <div className="field">
