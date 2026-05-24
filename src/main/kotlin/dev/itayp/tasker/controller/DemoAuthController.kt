@@ -1,5 +1,6 @@
 package dev.itayp.tasker.controller
 
+import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.model.response.MeResponse
 import dev.itayp.tasker.model.response.toMeResponse
 import dev.itayp.tasker.security.SessionAuthenticator
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController
 class DemoAuthController(
     private val userAuthService: UserAuthService,
     private val sessionAuthenticator: SessionAuthenticator,
+    private val userCrypto: UserCryptoService,
 ) {
 
     @PostMapping("/demo-login")
@@ -28,6 +30,6 @@ class DemoAuthController(
         sessionAuthenticator.authenticate(TaskerPrincipal(user.id!!), request, response)
         // Limit the session lifetime to match the demo data TTL (24 h)
         request.getSession(false)?.maxInactiveInterval = 24 * 60 * 60
-        return ResponseEntity.ok(user.toMeResponse())
+        return ResponseEntity.ok(user.toMeResponse(userCrypto))
     }
 }

@@ -3,6 +3,7 @@ package dev.itayp.tasker.service
 import dev.itayp.tasker.channel.OutboundChannel
 import dev.itayp.tasker.channel.email.EmailMessage
 import dev.itayp.tasker.config.AppProperties
+import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.repository.UserRepository
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.EnableConfigurationProperties
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service
 import org.springframework.web.util.HtmlUtils
 import dev.itayp.tasker.channel.email.EmailTemplateEngine
 import org.springframework.context.MessageSource
+import java.security.MessageDigest
 import java.time.Clock
 import java.time.Duration
 import java.util.UUID
@@ -24,6 +26,7 @@ class EmailVerificationService(
     private val emailTemplateEngine: EmailTemplateEngine,
     private val userSettingsService: UserSettingsService,
     private val messageSource: MessageSource,
+    private val userCrypto: UserCryptoService,
 ) {
 
     private val log = LoggerFactory.getLogger(EmailVerificationService::class.java)
@@ -32,7 +35,8 @@ class EmailVerificationService(
         val normalised = email.trim().lowercase()
         val user = userRepository.findById(userId).orElseThrow { NoSuchElementException("User not found") }
         val token = UUID.randomUUID().toString().replace("-", "")
-        user.email = normalised
+        user.email = userCrypto.encrypt(userId, normalised)
+        user.emailHash = sha256Hex(normalised)
         user.emailVerifiedAt = null
         user.emailVerificationToken = token
         user.emailVerificationTokenExpiresAt = clock.instant().plus(Duration.ofHours(24))
@@ -76,5 +80,8 @@ class EmailVerificationService(
         return true
     }
 
-
+    private fun sha256Hex(input: String): String {
+        val digest = MessageDigest.getInstance("SHA-256").digest(input.toByteArray(Charsets.UTF_8))
+        return digest.joinToString("") { "%02x".format(it) }
+    }
 }

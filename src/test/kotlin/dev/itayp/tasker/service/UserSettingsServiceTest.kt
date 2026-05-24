@@ -1,5 +1,6 @@
 package dev.itayp.tasker.service
 
+import dev.itayp.tasker.crypto.noopUserCryptoService
 import dev.itayp.tasker.jpa.UserSettingsEntity
 import dev.itayp.tasker.model.request.UpdateUserSettingsRequest
 import dev.itayp.tasker.repository.UserSettingsRepository
@@ -23,7 +24,9 @@ class UserSettingsServiceTest {
     @Mock lateinit var settingsRepository: UserSettingsRepository
     @Mock lateinit var eventPublisher: ApplicationEventPublisher
 
-    private val service by lazy { UserSettingsService(settingsRepository, eventPublisher) }
+    private val service by lazy {
+        UserSettingsService(settingsRepository, eventPublisher, noopUserCryptoService())
+    }
     private val userId = UUID.randomUUID()
 
     private fun baseRequest(

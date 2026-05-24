@@ -4,17 +4,6 @@
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
-    <include file="db/changelog/changesets/001-initial-schema.xml" relativeToChangelogFile="false"/>
-    <include file="db/changelog/changesets/002-ai-conversations.xml" relativeToChangelogFile="false"/>
-    <include file="db/changelog/changesets/003-planning-session.xml" relativeToChangelogFile="false"/>
-    <include file="db/changelog/changesets/004-task-reschedule-tracking.xml" relativeToChangelogFile="false"/>
-    <include file="db/changelog/changesets/005-email-settings.xml" relativeToChangelogFile="false"/>
-    <include file="db/changelog/changesets/006-ai-message-clob-system-prompt.xml" relativeToChangelogFile="false"/>
-    <include file="db/changelog/changesets/007-agent-description.xml" relativeToChangelogFile="false"/>
-    <include file="db/changelog/changesets/008-preferred-language-regional.xml" relativeToChangelogFile="false"/>
-    <include file="db/changelog/changesets/009-planning-session-week-start.xml" relativeToChangelogFile="false"/>
-    <include file="db/changelog/changesets/010-planned-tasks.xml" relativeToChangelogFile="false"/>
-    <include file="db/changelog/changesets/011-auto-archive-setting.xml" relativeToChangelogFile="false"/>
-    <include file="db/changelog/changesets/012-relevant-from.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changesets/001-schema.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

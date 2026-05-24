@@ -3,6 +3,7 @@ package dev.itayp.tasker.planning
 import dev.itayp.tasker.channel.telegram.TelegramSessionRegistry
 import dev.itayp.tasker.jpa.UserEntity
 import dev.itayp.tasker.jpa.UserSettingsEntity
+import dev.itayp.tasker.model.UserSettings
 import dev.itayp.tasker.repository.UserRepository
 import dev.itayp.tasker.repository.UserSettingsRepository
 import dev.itayp.tasker.service.UserPlanningScheduleChangedEvent
@@ -63,8 +64,23 @@ class PlanningSessionSchedulerTest {
     }
 
     private fun stubUserSettings() {
-        whenever(userSettingsService.getOrCreate(userId)).thenReturn(settings(cron = null))
+        whenever(userSettingsService.getOrCreate(userId)).thenReturn(domainSettings(cron = null))
     }
+
+    private fun domainSettings(cron: String?, tz: String = "UTC", weekStartDay: String? = "MONDAY") =
+        UserSettings(
+            userId = userId,
+            displayName = null,
+            contextBlock = null,
+            timeZone = tz,
+            preferredLanguage = "en-US",
+            calendarInviteEmail = false,
+            gender = null,
+            agentDescription = null,
+            planningCron = cron,
+            weekStartDay = weekStartDay,
+            autoArchiveDays = null,
+        )
 
     @Test
     fun `scheduleFor with non-null cron schedules a cron trigger`() {
@@ -141,13 +157,16 @@ class PlanningSessionSchedulerTest {
         whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
         stubUserSettings()
         val targetWeek = LocalDate.parse("2026-05-18")
-        val existing = PlanningSessionEntity().apply {
-            id = UUID.randomUUID()
-            this.userId = this@PlanningSessionSchedulerTest.userId
-            status = PlanningSessionStatus.COMPLETED
-            weekStart = targetWeek
-            summary = "Pre-planned summary"
-        }
+        val existing = PlanningSession(
+            id = UUID.randomUUID(),
+            userId = userId,
+            conversationId = null,
+            status = PlanningSessionStatus.COMPLETED,
+            startedAt = Instant.parse("2026-05-18T08:00:00Z"),
+            weekStart = targetWeek,
+            endedAt = null,
+            summary = "Pre-planned summary",
+        )
         whenever(planningSessionService.findSessionForWeek(userId, targetWeek)).thenReturn(existing)
 
         newScheduler().runPlanningSession(userId)
@@ -166,12 +185,16 @@ class PlanningSessionSchedulerTest {
         whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
         stubUserSettings()
         val targetWeek = LocalDate.parse("2026-05-18")
-        val existing = PlanningSessionEntity().apply {
-            id = UUID.randomUUID()
-            this.userId = this@PlanningSessionSchedulerTest.userId
-            status = PlanningSessionStatus.ACTIVE
-            weekStart = targetWeek
-        }
+        val existing = PlanningSession(
+            id = UUID.randomUUID(),
+            userId = userId,
+            conversationId = null,
+            status = PlanningSessionStatus.ACTIVE,
+            startedAt = Instant.parse("2026-05-18T08:00:00Z"),
+            weekStart = targetWeek,
+            endedAt = null,
+            summary = null,
+        )
         whenever(planningSessionService.findSessionForWeek(userId, targetWeek)).thenReturn(existing)
 
         newScheduler().runPlanningSession(userId)

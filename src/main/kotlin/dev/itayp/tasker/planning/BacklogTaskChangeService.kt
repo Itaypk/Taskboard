@@ -1,5 +1,6 @@
 package dev.itayp.tasker.planning
 
+import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.model.TaskStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -15,6 +16,7 @@ import java.util.UUID
 @Service
 class BacklogTaskChangeService(
     private val eventRepository: BacklogTaskChangeEventRepository,
+    private val userCrypto: UserCryptoService,
     private val clock: Clock,
 ) {
 
@@ -26,7 +28,7 @@ class BacklogTaskChangeService(
             this.changeType = BacklogTaskChangeType.CREATED
             this.previousStatus = null
             this.newStatus = status
-            this.taskTitleSnapshot = title
+            this.taskTitleSnapshot = userCrypto.encrypt(userId, title)
             this.occurredAt = clock.instant()
         })
 
@@ -45,7 +47,7 @@ class BacklogTaskChangeService(
             this.changeType = BacklogTaskChangeType.STATUS_CHANGED
             this.previousStatus = previousStatus
             this.newStatus = newStatus
-            this.taskTitleSnapshot = title
+            this.taskTitleSnapshot = userCrypto.encrypt(userId, title)
             this.occurredAt = clock.instant()
         })
     }
@@ -58,7 +60,7 @@ class BacklogTaskChangeService(
             this.changeType = BacklogTaskChangeType.DELETED
             this.previousStatus = lastStatus
             this.newStatus = null
-            this.taskTitleSnapshot = title
+            this.taskTitleSnapshot = userCrypto.encrypt(userId, title)
             this.occurredAt = clock.instant()
         })
 
@@ -93,7 +95,8 @@ class BacklogTaskChangeService(
 
         for (event in events) {
             val taskId = event.taskId ?: continue
-            val title = event.taskTitleSnapshot ?: ""
+            val ownerId = event.userId ?: continue
+            val title = userCrypto.decrypt(ownerId, event.taskTitleSnapshot) ?: ""
             when (event.changeType) {
                 BacklogTaskChangeType.CREATED -> {
                     createdTaskIds.add(taskId)

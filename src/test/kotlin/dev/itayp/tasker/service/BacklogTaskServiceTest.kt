@@ -1,5 +1,6 @@
 package dev.itayp.tasker.service
 
+import dev.itayp.tasker.crypto.noopUserCryptoService
 import dev.itayp.tasker.jpa.BacklogTaskCategoryEntity
 import dev.itayp.tasker.jpa.BacklogTaskEntity
 import dev.itayp.tasker.jpa.BacklogTaskTagEntity
@@ -17,7 +18,6 @@ import dev.itayp.tasker.repository.BacklogTaskRepository
 import dev.itayp.tasker.repository.BacklogTaskTagRepository
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
-import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
@@ -44,7 +44,19 @@ class BacklogTaskServiceTest {
     @Mock private lateinit var userSettingsService: UserSettingsService
     @Mock private lateinit var clock: Clock
 
-    @InjectMocks private lateinit var service: BacklogTaskService
+    private val crypto = noopUserCryptoService()
+
+    private val service: BacklogTaskService by lazy {
+        BacklogTaskService(
+            backlogTaskRepository,
+            categoryRepository,
+            tagRepository,
+            taskChangeService,
+            userSettingsService,
+            crypto,
+            clock,
+        )
+    }
 
     private val userId: UUID = UUID.fromString("00000000-0000-0000-0000-000000000001")
 
@@ -223,7 +235,7 @@ class BacklogTaskServiceTest {
             categoryId = catId.toString(),
         ))
 
-        assertEquals("New Title", existingEntity.title)
+        assertEquals("New Title", existingEntity.title?.toString(Charsets.UTF_8))
         assertEquals(TaskStatus.DONE, existingEntity.status)
         assertNotNull(existingEntity.updatedAt)
     }
@@ -398,7 +410,7 @@ class BacklogTaskServiceTest {
     ) = BacklogTaskEntity().apply {
         this.id = id
         this.userId = this@BacklogTaskServiceTest.userId
-        this.title = title
+        this.title = title.toByteArray(Charsets.UTF_8)
         this.status = TaskStatus.TODO
         this.category = category
         this.tags = mutableSetOf()

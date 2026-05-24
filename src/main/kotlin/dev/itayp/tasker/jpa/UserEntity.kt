@@ -20,13 +20,16 @@ open class UserEntity {
     var telegramUsername: String? = null
 
     @Column(name = "telegram_first_name")
-    var telegramFirstName: String? = null
+    var telegramFirstName: ByteArray? = null
 
     @Column(name = "telegram_photo_url", length = 1000)
     var telegramPhotoUrl: String? = null
 
     @Column
-    var email: String? = null
+    var email: ByteArray? = null
+
+    @Column(name = "email_hash", length = 64)
+    var emailHash: String? = null
 
     @Column(name = "email_verified_at")
     var emailVerifiedAt: Instant? = null

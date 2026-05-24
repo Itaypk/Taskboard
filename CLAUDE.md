@@ -103,6 +103,8 @@ Session chain details:
 - Backend env vars for the production database (required when running with `prod` profile):
   - `TASKER_DB_URL` — JDBC URL, e.g. `jdbc:postgresql://host:5432/taskboard`.
   - `TASKER_DB_USERNAME` / `TASKER_DB_PASSWORD` — Postgres credentials.
+- Backend env var for at-rest data encryption (required in prod):
+  - `TASKER_DATA_KEK` — base64-encoded 32-byte key. Wraps per-user DEKs that encrypt task titles, descriptions, LLM messages, user settings, etc. **Losing this key permanently loses all encrypted data.** Generate with `openssl rand -base64 32`; store the prod value offline (e.g. password manager), and keep it out of any archive that also includes DB dumps. Dev/test fall back to a checked-in placeholder key — never reuse that for prod.
 - Backend env vars for the email integration:
   - `TASKER_EMAIL_ENABLED` - toggle email integration (default: false).
   - `TASKER_EMAIL_FROM` - email address to use in the "from" field.

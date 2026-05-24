@@ -1,8 +1,9 @@
 package dev.itayp.tasker.planning
 
 import dev.itayp.tasker.channel.email.EmailProperties
+import dev.itayp.tasker.crypto.noopUserCryptoService
 import dev.itayp.tasker.jpa.UserEntity
-import dev.itayp.tasker.jpa.UserSettingsEntity
+import dev.itayp.tasker.model.UserSettings
 import dev.itayp.tasker.planning.dto.AgreedPlan
 import dev.itayp.tasker.planning.dto.AgreedPlanTask
 import dev.itayp.tasker.planning.dto.AgreedTimeSlot
@@ -39,11 +40,13 @@ class PlanFinalizationServiceTest {
         fromName = "Backlog.fyi",
     )
 
+    private val crypto = noopUserCryptoService()
+
     private val service by lazy {
         PlanFinalizationService(
             planningSessionService, backlogTaskService, plannedTaskService,
             userRepository, userSettingsService,
-            planInviteDispatcher, emailProps,
+            planInviteDispatcher, emailProps, crypto,
         )
     }
 
@@ -137,7 +140,7 @@ class PlanFinalizationServiceTest {
     fun `complete does not dispatch when email is not verified`() {
         val user = UserEntity().apply {
             this.id = userId
-            this.email = "unverified@example.com"
+            this.email = "unverified@example.com".toByteArray(Charsets.UTF_8)
             this.emailVerifiedAt = null
         }
         whenever(userSettingsService.getOrCreate(userId)).thenReturn(settings(calendarInviteEmail = true))
@@ -262,12 +265,21 @@ class PlanFinalizationServiceTest {
 
     private fun verifiedUser(email: String) = UserEntity().apply {
         this.id = userId
-        this.email = email
+        this.email = email.toByteArray(Charsets.UTF_8)
         this.emailVerifiedAt = Instant.now()
     }
 
-    private fun settings(calendarInviteEmail: Boolean) = UserSettingsEntity().apply {
-        this.userId = this@PlanFinalizationServiceTest.userId
-        this.calendarInviteEmail = calendarInviteEmail
-    }
+    private fun settings(calendarInviteEmail: Boolean) = UserSettings(
+        userId = userId,
+        displayName = null,
+        contextBlock = null,
+        timeZone = "UTC",
+        preferredLanguage = "en-US",
+        calendarInviteEmail = calendarInviteEmail,
+        gender = null,
+        agentDescription = null,
+        planningCron = null,
+        weekStartDay = null,
+        autoArchiveDays = null,
+    )
 }

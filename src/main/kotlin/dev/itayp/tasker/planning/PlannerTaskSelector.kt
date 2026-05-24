@@ -1,5 +1,6 @@
 package dev.itayp.tasker.planning
 
+import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.jpa.toDomain
 import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.TaskPriority
@@ -29,6 +30,7 @@ class PlannerTaskSelector(
     private val backlogTaskRepository: BacklogTaskRepository,
     private val plannedTaskRepository: PlannedTaskRepository,
     private val plannedTaskSlotRepository: PlannedTaskSlotRepository,
+    private val userCrypto: UserCryptoService,
     private val clock: Clock,
 ) {
 
@@ -43,7 +45,7 @@ class PlannerTaskSelector(
     ): PlannerTaskSelection {
         val tasks = backlogTaskRepository
             .findAllByUserIdAndStatus(userId, TaskStatus.TODO)
-            .map { it.toDomain() }
+            .map { it.toDomain(userCrypto) }
             .filter { it.relevantFrom == null || !it.relevantFrom.isAfter(today) }
 
         val totalSlots = urgentSlots + staleSlots

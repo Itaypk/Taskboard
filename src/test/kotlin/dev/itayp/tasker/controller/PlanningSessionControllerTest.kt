@@ -1,6 +1,7 @@
 package dev.itayp.tasker.controller
 
 import dev.itayp.tasker.config.SecurityConfiguration
+import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.CategoryColor
@@ -9,7 +10,7 @@ import dev.itayp.tasker.planning.PlannedTaskEntity
 import dev.itayp.tasker.planning.PlannedTaskRepository
 import dev.itayp.tasker.planning.PlannedTaskSlotRepository
 import dev.itayp.tasker.planning.PlanFinalizationService
-import dev.itayp.tasker.planning.PlanningSessionEntity
+import dev.itayp.tasker.planning.PlanningSession
 import dev.itayp.tasker.planning.PlanningSessionService
 import dev.itayp.tasker.planning.PlanningSessionStatus
 import dev.itayp.tasker.planning.dto.AgreedPlanTask
@@ -58,6 +59,9 @@ class PlanningSessionControllerTest(@Autowired val mockMvc: MockMvc) {
     @MockitoBean
     lateinit var planFinalizationService: PlanFinalizationService
 
+    @MockitoBean
+    lateinit var userCryptoService: UserCryptoService
+
     private val userId = UUID.fromString("00000000-0000-0000-0000-000000000099")
     private val sessionId = UUID.fromString("00000000-0000-0000-0000-0000000000aa")
     private val categoryId = UUID.fromString("00000000-0000-0000-0000-000000000002")
@@ -70,22 +74,23 @@ class PlanningSessionControllerTest(@Autowired val mockMvc: MockMvc) {
         listOf(SimpleGrantedAuthority("ROLE_USER")),
     )
 
-    private fun aSession(status: PlanningSessionStatus = PlanningSessionStatus.ACTIVE) = PlanningSessionEntity().apply {
-        this.id = sessionId
-        this.userId = this@PlanningSessionControllerTest.userId
-        this.status = status
-        this.startedAt = Instant.parse("2026-05-01T12:00:00Z")
-        this.weekStart = LocalDate.parse("2026-04-27") // the Monday of that week
-        this.endedAt = if (status == PlanningSessionStatus.COMPLETED) Instant.parse("2026-05-01T13:00:00Z") else null
-        this.summary = if (status == PlanningSessionStatus.COMPLETED) "Agreed plan summary." else null
-    }
+    private fun aSession(status: PlanningSessionStatus = PlanningSessionStatus.ACTIVE) = PlanningSession(
+        id = sessionId,
+        userId = userId,
+        conversationId = null,
+        status = status,
+        startedAt = Instant.parse("2026-05-01T12:00:00Z"),
+        weekStart = LocalDate.parse("2026-04-27"),
+        endedAt = if (status == PlanningSessionStatus.COMPLETED) Instant.parse("2026-05-01T13:00:00Z") else null,
+        summary = if (status == PlanningSessionStatus.COMPLETED) "Agreed plan summary." else null,
+    )
 
     private fun aPlannedTaskEntity() = PlannedTaskEntity().apply {
         this.id = plannedTaskId
         this.sessionId = this@PlanningSessionControllerTest.sessionId
         this.userId = this@PlanningSessionControllerTest.userId
         this.backlogTaskId = taskId
-        this.title = "Planned task"
+        this.title = "Planned task".toByteArray(Charsets.UTF_8)
         this.position = 0
     }
 

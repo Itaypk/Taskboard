@@ -1,5 +1,6 @@
 package dev.itayp.tasker.service
 
+import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.model.response.AccountExportResponse
 import dev.itayp.tasker.model.response.CategoryExport
 import dev.itayp.tasker.model.response.SettingsExport
@@ -26,6 +27,7 @@ class AccountService(
     private val categoryRepository: BacklogTaskCategoryRepository,
     private val settingsRepository: UserSettingsRepository,
     private val jdbcTemplate: JdbcTemplate,
+    private val userCrypto: UserCryptoService,
 ) {
 
     /** Deletes all data for a user then the user row itself. */
@@ -81,13 +83,13 @@ class AccountService(
             user = UserExport(
                 id = user.id.toString(),
                 telegramUsername = user.telegramUsername,
-                telegramFirstName = user.telegramFirstName,
+                telegramFirstName = userCrypto.decrypt(userId, user.telegramFirstName),
                 createdAt = user.createdAt?.toString(),
             ),
             settings = settings?.let {
                 SettingsExport(
-                    displayName = it.displayName,
-                    contextBlock = it.contextBlock,
+                    displayName = userCrypto.decrypt(userId, it.displayName),
+                    contextBlock = userCrypto.decrypt(userId, it.contextBlock),
                     timeZone = it.timeZone,
                     preferredLanguage = it.preferredLanguage,
                 )
@@ -110,8 +112,8 @@ class AccountService(
             tasks = tasks.map { task ->
                 TaskExport(
                     id = task.id.toString(),
-                    title = task.title ?: "",
-                    description = task.description,
+                    title = userCrypto.decrypt(userId, task.title) ?: "",
+                    description = userCrypto.decrypt(userId, task.description),
                     url = task.url,
                     priority = task.priority?.name?.lowercase(),
                     deadline = task.deadline?.toString(),

@@ -1,10 +1,9 @@
 package dev.itayp.tasker.model.response
 
-import dev.itayp.tasker.jpa.UserEntity
-import dev.itayp.tasker.jpa.UserSettingsEntity
 import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.BacklogTaskTag
+import dev.itayp.tasker.model.UserSettings
 
 data class LanguageOption(val code: String, val label: String)
 
@@ -31,7 +30,7 @@ data class UserSettingsResponse(
     val emailVerified: Boolean,
 )
 
-fun UserSettingsEntity.toResponse(user: UserEntity) = UserSettingsResponse(
+fun UserSettings.toResponse(email: String?, emailVerified: Boolean) = UserSettingsResponse(
     displayName = displayName,
     contextBlock = contextBlock,
     timeZone = timeZone,
@@ -42,8 +41,8 @@ fun UserSettingsEntity.toResponse(user: UserEntity) = UserSettingsResponse(
     planningCron = planningCron,
     weekStartDay = weekStartDay,
     autoArchiveDays = autoArchiveDays,
-    email = user.email,
-    emailVerified = user.emailVerifiedAt != null,
+    email = email,
+    emailVerified = emailVerified,
 )
 
 data class TagResponseItem(val label: String, val colorId: String)

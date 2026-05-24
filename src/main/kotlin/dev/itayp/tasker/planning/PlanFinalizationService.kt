@@ -1,6 +1,7 @@
 package dev.itayp.tasker.planning
 
 import dev.itayp.tasker.channel.email.EmailProperties
+import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.planning.dto.AgreedPlan
 import dev.itayp.tasker.planning.dto.AgreedPlanTask
 import dev.itayp.tasker.repository.UserRepository
@@ -19,6 +20,7 @@ class PlanFinalizationService(
     private val userSettingsService: UserSettingsService,
     private val planInviteDispatcher: PlanInviteDispatcher,
     private val emailProperties: EmailProperties,
+    private val userCrypto: UserCryptoService,
 ) {
     private val log = LoggerFactory.getLogger(PlanFinalizationService::class.java)
 
@@ -56,12 +58,14 @@ class PlanFinalizationService(
         if (!settings.calendarInviteEmail) return
 
         val user = userRepository.findById(userId).orElse(null) ?: return
-        if (user.emailVerifiedAt == null || user.email.isNullOrBlank()) return
+        if (user.emailVerifiedAt == null) return
+        val email = userCrypto.decrypt(userId, user.email)
+        if (email.isNullOrBlank()) return
 
         val locale = userSettingsService.getLocale(userId)
 
         planInviteDispatcher.dispatch(
-            userEmail = user.email!!,
+            userEmail = email,
             organizerEmail = emailProperties.from,
             organizerName = emailProperties.fromName,
             plan = plan,

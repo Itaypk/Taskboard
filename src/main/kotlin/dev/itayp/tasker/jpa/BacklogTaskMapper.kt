@@ -1,15 +1,17 @@
 package dev.itayp.tasker.jpa
 
+import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.BacklogTaskTag
 
-fun BacklogTaskEntity.toDomain(): BacklogTask =
-    BacklogTask(
+fun BacklogTaskEntity.toDomain(crypto: UserCryptoService): BacklogTask {
+    val ownerId = userId ?: throw IllegalStateException("BacklogTaskEntity must have userId")
+    return BacklogTask(
         id = id ?: throw IllegalStateException("BacklogTaskEntity must have an id"),
-        userId = userId ?: throw IllegalStateException("BacklogTaskEntity must have userId"),
-        title = title ?: throw IllegalStateException("BacklogTaskEntity must have title"),
-        description = description,
+        userId = ownerId,
+        title = crypto.decrypt(ownerId, title) ?: throw IllegalStateException("BacklogTaskEntity must have title"),
+        description = crypto.decrypt(ownerId, description),
         url = url,
         priority = priority,
         deadline = deadline,
@@ -24,6 +26,7 @@ fun BacklogTaskEntity.toDomain(): BacklogTask =
         lastScheduledInSessionId = lastScheduledInSessionId,
         relevantFrom = relevantFrom
     )
+}
 
 fun BacklogTaskCategoryEntity.toDomain(): BacklogTaskCategory =
     BacklogTaskCategory(

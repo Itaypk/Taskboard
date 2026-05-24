@@ -2,6 +2,7 @@ package dev.itayp.tasker.controller
 
 import dev.itayp.tasker.config.DEV_USER_ID
 import dev.itayp.tasker.config.DEV_USER_TELEGRAM_ID
+import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.model.response.MeResponse
 import dev.itayp.tasker.model.response.toMeResponse
 import dev.itayp.tasker.security.SessionAuthenticator
@@ -26,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController
 class DevAuthController(
     private val userAuthService: UserAuthService,
     private val sessionAuthenticator: SessionAuthenticator,
+    private val userCrypto: UserCryptoService,
 ) {
 
     @PostMapping("/dev-login")
@@ -36,7 +38,7 @@ class DevAuthController(
         val user = userAuthService.ensureDevUser(DEV_USER_ID, DEV_USER_TELEGRAM_ID)
         sessionAuthenticator.authenticate(TaskerPrincipal(user.id!!), request, response)
         logger.debug("Successful dev login for user ID ${user.id}")
-        return ResponseEntity.ok(user.toMeResponse())
+        return ResponseEntity.ok(user.toMeResponse(userCrypto))
     }
 
     companion object {

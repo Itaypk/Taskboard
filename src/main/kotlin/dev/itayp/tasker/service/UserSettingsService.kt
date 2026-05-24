@@ -1,6 +1,8 @@
 package dev.itayp.tasker.service
 
+import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.jpa.UserSettingsEntity
+import dev.itayp.tasker.model.UserSettings
 import dev.itayp.tasker.model.request.UpdateUserSettingsRequest
 import dev.itayp.tasker.model.response.GenderOption
 import dev.itayp.tasker.model.response.LanguageOption
@@ -19,14 +21,12 @@ data class UserPlanningScheduleChangedEvent(val userId: UUID)
 class UserSettingsService(
     private val settingsRepository: UserSettingsRepository,
     private val eventPublisher: ApplicationEventPublisher,
+    private val userCrypto: UserCryptoService,
 ) {
 
-    fun getOrCreate(userId: UUID): UserSettingsEntity =
-        settingsRepository.findById(userId).orElseGet {
-            settingsRepository.save(UserSettingsEntity().apply { this.userId = userId })
-        }
+    fun getOrCreate(userId: UUID): UserSettings = toDomain(userId, fetchOrCreate(userId))
 
-    fun update(userId: UUID, request: UpdateUserSettingsRequest): UserSettingsEntity {
+    fun update(userId: UUID, request: UpdateUserSettingsRequest): UserSettings {
         require(request.timeZone in SUPPORTED_TIME_ZONES) { "Unsupported time zone: ${request.timeZone}" }
         require(SUPPORTED_LANGUAGES.any { it.code == request.preferredLanguage }) {
             "Unsupported language: ${request.preferredLanguage}"
@@ -40,16 +40,16 @@ class UserSettingsService(
         request.weekStartDay?.let {
             require(runCatching { DayOfWeek.valueOf(it) }.isSuccess) { "Unsupported week start day: $it" }
         }
-        val entity = getOrCreate(userId)
+        val entity = fetchOrCreate(userId)
         val scheduleChanged = entity.planningCron != request.planningCron ||
             entity.timeZone != request.timeZone
-        entity.displayName = request.displayName
-        entity.contextBlock = request.contextBlock
+        entity.displayName = userCrypto.encrypt(userId, request.displayName)
+        entity.contextBlock = userCrypto.encrypt(userId, request.contextBlock)
         entity.timeZone = request.timeZone
         entity.preferredLanguage = request.preferredLanguage
         entity.calendarInviteEmail = request.calendarInviteEmail
         entity.gender = request.gender
-        entity.agentDescription = request.agentDescription
+        entity.agentDescription = userCrypto.encrypt(userId, request.agentDescription)
         entity.planningCron = request.planningCron
         entity.weekStartDay = request.weekStartDay
         entity.autoArchiveDays = request.autoArchiveDays
@@ -57,14 +57,46 @@ class UserSettingsService(
         if (scheduleChanged) {
             eventPublisher.publishEvent(UserPlanningScheduleChangedEvent(userId))
         }
-        return saved
+        return toDomain(userId, saved)
     }
 
-    fun getLocale(userId: UUID): Locale = Locale.forLanguageTag(getOrCreate(userId).preferredLanguage)
+    /**
+     * `findAllByPlanningCronIsNotNull` returns raw entities for the scheduler; only the
+     * non-sensitive scheduling fields (`planningCron`, `timeZone`, `weekStartDay`, `userId`)
+     * are read. Sensitive fields stay as ciphertext on the returned entities — do not
+     * surface them to callers without going through this service's domain mappers.
+     */
+    fun findAllWithPlanningCron(): List<UserSettingsEntity> =
+        settingsRepository.findAllByPlanningCronIsNotNull()
+
+    fun findAllWithAutoArchive(): List<UserSettingsEntity> =
+        settingsRepository.findAllByAutoArchiveDaysIsNotNull()
+
+    fun getLocale(userId: UUID): Locale = Locale.forLanguageTag(fetchOrCreate(userId).preferredLanguage)
 
     fun initializeForNewUser(userId: UUID) {
         settingsRepository.save(UserSettingsEntity().apply { this.userId = userId })
     }
+
+    private fun fetchOrCreate(userId: UUID): UserSettingsEntity =
+        settingsRepository.findById(userId).orElseGet {
+            settingsRepository.save(UserSettingsEntity().apply { this.userId = userId })
+        }
+
+    private fun toDomain(userId: UUID, entity: UserSettingsEntity): UserSettings =
+        UserSettings(
+            userId = userId,
+            displayName = userCrypto.decrypt(userId, entity.displayName),
+            contextBlock = userCrypto.decrypt(userId, entity.contextBlock),
+            timeZone = entity.timeZone,
+            preferredLanguage = entity.preferredLanguage,
+            calendarInviteEmail = entity.calendarInviteEmail,
+            gender = entity.gender,
+            agentDescription = userCrypto.decrypt(userId, entity.agentDescription),
+            planningCron = entity.planningCron,
+            weekStartDay = entity.weekStartDay,
+            autoArchiveDays = entity.autoArchiveDays,
+        )
 
     companion object {
         val SUPPORTED_TIME_ZONES: List<String> = (

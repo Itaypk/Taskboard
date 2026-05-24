@@ -38,6 +38,6 @@ open class PlanningSessionEntity {
     @Column(name = "ended_at")
     var endedAt: Instant? = null
 
-    @Column(length = 4000)
-    var summary: String? = null
+    @Column
+    var summary: ByteArray? = null
 }

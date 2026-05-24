@@ -1,15 +1,11 @@
 package dev.itayp.tasker.ai.conversation
 
-import dev.itayp.tasker.ai.client.ChatMessage
-import dev.itayp.tasker.ai.client.ToolCall
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
-import tools.jackson.core.type.TypeReference
-import tools.jackson.databind.ObjectMapper
 import java.time.Instant
 import java.util.UUID
 
@@ -26,11 +22,11 @@ open class MessageEntity {
     @Column(nullable = false)
     var role: String? = null
 
-    @Column(columnDefinition = "TEXT")
-    var content: String? = null
+    @Column
+    var content: ByteArray? = null
 
-    @Column(name = "tool_calls_json", columnDefinition = "TEXT")
-    var toolCallsJson: String? = null
+    @Column(name = "tool_calls_json")
+    var toolCallsJson: ByteArray? = null
 
     @Column(name = "tool_call_id")
     var toolCallId: String? = null
@@ -49,16 +45,4 @@ open class MessageEntity {
 
     @Column(name = "created_at", nullable = false)
     var createdAt: Instant? = null
-}
-
-fun MessageEntity.toChatMessage(objectMapper: ObjectMapper): ChatMessage {
-    val toolCalls = toolCallsJson?.let {
-        objectMapper.readValue(it, object : TypeReference<List<ToolCall>>() {})
-    }
-    return ChatMessage(
-        role = role!!,
-        content = content,
-        toolCalls = toolCalls,
-        toolCallId = toolCallId,
-    )
 }

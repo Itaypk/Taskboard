@@ -1,5 +1,6 @@
 package dev.itayp.tasker.service
 
+import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.jpa.BacklogTaskEntity
 import dev.itayp.tasker.jpa.BacklogTaskTagEntity
 import dev.itayp.tasker.jpa.toDomain
@@ -32,18 +33,19 @@ class BacklogTaskService(
     private val tagRepository: BacklogTaskTagRepository,
     private val taskChangeService: BacklogTaskChangeService,
     private val userSettingsService: UserSettingsService,
+    private val userCrypto: UserCryptoService,
     private val clock: Clock,
 ) {
 
     fun getAllTasksForUser(userId: UUID): List<BacklogTask> =
-        backlogTaskRepository.findAllByUserIdOrderBySortKeyAsc(userId).map { it.toDomain() }
+        backlogTaskRepository.findAllByUserIdOrderBySortKeyAsc(userId).map { it.toDomain(userCrypto) }
 
     fun getTasksForUser(userId: UUID, status: TaskStatus?): List<BacklogTask> {
         val entities = when (status) {
             null -> backlogTaskRepository.findAllByUserIdAndStatusNotOrderBySortKeyAsc(userId, TaskStatus.ARCHIVED)
             else -> backlogTaskRepository.findAllByUserIdAndStatusOrderBySortKeyAsc(userId, status)
         }
-        val tasks = entities.map { it.toDomain() }
+        val tasks = entities.map { it.toDomain(userCrypto) }
         // Hide future-dated tasks from the To Do view; all other statuses show them regardless.
         return if (status == TaskStatus.TODO) {
             val zone = runCatching { ZoneId.of(userSettingsService.getOrCreate(userId).timeZone) }
@@ -54,13 +56,13 @@ class BacklogTaskService(
     }
 
     fun getTaskById(userId: UUID, id: UUID): BacklogTask? =
-        backlogTaskRepository.findByIdAndUserId(id, userId)?.toDomain()
+        backlogTaskRepository.findByIdAndUserId(id, userId)?.toDomain(userCrypto)
 
     @Transactional(readOnly = true)
     fun getTasksScheduledInSession(userId: UUID, sessionId: UUID): List<BacklogTask> =
         backlogTaskRepository
             .findAllByUserIdAndLastScheduledInSessionIdOrderBySortKeyAsc(userId, sessionId)
-            .map { it.toDomain() }
+            .map { it.toDomain(userCrypto) }
 
     @Transactional
     fun stampPlanningSession(userId: UUID, taskIds: List<UUID>, sessionId: UUID) {
@@ -81,8 +83,8 @@ class BacklogTaskService(
 
         val entity = BacklogTaskEntity().apply {
             this.userId = userId
-            this.title = request.title
-            this.description = request.description
+            this.title = userCrypto.encrypt(userId, request.title)
+            this.description = userCrypto.encrypt(userId, request.description)
             this.url = request.url
             this.priority = request.priority?.let { TaskPriority.valueOf(it.uppercase()) }
             this.deadline = request.deadline?.let { LocalDate.parse(it) }
@@ -97,8 +99,8 @@ class BacklogTaskService(
         }
 
         val saved = backlogTaskRepository.save(entity)
-        taskChangeService.recordCreated(userId, saved.id!!, saved.title!!, saved.status!!)
-        return saved.toDomain()
+        taskChangeService.recordCreated(userId, saved.id!!, request.title, saved.status!!)
+        return saved.toDomain(userCrypto)
     }
 
     @Transactional
@@ -113,8 +115,8 @@ class BacklogTaskService(
         val previousStatus = entity.status!!
         val newStatus = TaskStatus.valueOf(request.status.uppercase())
 
-        entity.title = request.title
-        entity.description = request.description
+        entity.title = userCrypto.encrypt(userId, request.title)
+        entity.description = userCrypto.encrypt(userId, request.description)
         entity.url = request.url
         entity.priority = request.priority?.let { TaskPriority.valueOf(it.uppercase()) }
         entity.deadline = request.deadline?.let { LocalDate.parse(it) }
@@ -126,8 +128,8 @@ class BacklogTaskService(
         entity.updatedAt = Instant.now()
 
         val saved = backlogTaskRepository.save(entity)
-        taskChangeService.recordStatusChange(userId, saved.id!!, saved.title!!, previousStatus, newStatus)
-        return saved.toDomain()
+        taskChangeService.recordStatusChange(userId, saved.id!!, request.title, previousStatus, newStatus)
+        return saved.toDomain(userCrypto)
     }
 
     @Transactional
@@ -165,10 +167,10 @@ class BacklogTaskService(
         ) {
             rebalanceKeys(userId)
             // Re-fetch after rebalance to return the fresh sort key.
-            return (backlogTaskRepository.findByIdAndUserId(taskId, userId) ?: saved).toDomain()
+            return (backlogTaskRepository.findByIdAndUserId(taskId, userId) ?: saved).toDomain(userCrypto)
         }
 
-        return saved.toDomain()
+        return saved.toDomain(userCrypto)
     }
 
     @Transactional
@@ -184,7 +186,7 @@ class BacklogTaskService(
     fun deleteTask(userId: UUID, id: UUID) {
         val entity = backlogTaskRepository.findByIdAndUserId(id, userId)
             ?: throw NoSuchElementException("Task $id not found")
-        val title = entity.title!!
+        val title = userCrypto.decrypt(userId, entity.title) ?: ""
         val status = entity.status!!
         backlogTaskRepository.delete(entity)
         taskChangeService.recordDeleted(userId, id, title, status)

@@ -3,11 +3,12 @@ package dev.itayp.tasker.ai
 import dev.itayp.tasker.ai.client.AiClient
 import dev.itayp.tasker.ai.client.ChatMessage
 import dev.itayp.tasker.ai.client.ChatRequest
+import dev.itayp.tasker.ai.client.ToolCall
 import dev.itayp.tasker.ai.conversation.ConversationService
-import dev.itayp.tasker.ai.conversation.toChatMessage
 import dev.itayp.tasker.ai.tool.ToolRegistry
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
+import tools.jackson.core.type.TypeReference
 import tools.jackson.databind.ObjectMapper
 import java.util.UUID
 
@@ -73,15 +74,23 @@ class AiConversationManager(
             ?: error("Conversation $conversationId not found")
 
         val tools = toolRegistry.toDefinitions().takeIf { it.isNotEmpty() }
-        val storedMessages = conversationService.getMessages(conversationId)
-            .map { it.toChatMessage(objectMapper) }
+        val storedMessages = conversationService.getMessages(conversationId).map { msg ->
+            ChatMessage(
+                role = msg.role,
+                content = msg.content,
+                toolCalls = msg.toolCallsJson?.let {
+                    objectMapper.readValue(it, object : TypeReference<List<ToolCall>>() {})
+                },
+                toolCallId = msg.toolCallId,
+            )
+        }
         val systemMessage = conversation.systemPrompt
             ?.let { listOf(ChatMessage(role = "system", content = it)) }
             ?: emptyList()
         val messages = systemMessage + storedMessages
 
         val request = ChatRequest(
-            model = conversation.model!!,
+            model = conversation.model,
             messages = messages,
             tools = tools,
             temperature = conversation.temperature,

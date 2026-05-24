@@ -1,5 +1,6 @@
 package dev.itayp.tasker.planning
 
+import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.planning.dto.AgreedPlanTask
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -9,6 +10,7 @@ import java.util.UUID
 class PlannedTaskService(
     private val plannedTaskRepository: PlannedTaskRepository,
     private val plannedTaskSlotRepository: PlannedTaskSlotRepository,
+    private val userCrypto: UserCryptoService,
 ) {
     @Transactional
     fun persist(sessionId: UUID, userId: UUID, tasks: List<AgreedPlanTask>) {
@@ -41,8 +43,8 @@ class PlannedTaskService(
 
         val entity = if (existing != null) {
             plannedTaskSlotRepository.deleteAllByPlannedTaskId(existing.id!!)
-            existing.title = task.title
-            existing.notes = task.notes
+            existing.title = userCrypto.encrypt(userId, task.title)
+            existing.notes = userCrypto.encrypt(userId, task.notes)
             existing.position = position
             plannedTaskRepository.save(existing)
         } else {
@@ -50,8 +52,8 @@ class PlannedTaskService(
                 this.sessionId = sessionId
                 this.userId = userId
                 this.backlogTaskId = task.taskId
-                this.title = task.title
-                this.notes = task.notes
+                this.title = userCrypto.encrypt(userId, task.title)
+                this.notes = userCrypto.encrypt(userId, task.notes)
                 this.position = position
             })
         }

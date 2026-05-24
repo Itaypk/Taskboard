@@ -63,7 +63,7 @@ class PostgresIntegrationTest(
         val user = UserEntity().apply {
             id = UUID.randomUUID()
             telegramId = System.nanoTime()
-            telegramFirstName = "Integration"
+            telegramFirstName = "Integration".toByteArray()
             telegramUsername = "pg_integration_test"
             createdAt = Instant.now()
             lastLoginAt = Instant.now()
@@ -73,7 +73,7 @@ class PostgresIntegrationTest(
         val found = userRepository.findById(user.id!!)
         assertThat(found).isPresent
         assertThat(found.get().telegramId).isEqualTo(user.telegramId)
-        assertThat(found.get().telegramFirstName).isEqualTo("Integration")
+        assertThat(found.get().telegramFirstName?.toString(Charsets.UTF_8)).isEqualTo("Integration")
     }
 
     @Test
@@ -81,7 +81,7 @@ class PostgresIntegrationTest(
         val user = UserEntity().apply {
             id = UUID.randomUUID()
             telegramId = System.nanoTime()
-            telegramFirstName = "Delete Test"
+            telegramFirstName = "Delete Test".toByteArray()
             telegramUsername = "delete_test_${System.nanoTime()}"
             createdAt = Instant.now()
             lastLoginAt = Instant.now()
@@ -96,7 +96,7 @@ class PostgresIntegrationTest(
 
         val task = BacklogTaskEntity().apply {
             userId = user.id
-            title = "Task to delete"
+            title = "Task to delete".toByteArray()
             status = TaskStatus.TODO
             category = testCategory
             sortKey = "a"
@@ -117,13 +117,14 @@ class PostgresIntegrationTest(
         val user = userRepository.save(UserEntity().apply {
             id = UUID.randomUUID()
             telegramId = System.nanoTime()
-            telegramFirstName = "AI Test"
+            telegramFirstName = "AI Test".toByteArray()
             telegramUsername = "ai_clob_test_${System.nanoTime()}"
             createdAt = Instant.now()
             lastLoginAt = Instant.now()
         })
 
-        val longSystemPrompt = "x".repeat(8_000)
+        // Sensitive columns are now BYTEA — round-trip raw bytes through the encrypted column.
+        val longSystemPrompt = ByteArray(8_000) { 'x'.code.toByte() }
 
         val conversation = conversationRepository.save(ConversationEntity().apply {
             this.userId = user.id
@@ -142,11 +143,11 @@ class PostgresIntegrationTest(
     }
 
     @Test
-    fun `ai_message content and tool_calls_json CLOBs survive a round-trip through PostgreSQL`() {
+    fun `ai_message content and tool_calls_json BYTEA columns survive a round-trip through PostgreSQL`() {
         val user = userRepository.save(UserEntity().apply {
             id = UUID.randomUUID()
             telegramId = System.nanoTime()
-            telegramFirstName = "AI Msg Test"
+            telegramFirstName = "AI Msg Test".toByteArray()
             telegramUsername = "ai_msg_clob_test_${System.nanoTime()}"
             createdAt = Instant.now()
             lastLoginAt = Instant.now()
@@ -162,8 +163,8 @@ class PostgresIntegrationTest(
             this.lastActivityAt = Instant.now()
         })
 
-        val longContent = "a".repeat(8_000)
-        val longToolCallsJson = "b".repeat(8_000)
+        val longContent = ByteArray(8_000) { 'a'.code.toByte() }
+        val longToolCallsJson = ByteArray(8_000) { 'b'.code.toByte() }
 
         val message = messageRepository.save(MessageEntity().apply {
             this.conversationId = conversation.id

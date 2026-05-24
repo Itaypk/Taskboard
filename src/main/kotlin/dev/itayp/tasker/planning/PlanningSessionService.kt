@@ -1,5 +1,6 @@
 package dev.itayp.tasker.planning
 
+import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.repository.BacklogTaskRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -12,6 +13,7 @@ class PlanningSessionService(
     private val planningSessionRepository: PlanningSessionRepository,
     private val backlogTaskChangeService: BacklogTaskChangeService,
     private val backlogTaskRepository: BacklogTaskRepository,
+    private val userCrypto: UserCryptoService,
     private val clock: Clock,
 ) {
 
@@ -20,10 +22,10 @@ class PlanningSessionService(
         userId: UUID,
         weekStart: LocalDate,
         conversationId: UUID? = null,
-    ): PlanningSessionEntity {
+    ): PlanningSession {
         val active = planningSessionRepository
             .findFirstByUserIdAndStatusOrderByStartedAtDesc(userId, PlanningSessionStatus.ACTIVE)
-        if (active != null && active.weekStart == weekStart) return active
+        if (active != null && active.weekStart == weekStart) return active.toDomain(userCrypto)
 
         // Bump reschedule counts for tasks that were scheduled in the previous completed
         // session but never marked DONE — they're being carried into this new session.
@@ -39,19 +41,21 @@ class PlanningSessionService(
             this.status = PlanningSessionStatus.ACTIVE
             this.startedAt = clock.instant()
             this.weekStart = weekStart
-        })
+        }).toDomain(userCrypto)
     }
 
     @Transactional(readOnly = true)
-    fun findSessionForWeek(userId: UUID, weekStart: LocalDate): PlanningSessionEntity? =
-        planningSessionRepository.findFirstByUserIdAndWeekStartOrderByStartedAtDesc(userId, weekStart)
+    fun findSessionForWeek(userId: UUID, weekStart: LocalDate): PlanningSession? =
+        planningSessionRepository
+            .findFirstByUserIdAndWeekStartOrderByStartedAtDesc(userId, weekStart)
+            ?.toDomain(userCrypto)
 
     @Transactional
-    fun completeSession(userId: UUID, sessionId: UUID, summary: String?): PlanningSessionEntity =
+    fun completeSession(userId: UUID, sessionId: UUID, summary: String?): PlanningSession =
         endSession(userId, sessionId, PlanningSessionStatus.COMPLETED, summary)
 
     @Transactional
-    fun abandonSession(userId: UUID, sessionId: UUID): PlanningSessionEntity =
+    fun abandonSession(userId: UUID, sessionId: UUID): PlanningSession =
         endSession(userId, sessionId, PlanningSessionStatus.ABANDONED, summary = null)
 
     private fun endSession(
@@ -59,30 +63,31 @@ class PlanningSessionService(
         sessionId: UUID,
         status: PlanningSessionStatus,
         summary: String?,
-    ): PlanningSessionEntity {
+    ): PlanningSession {
         val session = planningSessionRepository.findByIdAndUserId(sessionId, userId)
             ?: throw NoSuchElementException("Planning session $sessionId not found")
         session.status = status
         session.endedAt = clock.instant()
-        if (summary != null) session.summary = summary
-        return planningSessionRepository.save(session)
+        if (summary != null) session.summary = userCrypto.encrypt(userId, summary)
+        return planningSessionRepository.save(session).toDomain(userCrypto)
     }
 
     @Transactional
     fun updateSummary(sessionId: UUID, summary: String?) {
         val session = planningSessionRepository.findById(sessionId).orElseThrow()
-        session.summary = summary
+        session.summary = userCrypto.encrypt(session.userId!!, summary)
         planningSessionRepository.save(session)
     }
 
     @Transactional(readOnly = true)
-    fun findById(userId: UUID, sessionId: UUID): PlanningSessionEntity? =
-        planningSessionRepository.findByIdAndUserId(sessionId, userId)
+    fun findById(userId: UUID, sessionId: UUID): PlanningSession? =
+        planningSessionRepository.findByIdAndUserId(sessionId, userId)?.toDomain(userCrypto)
 
     @Transactional(readOnly = true)
-    fun findActiveSession(userId: UUID): PlanningSessionEntity? =
+    fun findActiveSession(userId: UUID): PlanningSession? =
         planningSessionRepository
             .findFirstByUserIdAndStatusOrderByStartedAtDesc(userId, PlanningSessionStatus.ACTIVE)
+            ?.toDomain(userCrypto)
 
     /**
      * The session that should be treated as "the user's current weekly plan" in the UI.
@@ -91,19 +96,21 @@ class PlanningSessionService(
      * never count.
      */
     @Transactional(readOnly = true)
-    fun findCurrentPlan(userId: UUID): PlanningSessionEntity? =
+    fun findCurrentPlan(userId: UUID): PlanningSession? =
         findActiveSession(userId)
             ?: planningSessionRepository
                 .findFirstByUserIdAndStatusOrderByStartedAtDesc(userId, PlanningSessionStatus.COMPLETED)
+                ?.toDomain(userCrypto)
 
     /**
      * Returns the session whose summary should be prepended to the next session's prompt.
      * Skips ABANDONED sessions, falling through to the most recent COMPLETED one.
      */
     @Transactional(readOnly = true)
-    fun findPreviousSummarizableSession(userId: UUID): PlanningSessionEntity? =
+    fun findPreviousSummarizableSession(userId: UUID): PlanningSession? =
         planningSessionRepository
             .findFirstByUserIdAndStatusOrderByStartedAtDesc(userId, PlanningSessionStatus.COMPLETED)
+            ?.toDomain(userCrypto)
 
     /**
      * Computes the diff of backlog task changes between the user's previous completed planning

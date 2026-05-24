@@ -1,5 +1,6 @@
 package dev.itayp.tasker.service
 
+import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.model.TaskStatus
 import dev.itayp.tasker.planning.BacklogTaskChangeService
 import dev.itayp.tasker.repository.BacklogTaskRepository
@@ -16,6 +17,7 @@ class TaskAutoArchiveService(
     private val userSettingsRepository: UserSettingsRepository,
     private val backlogTaskRepository: BacklogTaskRepository,
     private val taskChangeService: BacklogTaskChangeService,
+    private val userCrypto: UserCryptoService,
     private val clock: Clock,
 ) {
 
@@ -38,8 +40,9 @@ class TaskAutoArchiveService(
                 entity.status = TaskStatus.ARCHIVED
                 entity.updatedAt = now
                 backlogTaskRepository.save(entity)
+                val plaintextTitle = userCrypto.decrypt(userId, entity.title) ?: ""
                 taskChangeService.recordStatusChange(
-                    userId, entity.id!!, entity.title!!, TaskStatus.DONE, TaskStatus.ARCHIVED
+                    userId, entity.id!!, plaintextTitle, TaskStatus.DONE, TaskStatus.ARCHIVED
                 )
             }
             totalArchived += stale.size

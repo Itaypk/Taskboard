@@ -4,8 +4,8 @@ import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ChoiceOption
 import dev.itayp.tasker.channel.telegram.TelegramConversationChannel
 import dev.itayp.tasker.channel.telegram.TelegramSessionRegistry
-import dev.itayp.tasker.jpa.UserSettingsEntity
-import dev.itayp.tasker.planning.PlanningSessionEntity
+import dev.itayp.tasker.model.UserSettings
+import dev.itayp.tasker.planning.PlanningSession
 import dev.itayp.tasker.planning.PlanningSessionService
 import dev.itayp.tasker.planning.PlanningSessionStatus
 import dev.itayp.tasker.planning.WeeklyPlanningOrchestrator
@@ -79,11 +79,19 @@ class PlanBotCommandTest {
 
     private fun stubUserSettings(weekStartDay: String? = "MONDAY", timeZone: String = "UTC") {
         whenever(userSettingsService.getOrCreate(userId)).thenReturn(
-            UserSettingsEntity().apply {
-                this.userId = this@PlanBotCommandTest.userId
-                this.timeZone = timeZone
-                this.weekStartDay = weekStartDay
-            }
+            UserSettings(
+                userId = userId,
+                displayName = null,
+                contextBlock = null,
+                timeZone = timeZone,
+                preferredLanguage = "en-US",
+                calendarInviteEmail = false,
+                gender = null,
+                agentDescription = null,
+                planningCron = null,
+                weekStartDay = weekStartDay,
+                autoArchiveDays = null,
+            )
         )
     }
 
@@ -93,12 +101,16 @@ class PlanBotCommandTest {
         whenever(sessionRegistry.get(chatId)).thenReturn(sessionId)
         whenever(orchestrator.phase(sessionId)).thenReturn(WeeklyPlanningOrchestrator.Phase.CONVERSING)
         whenever(planningSessionService.findById(userId, sessionId)).thenReturn(
-            PlanningSessionEntity().apply {
-                id = sessionId
-                this.userId = this@PlanBotCommandTest.userId
-                status = PlanningSessionStatus.ACTIVE
-                weekStart = LocalDate.parse("2026-05-11")
-            }
+            PlanningSession(
+                id = sessionId,
+                userId = userId,
+                conversationId = null,
+                status = PlanningSessionStatus.ACTIVE,
+                startedAt = Instant.parse("2026-05-11T10:00:00Z"),
+                weekStart = LocalDate.parse("2026-05-11"),
+                endedAt = null,
+                summary = null,
+            )
         )
 
         command.handle(context())
@@ -124,13 +136,16 @@ class PlanBotCommandTest {
     @Test
     fun `shows completed plan summary and registers confirmation when completed plan exists`() {
         whenever(sessionRegistry.get(chatId)).thenReturn(null)
-        val completedPlan = PlanningSessionEntity().apply {
-            id = UUID.randomUUID()
-            this.userId = this@PlanBotCommandTest.userId
-            status = PlanningSessionStatus.COMPLETED
-            weekStart = LocalDate.parse("2026-05-11")
-            summary = "Week 20 plan summary"
-        }
+        val completedPlan = PlanningSession(
+            id = UUID.randomUUID(),
+            userId = userId,
+            conversationId = null,
+            status = PlanningSessionStatus.COMPLETED,
+            startedAt = Instant.parse("2026-05-11T10:00:00Z"),
+            weekStart = LocalDate.parse("2026-05-11"),
+            endedAt = null,
+            summary = "Week 20 plan summary",
+        )
         whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(completedPlan)
 
         command.handle(context())
@@ -180,13 +195,16 @@ class PlanBotCommandTest {
     @Test
     fun `prompts week picker when completed plan exists but has no summary`() {
         whenever(sessionRegistry.get(chatId)).thenReturn(null)
-        val completedPlan = PlanningSessionEntity().apply {
-            id = UUID.randomUUID()
-            this.userId = this@PlanBotCommandTest.userId
-            status = PlanningSessionStatus.COMPLETED
-            weekStart = LocalDate.parse("2026-05-11")
-            summary = null
-        }
+        val completedPlan = PlanningSession(
+            id = UUID.randomUUID(),
+            userId = userId,
+            conversationId = null,
+            status = PlanningSessionStatus.COMPLETED,
+            startedAt = Instant.parse("2026-05-11T10:00:00Z"),
+            weekStart = LocalDate.parse("2026-05-11"),
+            endedAt = null,
+            summary = null,
+        )
         whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(completedPlan)
         stubUserSettings()
 
