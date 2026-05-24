@@ -3,7 +3,7 @@ import type { Task, Tag, TagColorId, Category } from '../types';
 import { TAG_PALETTE, PAPER_SWATCHES } from '../types';
 import { WashiTape } from './WashiTape';
 import { Autocomplete } from './Autocomplete';
-import { generateId } from '../utils';
+import { generateId, formatRelative } from '../utils';
 
 interface TaskDrawerProps {
   task: Task | null;
@@ -347,6 +347,13 @@ export function TaskDrawer({
           </div>
         </div>
 
+        {!isNew && task && (
+          <div className="drawer__timestamps">
+            <span>Created {formatRelative(task.createdAt)}</span>
+            {task.updatedAt && <span>· Updated {formatRelative(task.updatedAt)}</span>}
+          </div>
+        )}
+
         <div className="drawer__footer">
           <div className="drawer__footer-left">
             {!isNew && (
@@ -373,7 +380,7 @@ export function TaskDrawer({
                     className="btn btn--ghost btn--sm"
                     onClick={() => { onMarkDone(task!.id); onClose(); }}
                   >
-                    ✓ Mark done
+                    Mark done
                   </button>
                 )}
                 <button

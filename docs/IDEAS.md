@@ -4,11 +4,9 @@ The scope of the individual idea is varying - could be small UI improvements, or
 
 ## Small Improvements and Concerns
 - Client side error messages - more friendly? error reference? email support?
-- AI assistant is not very fast - need some "thinking..." or the such while it works on a response (added "Typing" indicator, but I'm not sure if that works)
 - AI assistant should be aware of the notification delivery methods (e.g., invitation emails, nothing)
 - Fonts look bad in Hebrew (especially the header - serif - ones). Either choose one that support multilanguage, or use language-specific ones.
-- Tasks that are only relevant in the future - special field for that, do not display in default view
-- Translations: first start with emails, then consider the application itself
+- Translate the application
 - Auto update (UI) - do we consider changes in tasks, or just additions/deletions?
 
 ### UI - Tasks

@@ -112,6 +112,19 @@ class BacklogTaskController(
         }
     }
 
+    @DeleteMapping("/tasks/{id}/plan-schedule")
+    fun unscheduleTask(
+        @AuthenticationPrincipal principal: TaskerPrincipal,
+        @PathVariable id: UUID,
+    ): ResponseEntity<Void> {
+        return try {
+            backlogTaskService.unscheduleTask(principal.userId, id)
+            ResponseEntity.noContent().build()
+        } catch (e: NoSuchElementException) {
+            ResponseEntity.notFound().build()
+        }
+    }
+
     @PatchMapping("/tasks/{id}/reorder")
     fun reorderBacklogTask(
         @AuthenticationPrincipal principal: TaskerPrincipal,

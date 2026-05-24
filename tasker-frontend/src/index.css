@@ -612,6 +612,17 @@ input[type="number"] { -moz-appearance: textfield; }
   gap: 20px;
 }
 
+.drawer__timestamps {
+  padding: 0 24px 10px 60px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-ghost);
+  letter-spacing: 0.03em;
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
 .drawer__footer {
   display: flex;
   align-items: center;
@@ -697,6 +708,9 @@ input[type="number"] { -moz-appearance: textfield; }
 .field__select:focus {
   border-color: var(--accent-edge);
   background: rgba(255, 255, 255, 0.9);
+}
+.field__input--error {
+  border-color: #b91c1c !important;
 }
 .field__input::placeholder,
 .field__textarea::placeholder {

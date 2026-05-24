@@ -68,6 +68,13 @@ class PlanningSessionService(
         return planningSessionRepository.save(session)
     }
 
+    @Transactional
+    fun updateSummary(sessionId: UUID, summary: String?) {
+        val session = planningSessionRepository.findById(sessionId).orElseThrow()
+        session.summary = summary
+        planningSessionRepository.save(session)
+    }
+
     @Transactional(readOnly = true)
     fun findById(userId: UUID, sessionId: UUID): PlanningSessionEntity? =
         planningSessionRepository.findByIdAndUserId(sessionId, userId)

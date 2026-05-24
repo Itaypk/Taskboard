@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import type { CurrentPlan } from '../types';
+import { formatRelative, formatTimeSlot } from '../utils';
 import styles from './CurrentPlanDrawer.module.css';
 
 interface CurrentPlanDrawerProps {
@@ -7,9 +8,10 @@ interface CurrentPlanDrawerProps {
   open: boolean;
   onClose: () => void;
   onTaskClick: (taskId: string) => void;
+  onTaskContextMenu?: (e: React.MouseEvent, taskId: string) => void;
 }
 
-export function CurrentPlanDrawer({ plan, open, onClose, onTaskClick }: CurrentPlanDrawerProps) {
+export function CurrentPlanDrawer({ plan, open, onClose, onTaskClick, onTaskContextMenu }: CurrentPlanDrawerProps) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     if (open) window.addEventListener('keydown', handler);
@@ -81,13 +83,21 @@ export function CurrentPlanDrawer({ plan, open, onClose, onTaskClick }: CurrentP
                           type="button"
                           className={styles.taskItem}
                           onClick={() => onTaskClick(task.id)}
+                          onContextMenu={onTaskContextMenu ? e => { e.preventDefault(); onTaskContextMenu(e, task.id); } : undefined}
                         >
                           <span
                             className={`${styles.statusDot} ${task.status === 'done' ? styles.statusDotDone : styles.statusDotTodo}`}
                             aria-label={task.status === 'done' ? 'Done' : 'To do'}
                           />
-                          <span className={`${styles.taskTitle} ${task.status === 'done' ? styles.taskTitleDone : ''}`}>
-                            {task.title}
+                          <span className={styles.taskContent}>
+                            <span className={`${styles.taskTitle} ${task.status === 'done' ? styles.taskTitleDone : ''}`}>
+                              {task.title}
+                            </span>
+                            {task.slots.length > 0 && (
+                              <span className={styles.taskSlot}>
+                                {formatTimeSlot(task.slots[0].startIso, task.slots[0].endIso)}
+                              </span>
+                            )}
                           </span>
                         </button>
                       </li>
@@ -118,14 +128,3 @@ function formatWeekRange(weekStart: string, weekEnd: string): string {
   return `${startMonth} ${startDay} – ${endMonth} ${endDay}, ${year}`;
 }
 
-function formatRelative(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  const diffMs = Date.now() - date.getTime();
-  const diffHours = Math.round(diffMs / (1000 * 60 * 60));
-  if (diffHours < 1) return 'just now';
-  if (diffHours < 24) return `${diffHours}h ago`;
-  const diffDays = Math.round(diffHours / 24);
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}

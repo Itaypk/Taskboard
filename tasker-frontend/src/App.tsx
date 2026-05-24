@@ -19,8 +19,11 @@ import { TaskDrawer } from './components/TaskDrawer';
 import { SettingsModal } from './components/SettingsModal';
 import { BoardFilter } from './components/BoardFilter';
 import { CurrentPlanDrawer } from './components/CurrentPlanDrawer';
+import { ContextMenu, type ContextMenuAction } from './components/ContextMenu';
+import { ConfirmDialog } from './components/ConfirmDialog';
+import { ScheduleTaskModal } from './components/ScheduleTaskModal';
 import { DEFAULT_SETTINGS } from './data';
-import { fetchTasks, fetchCategories, fetchUserSettings, fetchTags, fetchCurrentPlan, checkTaskChanges, createTask, updateTask, deleteTask, reorderTask, type TaskStatusFilter } from './api';
+import { fetchTasks, fetchCategories, fetchUserSettings, fetchTags, fetchCurrentPlan, checkTaskChanges, createTask, updateTask, deleteTask, reorderTask, removeTaskFromPlan, addTaskToPlan, type TaskStatusFilter } from './api';
 import type { Task, UserSettings, Tag, CurrentPlan, TaskFilter } from './types';
 import { Routes, Route } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
@@ -127,6 +130,9 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const [archivedTasks, setArchivedTasks] = useState<Task[]>([]);
   const [currentPlan, setCurrentPlan] = useState<CurrentPlan | null>(null);
   const [planDrawerOpen, setPlanDrawerOpen] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; taskId: string; inPlan: boolean } | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ taskId: string; title: string } | null>(null);
+  const [scheduleModal, setScheduleModal] = useState<{ taskId: string; title: string } | null>(null);
   const lastSyncedAt = useRef(new Date().toISOString());
 
   // Mouse: start drag after 5px to keep clicks alive.
@@ -244,14 +250,14 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = useCallback(async (id: string) => {
     try {
       await deleteTask(id);
       setTasks(prev => prev.filter(t => t.id !== id));
     } catch (e) {
       console.error('Failed to delete task', e);
     }
-  };
+  }, []);
 
   const handleMarkDone = useCallback((id: string) => {
     const task = tasks.find(t => t.id === id);
@@ -285,6 +291,56 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
       console.error('Failed to mark task todo', e);
     });
   }, [tasks, archivedTasks]);
+
+  const handleRemoveFromPlan = useCallback(async (id: string) => {
+    try {
+      await removeTaskFromPlan(id);
+      setTasks(prev => prev.map(t => t.id === id ? { ...t, lastScheduledInSessionId: null } : t));
+      setCurrentPlan(prev => prev ? { ...prev, tasks: prev.tasks.filter(t => t.id !== id) } : prev);
+    } catch (e) {
+      console.error('Failed to remove task from plan', e);
+    }
+  }, []);
+
+  const handleAddToPlan = useCallback(async (taskId: string, startIso: string, endIso: string) => {
+    if (!currentPlan) return;
+    try {
+      await addTaskToPlan(taskId, startIso, endIso);
+      const [freshPlan, freshTasks] = await Promise.all([fetchCurrentPlan(), fetchTasks(fetchStatus)]);
+      setCurrentPlan(freshPlan);
+      setTasks(freshTasks);
+    } catch (e) {
+      console.error('Failed to add task to plan', e);
+    }
+  }, [currentPlan, fetchStatus]);
+
+  const requestDelete = useCallback((id: string) => {
+    const task = tasks.find(t => t.id === id) ?? archivedTasks.find(t => t.id === id);
+    if (!task) return;
+    setDeleteConfirm({ taskId: id, title: task.title });
+  }, [tasks, archivedTasks]);
+
+  const buildContextMenuActions = useCallback((taskId: string, inPlan: boolean): ContextMenuAction[] => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return [];
+    const actions: ContextMenuAction[] = [];
+    if (task.status === 'done') {
+      actions.push({ label: 'Mark to-do', onClick: () => { handleMarkTodo(taskId); } });
+    } else {
+      actions.push({ label: 'Mark done', onClick: () => { handleMarkDone(taskId); } });
+    }
+    actions.push({ label: 'Edit', onClick: () => { setIsCreating(false); setSelectedId(taskId); } });
+    if (!inPlan && currentPlan !== null) {
+      actions.push({ label: "Add to this week's plan", onClick: () => {
+        setScheduleModal({ taskId, title: task.title });
+      }});
+    }
+    if (inPlan) {
+      actions.push({ label: "Remove from this week's plan", onClick: () => { void handleRemoveFromPlan(taskId); } });
+    }
+    actions.push({ label: 'Delete', danger: true, onClick: () => { requestDelete(taskId); } });
+    return actions;
+  }, [tasks, currentPlan, handleMarkDone, handleMarkTodo, handleRemoveFromPlan, requestDelete]);
 
   const handleDragStart = (event: DragStartEvent) => {
     setDraggingId(String(event.active.id));
@@ -438,6 +494,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
                     leaving={leavingId === task.id}
                     inCurrentPlan={planId !== null && task.lastScheduledInSessionId === planId}
                     onClick={() => { setIsCreating(false); setSelectedId(task.id); }}
+                    onContextMenu={e => setContextMenu({ x: e.clientX, y: e.clientY, taskId: task.id, inPlan: planId !== null && task.lastScheduledInSessionId === planId })}
                   />
                 ))}
               </div>
@@ -471,7 +528,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
         defaultCategoryId={defaultCategoryId}
         onClose={closeDrawer}
         onSave={handleSave}
-        onDelete={handleDelete}
+        onDelete={requestDelete}
         onMarkDone={handleMarkDone}
         onMarkTodo={handleMarkTodo}
       />
@@ -485,6 +542,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
           setIsCreating(false);
           setSelectedId(taskId);
         }}
+        onTaskContextMenu={(e, taskId) => setContextMenu({ x: e.clientX, y: e.clientY, taskId, inPlan: true })}
       />
 
       <SettingsModal
@@ -495,6 +553,40 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
         onSave={setSettings}
         onAccountDeleted={() => { void onSignOut(); }}
       />
+
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          actions={buildContextMenuActions(contextMenu.taskId, contextMenu.inPlan)}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
+
+      <ConfirmDialog
+        open={deleteConfirm !== null}
+        title="Delete task"
+        message={`Are you sure you want to delete "${deleteConfirm?.title}"? This cannot be undone.`}
+        confirmLabel="Delete"
+        danger
+        onConfirm={() => { if (deleteConfirm) { void handleDelete(deleteConfirm.taskId); closeDrawer(); } }}
+        onClose={() => setDeleteConfirm(null)}
+      />
+
+      {scheduleModal && currentPlan && (
+        <ScheduleTaskModal
+          key={scheduleModal.taskId}
+          open={scheduleModal !== null}
+          taskTitle={scheduleModal.title}
+          weekStart={currentPlan.weekStart}
+          weekEnd={currentPlan.weekEnd}
+          onConfirm={(startIso, endIso) => {
+            void handleAddToPlan(scheduleModal.taskId, startIso, endIso);
+            setScheduleModal(null);
+          }}
+          onClose={() => setScheduleModal(null)}
+        />
+      )}
     </>
   );
 }

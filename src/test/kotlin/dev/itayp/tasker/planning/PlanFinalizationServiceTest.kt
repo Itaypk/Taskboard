@@ -158,6 +158,106 @@ class PlanFinalizationServiceTest {
         verify(planInviteDispatcher, never()).dispatch(any(), any(), any(), any(), any())
     }
 
+    // ── revisePlan ───────────────────────────────────────────────────────────
+
+    @Test
+    fun `revisePlan updates session summary without changing status`() {
+        service.revisePlan(userId, sessionId, planWithTasks)
+
+        verify(planningSessionService).updateSummary(sessionId, "Agreed on A and B.")
+        verify(planningSessionService, never()).completeSession(any(), any(), any())
+    }
+
+    @Test
+    fun `revisePlan persists tasks diff-aware`() {
+        service.revisePlan(userId, sessionId, planWithTasks)
+
+        verify(plannedTaskService).persist(sessionId, userId, planWithTasks.tasks)
+    }
+
+    @Test
+    fun `revisePlan stamps session id onto tasks with backlog ids`() {
+        service.revisePlan(userId, sessionId, planWithTasks)
+
+        verify(backlogTaskService).stampPlanningSession(
+            eq(userId),
+            eq(listOf(taskId1, taskId2)),
+            eq(sessionId),
+        )
+    }
+
+    @Test
+    fun `revisePlan dispatches invites when opted in`() {
+        val user = verifiedUser("alice@example.com")
+        whenever(userSettingsService.getOrCreate(userId)).thenReturn(settings(calendarInviteEmail = true))
+        whenever(userSettingsService.getLocale(userId)).thenReturn(java.util.Locale.ENGLISH)
+        whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
+
+        service.revisePlan(userId, sessionId, planWithTasks)
+
+        verify(planInviteDispatcher).dispatch(
+            eq("alice@example.com"),
+            eq("noreply@backlog.fyi"),
+            eq("Backlog.fyi"),
+            eq(planWithTasks),
+            any(),
+        )
+    }
+
+    @Test
+    fun `revisePlan does not dispatch when not opted in`() {
+        service.revisePlan(userId, sessionId, planWithTasks)
+
+        verify(planInviteDispatcher, never()).dispatch(any(), any(), any(), any(), any())
+    }
+
+    // ── addTaskToSession ─────────────────────────────────────────────────────
+
+    @Test
+    fun `addTaskToSession upserts single task`() {
+        val task = AgreedPlanTask(taskId = taskId1, title = "Task A", slots = listOf(slot))
+        service.addTaskToSession(userId, sessionId, task)
+
+        verify(plannedTaskService).upsertSingleTask(sessionId, userId, task)
+    }
+
+    @Test
+    fun `addTaskToSession stamps session when task has a backlog id`() {
+        val task = AgreedPlanTask(taskId = taskId1, title = "Task A", slots = listOf(slot))
+        service.addTaskToSession(userId, sessionId, task)
+
+        verify(backlogTaskService).stampPlanningSession(eq(userId), eq(listOf(taskId1)), eq(sessionId))
+    }
+
+    @Test
+    fun `addTaskToSession does not stamp when task is ad-hoc`() {
+        val task = AgreedPlanTask(taskId = null, title = "Ad-hoc", slots = listOf(slot))
+        service.addTaskToSession(userId, sessionId, task)
+
+        verify(backlogTaskService, never()).stampPlanningSession(any(), any(), any())
+    }
+
+    @Test
+    fun `addTaskToSession dispatches invite when opted in`() {
+        val user = verifiedUser("alice@example.com")
+        whenever(userSettingsService.getOrCreate(userId)).thenReturn(settings(calendarInviteEmail = true))
+        whenever(userSettingsService.getLocale(userId)).thenReturn(java.util.Locale.ENGLISH)
+        whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
+
+        val task = AgreedPlanTask(taskId = taskId1, title = "Task A", slots = listOf(slot))
+        service.addTaskToSession(userId, sessionId, task)
+
+        verify(planInviteDispatcher).dispatch(any(), any(), any(), any(), any())
+    }
+
+    @Test
+    fun `addTaskToSession does not dispatch when not opted in`() {
+        val task = AgreedPlanTask(taskId = taskId1, title = "Task A", slots = listOf(slot))
+        service.addTaskToSession(userId, sessionId, task)
+
+        verify(planInviteDispatcher, never()).dispatch(any(), any(), any(), any(), any())
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private fun verifiedUser(email: String) = UserEntity().apply {

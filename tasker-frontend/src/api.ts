@@ -1,4 +1,4 @@
-import type { Task, Category, Tag, UserSettings, SettingsOptions, CurrentPlan } from './types';
+import type { Task, Category, Tag, UserSettings, SettingsOptions, CurrentPlan, TimeSlot } from './types';
 
 const BASE = '/api/v1';
 
@@ -134,11 +134,28 @@ export const checkTaskChanges = (since: string): Promise<{ hasChanges: boolean; 
 
 // --- Current plan ---
 
+interface RawPlanTaskResponse {
+    task: Task;
+    slots: TimeSlot[];
+    notes?: string | null;
+}
+interface RawCurrentPlanResponse extends Omit<CurrentPlan, 'tasks'> {
+    tasks: RawPlanTaskResponse[];
+}
+
 export const fetchCurrentPlan = async (): Promise<CurrentPlan | null> => {
     const path = `${BASE}/plans/current`;
     const res = await rawFetch(path);
     if (res.status === 204) return null;
-    return handle<CurrentPlan>(res, path);
+    const raw = await handle<RawCurrentPlanResponse>(res, path);
+    return {
+        ...raw,
+        tasks: raw.tasks.map(pt => ({
+            ...pt.task,
+            slots: pt.slots,
+            planNotes: pt.notes ?? undefined,
+        })),
+    };
 };
 
 export const createTask = (payload: Omit<Task, 'id' | 'createdAt' | 'sortKey'>): Promise<Task> =>
@@ -152,6 +169,12 @@ export const reorderTask = (id: string, afterId: string | null, beforeId: string
 
 export const deleteTask = (id: string): Promise<void> =>
     apiRequest(`/tasks/${id}`, { method: 'DELETE' });
+
+export const removeTaskFromPlan = (id: string): Promise<void> =>
+    apiRequest(`/tasks/${id}/plan-schedule`, { method: 'DELETE' });
+
+export const addTaskToPlan = (taskId: string, startIso: string, endIso: string): Promise<void> =>
+    apiRequest(`/plans/current/tasks/${taskId}`, { method: 'POST', ...jsonBody({ startIso, endIso }) });
 
 // --- Categories ---
 

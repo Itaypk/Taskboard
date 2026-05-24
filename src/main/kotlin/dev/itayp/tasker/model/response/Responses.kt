@@ -66,6 +66,18 @@ data class TaskResponse(
     val relevantFrom: String?,
 )
 
+data class TimeSlotResponse(
+    val startIso: String,
+    val endIso: String,
+    val label: String?,
+)
+
+data class PlanTaskResponse(
+    val task: TaskResponse,
+    val slots: List<TimeSlotResponse>,
+    val notes: String?,
+)
+
 data class CategoryResponse(val id: String, val label: String, val swatchId: String)
 
 data class TagResponse(val id: String, val label: String, val colorId: String)

@@ -2,6 +2,7 @@ package dev.itayp.tasker.planning
 
 import dev.itayp.tasker.channel.email.EmailProperties
 import dev.itayp.tasker.planning.dto.AgreedPlan
+import dev.itayp.tasker.planning.dto.AgreedPlanTask
 import dev.itayp.tasker.repository.UserRepository
 import dev.itayp.tasker.service.BacklogTaskService
 import dev.itayp.tasker.service.UserSettingsService
@@ -24,13 +25,29 @@ class PlanFinalizationService(
     fun complete(userId: UUID, sessionId: UUID, plan: AgreedPlan) {
         log.debug("Completing agreed plan {}", plan)
         planningSessionService.completeSession(userId, sessionId, plan.summary)
-        plannedTaskService.persist(sessionId, userId, plan.tasks)
+        applyPlan(userId, sessionId, plan)
+    }
 
+    fun revisePlan(userId: UUID, sessionId: UUID, plan: AgreedPlan) {
+        log.debug("Revising agreed plan for session {}", sessionId)
+        planningSessionService.updateSummary(sessionId, plan.summary)
+        applyPlan(userId, sessionId, plan)
+    }
+
+    fun addTaskToSession(userId: UUID, sessionId: UUID, task: AgreedPlanTask) {
+        plannedTaskService.upsertSingleTask(sessionId, userId, task)
+        if (task.taskId != null) {
+            backlogTaskService.stampPlanningSession(userId, listOf(task.taskId), sessionId)
+        }
+        dispatchInvitesIfEligible(userId, AgreedPlan(tasks = listOf(task), summary = ""))
+    }
+
+    private fun applyPlan(userId: UUID, sessionId: UUID, plan: AgreedPlan) {
+        plannedTaskService.persist(sessionId, userId, plan.tasks)
         val taskIds = plan.tasks.mapNotNull { it.taskId }
         if (taskIds.isNotEmpty()) {
             backlogTaskService.stampPlanningSession(userId, taskIds, sessionId)
         }
-
         dispatchInvitesIfEligible(userId, plan)
     }
 

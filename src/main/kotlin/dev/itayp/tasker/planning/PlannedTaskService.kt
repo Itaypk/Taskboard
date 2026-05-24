@@ -12,23 +12,59 @@ class PlannedTaskService(
 ) {
     @Transactional
     fun persist(sessionId: UUID, userId: UUID, tasks: List<AgreedPlanTask>) {
-        tasks.forEachIndexed { index, agreedTask ->
-            val taskEntity = plannedTaskRepository.save(PlannedTaskEntity().apply {
-                this.sessionId = sessionId
-                this.userId = userId
-                this.backlogTaskId = agreedTask.taskId
-                this.title = agreedTask.title
-                this.notes = agreedTask.notes
-                this.position = index
-            })
-            agreedTask.slots.forEach { slot ->
-                plannedTaskSlotRepository.save(PlannedTaskSlotEntity().apply {
-                    this.plannedTaskId = taskEntity.id
-                    this.startIso = slot.startIso
-                    this.endIso = slot.endIso
-                    this.label = slot.label
-                })
+        val existing = plannedTaskRepository.findAllBySessionIdOrderByPosition(sessionId)
+        val incomingIds = tasks.mapNotNull { it.taskId }.toSet()
+
+        existing.forEach { pt ->
+            if (pt.backlogTaskId == null || pt.backlogTaskId !in incomingIds) {
+                plannedTaskSlotRepository.deleteAllByPlannedTaskId(pt.id!!)
+                plannedTaskRepository.delete(pt)
             }
         }
+
+        tasks.forEachIndexed { index, task -> upsertTask(sessionId, userId, task, index) }
+    }
+
+    @Transactional
+    fun upsertSingleTask(sessionId: UUID, userId: UUID, task: AgreedPlanTask): PlannedTaskEntity {
+        val position = if (task.taskId != null) {
+            plannedTaskRepository.findBySessionIdAndBacklogTaskId(sessionId, task.taskId)?.position
+                ?: plannedTaskRepository.findAllBySessionIdOrderByPosition(sessionId).size
+        } else {
+            plannedTaskRepository.findAllBySessionIdOrderByPosition(sessionId).size
+        }
+        return upsertTask(sessionId, userId, task, position)
+    }
+
+    private fun upsertTask(sessionId: UUID, userId: UUID, task: AgreedPlanTask, position: Int): PlannedTaskEntity {
+        val existing = task.taskId?.let { plannedTaskRepository.findBySessionIdAndBacklogTaskId(sessionId, it) }
+
+        val entity = if (existing != null) {
+            plannedTaskSlotRepository.deleteAllByPlannedTaskId(existing.id!!)
+            existing.title = task.title
+            existing.notes = task.notes
+            existing.position = position
+            plannedTaskRepository.save(existing)
+        } else {
+            plannedTaskRepository.save(PlannedTaskEntity().apply {
+                this.sessionId = sessionId
+                this.userId = userId
+                this.backlogTaskId = task.taskId
+                this.title = task.title
+                this.notes = task.notes
+                this.position = position
+            })
+        }
+
+        task.slots.forEach { slot ->
+            plannedTaskSlotRepository.save(PlannedTaskSlotEntity().apply {
+                this.plannedTaskId = entity.id
+                this.startIso = slot.startIso
+                this.endIso = slot.endIso
+                this.label = slot.label
+            })
+        }
+
+        return entity
     }
 }

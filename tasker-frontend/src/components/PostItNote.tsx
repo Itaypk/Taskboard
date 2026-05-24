@@ -12,6 +12,7 @@ interface PostItNoteProps {
   leaving?: boolean;
   inCurrentPlan?: boolean;
   onClick: () => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
 }
 
 const FALLBACK_SWATCH: PaperSwatchId = 'cream';
@@ -22,6 +23,7 @@ export function PostItNote({
   leaving = false,
   inCurrentPlan = false,
   onClick,
+  onContextMenu,
 }: PostItNoteProps) {
   const swatchId = category?.swatchId ?? FALLBACK_SWATCH;
   const swatch = PAPER_SWATCHES.find(s => s.id === swatchId) ?? PAPER_SWATCHES[6];
@@ -74,6 +76,7 @@ export function PostItNote({
       tabIndex={0}
       aria-label={`Open task: ${task.title}`}
       onClick={onClick}
+      onContextMenu={onContextMenu ? e => { e.preventDefault(); onContextMenu(e); } : undefined}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
     >
       {task.priority === 'high' && (

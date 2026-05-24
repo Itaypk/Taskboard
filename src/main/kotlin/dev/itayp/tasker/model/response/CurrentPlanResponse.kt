@@ -6,7 +6,7 @@ data class CurrentPlanResponse(
     val startedAt: String,
     val endedAt: String?,
     val summary: String?,
-    val tasks: List<TaskResponse>,
+    val tasks: List<PlanTaskResponse>,
     val weekStart: String,
     val weekEnd: String,
 )

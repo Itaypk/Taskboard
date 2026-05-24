@@ -53,6 +53,9 @@ class BacklogTaskService(
         } else tasks
     }
 
+    fun getTaskById(userId: UUID, id: UUID): BacklogTask? =
+        backlogTaskRepository.findByIdAndUserId(id, userId)?.toDomain()
+
     @Transactional(readOnly = true)
     fun getTasksScheduledInSession(userId: UUID, sessionId: UUID): List<BacklogTask> =
         backlogTaskRepository
@@ -166,6 +169,15 @@ class BacklogTaskService(
         }
 
         return saved.toDomain()
+    }
+
+    @Transactional
+    fun unscheduleTask(userId: UUID, id: UUID) {
+        val entity = backlogTaskRepository.findByIdAndUserId(id, userId)
+            ?: throw NoSuchElementException("Task $id not found")
+        entity.lastScheduledInSessionId = null
+        entity.updatedAt = Instant.now()
+        backlogTaskRepository.save(entity)
     }
 
     @Transactional

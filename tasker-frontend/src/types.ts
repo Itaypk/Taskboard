@@ -54,8 +54,20 @@ export interface Task {
   tags: Tag[];
   sortKey: string;
   createdAt: string;
+  updatedAt?: string;
   lastScheduledInSessionId?: string | null;
   relevantFrom?: string; // YYYY-MM-DD
+}
+
+export interface TimeSlot {
+  startIso: string;
+  endIso: string;
+  label?: string;
+}
+
+export interface PlanTask extends Task {
+  slots: TimeSlot[];
+  planNotes?: string;
 }
 
 export type PlanStatus = 'active' | 'completed' | 'abandoned';
@@ -66,7 +78,7 @@ export interface CurrentPlan {
   startedAt: string;
   endedAt?: string | null;
   summary?: string | null;
-  tasks: Task[];
+  tasks: PlanTask[];
   weekStart: string;
   weekEnd: string;
 }

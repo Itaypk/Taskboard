@@ -47,6 +47,29 @@ export function rotationFromId(id: string, max = 2.6): number {
   return (n * 2 - 1) * max;
 }
 
+export function formatRelative(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  const diffMs = Date.now() - date.getTime();
+  const diffHours = Math.round(diffMs / (1000 * 60 * 60));
+  if (diffHours < 1) return 'just now';
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.round(diffHours / 24);
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+export function formatTimeSlot(startIso: string, endIso: string): string {
+  const start = new Date(startIso);
+  const end = new Date(endIso);
+  if (Number.isNaN(start.getTime())) return '';
+  const day = start.toLocaleDateString(undefined, { weekday: 'short' });
+  const startTime = start.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+  if (Number.isNaN(end.getTime())) return `${day} ${startTime}`;
+  const endTime = end.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+  return `${day} ${startTime}–${endTime}`;
+}
+
 export function jitterFromId(id: string, seedOffset: number, range: number): number {
   const n = hash(id + ':' + seedOffset) / 0xffffffff;
   return (n * 2 - 1) * range;

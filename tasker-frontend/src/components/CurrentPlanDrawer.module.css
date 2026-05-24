@@ -92,13 +92,27 @@
 
 .taskItem {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   width: 100%;
   text-align: left;
   padding: 8px 10px;
   border-radius: var(--r);
   transition: background var(--t);
+}
+
+.taskContent {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.taskSlot {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-ghost);
+  letter-spacing: 0.04em;
 }
 
 .taskItem:hover {
@@ -111,6 +125,7 @@
   height: 9px;
   border-radius: 50%;
   border: 1.5px solid;
+  margin-top: 4px;
 }
 
 .statusDotTodo {

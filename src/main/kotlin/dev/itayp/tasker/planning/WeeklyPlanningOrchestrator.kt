@@ -342,7 +342,12 @@ class WeeklyPlanningOrchestrator(
 
     private fun finalizeSubmission(sessionId: UUID, plan: AgreedPlan) {
         val current = state[sessionId] ?: return
-        planFinalizationService.complete(current.userId, sessionId, plan)
+        val session = planningSessionService.findById(current.userId, sessionId)
+        if (session?.status == PlanningSessionStatus.COMPLETED) {
+            planFinalizationService.revisePlan(current.userId, sessionId, plan)
+        } else {
+            planFinalizationService.complete(current.userId, sessionId, plan)
+        }
         state[sessionId] = current.copy(phase = Phase.DONE, agreedPlan = plan)
     }
 
