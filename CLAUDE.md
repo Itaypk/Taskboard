@@ -11,10 +11,12 @@ Current state: the backlog CRUD (tasks, categories, tags) is implemented end-to-
 This is a non-commercial solo side project. It is currently running in production, but only serves a handful of beta users.
 
 ## Working on the project
+
 A few things to consider while working on the project:
 - As a solo project, we have full responsibility and full knowledge - do not ignore pre-existing issues. If you notice an issue that might be a bug, surface it in your response.
 - The number of active users is still very low, and they are all aware of the beta status. Consider the option of starting fresh (wiping the prod DB and re-seeding) rather than writing a complex
   migration. This overrides the additive-only rule, but only when we explicitly decide to reset.
+- On production, the app runs as a single instance on an Ubuntu VPS. Short downtime is acceptable.
 
 ## Repo layout
 
