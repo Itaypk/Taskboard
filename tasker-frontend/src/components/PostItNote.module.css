@@ -15,6 +15,40 @@
     var(--shadow-note-hover);
 }
 
+/* Three-dot overflow button: hidden on pointer devices (right-click handles that),
+   shown only on touch screens where long-press is reserved for drag-and-drop. */
+.menuBtn {
+  display: none;
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 20px;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 4px;
+  opacity: 0.45;
+  z-index: 1;
+}
+
+.menuBtn:active {
+  opacity: 0.85;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+@media (hover: none) {
+  .menuBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
 /* Screen-reader-only label so the badge meaning isn't lost without the pin. */
 .planSrLabel {
   position: absolute;

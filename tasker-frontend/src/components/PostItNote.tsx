@@ -127,6 +127,17 @@ export function PostItNote({
       <span className="note__drag-handle" aria-hidden title="Drag to reorder">
         ⠿
       </span>
+
+      {onContextMenu && (
+        <button
+          className={styles.menuBtn}
+          aria-label="Task actions"
+          onPointerDown={e => e.stopPropagation()}
+          onClick={e => { e.stopPropagation(); onContextMenu(e as unknown as React.MouseEvent); }}
+        >
+          ⋮
+        </button>
+      )}
     </article>
   );
 }

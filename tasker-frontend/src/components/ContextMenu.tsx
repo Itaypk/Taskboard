@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import styles from './ContextMenu.module.css';
 
 export interface ContextMenuAction {
@@ -30,11 +30,29 @@ export function ContextMenu({ x, y, actions, onClose }: ContextMenuProps) {
     };
   }, [onClose]);
 
-  // Clamp to viewport so menu never goes off-screen
+  // Start hidden; useLayoutEffect measures and clamps before first paint.
+  const [pos, setPos] = useState<{ top: number; left: number; visible: boolean }>(
+    { top: y, left: x, visible: false }
+  );
+
+  useLayoutEffect(() => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    const pad = 8;
+    let left = x;
+    let top = y;
+    if (left + rect.width  > window.innerWidth  - pad) left = window.innerWidth  - rect.width  - pad;
+    if (top  + rect.height > window.innerHeight - pad) top  = window.innerHeight - rect.height - pad;
+    if (left < pad) left = pad;
+    if (top  < pad) top  = pad;
+    setPos({ top, left, visible: true });
+  }, [x, y]);
+
   const style: React.CSSProperties = {
     position: 'fixed',
-    top: y,
-    left: x,
+    top: pos.top,
+    left: pos.left,
+    visibility: pos.visible ? 'visible' : 'hidden',
   };
 
   return (
