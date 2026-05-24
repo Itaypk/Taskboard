@@ -198,7 +198,7 @@ class PlanningSessionControllerTest(@Autowired val mockMvc: MockMvc) {
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"startIso":"2026-04-28T09:00:00Z","endIso":"2026-04-28T10:00:00Z"}"""),
-        ).andExpect(status().isUnprocessableEntity)
+        ).andExpect(status().isUnprocessableContent)
     }
 
     @Test

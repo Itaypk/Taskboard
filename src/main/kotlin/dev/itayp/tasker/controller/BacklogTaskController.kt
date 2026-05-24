@@ -94,7 +94,7 @@ class BacklogTaskController(
     ): ResponseEntity<TaskResponse> {
         return try {
             ResponseEntity.ok(backlogTaskService.updateTask(principal.userId, id, request).toResponse())
-        } catch (e: NoSuchElementException) {
+        } catch (_: NoSuchElementException) {
             ResponseEntity.notFound().build()
         }
     }
@@ -107,7 +107,7 @@ class BacklogTaskController(
         return try {
             backlogTaskService.deleteTask(principal.userId, id)
             ResponseEntity.noContent().build()
-        } catch (e: NoSuchElementException) {
+        } catch (_: NoSuchElementException) {
             ResponseEntity.notFound().build()
         }
     }
@@ -120,7 +120,7 @@ class BacklogTaskController(
         return try {
             backlogTaskService.unscheduleTask(principal.userId, id)
             ResponseEntity.noContent().build()
-        } catch (e: NoSuchElementException) {
+        } catch (_: NoSuchElementException) {
             ResponseEntity.notFound().build()
         }
     }
@@ -133,7 +133,7 @@ class BacklogTaskController(
     ): ResponseEntity<TaskResponse> {
         return try {
             ResponseEntity.ok(backlogTaskService.reorderTask(principal.userId, id, request).toResponse())
-        } catch (e: NoSuchElementException) {
+        } catch (_: NoSuchElementException) {
             ResponseEntity.notFound().build()
         }
     }
