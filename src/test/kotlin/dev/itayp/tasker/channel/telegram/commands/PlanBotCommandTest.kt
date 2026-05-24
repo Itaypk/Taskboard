@@ -30,6 +30,7 @@ import java.util.UUID
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 @ExtendWith(MockitoExtension::class)
 class PlanBotCommandTest {
@@ -76,11 +77,11 @@ class PlanBotCommandTest {
         whenever(userSettingsService.getLocale(userId)).thenReturn(Locale.ENGLISH)
     }
 
-    private fun stubUserSettings(weekStartDay: String? = "MONDAY") {
+    private fun stubUserSettings(weekStartDay: String? = "MONDAY", timeZone: String = "UTC") {
         whenever(userSettingsService.getOrCreate(userId)).thenReturn(
             UserSettingsEntity().apply {
                 this.userId = this@PlanBotCommandTest.userId
-                this.timeZone = "UTC"
+                this.timeZone = timeZone
                 this.weekStartDay = weekStartDay
             }
         )
@@ -200,6 +201,30 @@ class PlanBotCommandTest {
         val pending = planConfirmationRegistry.get(chatId)
         assertNotNull(pending)
         assertNull(pending.replanWeekStart)
+    }
+
+    @Test
+    fun `week picker uses user's weekStartDay anchored on user's local today`() {
+        // Clock is fixed at 2026-05-13 10:00 UTC. In America/New_York that's 2026-05-13 06:00 local.
+        // With weekStartDay=SUNDAY, the most recent Sunday on/before local-today (Wed 2026-05-13)
+        // is 2026-05-10; next week start is 2026-05-17.
+        whenever(sessionRegistry.get(chatId)).thenReturn(null)
+        whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(null)
+        stubUserSettings(weekStartDay = "SUNDAY", timeZone = "America/New_York")
+
+        command.handle(context())
+
+        val captor = argumentCaptor<ChannelMessage>()
+        verify(channel).send(captor.capture())
+        val msg = captor.firstValue as ChannelMessage.Choice
+        // Labels are formatted with the medium-style date formatter; rather than asserting
+        // the exact label string we assert the option IDs are present and rely on the
+        // resolver call signature being the same one TelegramChannel uses to start the session.
+        assertEquals(PlanConfirmationRegistry.OPTION_THIS_WEEK, msg.options[0].id)
+        assertEquals(PlanConfirmationRegistry.OPTION_NEXT_WEEK, msg.options[1].id)
+        // Sanity check the label contains the expected anchored dates.
+        assertTrue(msg.options[0].label.contains("May 10")) // this week start = Sun May 10 (user TZ)
+        assertTrue(msg.options[1].label.contains("May 17")) // next week start = Sun May 17 (user TZ)
     }
 
     @Test

@@ -41,6 +41,7 @@ class BacklogTaskServiceTest {
     @Mock private lateinit var categoryRepository: BacklogTaskCategoryRepository
     @Mock private lateinit var tagRepository: BacklogTaskTagRepository
     @Mock private lateinit var taskChangeService: BacklogTaskChangeService
+    @Mock private lateinit var userSettingsService: UserSettingsService
     @Mock private lateinit var clock: Clock
 
     @InjectMocks private lateinit var service: BacklogTaskService

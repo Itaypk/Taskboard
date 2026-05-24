@@ -73,6 +73,9 @@ allOpen {
 tasks.withType<Test> {
 	useJUnitPlatform()
 
+	// Speed up Spring context startup in tests; safe because tests only exercise the slice they need.
+	systemProperty("spring.main.lazy-initialization", "true")
+
 	testLogging {
 		events("started", "passed", "failed", "standard_out", "standard_error")
 	}

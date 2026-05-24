@@ -30,7 +30,8 @@ class WeeklyPlanningPromptAssembler(
         val displayName = settings.displayName?.takeIf { it.isNotBlank() } ?: "there"
         val zone = runCatching { ZoneId.of(settings.timeZone) }.getOrDefault(ZoneId.of("UTC"))
 
-        val selection = plannerTaskSelector.select(userId)
+        val today = LocalDate.ofInstant(clock.instant(), zone)
+        val selection = plannerTaskSelector.select(userId, today, weekStart, zone)
         val previousSummary = planningSessionService.findPreviousSummarizableSession(userId)
             ?.summary?.takeIf { it.isNotBlank() }
         val diff = planningSessionService.diffSincePreviousSession(userId)
@@ -40,16 +41,14 @@ class WeeklyPlanningPromptAssembler(
         val calendarTo = weekEnd.atStartOfDay(zone).toInstant()
         val calendar = calendarWindowProvider.describeWindow(userId, calendarFrom, calendarTo)
 
-        val today = LocalDate.ofInstant(clock.instant(), zone)
-
         return templateLoader.load("weekly-planning/system.md").render(mapOf(
             "display_name" to displayName,
             "user_context_block" to (settings.contextBlock?.takeIf { it.isNotBlank() }
                 ?: "No personal context shared yet."),
             "previous_session_summary" to (previousSummary ?: "No previous session on record."),
             "task_change_summary" to renderDiff(diff),
-            "urgent_tasks" to renderTaskList(selection.urgent),
-            "stale_tasks" to renderTaskList(selection.stale),
+            "urgent_tasks" to renderTaskList(selection.urgent, selection.alreadyPlanned),
+            "stale_tasks" to renderTaskList(selection.stale, selection.alreadyPlanned),
             "calendar_window" to calendar,
             "capacity_hint" to capacityHint.ifBlank { "Not stated." },
             "today_iso" to today.format(DateTimeFormatter.ISO_LOCAL_DATE),
@@ -74,7 +73,7 @@ class WeeklyPlanningPromptAssembler(
         else -> "gender-neutral language (they/them forms or avoid gendering)"
     }
 
-    private fun renderTaskList(tasks: List<BacklogTask>): String {
+    private fun renderTaskList(tasks: List<BacklogTask>, alreadyPlanned: Map<UUID, LocalDate>): String {
         if (tasks.isEmpty()) return "_(none)_"
         return tasks.joinToString("\n") { task ->
             buildString {
@@ -82,7 +81,9 @@ class WeeklyPlanningPromptAssembler(
                 task.priority?.let { append(" · priority=").append(it.name.lowercase()) }
                 task.deadline?.let { append(" · deadline=").append(it) }
                 task.estimatedMinutes?.let { append(" · est=").append(it).append("m") }
+                task.relevantFrom?.let { append(" · relevant_from=").append(it) }
                 if (task.rescheduleCount > 0) append(" · rescheduled=").append(task.rescheduleCount)
+                alreadyPlanned[task.id]?.let { append(" · already_planned=").append(it) }
                 if (task.tags.isNotEmpty()) {
                     append(" · tags=")
                     append(task.tags.joinToString(",") { it.label })

@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.util.UUID
 
 private const val REBALANCE_KEY_LENGTH_THRESHOLD = 50
@@ -30,6 +31,7 @@ class BacklogTaskService(
     private val categoryRepository: BacklogTaskCategoryRepository,
     private val tagRepository: BacklogTaskTagRepository,
     private val taskChangeService: BacklogTaskChangeService,
+    private val userSettingsService: UserSettingsService,
     private val clock: Clock,
 ) {
 
@@ -44,7 +46,9 @@ class BacklogTaskService(
         val tasks = entities.map { it.toDomain() }
         // Hide future-dated tasks from the To Do view; all other statuses show them regardless.
         return if (status == TaskStatus.TODO) {
-            val today = LocalDate.now(clock)
+            val zone = runCatching { ZoneId.of(userSettingsService.getOrCreate(userId).timeZone) }
+                .getOrDefault(ZoneId.of("UTC"))
+            val today = LocalDate.ofInstant(clock.instant(), zone)
             tasks.filter { it.relevantFrom == null || !it.relevantFrom.isAfter(today) }
         } else tasks
     }

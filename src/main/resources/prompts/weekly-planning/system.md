@@ -75,6 +75,10 @@ Rules of thumb:
 
 ## Backlog candidates this week
 
+Each task line may carry annotations after the title:
+- `relevant_from=DATE` — the task only became relevant on that date; it may be brand-new to the user.
+- `already_planned=DATE` — the user already has a slot for it in a later week. Prefer fresh work; only suggest one of these if the user explicitly asks, or if you want to propose pulling it forward.
+
 ### Urgent
 
 {{urgent_tasks}}

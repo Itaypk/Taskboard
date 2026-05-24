@@ -8,6 +8,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Current state: the backlog CRUD (tasks, categories, tags) is implemented end-to-end, with Telegram Login Widget + dev-login session auth wired up. The weekly planning conversation, and LLM-driven planner are working, with email-invitation integration. No Google Calendar integration yet.
 
+This is a non-commercial solo side project. It is currently running in production, but only serves a handful of beta users.
+
+## Working on the project
+A few things to consider while working on the project:
+- As a solo project, we have full responsibility and full knowledge - do not ignore pre-existing issues. If you notice an issue that might be a bug, surface it in your response.
+- The number of active users is still very low, and they are all aware of the beta status. Consider the option of starting fresh (wiping the prod DB and re-seeding) rather than writing a complex
+  migration. This overrides the additive-only rule, but only when we explicitly decide to reset.
+
 ## Repo layout
 
 - `src/` — Kotlin/Spring Boot backend (package `dev.itayp.tasker`). Entry point: `src/main/kotlin/dev/itayp/tasker/TaskBoardApplication.kt`.
@@ -103,6 +111,7 @@ Session chain details:
   - `TASKER_EMAIL_SMTP_PASSWORD` - SMTP token, used as password.
 
 ## Internationalization
+
 Use the user's selected language and locale in the various communication channels (Telegram, email). We are using Spring's `MessageSource`, with message bundles (on `src/main/resources`).
 The web UI is currently English-only, as are the emails. Telegram is fully localized — keep it that way. 
 

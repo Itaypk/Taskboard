@@ -10,38 +10,50 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
+import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.ZoneOffset
 import java.util.UUID
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 @ExtendWith(MockitoExtension::class)
 class PlannerTaskSelectorTest {
 
     @Mock private lateinit var backlogTaskRepository: BacklogTaskRepository
+    @Mock private lateinit var plannedTaskRepository: PlannedTaskRepository
+    @Mock private lateinit var plannedTaskSlotRepository: PlannedTaskSlotRepository
 
     private val today: LocalDate = LocalDate.parse("2026-05-01")
+    private val weekStart: LocalDate = LocalDate.parse("2026-04-27") // Monday of that week
+    private val zone: ZoneId = ZoneOffset.UTC
     private val now: Instant = today.atStartOfDay(ZoneOffset.UTC).toInstant()
     private val clock: Clock = Clock.fixed(now, ZoneOffset.UTC)
 
-    private val selector by lazy { PlannerTaskSelector(backlogTaskRepository, clock) }
+    private val selector by lazy {
+        PlannerTaskSelector(backlogTaskRepository, plannedTaskRepository, plannedTaskSlotRepository, clock)
+    }
 
     private val userId: UUID = UUID.fromString("00000000-0000-0000-0000-000000000001")
     private val sharedCategory = categoryEntity()
+
+    private fun select() = selector.select(userId, today, weekStart, zone)
 
     @Test
     fun `empty backlog returns empty selection`() {
         whenever(backlogTaskRepository.findAllByUserIdAndStatus(userId, TaskStatus.TODO))
             .thenReturn(emptyList())
 
-        val result = selector.select(userId)
+        val result = select()
 
         assertTrue(result.urgent.isEmpty())
         assertTrue(result.stale.isEmpty())
+        assertTrue(result.alreadyPlanned.isEmpty())
     }
 
     @Test
@@ -53,8 +65,9 @@ class PlannerTaskSelectorTest {
         )
         whenever(backlogTaskRepository.findAllByUserIdAndStatus(userId, TaskStatus.TODO))
             .thenReturn(tasks)
+        whenever(plannedTaskRepository.findAllByUserIdAndBacklogTaskIdIn(any(), any())).thenReturn(emptyList())
 
-        val result = selector.select(userId)
+        val result = select()
 
         assertEquals(3, result.urgent.size)
         assertTrue(result.stale.isEmpty())
@@ -68,8 +81,9 @@ class PlannerTaskSelectorTest {
         val noDeadline = task(title = "noDeadline", priority = TaskPriority.MEDIUM, deadline = null)
         whenever(backlogTaskRepository.findAllByUserIdAndStatus(userId, TaskStatus.TODO))
             .thenReturn(listOf(noDeadline, overdue))
+        whenever(plannedTaskRepository.findAllByUserIdAndBacklogTaskIdIn(any(), any())).thenReturn(emptyList())
 
-        val result = selector.select(userId)
+        val result = select()
 
         assertEquals("overdue", result.urgent.first().title)
     }
@@ -80,8 +94,9 @@ class PlannerTaskSelectorTest {
         val deferred = task(title = "deferred", priority = TaskPriority.MEDIUM, rescheduleCount = 3)
         whenever(backlogTaskRepository.findAllByUserIdAndStatus(userId, TaskStatus.TODO))
             .thenReturn(listOf(plain, deferred))
+        whenever(plannedTaskRepository.findAllByUserIdAndBacklogTaskIdIn(any(), any())).thenReturn(emptyList())
 
-        val result = selector.select(userId)
+        val result = select()
 
         assertEquals("deferred", result.urgent.first().title)
     }
@@ -92,8 +107,9 @@ class PlannerTaskSelectorTest {
         val deferredJunk = task(title = "deferredJunk", priority = TaskPriority.LOW, rescheduleCount = 10)
         whenever(backlogTaskRepository.findAllByUserIdAndStatus(userId, TaskStatus.TODO))
             .thenReturn(listOf(deferredJunk, urgent))
+        whenever(plannedTaskRepository.findAllByUserIdAndBacklogTaskIdIn(any(), any())).thenReturn(emptyList())
 
-        val result = selector.select(userId)
+        val result = select()
 
         assertEquals("urgent", result.urgent.first().title)
     }
@@ -130,8 +146,9 @@ class PlannerTaskSelectorTest {
         )
         whenever(backlogTaskRepository.findAllByUserIdAndStatus(userId, TaskStatus.TODO))
             .thenReturn(urgentFillers + listOf(freshlyModified, oldestStale, midStale, recentStale))
+        whenever(plannedTaskRepository.findAllByUserIdAndBacklogTaskIdIn(any(), any())).thenReturn(emptyList())
 
-        val result = selector.select(userId)
+        val result = select()
 
         assertEquals(12, result.urgent.size)
         assertEquals(3, result.stale.size)
@@ -165,10 +182,66 @@ class PlannerTaskSelectorTest {
         )
         whenever(backlogTaskRepository.findAllByUserIdAndStatus(userId, TaskStatus.TODO))
             .thenReturn(urgentFillers + listOf(deferredOld, genuinelyStale))
+        whenever(plannedTaskRepository.findAllByUserIdAndBacklogTaskIdIn(any(), any())).thenReturn(emptyList())
 
-        val result = selector.select(userId)
+        val result = select()
 
         assertEquals(listOf("genuinelyStale"), result.stale.map { it.title })
+    }
+
+    @Test
+    fun `relevantFrom filter uses the caller-provided today, not UTC clock`() {
+        // Simulate a user in UTC+12 where local "today" is 2026-05-02 while UTC clock reads 2026-05-01.
+        val localToday = LocalDate.parse("2026-05-02")
+        val becomesRelevantTomorrowUtc = task(
+            title = "relevantTodayLocal",
+            priority = TaskPriority.MEDIUM,
+            relevantFrom = localToday,
+        )
+        val futureRelevant = task(
+            title = "futureRelevant",
+            priority = TaskPriority.MEDIUM,
+            relevantFrom = localToday.plusDays(1),
+        )
+        whenever(backlogTaskRepository.findAllByUserIdAndStatus(userId, TaskStatus.TODO))
+            .thenReturn(listOf(becomesRelevantTomorrowUtc, futureRelevant))
+        whenever(plannedTaskRepository.findAllByUserIdAndBacklogTaskIdIn(any(), any())).thenReturn(emptyList())
+
+        val result = selector.select(userId, localToday, weekStart, zone)
+
+        assertEquals(listOf("relevantTodayLocal"), result.urgent.map { it.title })
+        assertTrue(result.stale.isEmpty())
+    }
+
+    @Test
+    fun `alreadyPlanned maps each task to its earliest slot strictly after the planning window`() {
+        val taskA = task(title = "A", priority = TaskPriority.MEDIUM)
+        val taskB = task(title = "B", priority = TaskPriority.MEDIUM)
+        val taskC = task(title = "C", priority = TaskPriority.MEDIUM)
+        whenever(backlogTaskRepository.findAllByUserIdAndStatus(userId, TaskStatus.TODO))
+            .thenReturn(listOf(taskA, taskB, taskC))
+
+        val plannedA = plannedTask(backlogTaskId = taskA.id!!)
+        val plannedB = plannedTask(backlogTaskId = taskB.id!!)
+        // taskC has no planned entry — should not appear in alreadyPlanned.
+        whenever(plannedTaskRepository.findAllByUserIdAndBacklogTaskIdIn(any(), any()))
+            .thenReturn(listOf(plannedA, plannedB))
+
+        val windowEnd = weekStart.plusDays(6) // 2026-05-03 inclusive
+        // taskA: one slot in window (ignored) + one slot after window (kept)
+        val slotInWindow = slot(plannedA.id!!, startIso = "${windowEnd}T09:00:00Z")
+        val slotAfterA1 = slot(plannedA.id!!, startIso = "${windowEnd.plusDays(2)}T09:00:00Z")
+        val slotAfterA2 = slot(plannedA.id!!, startIso = "${windowEnd.plusDays(9)}T09:00:00Z")
+        // taskB: only a slot after window
+        val slotAfterB = slot(plannedB.id!!, startIso = "${windowEnd.plusDays(5)}T15:30:00+02:00")
+        whenever(plannedTaskSlotRepository.findAllByPlannedTaskIdIn(any()))
+            .thenReturn(listOf(slotInWindow, slotAfterA1, slotAfterA2, slotAfterB))
+
+        val result = select()
+
+        assertEquals(windowEnd.plusDays(2), result.alreadyPlanned[taskA.id!!])
+        assertEquals(windowEnd.plusDays(5), result.alreadyPlanned[taskB.id!!])
+        assertNull(result.alreadyPlanned[taskC.id!!])
     }
 
     private fun categoryEntity() = BacklogTaskCategoryEntity().apply {
@@ -185,6 +258,7 @@ class PlannerTaskSelectorTest {
         rescheduleCount: Int = 0,
         createdAt: Instant = now.minus(1, java.time.temporal.ChronoUnit.DAYS),
         updatedAt: Instant? = null,
+        relevantFrom: LocalDate? = null,
     ): BacklogTaskEntity = BacklogTaskEntity().apply {
         this.id = UUID.randomUUID()
         this.userId = this@PlannerTaskSelectorTest.userId
@@ -198,5 +272,23 @@ class PlannerTaskSelectorTest {
         this.createdAt = createdAt
         this.updatedAt = updatedAt
         this.rescheduleCount = rescheduleCount
+        this.relevantFrom = relevantFrom
     }
+
+    private fun plannedTask(backlogTaskId: UUID): PlannedTaskEntity = PlannedTaskEntity().apply {
+        this.id = UUID.randomUUID()
+        this.sessionId = UUID.randomUUID()
+        this.userId = this@PlannerTaskSelectorTest.userId
+        this.backlogTaskId = backlogTaskId
+        this.title = "ignored"
+        this.position = 0
+    }
+
+    private fun slot(plannedTaskId: UUID, startIso: String): PlannedTaskSlotEntity =
+        PlannedTaskSlotEntity().apply {
+            this.id = UUID.randomUUID()
+            this.plannedTaskId = plannedTaskId
+            this.startIso = startIso
+            this.endIso = startIso
+        }
 }
