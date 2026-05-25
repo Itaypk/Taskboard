@@ -9,7 +9,7 @@ import java.util.UUID
 
 @Entity
 @Table(name = "users")
-open class UserEntity {
+class UserEntity {
     @Id
     var id: UUID? = null
 

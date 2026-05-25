@@ -10,7 +10,7 @@ import java.util.UUID
 
 @Entity
 @Table(name = "planned_task")
-open class PlannedTaskEntity {
+class PlannedTaskEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     var id: UUID? = null

@@ -8,7 +8,7 @@ import java.util.UUID
 
 @Entity
 @Table(name = "user_settings")
-open class UserSettingsEntity {
+class UserSettingsEntity {
     @Id
     @Column(name = "user_id")
     var userId: UUID? = null

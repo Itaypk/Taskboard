@@ -9,7 +9,7 @@ import java.util.UUID
 
 @Entity
 @Table(name = "user_data_key")
-open class UserDataKeyEntity {
+class UserDataKeyEntity {
     @Id
     @Column(name = "user_id")
     var userId: UUID? = null

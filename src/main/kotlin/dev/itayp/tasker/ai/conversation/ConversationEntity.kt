@@ -13,7 +13,7 @@ import java.util.UUID
 
 @Entity
 @Table(name = "ai_conversation")
-open class ConversationEntity {
+class ConversationEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     var id: UUID? = null
