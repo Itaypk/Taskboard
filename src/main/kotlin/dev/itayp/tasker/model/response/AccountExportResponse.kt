@@ -12,6 +12,7 @@ import jakarta.validation.constraints.Size
  * [formatVersion] when the schema changes.
  */
 data class AccountExportResponse(
+    val formatVersion: Int = 1,
     @field:Positive
     val formatVersion: Int = 1,
     val exportedAt: String,
@@ -33,6 +34,7 @@ data class UserExport(
     val telegramUsername: String?,
     @field:Size(max = 255)
     val telegramFirstName: String?,
+    val email: String?,
     @field:Size(max = 320)
     val email: String?,
     val createdAt: String?,
