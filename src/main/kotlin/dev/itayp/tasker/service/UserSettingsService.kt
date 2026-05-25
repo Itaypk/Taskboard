@@ -27,19 +27,13 @@ class UserSettingsService(
     fun getOrCreate(userId: UUID): UserSettings = toDomain(userId, fetchOrCreate(userId))
 
     fun update(userId: UUID, request: UpdateUserSettingsRequest): UserSettings {
-        require(request.timeZone in SUPPORTED_TIME_ZONES) { "Unsupported time zone: ${request.timeZone}" }
-        require(SUPPORTED_LANGUAGES.any { it.code == request.preferredLanguage }) {
-            "Unsupported language: ${request.preferredLanguage}"
-        }
-        request.gender?.let {
-            require(SUPPORTED_GENDERS.any { g -> g.code == it }) { "Unsupported gender: $it" }
-        }
-        request.planningCron?.let {
-            require(CronExpression.isValidExpression(it)) { "Invalid cron expression: $it" }
-        }
-        request.weekStartDay?.let {
-            require(runCatching { DayOfWeek.valueOf(it) }.isSuccess) { "Unsupported week start day: $it" }
-        }
+        validateSettingsInput(
+            timeZone = request.timeZone,
+            preferredLanguage = request.preferredLanguage,
+            gender = request.gender,
+            planningCron = request.planningCron,
+            weekStartDay = request.weekStartDay,
+        )
         val entity = fetchOrCreate(userId)
         val scheduleChanged = entity.planningCron != request.planningCron ||
             entity.timeZone != request.timeZone
@@ -82,6 +76,34 @@ class UserSettingsService(
         settingsRepository.findById(userId).orElseGet {
             settingsRepository.save(UserSettingsEntity().apply { this.userId = userId })
         }
+
+    /**
+     * Shared enum/regex checks for the user-supplied subset of settings. Throws
+     * [IllegalArgumentException] (which propagates as 400 / rolls back any
+     * surrounding `@Transactional`) on any invalid value. Used by both the normal
+     * settings-update endpoint and the account-import flow.
+     */
+    fun validateSettingsInput(
+        timeZone: String,
+        preferredLanguage: String,
+        gender: String?,
+        planningCron: String?,
+        weekStartDay: String?,
+    ) {
+        require(timeZone in SUPPORTED_TIME_ZONES) { "Unsupported time zone: $timeZone" }
+        require(SUPPORTED_LANGUAGES.any { it.code == preferredLanguage }) {
+            "Unsupported language: $preferredLanguage"
+        }
+        gender?.let {
+            require(SUPPORTED_GENDERS.any { g -> g.code == it }) { "Unsupported gender: $it" }
+        }
+        planningCron?.let {
+            require(CronExpression.isValidExpression(it)) { "Invalid cron expression: $it" }
+        }
+        weekStartDay?.let {
+            require(runCatching { DayOfWeek.valueOf(it) }.isSuccess) { "Unsupported week start day: $it" }
+        }
+    }
 
     private fun toDomain(userId: UUID, entity: UserSettingsEntity): UserSettings =
         UserSettings(

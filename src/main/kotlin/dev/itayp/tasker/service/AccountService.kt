@@ -72,6 +72,25 @@ class AccountService(
         jdbcTemplate.update("DELETE FROM user_data_key WHERE user_id = ?", userId)
     }
 
+    /**
+     * True iff the account holds nothing beyond what registration auto-seeds. Used by
+     * the import flow to reject a 409 attempt to import on top of existing user data:
+     * import wipes the seeded categories and overwrites settings, so anything else is
+     * work the user did and we must not clobber it.
+     */
+    @Transactional(readOnly = true)
+    fun isEmptyForImport(userId: UUID): Boolean {
+        if (taskRepository.findAllByUserIdOrderBySortKeyAsc(userId).isNotEmpty()) return false
+        if (tagRepository.findAllByUserId(userId).isNotEmpty()) return false
+        val expected = UserService.DEFAULT_CATEGORIES.toSet()
+        val actual = categoryRepository.findAllByUserId(userId).mapNotNull { entity ->
+            val label = entity.label ?: return@mapNotNull null
+            val swatch = entity.swatchId ?: return@mapNotNull null
+            label to swatch
+        }.toSet()
+        return actual == expected
+    }
+
     @Transactional(readOnly = true)
     fun exportAccount(userId: UUID): AccountExportResponse {
         val user = userRepository.findById(userId).orElseThrow()
@@ -81,11 +100,13 @@ class AccountService(
         val tasks = taskRepository.findAllByUserIdOrderBySortKeyAsc(userId)
 
         return AccountExportResponse(
+            formatVersion = 1,
             exportedAt = Instant.now().toString(),
             user = UserExport(
                 id = user.id.toString(),
                 telegramUsername = user.telegramUsername,
                 telegramFirstName = userCrypto.decrypt(userId, user.telegramFirstName),
+                email = userCrypto.decrypt(userId, user.email),
                 createdAt = user.createdAt?.toString(),
             ),
             settings = settings?.let {
@@ -94,6 +115,12 @@ class AccountService(
                     contextBlock = userCrypto.decrypt(userId, it.contextBlock),
                     timeZone = it.timeZone,
                     preferredLanguage = it.preferredLanguage,
+                    calendarInviteEmail = it.calendarInviteEmail,
+                    gender = it.gender,
+                    agentDescription = userCrypto.decrypt(userId, it.agentDescription),
+                    planningCron = it.planningCron,
+                    weekStartDay = it.weekStartDay,
+                    autoArchiveDays = it.autoArchiveDays,
                 )
             },
             categories = categories.map {
@@ -126,6 +153,7 @@ class AccountService(
                     sortKey = task.sortKey ?: "",
                     createdAt = task.createdAt?.toString() ?: "",
                     updatedAt = task.updatedAt?.toString(),
+                    relevantFrom = task.relevantFrom?.toString(),
                 )
             },
         )

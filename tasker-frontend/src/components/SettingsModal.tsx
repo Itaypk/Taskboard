@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, type ChangeEvent } from 'react';
 import styles from './SettingsModal.module.css';
 import type { UserSettings, Task, SettingsOptions } from '../types';
 import { CategoryEditor } from './CategoryEditor';
 import { Tabs } from './Tabs';
-import { createCategory, updateCategory, deleteCategory, updateUserSettings, fetchSettingsOptions, deleteAccount, exportAccount, requestEmailVerification } from '../api';
+import { createCategory, updateCategory, deleteCategory, updateUserSettings, fetchSettingsOptions, deleteAccount, exportAccount, importAccount, requestEmailVerification } from '../api';
+import type { ImportSummary } from '../api';
 
 interface SettingsModalProps {
   settings: UserSettings;
@@ -59,6 +60,9 @@ export function SettingsModal({ settings, tasks, open, onClose, onSave, onAccoun
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importMessage, setImportMessage] = useState<string | null>(null);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
   const [emailInput, setEmailInput] = useState(settings.email ?? '');
   const [verificationSent, setVerificationSent] = useState(false);
   const [sendingVerification, setSendingVerification] = useState(false);
@@ -174,6 +178,44 @@ export function SettingsModal({ settings, tasks, open, onClose, onSave, onAccoun
       console.error('Export failed', e);
     } finally {
       setExporting(false);
+    }
+  };
+
+  const handleImportClick = () => {
+    setImportMessage(null);
+    importInputRef.current?.click();
+  };
+
+  const handleImportFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Always clear the input so picking the same file twice still triggers onChange.
+    e.target.value = '';
+    if (!file) return;
+    setImporting(true);
+    setImportMessage(null);
+    try {
+      const text = await file.text();
+      let payload: unknown;
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        setImportMessage('That file is not valid JSON.');
+        return;
+      }
+      const summary: ImportSummary = await importAccount(payload);
+      setImportMessage(
+        `Imported ${summary.tasks} task${summary.tasks === 1 ? '' : 's'}, ` +
+        `${summary.tags} tag${summary.tags === 1 ? '' : 's'}, ` +
+        `${summary.categories} categor${summary.categories === 1 ? 'y' : 'ies'}. Reloading…`
+      );
+      // Hard reload so the rest of the app re-fetches against the freshly populated account.
+      setTimeout(() => window.location.reload(), 800);
+    } catch (err: unknown) {
+      console.error('Import failed', err);
+      const message = err instanceof Error ? err.message : 'Import failed.';
+      setImportMessage(message);
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -379,10 +421,28 @@ export function SettingsModal({ settings, tasks, open, onClose, onSave, onAccoun
                     type="button"
                     className="btn btn--ghost"
                     onClick={handleExport}
-                    disabled={exporting || deleting}
+                    disabled={exporting || deleting || importing}
                   >
                     {exporting ? 'Exporting…' : 'Export my data'}
                   </button>
+                  <button
+                    type="button"
+                    className="btn btn--ghost"
+                    onClick={handleImportClick}
+                    disabled={exporting || deleting || importing}
+                  >
+                    {importing ? 'Importing…' : 'Import data'}
+                  </button>
+                  <input
+                    ref={importInputRef}
+                    type="file"
+                    accept="application/json"
+                    style={{ display: 'none' }}
+                    onChange={handleImportFile}
+                  />
+                  {importMessage && (
+                    <p className="danger-zone__confirm-text" role="status">{importMessage}</p>
+                  )}
                   {deleteConfirm ? (
                     <div className="danger-zone__confirm">
                       <span className="danger-zone__confirm-text">This will permanently delete your account and all data. There's no undo.</span>
