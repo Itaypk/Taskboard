@@ -121,7 +121,6 @@ class PlanningSessionService(
         val previous = findPreviousSummarizableSession(userId)
             ?: return TaskChangeSummary(emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), 0)
         val since = previous.endedAt ?: previous.startedAt
-            ?: return TaskChangeSummary(emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), 0)
         return backlogTaskChangeService.summarizeSince(userId, since)
     }
 }

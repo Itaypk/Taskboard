@@ -234,3 +234,12 @@ export const exportAccount = async (): Promise<void> => {
     a.click();
     URL.revokeObjectURL(url);
 };
+
+export interface ImportSummary {
+    categories: number;
+    tags: number;
+    tasks: number;
+}
+
+export const importAccount = (payload: unknown): Promise<ImportSummary> =>
+    apiRequest('/account/import', { method: 'POST', ...jsonBody(payload) });

@@ -46,7 +46,7 @@ class CurrentBotCommand(
             return
         }
 
-        val tasks = backlogTaskService.getTasksScheduledInSession(context.userId, plan.id!!)
+        val tasks = backlogTaskService.getTasksScheduledInSession(context.userId, plan.id)
 
         val statusKey = if (plan.status == PlanningSessionStatus.ACTIVE) {
             "command.current.status.active"
@@ -56,7 +56,7 @@ class CurrentBotCommand(
         val statusLabel = messageSource.getMessage(statusKey, null, locale)
 
         val fmt = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale)
-        val weekStart = plan.weekStart!!
+        val weekStart = plan.weekStart
         val weekEnd = weekStart.plusDays(6)
         val period = "${weekStart.format(fmt)} - ${weekEnd.format(fmt)}"
 

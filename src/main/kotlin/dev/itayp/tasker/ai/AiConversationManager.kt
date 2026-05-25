@@ -34,7 +34,7 @@ class AiConversationManager(
      */
     fun startConversation(userId: UUID, config: ConversationConfig): UUID {
         val conversation = conversationService.createConversation(userId, config)
-        return conversation.id!!
+        return conversation.id
     }
 
     /**

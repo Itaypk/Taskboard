@@ -11,7 +11,6 @@ import org.springframework.stereotype.Service
 import org.springframework.web.util.HtmlUtils
 import dev.itayp.tasker.channel.email.EmailTemplateEngine
 import org.springframework.context.MessageSource
-import java.security.MessageDigest
 import java.time.Clock
 import java.time.Duration
 import java.util.UUID
@@ -36,7 +35,7 @@ class EmailVerificationService(
         val user = userRepository.findById(userId).orElseThrow { NoSuchElementException("User not found") }
         val token = UUID.randomUUID().toString().replace("-", "")
         user.email = userCrypto.encrypt(userId, normalised)
-        user.emailHash = sha256Hex(normalised)
+        user.emailHash = EmailHasher.hash(normalised)
         user.emailVerifiedAt = null
         user.emailVerificationToken = token
         user.emailVerificationTokenExpiresAt = clock.instant().plus(Duration.ofHours(24))
@@ -78,10 +77,5 @@ class EmailVerificationService(
 
         log.info("Email verified for userId={}", user.id)
         return true
-    }
-
-    private fun sha256Hex(input: String): String {
-        val digest = MessageDigest.getInstance("SHA-256").digest(input.toByteArray(Charsets.UTF_8))
-        return digest.joinToString("") { "%02x".format(it) }
     }
 }

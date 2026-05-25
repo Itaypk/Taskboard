@@ -54,7 +54,7 @@ class WeeklyPlanningOrchestrator(
 
     fun start(userId: UUID, channel: ConversationChannel, weekStart: LocalDate): UUID {
         val session = planningSessionService.startSession(userId, weekStart)
-        val sessionId = session.id ?: error("Planning session was saved without an id")
+        val sessionId = session.id
         if (state[sessionId] != null) return sessionId
 
         state[sessionId] = OrchestratorState(

@@ -9,23 +9,35 @@ import dev.itayp.tasker.jpa.BacklogTaskCategoryEntity
 import dev.itayp.tasker.jpa.BacklogTaskEntity
 import dev.itayp.tasker.jpa.BacklogTaskTagEntity
 import dev.itayp.tasker.jpa.UserEntity
+import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.model.CategoryColor
 import dev.itayp.tasker.model.TagColor
 import dev.itayp.tasker.model.TaskStatus
+import dev.itayp.tasker.model.response.AccountExportResponse
+import dev.itayp.tasker.model.response.CategoryExport
+import dev.itayp.tasker.model.response.TagExport
+import dev.itayp.tasker.model.response.TaskExport
+import dev.itayp.tasker.model.response.UserExport
 import dev.itayp.tasker.repository.BacklogTaskCategoryRepository
 import dev.itayp.tasker.repository.BacklogTaskRepository
 import dev.itayp.tasker.repository.BacklogTaskTagRepository
 import dev.itayp.tasker.repository.UserRepository
+import dev.itayp.tasker.service.AccountImportService
 import dev.itayp.tasker.service.AccountService
+import dev.itayp.tasker.service.UserAuthService
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.core.io.ClassPathResource
 import org.springframework.http.HttpStatus
+import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.ContextConfiguration
+import tools.jackson.databind.ObjectMapper
+import java.nio.charset.StandardCharsets
 import java.time.Instant
 import java.util.UUID
 
@@ -42,6 +54,11 @@ class PostgresIntegrationTest(
     @Autowired val accountService: AccountService,
     @Autowired val conversationRepository: ConversationRepository,
     @Autowired val messageRepository: MessageRepository,
+    @Autowired val accountImportService: AccountImportService,
+    @Autowired val userAuthService: UserAuthService,
+    @Autowired val userCrypto: UserCryptoService,
+    @Autowired val jdbc: JdbcTemplate,
+    @Autowired val objectMapper: ObjectMapper,
 ) {
 
     @Test
@@ -180,5 +197,109 @@ class PostgresIntegrationTest(
         assertThat(loaded.content).isEqualTo(longContent)
         assertThat(loaded.toolCallsJson).hasSize(8_000)
         assertThat(loaded.toolCallsJson).isEqualTo(longToolCallsJson)
+    }
+
+    @Test
+    fun `account import populates tasks and stores ciphertext in title column`() {
+        // Use the dev-user path with a random UUID: it creates an authenticated user
+        // with a DEK and the auto-seeded default categories but no tasks/tags — exactly
+        // what import expects. The demo path additionally seeds tasks, which would
+        // trip the isEmptyForImport guard.
+        val userId = UUID.randomUUID()
+        userAuthService.ensureDevUser(userId, telegramId = System.nanoTime())
+
+        val payload = AccountExportResponse(
+            formatVersion = 1,
+            exportedAt = Instant.parse("2026-05-25T12:00:00Z").toString(),
+            user = UserExport(
+                id = "old-uuid",
+                telegramUsername = null,
+                telegramFirstName = "Alice",
+                email = null,
+                createdAt = null,
+            ),
+            settings = null,
+            categories = listOf(
+                CategoryExport(id = "cat-1", label = "Imported Work", swatchId = "sky"),
+            ),
+            tags = listOf(
+                TagExport(id = "tag-1", label = "urgent", colorId = "coral", description = null),
+            ),
+            tasks = listOf(
+                TaskExport(
+                    id = "task-1",
+                    title = "ENCRYPT-CHECK-12345",
+                    description = "secret notes",
+                    url = null,
+                    priority = "high",
+                    deadline = null,
+                    estimatedMinutes = 30,
+                    status = "todo",
+                    categoryId = "cat-1",
+                    tagIds = listOf("tag-1"),
+                    sortKey = "a",
+                    createdAt = Instant.parse("2026-05-01T12:00:00Z").toString(),
+                    updatedAt = null,
+                    relevantFrom = null,
+                )
+            ),
+        )
+
+        val summary = accountImportService.import(userId, payload)
+        assertThat(summary.tasks).isEqualTo(1)
+        assertThat(summary.categories).isEqualTo(1)
+        assertThat(summary.tags).isEqualTo(1)
+
+        // Title column holds ciphertext: encrypted bytes never contain the marker plaintext.
+        val rawTitleBytes: ByteArray = jdbc.queryForList(
+            "SELECT title FROM backlog_task WHERE user_id = ?",
+            ByteArray::class.java,
+            userId,
+        ).single() ?: error("imported task has null title")
+        assertThat(String(rawTitleBytes, Charsets.UTF_8))
+            .doesNotContain("ENCRYPT-CHECK-12345")
+        assertThat(userCrypto.decrypt(userId, rawTitleBytes)).isEqualTo("ENCRYPT-CHECK-12345")
+
+        // Imported categories replaced the auto-seeded defaults.
+        val categories = categoryRepository.findAllByUserId(userId)
+        assertThat(categories).singleElement().satisfies({
+            assertThat(it.label).isEqualTo("Imported Work")
+            assertThat(it.swatchId).isEqualTo(CategoryColor.SKY)
+        })
+    }
+
+    @Test
+    fun `account import of export v1 populates tasks and stores ciphertext in title column`() {
+        val json = ClassPathResource("import/export-v1.json").getContentAsString(StandardCharsets.UTF_8)
+        val payload = objectMapper.readValue(json, AccountExportResponse::class.java)
+        assertThat(payload.formatVersion).isEqualTo(1)
+        assertThat(payload.tasks).hasSize(8)
+        assertThat(payload.categories).hasSize(6)
+
+        val userId = UUID.randomUUID()
+        userAuthService.ensureDevUser(userId, telegramId = System.nanoTime())
+
+        val summary = accountImportService.import(userId, payload)
+        assertThat(summary.tasks).isEqualTo(8)
+        assertThat(summary.categories).isEqualTo(6)
+        assertThat(summary.tags).isEqualTo(2)
+
+        // Each task title is encrypted: the raw column never contains the plaintext.
+        val rawTitles: List<ByteArray> = jdbc.queryForList(
+            "SELECT title FROM backlog_task WHERE user_id = ?",
+            ByteArray::class.java,
+            userId,
+        ).filterNotNull()
+        assertThat(rawTitles).hasSize(8)
+        val decrypted = rawTitles.map { userCrypto.decrypt(userId, it) }
+        assertThat(decrypted).contains(
+            "Prepare weekly team update",
+            "Book dentist appointment",
+            "Go for a 30-min run",
+        )
+        rawTitles.forEach { bytes ->
+            assertThat(String(bytes, StandardCharsets.UTF_8))
+                .doesNotContain("Prepare weekly team update")
+        }
     }
 }
