@@ -82,6 +82,7 @@ class AccountService(
                 id = user.id.toString(),
                 telegramUsername = user.telegramUsername,
                 telegramFirstName = user.telegramFirstName,
+                email = user.email,
                 createdAt = user.createdAt?.toString(),
             ),
             settings = settings?.let {
@@ -90,6 +91,12 @@ class AccountService(
                     contextBlock = it.contextBlock,
                     timeZone = it.timeZone,
                     preferredLanguage = it.preferredLanguage,
+                    calendarInviteEmail = it.calendarInviteEmail,
+                    gender = it.gender,
+                    agentDescription = it.agentDescription,
+                    planningCron = it.planningCron,
+                    weekStartDay = it.weekStartDay,
+                    autoArchiveDays = it.autoArchiveDays,
                 )
             },
             categories = categories.map {
@@ -122,6 +129,7 @@ class AccountService(
                     sortKey = task.sortKey ?: "",
                     createdAt = task.createdAt?.toString() ?: "",
                     updatedAt = task.updatedAt?.toString(),
+                    relevantFrom = task.relevantFrom?.toString(),
                 )
             },
         )

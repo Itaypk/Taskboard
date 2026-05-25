@@ -1,6 +1,7 @@
 package dev.itayp.tasker.model.response
 
 data class AccountExportResponse(
+    val formatVersion: Int = 1,
     val exportedAt: String,
     val user: UserExport,
     val settings: SettingsExport?,
@@ -13,6 +14,7 @@ data class UserExport(
     val id: String,
     val telegramUsername: String?,
     val telegramFirstName: String?,
+    val email: String?,
     val createdAt: String?,
 )
 
@@ -21,6 +23,12 @@ data class SettingsExport(
     val contextBlock: String?,
     val timeZone: String,
     val preferredLanguage: String,
+    val calendarInviteEmail: Boolean,
+    val gender: String?,
+    val agentDescription: String?,
+    val planningCron: String?,
+    val weekStartDay: String?,
+    val autoArchiveDays: Int?,
 )
 
 data class CategoryExport(
@@ -50,4 +58,5 @@ data class TaskExport(
     val sortKey: String,
     val createdAt: String,
     val updatedAt: String?,
+    val relevantFrom: String?,
 )
