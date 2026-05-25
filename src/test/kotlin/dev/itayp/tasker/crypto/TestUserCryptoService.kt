@@ -1,5 +1,6 @@
 package dev.itayp.tasker.crypto
 
+import org.mockito.Mockito
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.doAnswer
@@ -39,12 +40,14 @@ fun newTestUserCryptoService(): UserCryptoService {
  * encryption layer is not what's under test.
  */
 fun noopUserCryptoService(): UserCryptoService {
+    // Use Mockito.lenient() so unused stubs don't fail tests under strict stubbing —
+    // many tests inject this helper without touching crypto in every code path.
     val mock = mock<UserCryptoService>()
-    whenever(mock.encrypt(any(), anyOrNull<String>())).thenAnswer {
+    Mockito.lenient().`when`(mock.encrypt(any(), anyOrNull<String>())).thenAnswer {
         val plaintext = it.arguments[1] as String?
         plaintext?.toByteArray(Charsets.UTF_8)
     }
-    whenever(mock.decrypt(any(), anyOrNull<ByteArray>())).thenAnswer {
+    Mockito.lenient().`when`(mock.decrypt(any(), anyOrNull<ByteArray>())).thenAnswer {
         val ciphertext = it.arguments[1] as ByteArray?
         ciphertext?.toString(Charsets.UTF_8)
     }

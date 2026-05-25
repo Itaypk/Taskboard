@@ -31,19 +31,21 @@ class UserAuthService(
             return userRepository.save(existing)
         }
 
+        // Persist the user row first so the user_data_key FK (and any other FK to users)
+        // is satisfied when ensureUserKey writes the wrapped DEK.
         val newId = UUID.randomUUID()
-        // DEK must exist before any sensitive field is encrypted under this user's id.
-        userCrypto.ensureUserKey(newId)
-        val created = UserEntity().apply {
+        val draft = UserEntity().apply {
             id = newId
             telegramId = data.telegramId
             telegramUsername = data.username
-            telegramFirstName = userCrypto.encrypt(newId, data.firstName)
             telegramPhotoUrl = data.photoUrl
             createdAt = now
             lastLoginAt = now
         }
-        val saved = userRepository.save(created)
+        userRepository.save(draft)
+        userCrypto.ensureUserKey(newId)
+        draft.telegramFirstName = userCrypto.encrypt(newId, data.firstName)
+        val saved = userRepository.save(draft)
         userService.initializeNewUser(saved.id!!)
         return saved
     }
@@ -53,16 +55,17 @@ class UserAuthService(
         val existing = userRepository.findById(userId).orElse(null)
         if (existing != null) return existing
 
-        userCrypto.ensureUserKey(userId)
         val now = clock.instant()
-        val created = UserEntity().apply {
+        val draft = UserEntity().apply {
             this.id = userId
             this.telegramId = telegramId
-            this.telegramFirstName = userCrypto.encrypt(userId, "Dev")
             this.createdAt = now
             this.lastLoginAt = now
         }
-        val saved = userRepository.save(created)
+        userRepository.save(draft)
+        userCrypto.ensureUserKey(userId)
+        draft.telegramFirstName = userCrypto.encrypt(userId, "Dev")
+        val saved = userRepository.save(draft)
         userService.initializeNewUser(saved.id!!)
         logger.debug("Created dev user with id $userId and telegram id $telegramId")
         return saved
@@ -72,19 +75,19 @@ class UserAuthService(
     fun createDemoUser(ttlHours: Long = 24): UserEntity {
         val now = clock.instant()
         val newId = UUID.randomUUID()
-        userCrypto.ensureUserKey(newId)
-        val user = UserEntity().apply {
+        val draft = UserEntity().apply {
             id = newId
             isDemo = true
             demoExpiresAt = now.plus(Duration.ofHours(ttlHours))
             createdAt = now
             lastLoginAt = now
         }
-        val saved = userRepository.save(user)
-        userService.initializeNewUser(saved.id!!)
-        demoDataSeeder.seed(saved.id!!)
-        logger.info("Created demo user ${saved.id}, expires at ${saved.demoExpiresAt}")
-        return saved
+        userRepository.save(draft)
+        userCrypto.ensureUserKey(newId)
+        userService.initializeNewUser(newId)
+        demoDataSeeder.seed(newId)
+        logger.info("Created demo user $newId, expires at ${draft.demoExpiresAt}")
+        return draft
     }
 
     companion object {

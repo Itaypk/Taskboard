@@ -60,6 +60,8 @@ class UserAuthServiceTest {
             createdAt = Instant.parse("2026-01-01T00:00:00Z")
             lastLoginAt = Instant.parse("2026-01-01T00:00:00Z")
         }
+        // Pre-existing users already have a DEK from their original registration.
+        crypto.ensureUserKey(existing.id!!)
         whenever(userRepository.findByTelegramId(42L)).thenReturn(existing)
         val captor = argumentCaptor<UserEntity>()
         whenever(userRepository.save(captor.capture())).thenAnswer { it.arguments[0] as UserEntity }

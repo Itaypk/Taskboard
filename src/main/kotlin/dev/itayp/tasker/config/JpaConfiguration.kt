@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories
 @EnableJpaRepositories(basePackages = [
     "dev.itayp.tasker.repository",
     "dev.itayp.tasker.ai.conversation",
-    "dev.itayp.tasker.planning"
+    "dev.itayp.tasker.planning",
+    "dev.itayp.tasker.crypto",
 ])
 class JpaConfiguration

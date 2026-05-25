@@ -37,7 +37,7 @@
                 under encryption; this hash gives us a stable, unique-indexable handle
                 for deduplication without leaking the address itself.
             -->
-            <column name="email_hash" type="CHAR(64)">
+            <column name="email_hash" type="VARCHAR(64)">
                 <constraints nullable="true" unique="true" uniqueConstraintName="uq_users_email_hash"/>
             </column>
             <column name="email_verified_at" type="TIMESTAMP">

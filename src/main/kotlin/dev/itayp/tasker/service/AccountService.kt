@@ -68,6 +68,8 @@ class AccountService(
         jdbcTemplate.update("DELETE FROM planning_session WHERE user_id = ?", userId)
         // ai_message cascades automatically from ai_conversation (ON DELETE CASCADE in schema)
         jdbcTemplate.update("DELETE FROM ai_conversation WHERE user_id = ?", userId)
+        // user_data_key has FK to users; remove last so the user row delete can proceed.
+        jdbcTemplate.update("DELETE FROM user_data_key WHERE user_id = ?", userId)
     }
 
     @Transactional(readOnly = true)
