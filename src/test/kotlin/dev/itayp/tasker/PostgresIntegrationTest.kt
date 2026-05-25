@@ -31,10 +31,13 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.core.io.ClassPathResource
 import org.springframework.http.HttpStatus
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.ContextConfiguration
+import tools.jackson.databind.ObjectMapper
+import java.nio.charset.StandardCharsets
 import java.time.Instant
 import java.util.UUID
 
@@ -55,6 +58,7 @@ class PostgresIntegrationTest(
     @Autowired val userAuthService: UserAuthService,
     @Autowired val userCrypto: UserCryptoService,
     @Autowired val jdbc: JdbcTemplate,
+    @Autowired val objectMapper: ObjectMapper,
 ) {
 
     @Test
@@ -262,5 +266,40 @@ class PostgresIntegrationTest(
             assertThat(it.label).isEqualTo("Imported Work")
             assertThat(it.swatchId).isEqualTo(CategoryColor.SKY)
         })
+    }
+
+    @Test
+    fun `account import of export v1 populates tasks and stores ciphertext in title column`() {
+        val json = ClassPathResource("import/export-v1.json").getContentAsString(StandardCharsets.UTF_8)
+        val payload = objectMapper.readValue(json, AccountExportResponse::class.java)
+        assertThat(payload.formatVersion).isEqualTo(1)
+        assertThat(payload.tasks).hasSize(8)
+        assertThat(payload.categories).hasSize(6)
+
+        val userId = UUID.randomUUID()
+        userAuthService.ensureDevUser(userId, telegramId = System.nanoTime())
+
+        val summary = accountImportService.import(userId, payload)
+        assertThat(summary.tasks).isEqualTo(8)
+        assertThat(summary.categories).isEqualTo(6)
+        assertThat(summary.tags).isEqualTo(2)
+
+        // Each task title is encrypted: the raw column never contains the plaintext.
+        val rawTitles: List<ByteArray> = jdbc.queryForList(
+            "SELECT title FROM backlog_task WHERE user_id = ?",
+            ByteArray::class.java,
+            userId,
+        ).filterNotNull()
+        assertThat(rawTitles).hasSize(8)
+        val decrypted = rawTitles.map { userCrypto.decrypt(userId, it) }
+        assertThat(decrypted).contains(
+            "Prepare weekly team update",
+            "Book dentist appointment",
+            "Go for a 30-min run",
+        )
+        rawTitles.forEach { bytes ->
+            assertThat(String(bytes, StandardCharsets.UTF_8))
+                .doesNotContain("Prepare weekly team update")
+        }
     }
 }
