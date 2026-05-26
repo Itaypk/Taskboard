@@ -20,6 +20,8 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
+import org.mockito.kotlin.eq
+import org.mockito.kotlin.isNull
 import org.mockito.kotlin.whenever
 import org.springframework.jdbc.core.JdbcTemplate
 import java.time.Instant
@@ -164,7 +166,9 @@ class AccountServiceTest {
             email = null
         }
 
-        whenever(userCrypto.decrypt(userId, titleBytes)).thenReturn("No date task")
+        // null ciphertext → null plaintext (mirrors UserCryptoService's own null-guard)
+        whenever(userCrypto.decrypt(eq(userId), isNull())).thenReturn(null)
+        whenever(userCrypto.decrypt(eq(userId), eq(titleBytes))).thenReturn("No date task")
 
         whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
         whenever(settingsRepository.findById(userId)).thenReturn(Optional.empty())
