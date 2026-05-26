@@ -1,5 +1,6 @@
 package dev.itayp.tasker.service
 
+import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.jpa.BacklogTaskCategoryEntity
 import dev.itayp.tasker.jpa.BacklogTaskEntity
 import dev.itayp.tasker.jpa.BacklogTaskTagEntity
@@ -38,6 +39,7 @@ class AccountServiceTest {
     @Mock private lateinit var categoryRepository: BacklogTaskCategoryRepository
     @Mock private lateinit var settingsRepository: UserSettingsRepository
     @Mock private lateinit var jdbcTemplate: JdbcTemplate
+    @Mock private lateinit var userCrypto: UserCryptoService
 
     @InjectMocks private lateinit var service: AccountService
 
@@ -60,11 +62,15 @@ class AccountServiceTest {
             colorId = TagColor.CORAL
             description = "needs attention"
         }
+
+        // Encrypted fields are stored as ByteArray; keep references so we can stub decrypt
+        val titleBytes = "Buy bread".toByteArray()
+        val descriptionBytes = "From the place on 5th".toByteArray()
         val task = BacklogTaskEntity().apply {
             id = UUID.randomUUID()
             this.userId = this@AccountServiceTest.userId
-            title = "Buy bread"
-            description = "From the place on 5th"
+            title = titleBytes
+            description = descriptionBytes
             url = "https://example.com"
             priority = TaskPriority.HIGH
             deadline = LocalDate.parse("2026-06-01")
@@ -77,26 +83,41 @@ class AccountServiceTest {
             updatedAt = Instant.parse("2026-05-10T12:00:00Z")
             relevantFrom = LocalDate.parse("2026-05-20")
         }
+
+        val telegramFirstNameBytes = "Alice".toByteArray()
+        val emailBytes = "alice@example.com".toByteArray()
         val user = UserEntity().apply {
             id = this@AccountServiceTest.userId
             telegramUsername = "alice"
-            telegramFirstName = "Alice"
-            email = "alice@example.com"
+            telegramFirstName = telegramFirstNameBytes
+            email = emailBytes
             createdAt = Instant.parse("2026-01-01T00:00:00Z")
         }
+
+        val displayNameBytes = "Alice".toByteArray()
+        val contextBlockBytes = "I prefer deep work in the morning".toByteArray()
+        val agentDescriptionBytes = "Founder working on X".toByteArray()
         val settings = UserSettingsEntity().apply {
             this.userId = this@AccountServiceTest.userId
-            displayName = "Alice"
-            contextBlock = "I prefer deep work in the morning"
+            displayName = displayNameBytes
+            contextBlock = contextBlockBytes
             timeZone = "Europe/London"
             preferredLanguage = "en-US"
             calendarInviteEmail = true
             gender = "feminine"
-            agentDescription = "Founder working on X"
+            agentDescription = agentDescriptionBytes
             planningCron = "0 30 9 * * MON"
             weekStartDay = "MONDAY"
             autoArchiveDays = 30
         }
+
+        whenever(userCrypto.decrypt(userId, telegramFirstNameBytes)).thenReturn("Alice")
+        whenever(userCrypto.decrypt(userId, emailBytes)).thenReturn("alice@example.com")
+        whenever(userCrypto.decrypt(userId, displayNameBytes)).thenReturn("Alice")
+        whenever(userCrypto.decrypt(userId, contextBlockBytes)).thenReturn("I prefer deep work in the morning")
+        whenever(userCrypto.decrypt(userId, agentDescriptionBytes)).thenReturn("Founder working on X")
+        whenever(userCrypto.decrypt(userId, titleBytes)).thenReturn("Buy bread")
+        whenever(userCrypto.decrypt(userId, descriptionBytes)).thenReturn("From the place on 5th")
 
         whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
         whenever(settingsRepository.findById(userId)).thenReturn(Optional.of(settings))
@@ -128,10 +149,11 @@ class AccountServiceTest {
 
     @Test
     fun `exportAccount handles null settings and null relevantFrom`() {
+        val titleBytes = "No date task".toByteArray()
         val task = BacklogTaskEntity().apply {
             id = UUID.randomUUID()
             this.userId = this@AccountServiceTest.userId
-            title = "No date task"
+            title = titleBytes
             status = TaskStatus.TODO
             sortKey = "b00"
             createdAt = Instant.parse("2026-05-01T12:00:00Z")
@@ -141,6 +163,8 @@ class AccountServiceTest {
             id = this@AccountServiceTest.userId
             email = null
         }
+
+        whenever(userCrypto.decrypt(userId, titleBytes)).thenReturn("No date task")
 
         whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
         whenever(settingsRepository.findById(userId)).thenReturn(Optional.empty())
