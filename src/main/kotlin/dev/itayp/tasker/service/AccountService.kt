@@ -62,6 +62,12 @@ class AccountService(
 
         // backlog_task_change_event has FKs to both users and planning_session, so it goes first
         jdbcTemplate.update("DELETE FROM backlog_task_change_event WHERE user_id = ?", userId)
+        // planned_task_slot → planned_task → planning_session; no user_id on slot, so use a subquery
+        jdbcTemplate.update(
+            "DELETE FROM planned_task_slot WHERE planned_task_id IN (SELECT id FROM planned_task WHERE user_id = ?)",
+            userId,
+        )
+        jdbcTemplate.update("DELETE FROM planned_task WHERE user_id = ?", userId)
         // planning_session has FKs to both users and ai_conversation
         jdbcTemplate.update("DELETE FROM planning_session WHERE user_id = ?", userId)
         // ai_message cascades automatically from ai_conversation (ON DELETE CASCADE in schema)
