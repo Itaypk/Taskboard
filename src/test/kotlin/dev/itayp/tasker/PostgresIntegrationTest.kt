@@ -22,8 +22,12 @@ import dev.itayp.tasker.repository.BacklogTaskCategoryRepository
 import dev.itayp.tasker.repository.BacklogTaskRepository
 import dev.itayp.tasker.repository.BacklogTaskTagRepository
 import dev.itayp.tasker.repository.UserRepository
+import dev.itayp.tasker.planning.PlannedTaskRepository
+import dev.itayp.tasker.planning.PlannedTaskSlotRepository
+import dev.itayp.tasker.planning.PlanningSessionRepository
 import dev.itayp.tasker.service.AccountImportService
 import dev.itayp.tasker.service.AccountService
+import dev.itayp.tasker.service.DemoDataSeeder
 import dev.itayp.tasker.service.UserAuthService
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -56,6 +60,10 @@ class PostgresIntegrationTest(
     @Autowired val messageRepository: MessageRepository,
     @Autowired val accountImportService: AccountImportService,
     @Autowired val userAuthService: UserAuthService,
+    @Autowired val demoDataSeeder: DemoDataSeeder,
+    @Autowired val planningSessionRepository: PlanningSessionRepository,
+    @Autowired val plannedTaskRepository: PlannedTaskRepository,
+    @Autowired val plannedTaskSlotRepository: PlannedTaskSlotRepository,
     @Autowired val userCrypto: UserCryptoService,
     @Autowired val jdbc: JdbcTemplate,
     @Autowired val objectMapper: ObjectMapper,
@@ -127,6 +135,50 @@ class PostgresIntegrationTest(
         assertThat(taskRepository.findAllByUserIdOrderBySortKeyAsc(user.id!!)).isEmpty()
         assertThat(tagRepository.findAllByUserId(user.id!!)).isEmpty()
         assertThat(categoryRepository.findAllByUserId(user.id!!)).isEmpty()
+    }
+
+    @Test
+    fun `deleteAccount removes all data including planning sessions, planned tasks, and slots`() {
+        val userId = UUID.randomUUID()
+        userAuthService.ensureDevUser(userId, telegramId = System.nanoTime())
+
+        // DemoDataSeeder creates 8 tasks, 1 planning session, 3 planned tasks each with 1 slot
+        demoDataSeeder.seed(userId)
+
+        // Sanity-check: the seed actually created planning data
+        val sessions = planningSessionRepository.findAllByUserIdOrderByStartedAtDesc(userId)
+        assertThat(sessions).isNotEmpty()
+        val sessionId = sessions.first().id!!
+        assertThat(plannedTaskRepository.findAllBySessionIdOrderByPosition(sessionId)).isNotEmpty()
+
+        accountService.deleteAccount(userId)
+
+        // User row is gone
+        assertThat(userRepository.findById(userId)).isEmpty
+
+        // All task-related rows are gone
+        assertThat(taskRepository.findAllByUserIdOrderBySortKeyAsc(userId)).isEmpty()
+        assertThat(categoryRepository.findAllByUserId(userId)).isEmpty()
+
+        // All planning rows are gone — use JDBC for tables without a findAllByUserId method
+        assertThat(planningSessionRepository.findAllByUserIdOrderByStartedAtDesc(userId)).isEmpty()
+
+        val remainingPlannedTasks = jdbc.queryForObject(
+            "SELECT COUNT(*) FROM planned_task WHERE user_id = ?",
+            Int::class.java,
+            userId,
+        )!!
+        assertThat(remainingPlannedTasks).isZero()
+
+        // planned_task_slot has no user_id; verify via join that no orphaned slots remain
+        val remainingSlots = jdbc.queryForObject(
+            """SELECT COUNT(*) FROM planned_task_slot pts
+               JOIN planned_task pt ON pt.id = pts.planned_task_id
+               WHERE pt.user_id = ?""",
+            Int::class.java,
+            userId,
+        )!!
+        assertThat(remainingSlots).isZero()
     }
 
     @Test
