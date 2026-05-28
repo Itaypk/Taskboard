@@ -4,6 +4,7 @@ import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ChoiceOption
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_KEEP
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_NEXT_WEEK
+import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_REVISE
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_THIS_WEEK
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.PendingConfirmation
 import dev.itayp.tasker.planning.PlanningSessionService
@@ -62,7 +63,7 @@ class PlanBotCommand(
             return
         }
 
-        // Case 2: completed plan exists in DB — show it and ask whether to redo for the same week
+        // Case 2: completed plan exists in DB — offer keep / revise / start-over for the same week
         val existingPlan = planningSessionService.findCurrentPlan(context.userId)
         if (existingPlan?.status == PlanningSessionStatus.COMPLETED && existingPlan.summary != null) {
             planConfirmationRegistry.set(
@@ -71,6 +72,7 @@ class PlanBotCommand(
                     userId = context.userId,
                     existingSessionId = null,
                     replanWeekStart = existingPlan.weekStart,
+                    revisableSessionId = existingPlan.id,
                 ),
             )
             context.channel.send(ChannelMessage.Choice(
@@ -81,7 +83,8 @@ class PlanBotCommand(
                 ),
                 options = listOf(
                     ChoiceOption(OPTION_KEEP, messageSource.getMessage("planning.confirm.completed.keep", null, locale)),
-                    ChoiceOption(OPTION_THIS_WEEK, messageSource.getMessage("planning.confirm.completed.new", null, locale)),
+                    ChoiceOption(OPTION_REVISE, messageSource.getMessage("planning.confirm.completed.revise", null, locale)),
+                    ChoiceOption(OPTION_THIS_WEEK, messageSource.getMessage("planning.confirm.completed.start_over", null, locale)),
                 ),
             ))
             return

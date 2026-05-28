@@ -58,7 +58,8 @@ class PlanBotCommandTest {
                 src.addMessage("planning.confirm.active.abandon", Locale.ENGLISH, "Abandon")
                 src.addMessage("planning.confirm.completed.prompt", Locale.ENGLISH, "Current plan: {0}")
                 src.addMessage("planning.confirm.completed.keep", Locale.ENGLISH, "Keep")
-                src.addMessage("planning.confirm.completed.new", Locale.ENGLISH, "Plan again")
+                src.addMessage("planning.confirm.completed.revise", Locale.ENGLISH, "Revise")
+                src.addMessage("planning.confirm.completed.start_over", Locale.ENGLISH, "Start over")
                 src.addMessage("planning.choose_week.prompt", Locale.ENGLISH, "Which week?")
                 src.addMessage("planning.choose_week.this_week", Locale.ENGLISH, "This week ({0} – {1})")
                 src.addMessage("planning.choose_week.next_week", Locale.ENGLISH, "Next week ({0} – {1})")
@@ -156,7 +157,8 @@ class PlanBotCommandTest {
         assertEquals("Current plan: Week 20 plan summary", msg.prompt)
         assertEquals(listOf(
             ChoiceOption(PlanConfirmationRegistry.OPTION_KEEP, "Keep"),
-            ChoiceOption(PlanConfirmationRegistry.OPTION_THIS_WEEK, "Plan again"),
+            ChoiceOption(PlanConfirmationRegistry.OPTION_REVISE, "Revise"),
+            ChoiceOption(PlanConfirmationRegistry.OPTION_THIS_WEEK, "Start over"),
         ), msg.options)
 
         val pending = planConfirmationRegistry.get(chatId)
@@ -164,6 +166,7 @@ class PlanBotCommandTest {
         assertEquals(userId, pending.userId)
         assertNull(pending.existingSessionId)
         assertEquals(LocalDate.parse("2026-05-11"), pending.replanWeekStart)
+        assertEquals(completedPlan.id, pending.revisableSessionId)
 
         verify(orchestrator, never()).start(any(), any(), any())
     }

@@ -8,6 +8,7 @@ import dev.itayp.tasker.channel.telegram.commands.BotCommandHandler
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_KEEP
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_NEXT_WEEK
+import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_REVISE
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_THIS_WEEK
 import dev.itayp.tasker.planning.WeekOffset
 import dev.itayp.tasker.planning.WeekResolver
@@ -141,6 +142,16 @@ class TelegramChannel(
                 OPTION_KEEP -> {
                     planConfirmationRegistry.remove(chatId)
                     channel.send(ChannelMessage.Text(messageSource.getMessage("planning.confirm.kept", null, locale)))
+                }
+                OPTION_REVISE -> {
+                    planConfirmationRegistry.remove(chatId)
+                    val revisableSessionId = pendingConfirmation.revisableSessionId
+                    if (revisableSessionId == null) {
+                        channel.send(ChannelMessage.Text(messageSource.getMessage("planning.confirm.choose", null, locale)))
+                    } else {
+                        orchestrator.startRevision(pendingConfirmation.userId, revisableSessionId, channel)
+                        sessionRegistry.put(chatId, revisableSessionId)
+                    }
                 }
                 OPTION_THIS_WEEK, OPTION_NEXT_WEEK -> {
                     planConfirmationRegistry.remove(chatId)

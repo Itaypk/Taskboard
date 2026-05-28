@@ -42,6 +42,7 @@ class WeeklyPlanningOrchestrator(
     private val promptAssembler: WeeklyPlanningPromptAssembler,
     private val aiConversationManager: AiConversationManager,
     private val planSubmissionInbox: PlanSubmissionInbox,
+    private val plannedTaskService: PlannedTaskService,
     private val toolRegistry: ToolRegistry,
     private val objectMapper: ObjectMapper,
     private val messageSource: MessageSource,
@@ -90,10 +91,55 @@ class WeeklyPlanningOrchestrator(
         }
     }
 
+    /**
+     * Starts a revise-in-place conversation for an already-COMPLETED session. Reuses the
+     * session id (and its week) so a subsequent [finalizeSubmission] hits the [revisePlan]
+     * branch and updates the existing plan in place. Skips capacity entry — revise mode is
+     * about editing the current plan, not building a new one.
+     */
+    fun startRevision(userId: UUID, sessionId: UUID, channel: ConversationChannel): UUID {
+        val session = planningSessionService.findById(userId, sessionId)
+            ?: throw NoSuchElementException("Planning session $sessionId not found")
+        check(session.status == PlanningSessionStatus.COMPLETED) {
+            "Cannot revise session $sessionId in status ${session.status}"
+        }
+        val currentTasks = plannedTaskService.findForSession(userId, sessionId)
+        val systemPrompt = promptAssembler.assembleRevisionSystemPrompt(userId, session, currentTasks)
+        log.trace("Weekly planning REVISE system prompt for session {}:\n{}", sessionId, systemPrompt)
+
+        val conversationId = aiConversationManager.startConversation(
+            userId = userId,
+            config = ConversationConfig(
+                conversationType = CONVERSATION_TYPE,
+                model = model,
+                temperature = 0.3,
+                systemPrompt = systemPrompt,
+            ),
+        )
+
+        state[sessionId] = OrchestratorState(
+            phase = Phase.CONVERSING,
+            userId = userId,
+            conversationId = conversationId,
+            capacityHint = null,
+        )
+
+        val kickoff = promptAssembler.renderReviseKickoff().trim()
+        channel.indicateTyping()
+        val outcome = aiConversationManager.sendMessage(conversationId, kickoff)
+        processOutcome(sessionId, outcome, channel)
+        return sessionId
+    }
+
     fun phase(sessionId: UUID): Phase? = state[sessionId]?.phase
 
     fun abandon(userId: UUID, sessionId: UUID) {
-        planningSessionService.abandonSession(userId, sessionId)
+        // A revise session reuses a COMPLETED session id; abandoning it should drop the
+        // in-memory conversation state but never downgrade the persisted plan to ABANDONED.
+        val session = planningSessionService.findById(userId, sessionId)
+        if (session != null && session.status == PlanningSessionStatus.ACTIVE) {
+            planningSessionService.abandonSession(userId, sessionId)
+        }
         state.remove(sessionId)
     }
 

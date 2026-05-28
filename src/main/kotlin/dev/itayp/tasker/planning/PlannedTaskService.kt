@@ -2,6 +2,7 @@ package dev.itayp.tasker.planning
 
 import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.planning.dto.AgreedPlanTask
+import dev.itayp.tasker.planning.dto.AgreedTimeSlot
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
@@ -12,6 +13,34 @@ class PlannedTaskService(
     private val plannedTaskSlotRepository: PlannedTaskSlotRepository,
     private val userCrypto: UserCryptoService,
 ) {
+    /**
+     * Returns the planned tasks for [sessionId] in position order, decrypted, with their slots
+     * already attached. Useful for assembling prompts or recaps from an existing plan.
+     */
+    @Transactional(readOnly = true)
+    fun findForSession(userId: UUID, sessionId: UUID): List<AgreedPlanTask> {
+        val tasks = plannedTaskRepository.findAllBySessionIdOrderByPosition(sessionId)
+        if (tasks.isEmpty()) return emptyList()
+        val slotsByTask = plannedTaskSlotRepository
+            .findAllByPlannedTaskIdIn(tasks.mapNotNull { it.id })
+            .groupBy { it.plannedTaskId }
+        return tasks.map { task ->
+            val slots = slotsByTask[task.id].orEmpty().map { slot ->
+                AgreedTimeSlot(
+                    startIso = slot.startIso ?: "",
+                    endIso = slot.endIso ?: "",
+                    label = slot.label,
+                )
+            }
+            AgreedPlanTask(
+                taskId = task.backlogTaskId,
+                title = userCrypto.decrypt(userId, task.title).orEmpty(),
+                notes = userCrypto.decrypt(userId, task.notes),
+                slots = slots,
+            )
+        }
+    }
+
     @Transactional
     fun persist(sessionId: UUID, userId: UUID, tasks: List<AgreedPlanTask>) {
         val existing = plannedTaskRepository.findAllBySessionIdOrderByPosition(sessionId)
