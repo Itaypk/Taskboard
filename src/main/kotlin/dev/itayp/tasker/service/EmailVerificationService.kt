@@ -3,6 +3,7 @@ package dev.itayp.tasker.service
 import dev.itayp.tasker.channel.OutboundChannel
 import dev.itayp.tasker.channel.email.EmailMessage
 import dev.itayp.tasker.config.AppProperties
+import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.repository.UserRepository
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.EnableConfigurationProperties
@@ -24,6 +25,7 @@ class EmailVerificationService(
     private val emailTemplateEngine: EmailTemplateEngine,
     private val userSettingsService: UserSettingsService,
     private val messageSource: MessageSource,
+    private val userCrypto: UserCryptoService,
 ) {
 
     private val log = LoggerFactory.getLogger(EmailVerificationService::class.java)
@@ -32,7 +34,8 @@ class EmailVerificationService(
         val normalised = email.trim().lowercase()
         val user = userRepository.findById(userId).orElseThrow { NoSuchElementException("User not found") }
         val token = UUID.randomUUID().toString().replace("-", "")
-        user.email = normalised
+        user.email = userCrypto.encrypt(userId, normalised)
+        user.emailHash = EmailHasher.hash(normalised)
         user.emailVerifiedAt = null
         user.emailVerificationToken = token
         user.emailVerificationTokenExpiresAt = clock.instant().plus(Duration.ofHours(24))
@@ -75,6 +78,4 @@ class EmailVerificationService(
         log.info("Email verified for userId={}", user.id)
         return true
     }
-
-
 }

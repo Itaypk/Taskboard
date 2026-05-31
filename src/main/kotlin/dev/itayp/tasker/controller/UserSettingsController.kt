@@ -1,5 +1,6 @@
 package dev.itayp.tasker.controller
 
+import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.model.request.UpdateEmailRequest
 import dev.itayp.tasker.model.request.UpdateUserSettingsRequest
 import dev.itayp.tasker.model.response.SettingsOptionsResponse
@@ -30,6 +31,7 @@ class UserSettingsController(
     private val userSettingsService: UserSettingsService,
     private val emailVerificationService: EmailVerificationService,
     private val userRepository: UserRepository,
+    private val userCrypto: UserCryptoService,
 ) {
 
     private val log = LoggerFactory.getLogger(UserSettingsController::class.java)
@@ -40,7 +42,8 @@ class UserSettingsController(
     ): ResponseEntity<UserSettingsResponse> {
         val settings = userSettingsService.getOrCreate(principal.userId)
         val user = userRepository.findById(principal.userId).orElseThrow()
-        return ResponseEntity.ok(settings.toResponse(user))
+        val email = userCrypto.decrypt(principal.userId, user.email)
+        return ResponseEntity.ok(settings.toResponse(email, user.emailVerifiedAt != null))
     }
 
     @PutMapping
@@ -51,7 +54,8 @@ class UserSettingsController(
         return try {
             val settings = userSettingsService.update(principal.userId, request)
             val user = userRepository.findById(principal.userId).orElseThrow()
-            ResponseEntity.ok(settings.toResponse(user))
+            val email = userCrypto.decrypt(principal.userId, user.email)
+            ResponseEntity.ok(settings.toResponse(email, user.emailVerifiedAt != null))
         } catch (e: IllegalArgumentException) {
             log.warn("Invalid settings update from user {}: {}", principal.userId, e.message)
             ResponseEntity.badRequest().build()

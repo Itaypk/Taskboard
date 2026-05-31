@@ -38,7 +38,7 @@ open class BacklogTaskChangeEventEntity {
     var newStatus: TaskStatus? = null
 
     @Column(name = "task_title_snapshot")
-    var taskTitleSnapshot: String? = null
+    var taskTitleSnapshot: ByteArray? = null
 
     @Column(name = "planning_session_id")
     var planningSessionId: UUID? = null

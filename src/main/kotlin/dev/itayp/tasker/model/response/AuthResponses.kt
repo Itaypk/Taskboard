@@ -1,5 +1,6 @@
 package dev.itayp.tasker.model.response
 
+import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.jpa.UserEntity
 
 data class MeResponse(
@@ -11,11 +12,14 @@ data class MeResponse(
     val email: String?,
 )
 
-fun UserEntity.toMeResponse() = MeResponse(
-    id = id?.toString() ?: error("UserEntity must have an id"),
-    telegramId = telegramId,
-    telegramUsername = telegramUsername,
-    telegramFirstName = telegramFirstName,
-    telegramPhotoUrl = telegramPhotoUrl,
-    email = email,
-)
+fun UserEntity.toMeResponse(crypto: UserCryptoService): MeResponse {
+    val ownerId = id ?: error("UserEntity must have an id")
+    return MeResponse(
+        id = ownerId.toString(),
+        telegramId = telegramId,
+        telegramUsername = telegramUsername,
+        telegramFirstName = crypto.decrypt(ownerId, telegramFirstName),
+        telegramPhotoUrl = telegramPhotoUrl,
+        email = crypto.decrypt(ownerId, email),
+    )
+}

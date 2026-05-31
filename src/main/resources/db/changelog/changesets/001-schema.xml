@@ -1,0 +1,531 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Consolidated baseline schema. Squashed from the original 001..012 changesets
+        when at-rest encryption was introduced; the prod database was wiped at that
+        time, so this is now the only "create-from-scratch" path. After this
+        changeset lands, the additive-only rule resumes — never edit this file.
+    -->
+    <changeSet id="1" author="tasker">
+        <createTable tableName="users">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="telegram_id" type="BIGINT">
+                <constraints nullable="true" unique="true" uniqueConstraintName="uq_users_telegram_id"/>
+            </column>
+            <column name="telegram_username" type="VARCHAR(255)">
+                <constraints nullable="true"/>
+            </column>
+            <!-- Encrypted under the user's DEK; see UserCryptoService. -->
+            <column name="telegram_first_name" type="BYTEA">
+                <constraints nullable="true"/>
+            </column>
+            <column name="telegram_photo_url" type="VARCHAR(1000)">
+                <constraints nullable="true"/>
+            </column>
+            <!-- Encrypted under the user's DEK. -->
+            <column name="email" type="BYTEA">
+                <constraints nullable="true"/>
+            </column>
+            <!--
+                SHA-256(lower(trim(email))) hex-encoded. Plaintext is stored in `email`
+                under encryption; this hash gives us a stable, unique-indexable handle
+                for deduplication without leaking the address itself.
+            -->
+            <column name="email_hash" type="VARCHAR(64)">
+                <constraints nullable="true" unique="true" uniqueConstraintName="uq_users_email_hash"/>
+            </column>
+            <column name="email_verified_at" type="TIMESTAMP">
+                <constraints nullable="true"/>
+            </column>
+            <!-- One-time verification token; short-lived, kept plaintext for direct lookup. -->
+            <column name="email_verification_token" type="VARCHAR(64)">
+                <constraints nullable="true" unique="true" uniqueConstraintName="uq_users_email_verification_token"/>
+            </column>
+            <column name="email_verification_token_expires_at" type="TIMESTAMP">
+                <constraints nullable="true"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_login_at" type="TIMESTAMP">
+                <constraints nullable="true"/>
+            </column>
+            <column name="is_demo" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="demo_expires_at" type="TIMESTAMP">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="users" indexName="idx_users_demo_expires">
+            <column name="is_demo"/>
+            <column name="demo_expires_at"/>
+        </createIndex>
+
+        <createTable tableName="user_data_key">
+            <column name="user_id" type="UUID">
+                <constraints primaryKey="true" nullable="false"
+                             foreignKeyName="fk_user_data_key_user" references="users(id)"/>
+            </column>
+            <column name="wrapped_dek" type="BYTEA">
+                <constraints nullable="false"/>
+            </column>
+            <column name="kek_version" type="SMALLINT" defaultValueNumeric="1">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="user_settings">
+            <column name="user_id" type="UUID">
+                <constraints primaryKey="true" nullable="false" foreignKeyName="fk_user_settings_user" references="users(id)"/>
+            </column>
+            <!-- Encrypted under the user's DEK. -->
+            <column name="display_name" type="BYTEA">
+                <constraints nullable="true"/>
+            </column>
+            <!-- Encrypted under the user's DEK. -->
+            <column name="context_block" type="BYTEA">
+                <constraints nullable="true"/>
+            </column>
+            <column name="time_zone" type="VARCHAR(100)" defaultValue="UTC">
+                <constraints nullable="false"/>
+            </column>
+            <column name="preferred_language" type="VARCHAR(10)" defaultValue="en-US">
+                <constraints nullable="false"/>
+            </column>
+            <column name="calendar_invite_email" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="gender" type="VARCHAR(20)">
+                <constraints nullable="true"/>
+            </column>
+            <!-- Encrypted under the user's DEK. -->
+            <column name="agent_description" type="BYTEA">
+                <constraints nullable="true"/>
+            </column>
+            <column name="planning_cron" type="VARCHAR(64)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="week_start_day" type="VARCHAR(10)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="auto_archive_days" type="INT">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="backlog_task_category">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_backlog_task_category_user" references="users(id)"/>
+            </column>
+            <column name="label" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="swatch_id" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="backlog_task_tag">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_backlog_task_tag_user" references="users(id)"/>
+            </column>
+            <column name="label" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="color_id" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="VARCHAR(1000)">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="backlog_task">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_backlog_task_user" references="users(id)"/>
+            </column>
+            <!-- Encrypted under the user's DEK. -->
+            <column name="title" type="BYTEA">
+                <constraints nullable="false"/>
+            </column>
+            <!-- Encrypted under the user's DEK. -->
+            <column name="description" type="BYTEA">
+                <constraints nullable="true"/>
+            </column>
+            <column name="url" type="VARCHAR(1000)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="priority" type="VARCHAR(50)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="deadline" type="DATE">
+                <constraints nullable="true"/>
+            </column>
+            <column name="estimated_minutes" type="INT">
+                <constraints nullable="true"/>
+            </column>
+            <column name="status" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="category_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_backlog_task_category" references="backlog_task_category(id)"/>
+            </column>
+            <column name="sort_key" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP">
+                <constraints nullable="true"/>
+            </column>
+            <column name="reschedule_count" type="INT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <!--
+                Soft reference to planning_session.id. No FK constraint: sessions may be
+                hard-deleted by retention policy and we don't want cascades into the task table.
+            -->
+            <column name="last_scheduled_in_session_id" type="UUID">
+                <constraints nullable="true"/>
+            </column>
+            <column name="relevant_from" type="DATE">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="backlog_task" indexName="idx_backlog_task_user_sort_key">
+            <column name="user_id"/>
+            <column name="sort_key"/>
+        </createIndex>
+
+        <createIndex tableName="backlog_task" indexName="idx_backlog_task_last_scheduled_session">
+            <column name="last_scheduled_in_session_id"/>
+        </createIndex>
+
+        <createTable tableName="backlog_task_tags">
+            <column name="task_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_backlog_task_tags_task" references="backlog_task(id)"/>
+            </column>
+            <column name="tag_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_backlog_task_tags_tag" references="backlog_task_tag(id)"/>
+            </column>
+        </createTable>
+        <addPrimaryKey tableName="backlog_task_tags" columnNames="task_id,tag_id"/>
+
+        <createTable tableName="ai_conversation">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_ai_conversation_user" references="users(id)"/>
+            </column>
+            <column name="conversation_type" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="model" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="temperature" type="DOUBLE">
+                <constraints nullable="true"/>
+            </column>
+            <column name="ttl_days" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_activity_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="soft_deleted_at" type="TIMESTAMP">
+                <constraints nullable="true"/>
+            </column>
+            <column name="total_prompt_tokens" type="INT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="total_completion_tokens" type="INT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <!-- Encrypted under the conversation owner's DEK. -->
+            <column name="system_prompt" type="BYTEA">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="ai_conversation" indexName="idx_ai_conversation_user_status">
+            <column name="user_id"/>
+            <column name="status"/>
+        </createIndex>
+
+        <createIndex tableName="ai_conversation" indexName="idx_ai_conversation_status_activity">
+            <column name="status"/>
+            <column name="last_activity_at"/>
+        </createIndex>
+
+        <createTable tableName="ai_message">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="conversation_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_ai_message_conversation"
+                             references="ai_conversation(id)" deleteCascade="true"/>
+            </column>
+            <column name="role" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <!-- Encrypted under the conversation owner's DEK. -->
+            <column name="content" type="BYTEA">
+                <constraints nullable="true"/>
+            </column>
+            <!-- Encrypted under the conversation owner's DEK. -->
+            <column name="tool_calls_json" type="BYTEA">
+                <constraints nullable="true"/>
+            </column>
+            <column name="tool_call_id" type="VARCHAR(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="tool_name" type="VARCHAR(255)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="position" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="prompt_tokens" type="INT">
+                <constraints nullable="true"/>
+            </column>
+            <column name="completion_tokens" type="INT">
+                <constraints nullable="true"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="ai_message" indexName="idx_ai_message_conversation_position">
+            <column name="conversation_id"/>
+            <column name="position"/>
+        </createIndex>
+
+        <createTable tableName="planning_session">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_planning_session_user" references="users(id)"/>
+            </column>
+            <column name="conversation_id" type="UUID">
+                <constraints nullable="true" foreignKeyName="fk_planning_session_conversation"
+                             references="ai_conversation(id)"/>
+            </column>
+            <column name="status" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="started_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="week_start" type="DATE" defaultValueComputed="CURRENT_DATE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ended_at" type="TIMESTAMP">
+                <constraints nullable="true"/>
+            </column>
+            <!-- Encrypted under the user's DEK. -->
+            <column name="summary" type="BYTEA">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="planning_session" indexName="idx_planning_session_user_started">
+            <column name="user_id"/>
+            <column name="started_at"/>
+        </createIndex>
+
+        <createIndex tableName="planning_session" indexName="idx_planning_session_user_status">
+            <column name="user_id"/>
+            <column name="status"/>
+        </createIndex>
+
+        <createIndex tableName="planning_session" indexName="idx_planning_session_user_week_start">
+            <column name="user_id"/>
+            <column name="week_start"/>
+        </createIndex>
+
+        <createTable tableName="backlog_task_change_event">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_backlog_task_change_user" references="users(id)"/>
+            </column>
+            <!--
+                No FK to backlog_task: events outlive the task row so deleted-task history
+                is preserved for diffs across planning sessions.
+            -->
+            <column name="task_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="change_type" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="previous_status" type="VARCHAR(50)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="new_status" type="VARCHAR(50)">
+                <constraints nullable="true"/>
+            </column>
+            <!-- Encrypted under the user's DEK. -->
+            <column name="task_title_snapshot" type="BYTEA">
+                <constraints nullable="true"/>
+            </column>
+            <column name="planning_session_id" type="UUID">
+                <constraints nullable="true" foreignKeyName="fk_backlog_task_change_session"
+                             references="planning_session(id)"/>
+            </column>
+            <column name="occurred_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="backlog_task_change_event" indexName="idx_backlog_task_change_user_occurred">
+            <column name="user_id"/>
+            <column name="occurred_at"/>
+        </createIndex>
+
+        <createIndex tableName="backlog_task_change_event" indexName="idx_backlog_task_change_task">
+            <column name="task_id"/>
+        </createIndex>
+
+        <createTable tableName="planned_task">
+            <column name="id" type="UUID">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="session_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_planned_task_session"
+                             references="planning_session(id)"/>
+            </column>
+            <column name="user_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_planned_task_user"
+                             references="users(id)"/>
+            </column>
+            <column name="backlog_task_id" type="UUID"/>
+            <!-- Encrypted under the user's DEK. -->
+            <column name="title" type="BYTEA">
+                <constraints nullable="false"/>
+            </column>
+            <!-- Encrypted under the user's DEK. -->
+            <column name="notes" type="BYTEA"/>
+            <column name="position" type="INT">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="planned_task" indexName="idx_planned_task_session">
+            <column name="session_id"/>
+        </createIndex>
+
+        <createIndex tableName="planned_task" indexName="idx_planned_task_user">
+            <column name="user_id"/>
+        </createIndex>
+
+        <createTable tableName="planned_task_slot">
+            <column name="id" type="UUID">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="planned_task_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_planned_task_slot_task"
+                             references="planned_task(id)"/>
+            </column>
+            <column name="start_iso" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="end_iso" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="label" type="VARCHAR(256)"/>
+        </createTable>
+
+        <createIndex tableName="planned_task_slot" indexName="idx_planned_task_slot_task">
+            <column name="planned_task_id"/>
+        </createIndex>
+
+        <!--
+            Spring Session JDBC schema. DDL taken from spring-session-jdbc:
+              - org/springframework/session/jdbc/schema-postgresql.sql
+              - org/springframework/session/jdbc/schema-h2.sql
+            Kept dbms-specific for the binary column type (BYTEA vs LONGVARBINARY).
+        -->
+        <sql dbms="postgresql" splitStatements="true" stripComments="true">
+            CREATE TABLE SPRING_SESSION (
+                PRIMARY_ID CHAR(36) NOT NULL,
+                SESSION_ID CHAR(36) NOT NULL,
+                CREATION_TIME BIGINT NOT NULL,
+                LAST_ACCESS_TIME BIGINT NOT NULL,
+                MAX_INACTIVE_INTERVAL INT NOT NULL,
+                EXPIRY_TIME BIGINT NOT NULL,
+                PRINCIPAL_NAME VARCHAR(100),
+                CONSTRAINT SPRING_SESSION_PK PRIMARY KEY (PRIMARY_ID)
+            );
+
+            CREATE UNIQUE INDEX SPRING_SESSION_IX1 ON SPRING_SESSION (SESSION_ID);
+            CREATE INDEX SPRING_SESSION_IX2 ON SPRING_SESSION (EXPIRY_TIME);
+            CREATE INDEX SPRING_SESSION_IX3 ON SPRING_SESSION (PRINCIPAL_NAME);
+
+            CREATE TABLE SPRING_SESSION_ATTRIBUTES (
+                SESSION_PRIMARY_ID CHAR(36) NOT NULL,
+                ATTRIBUTE_NAME VARCHAR(200) NOT NULL,
+                ATTRIBUTE_BYTES BYTEA NOT NULL,
+                CONSTRAINT SPRING_SESSION_ATTRIBUTES_PK PRIMARY KEY (SESSION_PRIMARY_ID, ATTRIBUTE_NAME),
+                CONSTRAINT SPRING_SESSION_ATTRIBUTES_FK FOREIGN KEY (SESSION_PRIMARY_ID) REFERENCES SPRING_SESSION(PRIMARY_ID) ON DELETE CASCADE
+            );
+        </sql>
+        <sql dbms="h2" splitStatements="true" stripComments="true">
+            CREATE TABLE SPRING_SESSION (
+                PRIMARY_ID CHAR(36) NOT NULL,
+                SESSION_ID CHAR(36) NOT NULL,
+                CREATION_TIME BIGINT NOT NULL,
+                LAST_ACCESS_TIME BIGINT NOT NULL,
+                MAX_INACTIVE_INTERVAL INT NOT NULL,
+                EXPIRY_TIME BIGINT NOT NULL,
+                PRINCIPAL_NAME VARCHAR(100),
+                CONSTRAINT SPRING_SESSION_PK PRIMARY KEY (PRIMARY_ID)
+            );
+
+            CREATE UNIQUE INDEX SPRING_SESSION_IX1 ON SPRING_SESSION (SESSION_ID);
+            CREATE INDEX SPRING_SESSION_IX2 ON SPRING_SESSION (EXPIRY_TIME);
+            CREATE INDEX SPRING_SESSION_IX3 ON SPRING_SESSION (PRINCIPAL_NAME);
+
+            CREATE TABLE SPRING_SESSION_ATTRIBUTES (
+                SESSION_PRIMARY_ID CHAR(36) NOT NULL,
+                ATTRIBUTE_NAME VARCHAR(200) NOT NULL,
+                ATTRIBUTE_BYTES LONGVARBINARY NOT NULL,
+                CONSTRAINT SPRING_SESSION_ATTRIBUTES_PK PRIMARY KEY (SESSION_PRIMARY_ID, ATTRIBUTE_NAME),
+                CONSTRAINT SPRING_SESSION_ATTRIBUTES_FK FOREIGN KEY (SESSION_PRIMARY_ID) REFERENCES SPRING_SESSION(PRIMARY_ID) ON DELETE CASCADE
+            );
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

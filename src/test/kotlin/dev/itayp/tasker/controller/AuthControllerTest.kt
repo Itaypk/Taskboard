@@ -1,6 +1,7 @@
 package dev.itayp.tasker.controller
 
 import dev.itayp.tasker.config.SecurityConfiguration
+import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.jpa.UserEntity
 import dev.itayp.tasker.repository.UserRepository
 import dev.itayp.tasker.security.SessionAuthenticator
@@ -37,6 +38,7 @@ class AuthControllerTest(@Autowired val mockMvc: MockMvc) {
     @MockitoBean lateinit var userAuthService: UserAuthService
     @MockitoBean lateinit var userRepository: UserRepository
     @MockitoBean lateinit var sessionAuthenticator: SessionAuthenticator
+    @MockitoBean lateinit var userCryptoService: UserCryptoService
 
     private val userId = UUID.fromString("00000000-0000-0000-0000-0000000000aa")
 
@@ -50,7 +52,7 @@ class AuthControllerTest(@Autowired val mockMvc: MockMvc) {
         id = userId
         telegramId = 42L
         telegramUsername = "alice"
-        telegramFirstName = "Alice"
+        telegramFirstName = "Alice".toByteArray(Charsets.UTF_8)
     }
 
     @Test

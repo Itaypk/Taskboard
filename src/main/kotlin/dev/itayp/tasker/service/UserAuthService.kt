@@ -1,5 +1,6 @@
 package dev.itayp.tasker.service
 
+import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.jpa.UserEntity
 import dev.itayp.tasker.repository.UserRepository
 import org.slf4j.LoggerFactory
@@ -14,6 +15,7 @@ class UserAuthService(
     private val userRepository: UserRepository,
     private val userService: UserService,
     private val demoDataSeeder: DemoDataSeeder,
+    private val userCrypto: UserCryptoService,
     private val clock: Clock,
 ) {
 
@@ -23,22 +25,27 @@ class UserAuthService(
         val existing = userRepository.findByTelegramId(data.telegramId)
         if (existing != null) {
             existing.telegramUsername = data.username
-            existing.telegramFirstName = data.firstName
+            existing.telegramFirstName = userCrypto.encrypt(existing.id!!, data.firstName)
             existing.telegramPhotoUrl = data.photoUrl
             existing.lastLoginAt = now
             return userRepository.save(existing)
         }
 
-        val created = UserEntity().apply {
-            id = UUID.randomUUID()
+        // Persist the user row first so the user_data_key FK (and any other FK to users)
+        // is satisfied when ensureUserKey writes the wrapped DEK.
+        val newId = UUID.randomUUID()
+        val draft = UserEntity().apply {
+            id = newId
             telegramId = data.telegramId
             telegramUsername = data.username
-            telegramFirstName = data.firstName
             telegramPhotoUrl = data.photoUrl
             createdAt = now
             lastLoginAt = now
         }
-        val saved = userRepository.save(created)
+        userRepository.save(draft)
+        userCrypto.ensureUserKey(newId)
+        draft.telegramFirstName = userCrypto.encrypt(newId, data.firstName)
+        val saved = userRepository.save(draft)
         userService.initializeNewUser(saved.id!!)
         return saved
     }
@@ -49,14 +56,16 @@ class UserAuthService(
         if (existing != null) return existing
 
         val now = clock.instant()
-        val created = UserEntity().apply {
+        val draft = UserEntity().apply {
             this.id = userId
             this.telegramId = telegramId
-            this.telegramFirstName = "Dev"
             this.createdAt = now
             this.lastLoginAt = now
         }
-        val saved = userRepository.save(created)
+        userRepository.save(draft)
+        userCrypto.ensureUserKey(userId)
+        draft.telegramFirstName = userCrypto.encrypt(userId, "Dev")
+        val saved = userRepository.save(draft)
         userService.initializeNewUser(saved.id!!)
         logger.debug("Created dev user with id $userId and telegram id $telegramId")
         return saved
@@ -65,18 +74,20 @@ class UserAuthService(
     @Transactional
     fun createDemoUser(ttlHours: Long = 24): UserEntity {
         val now = clock.instant()
-        val user = UserEntity().apply {
-            id = UUID.randomUUID()
+        val newId = UUID.randomUUID()
+        val draft = UserEntity().apply {
+            id = newId
             isDemo = true
             demoExpiresAt = now.plus(Duration.ofHours(ttlHours))
             createdAt = now
             lastLoginAt = now
         }
-        val saved = userRepository.save(user)
-        userService.initializeNewUser(saved.id!!)
-        demoDataSeeder.seed(saved.id!!)
-        logger.info("Created demo user ${saved.id}, expires at ${saved.demoExpiresAt}")
-        return saved
+        userRepository.save(draft)
+        userCrypto.ensureUserKey(newId)
+        userService.initializeNewUser(newId)
+        demoDataSeeder.seed(newId)
+        logger.info("Created demo user $newId, expires at ${draft.demoExpiresAt}")
+        return draft
     }
 
     companion object {

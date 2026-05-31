@@ -1,5 +1,6 @@
 package dev.itayp.tasker.service
 
+import dev.itayp.tasker.crypto.noopUserCryptoService
 import dev.itayp.tasker.jpa.BacklogTaskEntity
 import dev.itayp.tasker.jpa.UserSettingsEntity
 import dev.itayp.tasker.model.TaskStatus
@@ -31,8 +32,10 @@ class TaskAutoArchiveServiceTest {
     private val fixedNow = Instant.parse("2026-05-22T02:30:00Z")
     private val clock = Clock.fixed(fixedNow, ZoneOffset.UTC)
 
+    private val crypto = noopUserCryptoService()
+
     private val service by lazy {
-        TaskAutoArchiveService(userSettingsRepository, backlogTaskRepository, taskChangeService, clock)
+        TaskAutoArchiveService(userSettingsRepository, backlogTaskRepository, taskChangeService, crypto, clock)
     }
 
     private val userId = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
@@ -107,7 +110,7 @@ class TaskAutoArchiveServiceTest {
     private fun taskEntity(title: String, updatedAt: Instant) = BacklogTaskEntity().apply {
         this.id = taskId
         this.userId = this@TaskAutoArchiveServiceTest.userId
-        this.title = title
+        this.title = title.toByteArray(Charsets.UTF_8)
         this.status = TaskStatus.DONE
         this.updatedAt = updatedAt
     }

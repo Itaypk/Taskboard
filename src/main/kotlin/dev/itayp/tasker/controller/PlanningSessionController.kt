@@ -1,5 +1,6 @@
 package dev.itayp.tasker.controller
 
+import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.model.request.AddToPlanRequest
 import dev.itayp.tasker.model.response.CurrentPlanResponse
 import dev.itayp.tasker.model.response.PlanTaskResponse
@@ -32,6 +33,7 @@ class PlanningSessionController(
     private val plannedTaskRepository: PlannedTaskRepository,
     private val plannedTaskSlotRepository: PlannedTaskSlotRepository,
     private val planFinalizationService: PlanFinalizationService,
+    private val userCrypto: UserCryptoService,
 ) {
 
     @GetMapping("/plans/current")
@@ -40,7 +42,7 @@ class PlanningSessionController(
     ): ResponseEntity<CurrentPlanResponse> {
         val session = planningSessionService.findCurrentPlan(principal.userId)
             ?: return ResponseEntity.noContent().build()
-        val sessionId = session.id ?: return ResponseEntity.noContent().build()
+        val sessionId = session.id
 
         val backlogTaskMap = backlogTaskService
             .getTasksScheduledInSession(principal.userId, sessionId)
@@ -58,11 +60,11 @@ class PlanningSessionController(
                 slots = slotsByPlannedTask[pt.id].orEmpty().map { slot ->
                     TimeSlotResponse(startIso = slot.startIso!!, endIso = slot.endIso!!, label = slot.label)
                 },
-                notes = pt.notes,
+                notes = userCrypto.decrypt(principal.userId, pt.notes),
             )
         }
 
-        val weekStart = session.weekStart!!
+        val weekStart = session.weekStart
         val weekEnd = weekStart.plusDays(6)
 
         return ResponseEntity.ok(
@@ -93,7 +95,7 @@ class PlanningSessionController(
 
         planFinalizationService.addTaskToSession(
             principal.userId,
-            session.id!!,
+            session.id,
             AgreedPlanTask(taskId = taskId, title = task.title, slots = listOf(AgreedTimeSlot(request.startIso, request.endIso))),
         )
 

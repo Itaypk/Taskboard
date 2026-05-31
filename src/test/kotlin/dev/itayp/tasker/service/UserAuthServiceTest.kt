@@ -1,5 +1,6 @@
 package dev.itayp.tasker.service
 
+import dev.itayp.tasker.crypto.newTestUserCryptoService
 import dev.itayp.tasker.jpa.UserEntity
 import dev.itayp.tasker.repository.UserRepository
 import org.assertj.core.api.Assertions.assertThat
@@ -22,9 +23,10 @@ class UserAuthServiceTest {
 
     private val fixedNow = Instant.parse("2026-04-21T12:00:00Z")
     private val clock = Clock.fixed(fixedNow, ZoneOffset.UTC)
+    private val crypto = newTestUserCryptoService()
 
     private val service: UserAuthService by lazy {
-        UserAuthService(userRepository, userService, demoDataSeeder, clock)
+        UserAuthService(userRepository, userService, demoDataSeeder, crypto, clock)
     }
 
     private fun authData(telegramId: Long = 42L) = TelegramAuthData(
@@ -58,6 +60,8 @@ class UserAuthServiceTest {
             createdAt = Instant.parse("2026-01-01T00:00:00Z")
             lastLoginAt = Instant.parse("2026-01-01T00:00:00Z")
         }
+        // Pre-existing users already have a DEK from their original registration.
+        crypto.ensureUserKey(existing.id!!)
         whenever(userRepository.findByTelegramId(42L)).thenReturn(existing)
         val captor = argumentCaptor<UserEntity>()
         whenever(userRepository.save(captor.capture())).thenAnswer { it.arguments[0] as UserEntity }

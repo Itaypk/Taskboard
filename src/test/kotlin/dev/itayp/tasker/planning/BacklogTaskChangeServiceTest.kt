@@ -1,5 +1,6 @@
 package dev.itayp.tasker.planning
 
+import dev.itayp.tasker.crypto.noopUserCryptoService
 import dev.itayp.tasker.model.TaskStatus
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -26,7 +27,8 @@ class BacklogTaskChangeServiceTest {
     private val now = Instant.parse("2026-05-01T12:00:00Z")
     private val clock = Clock.fixed(now, ZoneOffset.UTC)
 
-    private val service by lazy { BacklogTaskChangeService(eventRepository, clock) }
+    private val crypto = noopUserCryptoService()
+    private val service by lazy { BacklogTaskChangeService(eventRepository, crypto, clock) }
 
     private val userId = UUID.randomUUID()
 
@@ -42,7 +44,7 @@ class BacklogTaskChangeServiceTest {
         assertEquals(BacklogTaskChangeType.CREATED, captor.firstValue.changeType)
         assertEquals(TaskStatus.TODO, captor.firstValue.newStatus)
         assertNull(captor.firstValue.previousStatus)
-        assertEquals("Buy bread", captor.firstValue.taskTitleSnapshot)
+        assertEquals("Buy bread", captor.firstValue.taskTitleSnapshot?.toString(Charsets.UTF_8))
         assertEquals(now, captor.firstValue.occurredAt)
         assertEquals(taskId, captor.firstValue.taskId)
     }
@@ -52,7 +54,7 @@ class BacklogTaskChangeServiceTest {
         val result = service.recordStatusChange(userId, UUID.randomUUID(), "t", TaskStatus.TODO, TaskStatus.TODO)
 
         assertNull(result)
-        verify(eventRepository, never()).save(any())
+        verify(eventRepository, never()).save(any<BacklogTaskChangeEventEntity>())
     }
 
     @Test
@@ -159,7 +161,7 @@ class BacklogTaskChangeServiceTest {
         this.changeType = type
         this.previousStatus = prev
         this.newStatus = newStatus
-        this.taskTitleSnapshot = title
+        this.taskTitleSnapshot = title.toByteArray(Charsets.UTF_8)
         this.occurredAt = now
     }
 }

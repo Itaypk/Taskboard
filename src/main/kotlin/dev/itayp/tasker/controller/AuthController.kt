@@ -1,5 +1,6 @@
 package dev.itayp.tasker.controller
 
+import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.jpa.UserEntity
 import dev.itayp.tasker.model.response.MeResponse
 import dev.itayp.tasker.model.response.toMeResponse
@@ -28,6 +29,7 @@ class AuthController(
     private val userAuthService: UserAuthService,
     private val userRepository: UserRepository,
     private val sessionAuthenticator: SessionAuthenticator,
+    private val userCrypto: UserCryptoService,
 ) {
 
     @PostMapping("/telegram")
@@ -39,7 +41,7 @@ class AuthController(
         val data = telegramAuthService.verify(payload)
         val user = userAuthService.loginOrRegisterByTelegram(data)
         sessionAuthenticator.authenticate(TaskerPrincipal(user.id!!), request, response)
-        return ResponseEntity.ok(user.toMeResponse())
+        return ResponseEntity.ok(user.toMeResponse(userCrypto))
     }
 
     @GetMapping("/me")
@@ -47,7 +49,7 @@ class AuthController(
         if (principal == null) return ResponseEntity.noContent().build()
         val user: UserEntity = userRepository.findById(principal.userId).orElse(null)
             ?: return ResponseEntity.noContent().build()
-        return ResponseEntity.ok(user.toMeResponse())
+        return ResponseEntity.ok(user.toMeResponse(userCrypto))
     }
 
     @ExceptionHandler(TelegramAuthException::class)

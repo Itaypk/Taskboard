@@ -35,8 +35,10 @@ class PlannerTaskSelectorTest {
     private val now: Instant = today.atStartOfDay(ZoneOffset.UTC).toInstant()
     private val clock: Clock = Clock.fixed(now, ZoneOffset.UTC)
 
+    private val crypto = dev.itayp.tasker.crypto.noopUserCryptoService()
+
     private val selector by lazy {
-        PlannerTaskSelector(backlogTaskRepository, plannedTaskRepository, plannedTaskSlotRepository, clock)
+        PlannerTaskSelector(backlogTaskRepository, plannedTaskRepository, plannedTaskSlotRepository, crypto, clock)
     }
 
     private val userId: UUID = UUID.fromString("00000000-0000-0000-0000-000000000001")
@@ -262,7 +264,7 @@ class PlannerTaskSelectorTest {
     ): BacklogTaskEntity = BacklogTaskEntity().apply {
         this.id = UUID.randomUUID()
         this.userId = this@PlannerTaskSelectorTest.userId
-        this.title = title
+        this.title = title.toByteArray(Charsets.UTF_8)
         this.status = TaskStatus.TODO
         this.priority = priority
         this.deadline = deadline
@@ -280,7 +282,7 @@ class PlannerTaskSelectorTest {
         this.sessionId = UUID.randomUUID()
         this.userId = this@PlannerTaskSelectorTest.userId
         this.backlogTaskId = backlogTaskId
-        this.title = "ignored"
+        this.title = "ignored".toByteArray(Charsets.UTF_8)
         this.position = 0
     }
 

@@ -1,5 +1,6 @@
 package dev.itayp.tasker.planning
 
+import dev.itayp.tasker.crypto.noopUserCryptoService
 import dev.itayp.tasker.repository.BacklogTaskRepository
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -19,7 +20,6 @@ import java.util.UUID
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
-import kotlin.test.assertSame
 
 @ExtendWith(MockitoExtension::class)
 class PlanningSessionServiceTest {
@@ -30,9 +30,16 @@ class PlanningSessionServiceTest {
 
     private val now = Instant.parse("2026-05-01T12:00:00Z")
     private val clock = Clock.fixed(now, ZoneOffset.UTC)
+    private val crypto = noopUserCryptoService()
 
     private val service by lazy {
-        PlanningSessionService(planningSessionRepository, backlogTaskChangeService, backlogTaskRepository, clock)
+        PlanningSessionService(
+            planningSessionRepository,
+            backlogTaskChangeService,
+            backlogTaskRepository,
+            crypto,
+            clock,
+        )
     }
 
     private val userId = UUID.randomUUID()
@@ -40,8 +47,9 @@ class PlanningSessionServiceTest {
 
     @Test
     fun `startSession returns existing active session if one already exists for the same week`() {
+        val existingId = UUID.randomUUID()
         val existing = PlanningSessionEntity().apply {
-            this.id = UUID.randomUUID()
+            this.id = existingId
             this.userId = this@PlanningSessionServiceTest.userId
             this.status = PlanningSessionStatus.ACTIVE
             this.startedAt = now.minusSeconds(60)
@@ -52,8 +60,8 @@ class PlanningSessionServiceTest {
 
         val result = service.startSession(userId, weekStart)
 
-        assertSame(existing, result)
-        verify(planningSessionRepository, never()).save(any())
+        assertEquals(existingId, result.id)
+        verify(planningSessionRepository, never()).save(any<PlanningSessionEntity>())
     }
 
     @Test
@@ -67,7 +75,9 @@ class PlanningSessionServiceTest {
         }
         whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
             userId, PlanningSessionStatus.ACTIVE)).thenReturn(existing)
-        whenever(planningSessionRepository.save(any<PlanningSessionEntity>())).thenAnswer { it.arguments[0] }
+        whenever(planningSessionRepository.save(any<PlanningSessionEntity>())).thenAnswer {
+            (it.arguments[0] as PlanningSessionEntity).apply { id = id ?: UUID.randomUUID() }
+        }
 
         service.startSession(userId, weekStart)
 
@@ -80,7 +90,9 @@ class PlanningSessionServiceTest {
     fun `startSession persists a new active session when none exists`() {
         whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
             userId, PlanningSessionStatus.ACTIVE)).thenReturn(null)
-        whenever(planningSessionRepository.save(any<PlanningSessionEntity>())).thenAnswer { it.arguments[0] }
+        whenever(planningSessionRepository.save(any<PlanningSessionEntity>())).thenAnswer {
+            (it.arguments[0] as PlanningSessionEntity).apply { id = id ?: UUID.randomUUID() }
+        }
         val convId = UUID.randomUUID()
 
         service.startSession(userId, weekStart, conversationId = convId)
@@ -102,15 +114,16 @@ class PlanningSessionServiceTest {
             this.userId = this@PlanningSessionServiceTest.userId
             this.status = PlanningSessionStatus.ACTIVE
             this.startedAt = now.minusSeconds(600)
+            this.weekStart = this@PlanningSessionServiceTest.weekStart
         }
         whenever(planningSessionRepository.findByIdAndUserId(sessionId, userId)).thenReturn(entity)
         whenever(planningSessionRepository.save(any<PlanningSessionEntity>())).thenAnswer { it.arguments[0] }
 
-        service.completeSession(userId, sessionId, "we agreed on tasks A, B")
+        val result = service.completeSession(userId, sessionId, "we agreed on tasks A, B")
 
         assertEquals(PlanningSessionStatus.COMPLETED, entity.status)
         assertEquals(now, entity.endedAt)
-        assertEquals("we agreed on tasks A, B", entity.summary)
+        assertEquals("we agreed on tasks A, B", result.summary)
     }
 
     @Test
@@ -121,6 +134,7 @@ class PlanningSessionServiceTest {
             this.userId = this@PlanningSessionServiceTest.userId
             this.status = PlanningSessionStatus.ACTIVE
             this.startedAt = now.minusSeconds(60)
+            this.weekStart = this@PlanningSessionServiceTest.weekStart
             this.summary = null
         }
         whenever(planningSessionRepository.findByIdAndUserId(sessionId, userId)).thenReturn(entity)
@@ -151,12 +165,15 @@ class PlanningSessionServiceTest {
             this.status = PlanningSessionStatus.COMPLETED
             this.startedAt = now.minusSeconds(8 * 24 * 3600)
             this.endedAt = now.minusSeconds(7 * 24 * 3600)
+            this.weekStart = this@PlanningSessionServiceTest.weekStart
         }
         whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
             userId, PlanningSessionStatus.ACTIVE)).thenReturn(null)
         whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
             userId, PlanningSessionStatus.COMPLETED)).thenReturn(previous)
-        whenever(planningSessionRepository.save(any<PlanningSessionEntity>())).thenAnswer { it.arguments[0] }
+        whenever(planningSessionRepository.save(any<PlanningSessionEntity>())).thenAnswer {
+            (it.arguments[0] as PlanningSessionEntity).apply { id = id ?: UUID.randomUUID() }
+        }
 
         service.startSession(userId, weekStart)
 
@@ -169,7 +186,9 @@ class PlanningSessionServiceTest {
             userId, PlanningSessionStatus.ACTIVE)).thenReturn(null)
         whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
             userId, PlanningSessionStatus.COMPLETED)).thenReturn(null)
-        whenever(planningSessionRepository.save(any<PlanningSessionEntity>())).thenAnswer { it.arguments[0] }
+        whenever(planningSessionRepository.save(any<PlanningSessionEntity>())).thenAnswer {
+            (it.arguments[0] as PlanningSessionEntity).apply { id = id ?: UUID.randomUUID() }
+        }
 
         service.startSession(userId, weekStart)
 
@@ -195,33 +214,41 @@ class PlanningSessionServiceTest {
 
     @Test
     fun `findCurrentPlan prefers active session`() {
+        val activeId = UUID.randomUUID()
         val active = PlanningSessionEntity().apply {
-            this.id = UUID.randomUUID()
+            this.id = activeId
             this.userId = this@PlanningSessionServiceTest.userId
             this.status = PlanningSessionStatus.ACTIVE
             this.startedAt = now.minusSeconds(60)
+            this.weekStart = this@PlanningSessionServiceTest.weekStart
         }
         whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
             userId, PlanningSessionStatus.ACTIVE)).thenReturn(active)
 
-        assertSame(active, service.findCurrentPlan(userId))
+        val result = service.findCurrentPlan(userId)
+        assertEquals(activeId, result?.id)
+        assertEquals(PlanningSessionStatus.ACTIVE, result?.status)
     }
 
     @Test
     fun `findCurrentPlan falls back to most recent completed session`() {
+        val completedId = UUID.randomUUID()
         val completed = PlanningSessionEntity().apply {
-            this.id = UUID.randomUUID()
+            this.id = completedId
             this.userId = this@PlanningSessionServiceTest.userId
             this.status = PlanningSessionStatus.COMPLETED
             this.startedAt = now.minusSeconds(7 * 24 * 3600)
             this.endedAt = now.minusSeconds(6 * 24 * 3600)
+            this.weekStart = this@PlanningSessionServiceTest.weekStart
         }
         whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
             userId, PlanningSessionStatus.ACTIVE)).thenReturn(null)
         whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
             userId, PlanningSessionStatus.COMPLETED)).thenReturn(completed)
 
-        assertSame(completed, service.findCurrentPlan(userId))
+        val result = service.findCurrentPlan(userId)
+        assertEquals(completedId, result?.id)
+        assertEquals(PlanningSessionStatus.COMPLETED, result?.status)
     }
 
     @Test
@@ -253,6 +280,7 @@ class PlanningSessionServiceTest {
             this.status = PlanningSessionStatus.COMPLETED
             this.startedAt = now.minusSeconds(8 * 24 * 3600)
             this.endedAt = now.minusSeconds(7 * 24 * 3600)
+            this.weekStart = this@PlanningSessionServiceTest.weekStart
         }
         whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
             userId, PlanningSessionStatus.COMPLETED)).thenReturn(previous)
@@ -261,6 +289,6 @@ class PlanningSessionServiceTest {
 
         val result = service.diffSincePreviousSession(userId)
 
-        assertSame(expected, result)
+        assertEquals(expected, result)
     }
 }

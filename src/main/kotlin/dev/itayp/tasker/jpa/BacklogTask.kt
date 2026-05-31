@@ -30,10 +30,10 @@ open class BacklogTaskEntity {
     var userId: UUID? = null
 
     @Column
-    var title: String? = null
+    var title: ByteArray? = null
 
-    @Column(length = 10_000)
-    var description: String? = null
+    @Column
+    var description: ByteArray? = null
 
     @Column
     var url: String? = null

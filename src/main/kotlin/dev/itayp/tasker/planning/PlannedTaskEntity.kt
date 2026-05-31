@@ -10,7 +10,7 @@ import java.util.UUID
 
 @Entity
 @Table(name = "planned_task")
-open class PlannedTaskEntity {
+class PlannedTaskEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     var id: UUID? = null
@@ -25,10 +25,10 @@ open class PlannedTaskEntity {
     var backlogTaskId: UUID? = null
 
     @Column(nullable = false)
-    var title: String? = null
+    var title: ByteArray? = null
 
-    @Column(columnDefinition = "TEXT")
-    var notes: String? = null
+    @Column
+    var notes: ByteArray? = null
 
     @Column(nullable = false)
     var position: Int = 0

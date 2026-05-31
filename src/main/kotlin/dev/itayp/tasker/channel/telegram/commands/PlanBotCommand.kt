@@ -76,7 +76,7 @@ class PlanBotCommand(
             context.channel.send(ChannelMessage.Choice(
                 prompt = messageSource.getMessage(
                     "planning.confirm.completed.prompt",
-                    arrayOf<Any>(existingPlan.summary!!),
+                    arrayOf<Any>(existingPlan.summary),
                     locale,
                 ),
                 options = listOf(

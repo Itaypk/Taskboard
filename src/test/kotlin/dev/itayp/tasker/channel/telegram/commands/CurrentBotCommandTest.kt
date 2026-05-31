@@ -7,7 +7,7 @@ import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.CategoryColor
 import dev.itayp.tasker.model.TaskStatus
-import dev.itayp.tasker.planning.PlanningSessionEntity
+import dev.itayp.tasker.planning.PlanningSession
 import dev.itayp.tasker.planning.PlanningSessionService
 import dev.itayp.tasker.planning.PlanningSessionStatus
 import dev.itayp.tasker.service.BacklogTaskService
@@ -78,14 +78,16 @@ class CurrentBotCommandTest {
     @Test
     fun `renders summary and tasks for a completed plan`() {
         val sessionId = UUID.randomUUID()
-        val plan = PlanningSessionEntity().apply {
-            id = sessionId
-            this.userId = this@CurrentBotCommandTest.userId
-            status = PlanningSessionStatus.COMPLETED
-            startedAt = Instant.parse("2026-05-14T10:00:00Z")
-            weekStart = java.time.LocalDate.parse("2026-05-11")
-            summary = "Wrap up the launch & ship docs"
-        }
+        val plan = PlanningSession(
+            id = sessionId,
+            userId = userId,
+            conversationId = null,
+            status = PlanningSessionStatus.COMPLETED,
+            startedAt = Instant.parse("2026-05-14T10:00:00Z"),
+            weekStart = java.time.LocalDate.parse("2026-05-11"),
+            endedAt = null,
+            summary = "Wrap up the launch & ship docs",
+        )
         whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(plan)
         whenever(backlogTaskService.getTasksScheduledInSession(userId, sessionId))
             .thenReturn(
@@ -111,14 +113,16 @@ class CurrentBotCommandTest {
     @Test
     fun `renders in-progress label when plan is active`() {
         val sessionId = UUID.randomUUID()
-        val plan = PlanningSessionEntity().apply {
-            id = sessionId
-            this.userId = this@CurrentBotCommandTest.userId
-            status = PlanningSessionStatus.ACTIVE
-            startedAt = Instant.parse("2026-05-14T10:00:00Z")
-            weekStart = java.time.LocalDate.parse("2026-05-11")
-            summary = null
-        }
+        val plan = PlanningSession(
+            id = sessionId,
+            userId = userId,
+            conversationId = null,
+            status = PlanningSessionStatus.ACTIVE,
+            startedAt = Instant.parse("2026-05-14T10:00:00Z"),
+            weekStart = java.time.LocalDate.parse("2026-05-11"),
+            endedAt = null,
+            summary = null,
+        )
         whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(plan)
         whenever(backlogTaskService.getTasksScheduledInSession(userId, sessionId)).thenReturn(emptyList())
 
@@ -136,14 +140,16 @@ class CurrentBotCommandTest {
     @Test
     fun `escapes HTML in task titles`() {
         val sessionId = UUID.randomUUID()
-        val plan = PlanningSessionEntity().apply {
-            id = sessionId
-            this.userId = this@CurrentBotCommandTest.userId
-            status = PlanningSessionStatus.COMPLETED
-            startedAt = Instant.parse("2026-05-14T10:00:00Z")
-            weekStart = java.time.LocalDate.parse("2026-05-11")
-            summary = "ok"
-        }
+        val plan = PlanningSession(
+            id = sessionId,
+            userId = userId,
+            conversationId = null,
+            status = PlanningSessionStatus.COMPLETED,
+            startedAt = Instant.parse("2026-05-14T10:00:00Z"),
+            weekStart = java.time.LocalDate.parse("2026-05-11"),
+            endedAt = null,
+            summary = "ok",
+        )
         whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(plan)
         whenever(backlogTaskService.getTasksScheduledInSession(userId, sessionId))
             .thenReturn(listOf(task("<script>alert(1)</script>", TaskStatus.TODO)))

@@ -56,6 +56,11 @@ tasker:
   prometheus:
     username: ${TASKER_PROMETHEUS_USERNAME:prometheus}
     password: ${TASKER_PROMETHEUS_PASSWORD:prometheus-dev}
+  encryption:
+    # Base64-encoded 32-byte (256-bit) key. In dev/test we fall back to a fixed,
+    # checked-in key so the app boots without configuration. Prod MUST set
+    # TASKER_DATA_KEK — never reuse the dev key for any data that matters.
+    kek: ${TASKER_DATA_KEK:AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=}
   rate-limit:
     api:
       limit: 300

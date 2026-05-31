@@ -8,16 +8,16 @@ import java.util.UUID
 
 @Entity
 @Table(name = "user_settings")
-open class UserSettingsEntity {
+class UserSettingsEntity {
     @Id
     @Column(name = "user_id")
     var userId: UUID? = null
 
     @Column(name = "display_name")
-    var displayName: String? = null
+    var displayName: ByteArray? = null
 
     @Column(name = "context_block")
-    var contextBlock: String? = null
+    var contextBlock: ByteArray? = null
 
     @Column(name = "time_zone", nullable = false)
     var timeZone: String = "UTC"
@@ -31,8 +31,8 @@ open class UserSettingsEntity {
     @Column(name = "gender")
     var gender: String? = null
 
-    @Column(name = "agent_description", columnDefinition = "TEXT")
-    var agentDescription: String? = null
+    @Column(name = "agent_description")
+    var agentDescription: ByteArray? = null
 
     @Column(name = "planning_cron")
     var planningCron: String? = null

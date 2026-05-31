@@ -1,10 +1,10 @@
 package dev.itayp.tasker.planning
 
+import dev.itayp.tasker.crypto.noopUserCryptoService
 import dev.itayp.tasker.planning.dto.AgreedPlanTask
 import dev.itayp.tasker.planning.dto.AgreedTimeSlot
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
-import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
@@ -19,7 +19,11 @@ class PlannedTaskServiceTest {
     @Mock lateinit var plannedTaskRepository: PlannedTaskRepository
     @Mock lateinit var plannedTaskSlotRepository: PlannedTaskSlotRepository
 
-    @InjectMocks lateinit var service: PlannedTaskService
+    private val crypto = noopUserCryptoService()
+
+    private val service: PlannedTaskService by lazy {
+        PlannedTaskService(plannedTaskRepository, plannedTaskSlotRepository, crypto)
+    }
 
     private val sessionId = UUID.randomUUID()
     private val userId = UUID.randomUUID()
@@ -33,7 +37,7 @@ class PlannedTaskServiceTest {
             this.sessionId = this@PlannedTaskServiceTest.sessionId
             this.userId = this@PlannedTaskServiceTest.userId
             this.backlogTaskId = backlogTaskId
-            this.title = "title"
+            this.title = "title".toByteArray(Charsets.UTF_8)
             this.position = position
         }
 

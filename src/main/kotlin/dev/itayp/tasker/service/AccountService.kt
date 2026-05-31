@@ -1,5 +1,6 @@
 package dev.itayp.tasker.service
 
+import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.model.response.AccountExportResponse
 import dev.itayp.tasker.model.response.CategoryExport
 import dev.itayp.tasker.model.response.SettingsExport
@@ -26,6 +27,7 @@ class AccountService(
     private val categoryRepository: BacklogTaskCategoryRepository,
     private val settingsRepository: UserSettingsRepository,
     private val jdbcTemplate: JdbcTemplate,
+    private val userCrypto: UserCryptoService,
 ) {
 
     /** Deletes all data for a user then the user row itself. */
@@ -72,6 +74,27 @@ class AccountService(
         jdbcTemplate.update("DELETE FROM planning_session WHERE user_id = ?", userId)
         // ai_message cascades automatically from ai_conversation (ON DELETE CASCADE in schema)
         jdbcTemplate.update("DELETE FROM ai_conversation WHERE user_id = ?", userId)
+        // user_data_key has FK to users; remove last so the user row delete can proceed.
+        jdbcTemplate.update("DELETE FROM user_data_key WHERE user_id = ?", userId)
+    }
+
+    /**
+     * True iff the account holds nothing beyond what registration auto-seeds. Used by
+     * the import flow to reject a 409 attempt to import on top of existing user data:
+     * import wipes the seeded categories and overwrites settings, so anything else is
+     * work the user did and we must not clobber it.
+     */
+    @Transactional(readOnly = true)
+    fun isEmptyForImport(userId: UUID): Boolean {
+        if (taskRepository.findAllByUserIdOrderBySortKeyAsc(userId).isNotEmpty()) return false
+        if (tagRepository.findAllByUserId(userId).isNotEmpty()) return false
+        val expected = UserService.DEFAULT_CATEGORIES.toSet()
+        val actual = categoryRepository.findAllByUserId(userId).mapNotNull { entity ->
+            val label = entity.label ?: return@mapNotNull null
+            val swatch = entity.swatchId ?: return@mapNotNull null
+            label to swatch
+        }.toSet()
+        return actual == expected
     }
 
     @Transactional(readOnly = true)
@@ -83,23 +106,24 @@ class AccountService(
         val tasks = taskRepository.findAllByUserIdOrderBySortKeyAsc(userId)
 
         return AccountExportResponse(
+            formatVersion = 1,
             exportedAt = Instant.now().toString(),
             user = UserExport(
                 id = user.id.toString(),
                 telegramUsername = user.telegramUsername,
-                telegramFirstName = user.telegramFirstName,
-                email = user.email,
+                telegramFirstName = userCrypto.decrypt(userId, user.telegramFirstName),
+                email = userCrypto.decrypt(userId, user.email),
                 createdAt = user.createdAt?.toString(),
             ),
             settings = settings?.let {
                 SettingsExport(
-                    displayName = it.displayName,
-                    contextBlock = it.contextBlock,
+                    displayName = userCrypto.decrypt(userId, it.displayName),
+                    contextBlock = userCrypto.decrypt(userId, it.contextBlock),
                     timeZone = it.timeZone,
                     preferredLanguage = it.preferredLanguage,
                     calendarInviteEmail = it.calendarInviteEmail,
                     gender = it.gender,
-                    agentDescription = it.agentDescription,
+                    agentDescription = userCrypto.decrypt(userId, it.agentDescription),
                     planningCron = it.planningCron,
                     weekStartDay = it.weekStartDay,
                     autoArchiveDays = it.autoArchiveDays,
@@ -123,8 +147,8 @@ class AccountService(
             tasks = tasks.map { task ->
                 TaskExport(
                     id = task.id.toString(),
-                    title = task.title ?: "",
-                    description = task.description,
+                    title = userCrypto.decrypt(userId, task.title) ?: "",
+                    description = userCrypto.decrypt(userId, task.description),
                     url = task.url,
                     priority = task.priority?.name?.lowercase(),
                     deadline = task.deadline?.toString(),

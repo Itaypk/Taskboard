@@ -13,7 +13,7 @@ import java.util.UUID
 
 @Entity
 @Table(name = "ai_conversation")
-open class ConversationEntity {
+class ConversationEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     var id: UUID? = null
@@ -52,6 +52,6 @@ open class ConversationEntity {
     @Column(name = "total_completion_tokens", nullable = false)
     var totalCompletionTokens: Int = 0
 
-    @Column(name = "system_prompt", columnDefinition = "TEXT")
-    var systemPrompt: String? = null
+    @Column(name = "system_prompt")
+    var systemPrompt: ByteArray? = null
 }
