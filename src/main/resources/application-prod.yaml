@@ -14,11 +14,11 @@ spring:
 tasker:
   telegram:
     enabled: true
-    bot-token: ${TASKER_TELEGRAM_BOT_TOKEN:?TASKER_TELEGRAM_BOT_TOKEN is required in prod}
+    bot-token: ${TASKER_TELEGRAM_BOT_TOKEN}
   prometheus:
-    username: ${TASKER_PROMETHEUS_USERNAME:?TASKER_PROMETHEUS_USERNAME is required in prod}
-    password: ${TASKER_PROMETHEUS_PASSWORD:?TASKER_PROMETHEUS_PASSWORD is required in prod}
+    username: ${TASKER_PROMETHEUS_USERNAME}
+    password: ${TASKER_PROMETHEUS_PASSWORD}
   encryption:
     # KEK loss = permanent data loss. Back this up offline (e.g. password manager).
     # Do not store this in the same archive as DB dumps.
-    kek: ${TASKER_DATA_KEK:?TASKER_DATA_KEK is required in prod}
+    kek: ${TASKER_DATA_KEK}
