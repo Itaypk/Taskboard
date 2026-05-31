@@ -177,11 +177,13 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
 
   const drawerOpen   = selectedId !== null || isCreating;
 
-  // Periodic sync — check for task changes every 60 s; skip while task drawer is open.
+  // Periodic sync — check for task changes every 60 s; skip while tab is hidden or drawer is open.
+  // On visibility restore, run an immediate catch-up sync.
   useEffect(() => {
     if (loading) return;
-    const id = setInterval(async () => {
-      if (drawerOpen) return;
+
+    const sync = async () => {
+      if (drawerOpen || document.hidden) return;
       try {
         const { hasChanges, checkedAt } = await checkTaskChanges(lastSyncedAt.current);
         lastSyncedAt.current = checkedAt;
@@ -193,8 +195,14 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
           setTasks(freshTasks);
         }
       } catch { /* silent — don't surface background network blips */ }
-    }, 60_000);
-    return () => clearInterval(id);
+    };
+
+    const id = setInterval(sync, 60_000);
+    document.addEventListener('visibilitychange', sync);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', sync);
+    };
   }, [loading, drawerOpen, fetchStatus]);
   const selectedTask = tasks.find(t => t.id === selectedId) ?? null;
 
