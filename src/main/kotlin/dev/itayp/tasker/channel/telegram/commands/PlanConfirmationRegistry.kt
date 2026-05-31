@@ -18,12 +18,15 @@ class PlanConfirmationRegistry {
         val existingSessionId: UUID?,
         /** Set when there's an existing session whose week should be reused on replan; null when the user must pick. */
         val replanWeekStart: LocalDate? = null,
+        /** Non-null when there is a COMPLETED session the user can choose to revise in place. */
+        val revisableSessionId: UUID? = null,
     )
 
     companion object {
         const val OPTION_KEEP = "plan_keep"
         const val OPTION_THIS_WEEK = "plan_this_week"
         const val OPTION_NEXT_WEEK = "plan_next_week"
+        const val OPTION_REVISE = "plan_revise"
     }
 
     fun set(chatId: Long, confirmation: PendingConfirmation) {
