@@ -5,7 +5,7 @@ import dev.itayp.tasker.ai.client.AiClient
 import dev.itayp.tasker.ai.client.ChatMessage
 import dev.itayp.tasker.ai.client.ChatRequest
 import dev.itayp.tasker.ai.prompt.PromptTemplateLoader
-import dev.itayp.tasker.ai.safeParseAssistantJsonResponse
+import dev.itayp.tasker.ai.parseAssistantJsonResponse
 import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.BacklogTaskTag
@@ -56,65 +56,57 @@ class TaskSuggestionAgent(
         val sample = backlogTaskService.getTasksForUser(userId, null).take(SAMPLE_SIZE)
 
         val systemPrompt = promptTemplateLoader.load("task-suggestion/system.md").render(emptyMap())
+        val userMessage = promptTemplateLoader.load("task-suggestion/user.md").render(mapOf(
+            "request" to description,
+            "today" to today.format(DateTimeFormatter.ISO_LOCAL_DATE),
+            "timezone" to zone.id,
+            "user_context" to (contextBlock ?: "(no personal context shared)"),
+            "categories" to renderCategories(categories),
+            "tags" to renderTags(tags),
+            "tag_colors" to TagColor.entries.joinToString(", ") { it.name.lowercase() },
+            "task_sample" to renderSample(sample),
+        ))
         val request = ChatRequest(
             model = model,
             messages = listOf(
                 ChatMessage(role = "system", content = systemPrompt),
-                ChatMessage(
-                    role = "user",
-                    content = buildUserMessage(description, today, zone, contextBlock, categories, tags, sample),
-                ),
+                ChatMessage(role = "user", content = userMessage),
             ),
             temperature = 0.3,
             maxTokens = 800,
         )
 
         val raw = aiClient.chat(request).choices.firstOrNull()?.message?.content.orEmpty()
-        val draft = safeParseAssistantJsonResponse(objectMapper, raw, TaskDraft::class.java)
-        if (draft == null) log.warn("suggest_task could not parse sub-agent output")
+        val draft = runCatching { parseAssistantJsonResponse(objectMapper, raw, TaskDraft::class.java) }
+            .getOrElse {
+                log.warn("suggest_task could not parse sub-agent output: {}", it.message)
+                null
+            }
         log.debug("suggest_task drafted a task (categories={}, tags={}, sample={})", categories.size, tags.size, sample.size)
         return draft
     }
 
-    private fun buildUserMessage(
-        description: String,
-        today: LocalDate,
-        zone: ZoneId,
-        contextBlock: String?,
-        categories: List<BacklogTaskCategory>,
-        tags: List<BacklogTaskTag>,
-        sample: List<BacklogTask>,
-    ): String = buildString {
-        append("Draft a task for this request: ").append(description).append("\n\n")
+    private fun renderCategories(categories: List<BacklogTaskCategory>): String {
+        if (categories.isEmpty()) return "(none)"
+        return categories.joinToString("\n") { "- [${it.id}] ${it.label}" }
+    }
 
-        append("Today is ").append(today.format(DateTimeFormatter.ISO_LOCAL_DATE))
-            .append(" (timezone ").append(zone.id).append(").\n\n")
+    private fun renderTags(tags: List<BacklogTaskTag>): String {
+        if (tags.isEmpty()) return "(none yet)"
+        return tags.joinToString("\n") { "- [${it.id}] ${it.label} (${it.colorId.name.lowercase()})" }
+    }
 
-        append("About the user:\n")
-        append(contextBlock ?: "(no personal context shared)").append("\n\n")
-
-        append("Available categories (use one category_id exactly):\n")
-        if (categories.isEmpty()) append("(none)\n")
-        categories.forEach { append("- [").append(it.id).append("] ").append(it.label).append("\n") }
-
-        append("\nExisting tags (reuse by id where they fit; otherwise propose a new tag with a color_id from ")
-        append(TagColor.entries.joinToString(", ") { it.name.lowercase() }).append("):\n")
-        if (tags.isEmpty()) append("(none yet)\n")
-        tags.forEach {
-            append("- [").append(it.id).append("] ").append(it.label)
-                .append(" (").append(it.colorId.name.lowercase()).append(")\n")
-        }
-
-        if (sample.isNotEmpty()) {
-            append("\nA sample of the user's existing tasks (for style — match their tone and length):\n")
-            sample.forEach { task ->
+    private fun renderSample(sample: List<BacklogTask>): String {
+        if (sample.isEmpty()) return ""
+        val lines = sample.joinToString("\n") { task ->
+            buildString {
                 append("- ").append(task.title)
                 task.priority?.let { append(" · priority=").append(it.name.lowercase()) }
                 task.estimatedMinutes?.let { append(" · est=").append(it).append("m") }
                 if (task.tags.isNotEmpty()) append(" · tags=").append(task.tags.joinToString(",") { t -> t.label })
-                append("\n")
             }
         }
+        return "\nA sample of the user's existing tasks (for style — match their tone and length):\n$lines"
     }
 
     companion object {
