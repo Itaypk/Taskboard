@@ -2,11 +2,6 @@
 This file is for capturing random ideas that don't fit into the current spec but might be worth exploring later. 
 The scope of the individual idea is varying - could be small UI improvements, or large features that change the entire app.
 
-## Technical Debt
-
-### Ad-hoc tasks in the agreed plan have no backlog identity
-The `submit_plan` tool allows the LLM to include tasks without a `task_id` (ad-hoc items the user mentions during the conversation that aren't in the backlog). `AgreedPlanTask.taskId` is nullable to support this. In practice this creates an awkward in-between state: the planned slot is stored in `planned_task` (with `backlogTaskId = null`), but the task has no `BacklogTaskEntity`, so it never appears on the board, is silently dropped from `GET /plans/current` (the controller skips rows with no linked backlog task), and cannot receive a `lastScheduledInSessionId` stamp. The right fix is to either (a) always require the LLM to create a real backlog entry before scheduling, or (b) auto-create a minimal `BacklogTaskEntity` at plan-submission time for any ad-hoc task so it lands on the board like any other planned item.
-
 ## Small Improvements and Concerns
 - Client side error messages - more friendly? error reference? email support?
 - AI assistant should be aware of the notification delivery methods (e.g., invitation emails, nothing)
@@ -16,12 +11,12 @@ The `submit_plan` tool allows the LLM to include tasks without a `task_id` (ad-h
 
 ### UI - Tasks
 - Better "mark as done"
-- Drawer improvements
-- Edit existing tags
+- Drawer improvements (buttons are too dense, for example)
+- Edit existing tags; add "description" to a tag (consider if needed)
 - Task list Markdown (subtasks) checkboxes - makes it possible to check directly from the main screen
 
 ### Assistant - Mid-week response
-- Rejected: new "add" command for adding tasks directly from Telegram (rejection reason: even for the most basic "add" we need a category; it would be either complicated or unhelpful). 
+- Re-use the existing "suggest_task" tool for a standalone /add command (would need more development for conversational adjustments - this will be a conversation). 
 - When texting the assistant out of the blue, respond with the correct context.
 
 ### Following up

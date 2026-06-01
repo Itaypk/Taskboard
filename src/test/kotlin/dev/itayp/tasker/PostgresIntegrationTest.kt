@@ -27,6 +27,7 @@ import dev.itayp.tasker.planning.PlannedTaskSlotRepository
 import dev.itayp.tasker.planning.PlanningSessionRepository
 import dev.itayp.tasker.service.AccountImportService
 import dev.itayp.tasker.service.AccountService
+import dev.itayp.tasker.service.BacklogTaskService
 import dev.itayp.tasker.service.DemoDataSeeder
 import dev.itayp.tasker.service.UserAuthService
 import org.assertj.core.api.Assertions.assertThat
@@ -65,6 +66,7 @@ class PostgresIntegrationTest(
     @Autowired val plannedTaskRepository: PlannedTaskRepository,
     @Autowired val plannedTaskSlotRepository: PlannedTaskSlotRepository,
     @Autowired val userCrypto: UserCryptoService,
+    @Autowired val backlogTaskService: BacklogTaskService,
     @Autowired val jdbc: JdbcTemplate,
     @Autowired val objectMapper: ObjectMapper,
 ) {
@@ -353,5 +355,35 @@ class PostgresIntegrationTest(
             assertThat(String(bytes, StandardCharsets.UTF_8))
                 .doesNotContain("Prepare weekly team update")
         }
+    }
+
+    @Test
+    fun `getTasksForUser resolves lazy category and tags outside HTTP request context`() {
+        val userId = UUID.randomUUID()
+        userAuthService.ensureDevUser(userId, telegramId = System.nanoTime())
+
+        val category = categoryRepository.save(BacklogTaskCategoryEntity().apply {
+            this.userId = userId
+            label = "Work"
+            swatchId = CategoryColor.SUNSHINE
+        })
+        taskRepository.save(BacklogTaskEntity().apply {
+            this.userId = userId
+            title = userCrypto.encrypt(userId, "Lazy-load regression task")
+            status = TaskStatus.TODO
+            this.category = category
+            sortKey = "a"
+            createdAt = Instant.now()
+        })
+
+        // Simulates being called from a Telegram bot handler (no HTTP request, so open-in-view
+        // is inactive). Before @Transactional(readOnly=true) was added to getTasksForUser this
+        // threw LazyInitializationException on category and tags.
+        val tasks = backlogTaskService.getTasksForUser(userId, null)
+
+        assertThat(tasks).singleElement().satisfies({ t ->
+            assertThat(t.title).isEqualTo("Lazy-load regression task")
+            assertThat(t.category.label).isEqualTo("Work")
+        })
     }
 }

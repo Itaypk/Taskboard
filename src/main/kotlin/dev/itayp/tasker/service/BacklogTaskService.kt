@@ -37,9 +37,11 @@ class BacklogTaskService(
     private val clock: Clock,
 ) {
 
+    @Transactional(readOnly = true)
     fun getAllTasksForUser(userId: UUID): List<BacklogTask> =
         backlogTaskRepository.findAllByUserIdOrderBySortKeyAsc(userId).map { it.toDomain(userCrypto) }
 
+    @Transactional(readOnly = true)
     fun getTasksForUser(userId: UUID, status: TaskStatus?): List<BacklogTask> {
         val entities = when (status) {
             null -> backlogTaskRepository.findAllByUserIdAndStatusNotOrderBySortKeyAsc(userId, TaskStatus.ARCHIVED)
@@ -55,6 +57,7 @@ class BacklogTaskService(
         } else tasks
     }
 
+    @Transactional(readOnly = true)
     fun getTaskById(userId: UUID, id: UUID): BacklogTask? =
         backlogTaskRepository.findByIdAndUserId(id, userId)?.toDomain(userCrypto)
 
