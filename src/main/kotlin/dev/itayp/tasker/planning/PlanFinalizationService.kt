@@ -65,6 +65,13 @@ class PlanFinalizationService(
         if (removedTasks.isNotEmpty()) {
             dispatchCancellationsIfEligible(userId, removedTasks)
         }
+
+        log.debug(
+            "applyPlan session={} added={} removed={}",
+            sessionId,
+            plan.tasks.map { t -> mapOf("id" to t.taskId, "slots" to t.slots.map { it.startIso to it.endIso }) },
+            removedTasks.map { t -> mapOf("id" to t.taskId, "slots" to t.slots.map { it.startIso to it.endIso }) },
+        )
     }
 
     private data class EmailContext(val email: String, val locale: Locale)
