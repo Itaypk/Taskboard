@@ -16,6 +16,8 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
+import org.mockito.kotlin.argumentCaptor
+import org.mockito.Mockito
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
@@ -23,6 +25,7 @@ import org.mockito.kotlin.whenever
 import java.time.Instant
 import java.util.Optional
 import java.util.UUID
+import kotlin.test.assertEquals
 
 @ExtendWith(MockitoExtension::class)
 class PlanFinalizationServiceTest {
@@ -67,8 +70,15 @@ class PlanFinalizationServiceTest {
 
     @BeforeEach
     fun stubDefaults() {
-        // Opt out of invites by default so tests that don't care about email don't NPE.
-        whenever(userSettingsService.getOrCreate(any())).thenReturn(settings(calendarInviteEmail = false))
+        // Opt out of invites by default so tests that don't care about email don't NPE. Lenient because
+        // diff-empty paths short-circuit before the email gate is consulted.
+        Mockito.lenient().`when`(userSettingsService.getOrCreate(any())).thenReturn(settings(calendarInviteEmail = false))
+    }
+
+    private fun optInWithVerifiedEmail() {
+        whenever(userSettingsService.getOrCreate(userId)).thenReturn(settings(calendarInviteEmail = true))
+        whenever(userSettingsService.getLocale(userId)).thenReturn(java.util.Locale.ENGLISH)
+        whenever(userRepository.findById(userId)).thenReturn(Optional.of(verifiedUser("alice@example.com")))
     }
 
     // ── Session completion ───────────────────────────────────────────────────
@@ -104,13 +114,16 @@ class PlanFinalizationServiceTest {
 
         service.complete(userId, sessionId, planWithTasks)
 
+        // No previous plan, so every task is a fresh invite (summary is irrelevant to dispatch).
+        val captor = argumentCaptor<AgreedPlan>()
         verify(planInviteDispatcher).dispatch(
             eq("alice@example.com"),
             eq("noreply@backlog.fyi"),
             eq("Backlog.fyi"),
-            eq(planWithTasks),
+            captor.capture(),
             any(),
         )
+        assertEquals(planWithTasks.tasks, captor.firstValue.tasks)
     }
 
     @Test
@@ -184,13 +197,15 @@ class PlanFinalizationServiceTest {
 
         service.revisePlan(userId, sessionId, planWithTasks)
 
+        val captor = argumentCaptor<AgreedPlan>()
         verify(planInviteDispatcher).dispatch(
             eq("alice@example.com"),
             eq("noreply@backlog.fyi"),
             eq("Backlog.fyi"),
-            eq(planWithTasks),
+            captor.capture(),
             any(),
         )
+        assertEquals(planWithTasks.tasks, captor.firstValue.tasks)
     }
 
     @Test
@@ -198,6 +213,87 @@ class PlanFinalizationServiceTest {
         service.revisePlan(userId, sessionId, planWithTasks)
 
         verify(planInviteDispatcher, never()).dispatch(any(), any(), any(), any(), any())
+    }
+
+    // ── revisePlan: diff-based invite dispatch ─────────────────────────────────
+
+    @Test
+    fun `revisePlan sends no emails when the plan is unchanged`() {
+        whenever(plannedTaskService.findForSession(userId, sessionId)).thenReturn(planWithTasks.tasks)
+
+        service.revisePlan(userId, sessionId, planWithTasks)
+
+        verify(planInviteDispatcher, never()).dispatch(any(), any(), any(), any(), any())
+        verify(planInviteDispatcher, never()).dispatchUpdates(any(), any(), any(), any(), any())
+        verify(planInviteDispatcher, never()).dispatchCancellations(any(), any(), any(), any(), any())
+    }
+
+    @Test
+    fun `revisePlan invites only the newly added slot`() {
+        whenever(plannedTaskService.findForSession(userId, sessionId))
+            .thenReturn(listOf(AgreedPlanTask(taskId = taskId1, title = "Task A", slots = listOf(slot))))
+        optInWithVerifiedEmail()
+
+        service.revisePlan(userId, sessionId, planWithTasks)
+
+        val captor = argumentCaptor<AgreedPlan>()
+        verify(planInviteDispatcher).dispatch(any(), any(), any(), captor.capture(), any())
+        assertEquals(listOf(taskId2), captor.firstValue.tasks.map { it.taskId })
+        verify(planInviteDispatcher, never()).dispatchUpdates(any(), any(), any(), any(), any())
+        verify(planInviteDispatcher, never()).dispatchCancellations(any(), any(), any(), any(), any())
+    }
+
+    @Test
+    fun `revisePlan cancels invites for a removed task`() {
+        whenever(plannedTaskService.findForSession(userId, sessionId)).thenReturn(planWithTasks.tasks)
+        optInWithVerifiedEmail()
+
+        // Drop Task B.
+        val trimmed = AgreedPlan(tasks = listOf(planWithTasks.tasks[0]), summary = "Just A.")
+        service.revisePlan(userId, sessionId, trimmed)
+
+        val captor = argumentCaptor<List<AgreedPlanTask>>()
+        verify(planInviteDispatcher).dispatchCancellations(any(), any(), any(), captor.capture(), any())
+        assertEquals(listOf(taskId2), captor.firstValue.map { it.taskId })
+        verify(planInviteDispatcher, never()).dispatch(any(), any(), any(), any(), any())
+        verify(planInviteDispatcher, never()).dispatchUpdates(any(), any(), any(), any(), any())
+    }
+
+    @Test
+    fun `revisePlan sends an update when a slot's title changes at the same time`() {
+        whenever(plannedTaskService.findForSession(userId, sessionId))
+            .thenReturn(listOf(AgreedPlanTask(taskId = taskId1, title = "Task A", slots = listOf(slot))))
+        optInWithVerifiedEmail()
+
+        val renamed = AgreedPlan(
+            tasks = listOf(AgreedPlanTask(taskId = taskId1, title = "Task A (renamed)", slots = listOf(slot))),
+            summary = "Renamed A.",
+        )
+        service.revisePlan(userId, sessionId, renamed)
+
+        val captor = argumentCaptor<AgreedPlan>()
+        verify(planInviteDispatcher).dispatchUpdates(any(), any(), any(), captor.capture(), any())
+        assertEquals(listOf(taskId1), captor.firstValue.tasks.map { it.taskId })
+        verify(planInviteDispatcher, never()).dispatch(any(), any(), any(), any(), any())
+        verify(planInviteDispatcher, never()).dispatchCancellations(any(), any(), any(), any(), any())
+    }
+
+    @Test
+    fun `revisePlan treats a time move as a cancellation plus a fresh invite`() {
+        whenever(plannedTaskService.findForSession(userId, sessionId))
+            .thenReturn(listOf(AgreedPlanTask(taskId = taskId1, title = "Task A", slots = listOf(slot))))
+        optInWithVerifiedEmail()
+
+        val movedSlot = AgreedTimeSlot("2026-05-13T14:00:00+02:00", "2026-05-13T16:00:00+02:00")
+        val moved = AgreedPlan(
+            tasks = listOf(AgreedPlanTask(taskId = taskId1, title = "Task A", slots = listOf(movedSlot))),
+            summary = "Moved A.",
+        )
+        service.revisePlan(userId, sessionId, moved)
+
+        verify(planInviteDispatcher).dispatch(any(), any(), any(), any(), any())
+        verify(planInviteDispatcher).dispatchCancellations(any(), any(), any(), any(), any())
+        verify(planInviteDispatcher, never()).dispatchUpdates(any(), any(), any(), any(), any())
     }
 
     // ── addTaskToSession ─────────────────────────────────────────────────────

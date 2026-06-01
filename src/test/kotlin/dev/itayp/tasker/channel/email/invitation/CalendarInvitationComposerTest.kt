@@ -89,6 +89,15 @@ class CalendarInvitationComposerTest {
     }
 
     @Test
+    fun `buildICalContent renders the event sequence`() {
+        assertTrue(composer.buildICalContent(sampleEvent()).contains("SEQUENCE:0"), "fresh invite should be SEQUENCE:0")
+        assertTrue(
+            composer.buildICalContent(sampleEvent().copy(sequence = 1)).contains("SEQUENCE:1"),
+            "update should carry the bumped sequence",
+        )
+    }
+
+    @Test
     fun `buildICalContent includes a 15-minute display reminder`() {
         val ical = composer.buildICalContent(sampleEvent())
 

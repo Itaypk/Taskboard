@@ -14,6 +14,8 @@ class InMemoryConversationChannel(
     ),
 ) : ConversationChannel {
 
+    override val formatter: MessageFormatter = PlainTextMessageFormatter
+
     private val outbox: ConcurrentLinkedQueue<ChannelMessage> = ConcurrentLinkedQueue()
     private val debugOutbox: ConcurrentLinkedQueue<ToolCallEvent> = ConcurrentLinkedQueue()
 

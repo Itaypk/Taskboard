@@ -3,6 +3,8 @@ package dev.itayp.tasker.channel.telegram
 import dev.itayp.tasker.channel.ChannelCapabilities
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ConversationChannel
+import dev.itayp.tasker.channel.HtmlMessageFormatter
+import dev.itayp.tasker.channel.MessageFormatter
 import org.telegram.telegrambots.meta.api.methods.send.SendChatAction
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup
@@ -23,6 +25,8 @@ class TelegramConversationChannel(
         supportsAutocompletions = true,
         supportsInlineButtons = true,
     )
+
+    override val formatter: MessageFormatter = HtmlMessageFormatter
 
     override fun indicateTyping() {
         runCatching {

@@ -1,6 +1,7 @@
 package dev.itayp.tasker.planning
 
 import dev.itayp.tasker.ai.prompt.PromptTemplateLoader
+import dev.itayp.tasker.channel.MessageFormatter
 import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.BacklogTaskTag
@@ -33,7 +34,12 @@ class WeeklyPlanningPromptAssembler(
     private val clock: Clock,
 ) {
 
-    fun assembleSystemPrompt(userId: UUID, capacityHint: String, weekStart: LocalDate): String {
+    fun assembleSystemPrompt(
+        userId: UUID,
+        capacityHint: String,
+        weekStart: LocalDate,
+        formatter: MessageFormatter,
+    ): String {
         val settings = userSettingsService.getOrCreate(userId)
         val displayName = settings.displayName?.takeIf { it.isNotBlank() } ?: "there"
         val zone = runCatching { ZoneId.of(settings.timeZone) }.getOrDefault(ZoneId.of("UTC"))
@@ -69,6 +75,7 @@ class WeeklyPlanningPromptAssembler(
             "user_gender" to genderInstruction(settings.gender),
             "assistant_name" to ASSISTANT_NAME,
             "assistant_gender" to ASSISTANT_GENDER,
+            "formatting_guidance" to formatter.promptGuidance(),
         ))
     }
 
@@ -86,6 +93,7 @@ class WeeklyPlanningPromptAssembler(
         userId: UUID,
         session: PlanningSession,
         currentPlanTasks: List<AgreedPlanTask>,
+        formatter: MessageFormatter,
     ): String {
         val settings = userSettingsService.getOrCreate(userId)
         val displayName = settings.displayName?.takeIf { it.isNotBlank() } ?: "there"
@@ -124,6 +132,7 @@ class WeeklyPlanningPromptAssembler(
             "user_gender" to genderInstruction(settings.gender),
             "assistant_name" to ASSISTANT_NAME,
             "assistant_gender" to ASSISTANT_GENDER,
+            "formatting_guidance" to formatter.promptGuidance(),
         ))
     }
 

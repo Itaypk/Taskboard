@@ -11,6 +11,7 @@ import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ChoiceOption
 import dev.itayp.tasker.channel.ConversationChannel
+import dev.itayp.tasker.channel.MessageFormatter
 import dev.itayp.tasker.planning.dto.AgreedPlan
 import dev.itayp.tasker.service.UserSettingsService
 import com.fasterxml.jackson.annotation.JsonProperty
@@ -67,7 +68,7 @@ class WeeklyPlanningOrchestrator(
         )
         val settings = userSettingsService.getOrCreate(userId)
         val locale = Locale.forLanguageTag(settings.preferredLanguage)
-        val prompt = buildCapacityPrompt(weekStart, locale)
+        val prompt = buildCapacityPrompt(weekStart, locale, channel.formatter)
         channel.send(ChannelMessage.Choice(
             prompt = prompt,
             options = buildCapacityOptions(locale),
@@ -105,7 +106,7 @@ class WeeklyPlanningOrchestrator(
             "Cannot revise session $sessionId in status ${session.status}"
         }
         val currentTasks = plannedTaskService.findForSession(userId, sessionId)
-        val systemPrompt = promptAssembler.assembleRevisionSystemPrompt(userId, session, currentTasks)
+        val systemPrompt = promptAssembler.assembleRevisionSystemPrompt(userId, session, currentTasks, channel.formatter)
         log.trace("Weekly planning REVISE system prompt for session {}:\n{}", sessionId, systemPrompt)
 
         val conversationId = aiConversationManager.startConversation(
@@ -162,7 +163,7 @@ class WeeklyPlanningOrchestrator(
 
         val weekStart = planningSessionService.findById(current.userId, sessionId)?.weekStart
             ?: error("Planning session $sessionId is missing weekStart")
-        val systemPrompt = promptAssembler.assembleSystemPrompt(current.userId, capacity, weekStart)
+        val systemPrompt = promptAssembler.assembleSystemPrompt(current.userId, capacity, weekStart, channel.formatter)
         log.trace("Weekly planning system prompt for session {}:\n{}", sessionId, systemPrompt)
 
         val conversationId = aiConversationManager.startConversation(
@@ -214,6 +215,9 @@ class WeeklyPlanningOrchestrator(
 
         val pending = mutableListOf<PendingInteractive>()
         var dataLookupRan = false
+        var sayRendered = false
+
+        log.debug("Dispatching {} tool call(s) for session {}: {}", calls.size, sessionId, calls.map { it.name })
 
         planSubmissionInbox.begin()
         planningToolContext.begin(current.userId, resolveZone(current.userId))
@@ -230,7 +234,10 @@ class WeeklyPlanningOrchestrator(
                     continue
                 }
                 when (tool.kind) {
-                    ToolKind.ONE_WAY_OUTPUT -> handleOneWay(conversationId, call, tool, channel)
+                    ToolKind.ONE_WAY_OUTPUT -> {
+                        if (call.name == SAY_TOOL_NAME) sayRendered = true
+                        handleOneWay(conversationId, call, tool, channel)
+                    }
                     ToolKind.INTERACTIVE_INPUT -> pending.add(parseInteractive(call))
                     ToolKind.DATA_LOOKUP -> {
                         val result = runCatching { tool.execute(call.arguments) }
@@ -249,7 +256,11 @@ class WeeklyPlanningOrchestrator(
             if (submissions.isNotEmpty()) finalizeSubmission(sessionId, submissions.last())
         }
 
-        if (state[sessionId]?.phase == Phase.DONE) return
+        if (state[sessionId]?.phase == Phase.DONE) {
+            // submit_plan carries its own farewell; render it unless the model already spoke via `say`.
+            if (!sayRendered) renderClosingMessage(sessionId, channel)
+            return
+        }
 
         if (pending.isNotEmpty()) {
             state[sessionId] = state[sessionId]!!.copy(
@@ -289,6 +300,26 @@ class WeeklyPlanningOrchestrator(
                 """{"error":"${e.message}"}"""
             }
         aiConversationManager.recordToolResult(conversationId, call.id, call.name, ack)
+    }
+
+    /**
+     * Renders the farewell carried on the submitted plan. Falls back to the stored summary if the
+     * model left [AgreedPlan.message] blank, so a finalized session is never silent.
+     */
+    private fun renderClosingMessage(sessionId: UUID, channel: ConversationChannel) {
+        val plan = state[sessionId]?.agreedPlan
+        if (plan == null) {
+            log.warn("No agreed plan to render closing message for session {}", sessionId)
+            return
+        }
+        val message = plan.message?.takeIf { it.isNotBlank() }
+            ?: plan.summary.takeIf { it.isNotBlank() }
+        if (message == null) {
+            log.warn("Finalized session {} has no closing message or summary to render", sessionId)
+            return
+        }
+        log.debug("Rendering closing message for session {} (fromSummary={})", sessionId, plan.message.isNullOrBlank())
+        channel.send(ChannelMessage.Text(message))
     }
 
     private fun renderSay(call: RequestedToolCall, channel: ConversationChannel) {
@@ -375,12 +406,12 @@ class WeeklyPlanningOrchestrator(
 
     // ── Helpers --------------------------------------------------------------------------
 
-    private fun buildCapacityPrompt(weekStart: LocalDate, locale: Locale): String {
+    private fun buildCapacityPrompt(weekStart: LocalDate, locale: Locale, formatter: MessageFormatter): String {
         val weekEnd = weekStart.plusDays(6)
         val fmt = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale)
         val period = "${weekStart.format(fmt)} – ${weekEnd.format(fmt)}"
         val question = messageSource.getMessage("planning.capacity.question", null, locale)
-        return "<b>$period</b>\n$question"
+        return "${formatter.bold(period)}\n$question"
     }
 
     private fun buildCapacityOptions(locale: Locale) = listOf(
@@ -393,7 +424,12 @@ class WeeklyPlanningOrchestrator(
     private fun finalizeSubmission(sessionId: UUID, plan: AgreedPlan) {
         val current = state[sessionId] ?: return
         val session = planningSessionService.findById(current.userId, sessionId)
-        if (session?.status == PlanningSessionStatus.COMPLETED) {
+        val revising = session?.status == PlanningSessionStatus.COMPLETED
+        log.debug(
+            "Finalizing submission for session {} (revising={}, tasks={})",
+            sessionId, revising, plan.tasks.size,
+        )
+        if (revising) {
             planFinalizationService.revisePlan(current.userId, sessionId, plan)
         } else {
             planFinalizationService.complete(current.userId, sessionId, plan)

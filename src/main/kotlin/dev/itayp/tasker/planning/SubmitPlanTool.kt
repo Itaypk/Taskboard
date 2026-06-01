@@ -68,8 +68,14 @@ class SubmitPlanTool(
                 "type" to "string",
                 "description" to "Short human-readable recap to store as this session's summary (used as memory for next week).",
             ),
+            "message" to mapOf(
+                "type" to "string",
+                "description" to "The closing message shown to the user confirming the finalized plan. " +
+                    "Write it in the user's language and warm tone — this is the last thing they see, " +
+                    "so recap what was scheduled. Do NOT also send a separate `say`; this field replaces it.",
+            ),
         ),
-        "required" to listOf("tasks", "summary"),
+        "required" to listOf("tasks", "summary", "message"),
     )
 
     override fun execute(arguments: String): String {
@@ -80,6 +86,11 @@ class SubmitPlanTool(
             return """{"ok": false, "error": "Could not parse plan: ${e.message}"}"""
         }
         inbox.record(plan)
+        log.debug(
+            "submit_plan recorded plan: tasks={} hasMessage={}",
+            plan.tasks.size,
+            !plan.message.isNullOrBlank(),
+        )
         return """{"ok": true, "tasks_recorded": ${plan.tasks.size}}"""
     }
 }

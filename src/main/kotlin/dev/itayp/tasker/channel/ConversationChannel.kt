@@ -8,6 +8,10 @@ package dev.itayp.tasker.channel
  */
 interface ConversationChannel {
     val capabilities: ChannelCapabilities
+
+    /** Renders static text and tells the model which markup this channel supports. */
+    val formatter: MessageFormatter
+
     fun send(message: ChannelMessage)
     fun indicateTyping() = Unit
     fun logToolCall(name: String, arguments: String) = Unit

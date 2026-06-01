@@ -108,7 +108,7 @@ class CalendarInvitationComposer(
                 val rsvp = if (event.rsvp) "TRUE" else "FALSE"
                 add(fold("ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=$rsvp:mailto:$email"))
             }
-            add("SEQUENCE:0")
+            add("SEQUENCE:${event.sequence}")
             add("STATUS:CONFIRMED")
             // 15-minute pop-up reminder so accepted blocks actually notify the user.
             add("BEGIN:VALARM")

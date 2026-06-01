@@ -89,6 +89,22 @@ class DevPlanningController(
         return ResponseEntity.ok(DevPlanningResponse.from(sessionId, orchestrator.phase(sessionId), channel.drain(), channel.drainToolCallEvents()))
     }
 
+    /**
+     * Starts a revise-in-place conversation for an already-completed session, mirroring the
+     * production "revisit the plan" entry point. Reuses the session id (and its channel slot),
+     * so the dev page can keep driving the same session through [reply].
+     */
+    @PostMapping("/{sessionId}/revise")
+    fun revise(
+        @AuthenticationPrincipal principal: TaskerPrincipal,
+        @PathVariable sessionId: UUID,
+    ): ResponseEntity<DevPlanningResponse> {
+        val channel = InMemoryConversationChannel()
+        orchestrator.startRevision(principal.userId, sessionId, channel)
+        channels[sessionId] = channel
+        return ResponseEntity.ok(DevPlanningResponse.from(sessionId, orchestrator.phase(sessionId), channel.drain(), channel.drainToolCallEvents()))
+    }
+
     @GetMapping("/{sessionId}")
     fun get(
         @AuthenticationPrincipal principal: TaskerPrincipal,

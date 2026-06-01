@@ -80,6 +80,19 @@ class PlanInviteDispatcherTest {
     }
 
     @Test
+    fun `dispatch sends invites with sequence 0 and dispatchUpdates with sequence 1`() {
+        val plan = plan(task(taskId, "Write spec", slot("2026-05-11T09:00:00+02:00", "2026-05-11T11:00:00+02:00")))
+        val eventCaptor = argumentCaptor<CalendarEvent>()
+
+        dispatcher.dispatch(userEmail, organizerEmail, organizerName, plan, locale)
+        dispatcher.dispatchUpdates(userEmail, organizerEmail, organizerName, plan, locale)
+
+        verify(composer, times(2)).sendInvitation(any(), eventCaptor.capture())
+        assertEquals(0, eventCaptor.firstValue.sequence)
+        assertEquals(1, eventCaptor.secondValue.sequence)
+    }
+
+    @Test
     fun `sends nothing when all tasks have no slots`() {
         val plan = plan(task(taskId, "Empty task"))
 

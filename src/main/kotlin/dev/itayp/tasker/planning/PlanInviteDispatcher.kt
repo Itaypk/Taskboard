@@ -16,8 +16,30 @@ class PlanInviteDispatcher(
 ) {
     private val log = LoggerFactory.getLogger(PlanInviteDispatcher::class.java)
 
+    /** Sends fresh invitations (SEQUENCE 0) for newly-added slots. */
     @Async
     fun dispatch(userEmail: String, organizerEmail: String, organizerName: String, plan: AgreedPlan, locale: Locale) {
+        sendInvites(userEmail, organizerEmail, organizerName, plan, locale, sequence = 0)
+    }
+
+    /**
+     * Re-sends invitations for slots whose details changed at the same start time (label/title/notes
+     * or end time). The shared UID plus a bumped SEQUENCE makes calendar clients update the existing
+     * event in place rather than create a duplicate.
+     */
+    @Async
+    fun dispatchUpdates(userEmail: String, organizerEmail: String, organizerName: String, plan: AgreedPlan, locale: Locale) {
+        sendInvites(userEmail, organizerEmail, organizerName, plan, locale, sequence = 1)
+    }
+
+    private fun sendInvites(
+        userEmail: String,
+        organizerEmail: String,
+        organizerName: String,
+        plan: AgreedPlan,
+        locale: Locale,
+        sequence: Int,
+    ) {
         for (task in plan.tasks) {
             for (slot in task.slots) {
                 runCatching {
@@ -37,6 +59,7 @@ class PlanInviteDispatcher(
                             organizerName = organizerName,
                             attendeeEmails = listOf(userEmail),
                             locale = locale,
+                            sequence = sequence,
                         ),
                     )
                 }.onFailure { e ->

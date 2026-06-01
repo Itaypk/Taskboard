@@ -43,6 +43,31 @@ class SubmitPlanToolTest {
     }
 
     @Test
+    fun `parses the closing message when present`() {
+        inbox.begin()
+        val args = """
+        {
+          "tasks": [
+            {
+              "task_id": "11111111-1111-1111-1111-111111111111",
+              "title": "Write spec",
+              "slots": [
+                {"start_iso": "2026-05-04T09:00:00+02:00", "end_iso": "2026-05-04T11:00:00+02:00"}
+              ]
+            }
+          ],
+          "summary": "Agreed on the spec.",
+          "message": "All set — I've blocked Monday morning for the spec. Have a great week!"
+        }
+        """.trimIndent()
+
+        tool.execute(args)
+
+        val plan = inbox.drain().single()
+        assertEquals("All set — I've blocked Monday morning for the spec. Have a great week!", plan.message)
+    }
+
+    @Test
     fun `invalid payload returns an error string and does not record`() {
         inbox.begin()
         val result = tool.execute("not-json")
@@ -79,6 +104,7 @@ class SubmitPlanToolTest {
         val required = tool.parameters["required"] as List<String>
         assertTrue("tasks" in required)
         assertTrue("summary" in required)
+        assertTrue("message" in required)
 
         @Suppress("UNCHECKED_CAST")
         val properties = tool.parameters["properties"] as Map<String, Any>

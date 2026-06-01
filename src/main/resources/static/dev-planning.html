@@ -379,6 +379,7 @@
   <span id="status-badge">not logged in</span>
   <span id="phase-label"></span>
   <button class="btn-secondary" id="btn-abandon" style="display:none;margin-left:auto" onclick="abandon()">Abandon session</button>
+  <button class="btn-primary" id="btn-revise" style="display:none" onclick="revise()">Revise plan</button>
   <button class="btn-secondary" id="btn-restart" style="display:none" onclick="restart()">Restart</button>
 </header>
 
@@ -809,6 +810,7 @@
 
       document.getElementById('reply-area').classList.add('hidden');
       document.getElementById('btn-abandon').style.display = 'none';
+      document.getElementById('btn-revise').style.display = '';
       document.getElementById('btn-restart').style.display = '';
       setStatus('done', 'done');
     } else if (!hasChoice) {
@@ -851,6 +853,36 @@
     }
   }
 
+  async function revise() {
+    if (!sessionId || busy) return;
+    setBusy(true);
+
+    const container = document.getElementById('messages');
+    const divider = document.createElement('div');
+    divider.className = 'msg-label';
+    divider.style.textAlign = 'center';
+    divider.style.padding = '4px 0';
+    divider.textContent = '— revising plan —';
+    container.appendChild(divider);
+
+    document.getElementById('btn-revise').style.display = 'none';
+    document.getElementById('btn-restart').style.display = 'none';
+    showLoading();
+
+    try {
+      const data = await api('POST', '/api/dev/planning/' + sessionId + '/revise');
+      document.getElementById('btn-abandon').style.display = '';
+      setStatus('planning', 'planning');
+      renderResponse(data);
+    } catch (e) {
+      removeLoading();
+      logError(e.message);
+      setStatus('error', 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function abandon() {
     if (!sessionId || !confirm('Abandon this planning session?')) return;
     try {
@@ -868,6 +900,7 @@
     document.getElementById('setup-panel').style.display = 'flex';
     document.getElementById('reply-area').classList.add('hidden');
     document.getElementById('btn-abandon').style.display = 'none';
+    document.getElementById('btn-revise').style.display = 'none';
     document.getElementById('btn-restart').style.display = 'none';
     logClear();
     setStatus('not logged in', '');
