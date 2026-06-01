@@ -10,6 +10,7 @@ import dev.itayp.tasker.service.UserSettingsService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.util.UUID
+import java.util.Locale
 
 @Service
 class PlanFinalizationService(
@@ -45,31 +46,58 @@ class PlanFinalizationService(
     }
 
     private fun applyPlan(userId: UUID, sessionId: UUID, plan: AgreedPlan) {
+        val newTaskIds = plan.tasks.mapNotNull { it.taskId }.toSet()
+        // Snapshot before persist so we can detect which tasks were removed
+        val removedTasks = plannedTaskService.findForSession(userId, sessionId)
+            .filter { it.taskId == null || it.taskId !in newTaskIds }
+
         plannedTaskService.persist(sessionId, userId, plan.tasks)
-        val taskIds = plan.tasks.mapNotNull { it.taskId }
-        if (taskIds.isNotEmpty()) {
-            backlogTaskService.stampPlanningSession(userId, taskIds, sessionId)
+
+        if (newTaskIds.isNotEmpty()) {
+            backlogTaskService.stampPlanningSession(userId, newTaskIds.toList(), sessionId)
         }
+        val removedTaskIds = removedTasks.mapNotNull { it.taskId }
+        if (removedTaskIds.isNotEmpty()) {
+            backlogTaskService.clearPlanningSessionStamp(userId, removedTaskIds)
+        }
+
         dispatchInvitesIfEligible(userId, plan)
+        if (removedTasks.isNotEmpty()) {
+            dispatchCancellationsIfEligible(userId, removedTasks)
+        }
+    }
+
+    private data class EmailContext(val email: String, val locale: Locale)
+
+    private fun resolveEmailContext(userId: UUID): EmailContext? {
+        val settings = userSettingsService.getOrCreate(userId)
+        if (!settings.calendarInviteEmail) return null
+        val user = userRepository.findById(userId).orElse(null) ?: return null
+        if (user.emailVerifiedAt == null) return null
+        val email = userCrypto.decrypt(userId, user.email)
+        if (email.isNullOrBlank()) return null
+        return EmailContext(email, userSettingsService.getLocale(userId))
     }
 
     private fun dispatchInvitesIfEligible(userId: UUID, plan: AgreedPlan) {
-        val settings = userSettingsService.getOrCreate(userId)
-        if (!settings.calendarInviteEmail) return
-
-        val user = userRepository.findById(userId).orElse(null) ?: return
-        if (user.emailVerifiedAt == null) return
-        val email = userCrypto.decrypt(userId, user.email)
-        if (email.isNullOrBlank()) return
-
-        val locale = userSettingsService.getLocale(userId)
-
+        val ctx = resolveEmailContext(userId) ?: return
         planInviteDispatcher.dispatch(
-            userEmail = email,
+            userEmail = ctx.email,
             organizerEmail = emailProperties.from,
             organizerName = emailProperties.fromName,
             plan = plan,
-            locale = locale,
+            locale = ctx.locale,
+        )
+    }
+
+    private fun dispatchCancellationsIfEligible(userId: UUID, removedTasks: List<AgreedPlanTask>) {
+        val ctx = resolveEmailContext(userId) ?: return
+        planInviteDispatcher.dispatchCancellations(
+            userEmail = ctx.email,
+            organizerEmail = emailProperties.from,
+            organizerName = emailProperties.fromName,
+            tasks = removedTasks,
+            locale = ctx.locale,
         )
     }
 }

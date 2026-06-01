@@ -174,6 +174,16 @@ class BacklogTaskService(
     }
 
     @Transactional
+    fun clearPlanningSessionStamp(userId: UUID, taskIds: List<UUID>) {
+        val entities = backlogTaskRepository.findAllByUserIdAndIdIn(userId, taskIds)
+        for (entity in entities) {
+            entity.lastScheduledInSessionId = null
+            entity.updatedAt = Instant.now()
+        }
+        backlogTaskRepository.saveAll(entities)
+    }
+
+    @Transactional
     fun unscheduleTask(userId: UUID, id: UUID) {
         val entity = backlogTaskRepository.findByIdAndUserId(id, userId)
             ?: throw NoSuchElementException("Task $id not found")
