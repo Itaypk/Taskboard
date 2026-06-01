@@ -13,7 +13,6 @@ The `submit_plan` tool allows the LLM to include tasks without a `task_id` (ad-h
 - Fonts look bad in Hebrew (especially the header - serif - ones). Either choose one that support multilanguage, or use language-specific ones.
 - Translate the application
 - Auto update (UI) - do we consider changes in tasks, or just additions/deletions?
-- When re-planning: send cancellations and updates
 
 ### UI - Tasks
 - Better "mark as done"

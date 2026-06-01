@@ -17,6 +17,7 @@ A few things to consider while working on the project:
 - The number of active users is still very low, and they are all aware of the beta status. Consider the option of starting fresh (wiping the prod DB and re-seeding) rather than writing a complex
   migration. This overrides the additive-only rule, but only when we explicitly decide to reset.
 - On production, the app runs as a single instance on an Ubuntu VPS. Short downtime is acceptable.
+- **No sensitive user data in logs**: UUIDs (user IDs, task IDs, session IDs) are fine to log. Task titles, descriptions, notes, email addresses, and any other user-authored content are not — they are encrypted at rest for a reason.
 
 ## Repo layout
 
