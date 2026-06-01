@@ -3,6 +3,7 @@ package dev.itayp.tasker.planning
 import com.fasterxml.jackson.annotation.JsonProperty
 import dev.itayp.tasker.ai.tool.AiTool
 import dev.itayp.tasker.ai.tool.ToolKind
+import dev.itayp.tasker.model.TagColor
 import dev.itayp.tasker.model.request.CreateBacklogTaskRequest
 import dev.itayp.tasker.model.request.TagInput
 import dev.itayp.tasker.service.BacklogTaskService
@@ -45,15 +46,19 @@ class CreateTaskTool(
             "estimated_minutes" to mapOf("type" to "integer", "description" to "Optional time estimate in minutes."),
             "tags" to mapOf(
                 "type" to "array",
-                "description" to "Optional tags. Reuse an existing tag by passing its id; or create one with a new label + color_id.",
+                "description" to "Optional tags. Reuse an existing tag by passing its id; or create one with a new label (and optionally a color_id).",
                 "items" to mapOf(
                     "type" to "object",
                     "properties" to mapOf(
                         "id" to mapOf("type" to "string", "description" to "UUID of an existing tag, if reusing one."),
                         "label" to mapOf("type" to "string", "description" to "Tag label."),
-                        "color_id" to mapOf("type" to "string", "description" to "Color name for a new tag (e.g. sage, sky, coral)."),
+                        "color_id" to mapOf(
+                            "type" to "string",
+                            "enum" to ALLOWED_TAG_COLORS,
+                            "description" to "Color for a new tag. One of the allowed values; a color is assigned if omitted.",
+                        ),
                     ),
-                    "required" to listOf("label", "color_id"),
+                    "required" to listOf("label"),
                 ),
             ),
         ),
@@ -75,7 +80,7 @@ class CreateTaskTool(
             deadline = args.deadline,
             estimatedMinutes = args.estimatedMinutes,
             categoryId = args.categoryId,
-            tags = args.tags.map { TagInput(id = it.id, label = it.label, colorId = it.colorId) },
+            tags = args.tags.map { TagInput(id = it.id, label = it.label, colorId = resolveColor(it.colorId)) },
         )
 
         return runCatching {
@@ -88,6 +93,11 @@ class CreateTaskTool(
             objectMapper.writeValueAsString(mapOf("error" to (e.message ?: "Could not create task")))
         }
     }
+
+    /** color_id is a closed set; fall back to a random valid color rather than letting an unexpected value fail persistence. */
+    private fun resolveColor(colorId: String?): String =
+        TagColor.entries.firstOrNull { it.name.equals(colorId, ignoreCase = true) }?.name?.lowercase()
+            ?: TagColor.entries.random().name.lowercase()
 
     private data class CreateTaskArgs(
         val title: String,
@@ -102,6 +112,10 @@ class CreateTaskTool(
     private data class TagArg(
         val id: String? = null,
         val label: String,
-        @JsonProperty("color_id") val colorId: String,
+        @JsonProperty("color_id") val colorId: String? = null,
     )
+
+    companion object {
+        private val ALLOWED_TAG_COLORS = TagColor.entries.map { it.name.lowercase() }
+    }
 }

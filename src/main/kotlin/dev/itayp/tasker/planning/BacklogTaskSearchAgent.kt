@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import dev.itayp.tasker.ai.client.AiClient
 import dev.itayp.tasker.ai.client.ChatMessage
 import dev.itayp.tasker.ai.client.ChatRequest
+import dev.itayp.tasker.ai.prompt.PromptTemplateLoader
+import dev.itayp.tasker.ai.safeParseAssistantJsonResponse
 import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.service.BacklogTaskService
 import org.slf4j.LoggerFactory
@@ -14,14 +16,15 @@ import java.util.UUID
 
 /**
  * Sub-agent backing the `find_task` tool. The weekly planner only ever sees a bounded candidate
- * slate, so when the user mentions a task that may already be in the backlog we run a single,
- * isolated LLM call over the user's full (non-archived) backlog to locate it — keeping the whole
- * list out of the main conversation. No embeddings/RAG; the scale doesn't warrant it.
+ * slate, so when the user mentions a task that may already exist we run a single, isolated LLM call
+ * over the user's full (non-archived) task list to locate it — keeping the whole list out of the
+ * main conversation. No embeddings/RAG; the scale doesn't warrant it.
  */
 @Service
 class BacklogTaskSearchAgent(
     private val aiClient: AiClient,
     private val backlogTaskService: BacklogTaskService,
+    private val promptTemplateLoader: PromptTemplateLoader,
     private val objectMapper: ObjectMapper,
     @Value("\${tasker.ai.task-assistant-model}")
     private val model: String,
@@ -32,10 +35,11 @@ class BacklogTaskSearchAgent(
         val tasks = backlogTaskService.getTasksForUser(userId, null)
         if (tasks.isEmpty()) return emptyList()
 
+        val systemPrompt = promptTemplateLoader.load("task-search/system.md").render(emptyMap())
         val request = ChatRequest(
             model = model,
             messages = listOf(
-                ChatMessage(role = "system", content = SYSTEM_PROMPT),
+                ChatMessage(role = "system", content = systemPrompt),
                 ChatMessage(role = "user", content = buildUserMessage(query, tasks)),
             ),
             temperature = 0.0,
@@ -43,43 +47,24 @@ class BacklogTaskSearchAgent(
         )
 
         val raw = aiClient.chat(request).choices.firstOrNull()?.message?.content.orEmpty()
-        val matches = parse(raw)
+        val result = safeParseAssistantJsonResponse(objectMapper, raw, SearchResult::class.java)
+        if (result == null) log.warn("find_task could not parse sub-agent output")
+        val matches = result?.matches.orEmpty()
         log.debug("find_task searched {} tasks, returned {} matches", tasks.size, matches.size)
         return matches
     }
 
     private fun buildUserMessage(query: String, tasks: List<BacklogTask>): String = buildString {
         append("User is looking for: ").append(query).append("\n\n")
-        append("Backlog tasks:\n")
+        append("Task list:\n")
         tasks.forEach { task ->
             append("- [").append(task.id).append("] ").append(task.title)
-            task.category.let { append(" · category=").append(it.label) }
+            append(" · category=").append(task.category.label)
             task.priority?.let { append(" · priority=").append(it.name.lowercase()) }
             task.deadline?.let { append(" · deadline=").append(it) }
             if (task.tags.isNotEmpty()) append(" · tags=").append(task.tags.joinToString(",") { it.label })
             append("\n")
         }
-    }
-
-    private fun parse(raw: String): List<TaskMatch> {
-        val json = raw.substringAfter('{', "").let { "{$it" }
-            .substringBeforeLast('}', "").let { "$it}" }
-        if (json.length <= 2) return emptyList()
-        return runCatching { objectMapper.readValue(json, SearchResult::class.java).matches }
-            .getOrElse {
-                log.warn("find_task could not parse sub-agent output: {}", it.message)
-                emptyList()
-            }
-    }
-
-    companion object {
-        private const val SYSTEM_PROMPT =
-            "You match a user's free-text description to tasks in their backlog. " +
-                "Return ONLY a JSON object of the form " +
-                "{\"matches\":[{\"task_id\":\"<uuid>\",\"title\":\"<title>\",\"confidence\":\"high|medium|low\"}]}. " +
-                "Include only genuinely plausible matches (at most 5), best first. " +
-                "Use the exact task_id and title from the list. If nothing matches, return {\"matches\":[]}. " +
-                "Do not invent tasks or ids, and output no prose."
     }
 }
 

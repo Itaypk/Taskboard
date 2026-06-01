@@ -4,6 +4,7 @@ import dev.itayp.tasker.ai.client.AiClient
 import dev.itayp.tasker.ai.client.ChatMessage
 import dev.itayp.tasker.ai.client.ChatResponse
 import dev.itayp.tasker.ai.client.Choice
+import dev.itayp.tasker.ai.prompt.PromptTemplateLoader
 import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.CategoryColor
@@ -25,7 +26,9 @@ class BacklogTaskSearchAgentTest {
     private val aiClient: AiClient = mock()
     private val backlogTaskService: BacklogTaskService = mock()
     private val objectMapper = jacksonObjectMapper()
-    private val agent = BacklogTaskSearchAgent(aiClient, backlogTaskService, objectMapper, "test-model")
+    private val agent = BacklogTaskSearchAgent(
+        aiClient, backlogTaskService, PromptTemplateLoader(), objectMapper, "test-model",
+    )
 
     @Test
     fun `returns empty and skips the model when the backlog is empty`() {

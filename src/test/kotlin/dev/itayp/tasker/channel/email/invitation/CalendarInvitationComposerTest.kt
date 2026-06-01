@@ -146,7 +146,9 @@ class CalendarInvitationComposerTest {
     fun `buildICalContent omits optional fields when absent`() {
         val event = sampleEvent(description = null, location = null)
         val ical = composer.buildICalContent(event)
-        assertTrue(!ical.contains("DESCRIPTION:"), "should not include DESCRIPTION when null")
+        // The VALARM legitimately carries its own DESCRIPTION, so scope the check to the event body.
+        val eventBody = ical.substringBefore("BEGIN:VALARM")
+        assertTrue(!eventBody.contains("DESCRIPTION:"), "should not include event DESCRIPTION when null")
         assertTrue(!ical.contains("LOCATION:"), "should not include LOCATION when null")
     }
 

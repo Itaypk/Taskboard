@@ -3,6 +3,7 @@ package dev.itayp.tasker.planning
 import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.CategoryColor
+import dev.itayp.tasker.model.TagColor
 import dev.itayp.tasker.model.TaskStatus
 import dev.itayp.tasker.model.request.CreateBacklogTaskRequest
 import dev.itayp.tasker.service.BacklogTaskService
@@ -55,6 +56,23 @@ class CreateTaskToolTest {
         assertEquals(1, captor.firstValue.tags.size)
         assertEquals("health", captor.firstValue.tags.first().label)
         assertTrue(result.contains(createdId.toString()))
+    }
+
+    @Test
+    fun `falls back to a valid color when an unexpected color_id is given`() {
+        val userId = UUID.randomUUID()
+        val categoryId = UUID.randomUUID()
+        context.begin(userId, ZoneOffset.UTC)
+        whenever(backlogTaskService.createTask(eq(userId), any()))
+            .thenReturn(backlogTask(UUID.randomUUID(), "x", categoryId))
+
+        tool.execute("""{"title":"x","category_id":"$categoryId","tags":[{"label":"misc","color_id":"chartreuse"}]}""")
+        context.clear()
+
+        val captor = argumentCaptor<CreateBacklogTaskRequest>()
+        verify(backlogTaskService).createTask(eq(userId), captor.capture())
+        val color = captor.firstValue.tags.first().colorId
+        assertTrue(TagColor.entries.any { it.name.equals(color, ignoreCase = true) }, "expected a valid color, got $color")
     }
 
     @Test
