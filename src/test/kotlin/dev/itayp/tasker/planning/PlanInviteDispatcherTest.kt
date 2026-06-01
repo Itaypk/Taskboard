@@ -80,19 +80,6 @@ class PlanInviteDispatcherTest {
     }
 
     @Test
-    fun `uid for ad-hoc task uses title hashcode when taskId is null`() {
-        val title = "Ad-hoc review"
-        val startIso = "2026-05-11T09:00:00+02:00"
-        val plan = plan(task(null, title, slot(startIso, "2026-05-11T10:00:00+02:00")))
-
-        dispatcher.dispatch(userEmail, organizerEmail, organizerName, plan, locale)
-
-        val eventCaptor = argumentCaptor<CalendarEvent>()
-        verify(composer).sendInvitation(any(), eventCaptor.capture())
-        assertEquals("${title.hashCode()}-$startIso", eventCaptor.firstValue.uid)
-    }
-
-    @Test
     fun `sends nothing when all tasks have no slots`() {
         val plan = plan(task(taskId, "Empty task"))
 
@@ -135,7 +122,7 @@ class PlanInviteDispatcherTest {
 
     private fun plan(vararg tasks: AgreedPlanTask) = AgreedPlan(tasks.toList(), summary = "Test summary")
 
-    private fun task(id: UUID?, title: String, vararg slots: AgreedTimeSlot) =
+    private fun task(id: UUID, title: String, vararg slots: AgreedTimeSlot) =
         AgreedPlanTask(taskId = id, title = title, slots = slots.toList())
 
     private fun slot(start: String, end: String) = AgreedTimeSlot(startIso = start, endIso = end)

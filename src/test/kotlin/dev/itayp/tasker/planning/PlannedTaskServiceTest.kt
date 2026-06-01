@@ -89,22 +89,6 @@ class PlannedTaskServiceTest {
         verify(plannedTaskSlotRepository).save(any())
     }
 
-    @Test
-    fun `persist deletes and re-inserts ad-hoc tasks`() {
-        val adHocId = UUID.randomUUID()
-        val adHoc = savedEntity(id = adHocId, backlogTaskId = null)
-        whenever(plannedTaskRepository.findAllBySessionIdOrderByPosition(sessionId)).thenReturn(listOf(adHoc))
-        val newAdHoc = savedEntity(backlogTaskId = null)
-        whenever(plannedTaskRepository.save(any<PlannedTaskEntity>())).thenReturn(newAdHoc)
-
-        val tasks = listOf(AgreedPlanTask(taskId = null, title = "Ad-hoc", slots = listOf(slot)))
-        service.persist(sessionId, userId, tasks)
-
-        verify(plannedTaskSlotRepository).deleteAllByPlannedTaskId(adHocId)
-        verify(plannedTaskRepository).delete(adHoc)
-        verify(plannedTaskRepository).save(any())
-    }
-
     // ── upsertSingleTask ─────────────────────────────────────────────────────
 
     @Test

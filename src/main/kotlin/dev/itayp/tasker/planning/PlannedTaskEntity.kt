@@ -21,7 +21,8 @@ class PlannedTaskEntity {
     @Column(name = "user_id", nullable = false)
     var userId: UUID? = null
 
-    @Column(name = "backlog_task_id")
+    // NOT NULL in the DB (changeset 2); the field stays nullable only to satisfy JPA's no-arg construction.
+    @Column(name = "backlog_task_id", nullable = false)
     var backlogTaskId: UUID? = null
 
     @Column(nullable = false)

@@ -110,6 +110,12 @@ class CalendarInvitationComposer(
             }
             add("SEQUENCE:0")
             add("STATUS:CONFIRMED")
+            // 15-minute pop-up reminder so accepted blocks actually notify the user.
+            add("BEGIN:VALARM")
+            add("ACTION:DISPLAY")
+            add(fold("DESCRIPTION:${escapeText(event.title)}"))
+            add("TRIGGER:-PT15M")
+            add("END:VALARM")
             add("END:VEVENT")
             add("END:VCALENDAR")
         }

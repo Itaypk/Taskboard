@@ -6,6 +6,7 @@ import dev.itayp.tasker.channel.OutboundChannel
 import dev.itayp.tasker.channel.email.EmailMessage
 import dev.itayp.tasker.channel.email.ICalAttachment
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -85,6 +86,24 @@ class CalendarInvitationComposerTest {
         assertTrue(ical.contains("RSVP=FALSE"), "missing RSVP")
         assertTrue(ical.contains("END:VEVENT"), "missing END:VEVENT")
         assertTrue(ical.contains("END:VCALENDAR"), "missing END:VCALENDAR")
+    }
+
+    @Test
+    fun `buildICalContent includes a 15-minute display reminder`() {
+        val ical = composer.buildICalContent(sampleEvent())
+
+        assertTrue(ical.contains("BEGIN:VALARM"), "missing VALARM")
+        assertTrue(ical.contains("ACTION:DISPLAY"), "missing alarm ACTION")
+        assertTrue(ical.contains("TRIGGER:-PT15M"), "missing 15-minute TRIGGER")
+        assertTrue(ical.contains("END:VALARM"), "missing END:VALARM")
+    }
+
+    @Test
+    fun `cancellation content has no reminder`() {
+        val ical = composer.buildCancellationICalContent(sampleEvent())
+
+        assertTrue(ical.contains("METHOD:CANCEL"), "missing CANCEL method")
+        assertFalse(ical.contains("VALARM"), "cancellation should not carry a reminder")
     }
 
     @Test

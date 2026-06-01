@@ -39,24 +39,22 @@ class PlanFinalizationService(
 
     fun addTaskToSession(userId: UUID, sessionId: UUID, task: AgreedPlanTask) {
         plannedTaskService.upsertSingleTask(sessionId, userId, task)
-        if (task.taskId != null) {
-            backlogTaskService.stampPlanningSession(userId, listOf(task.taskId), sessionId)
-        }
+        backlogTaskService.stampPlanningSession(userId, listOf(task.taskId), sessionId)
         dispatchInvitesIfEligible(userId, AgreedPlan(tasks = listOf(task), summary = ""))
     }
 
     private fun applyPlan(userId: UUID, sessionId: UUID, plan: AgreedPlan) {
-        val newTaskIds = plan.tasks.mapNotNull { it.taskId }.toSet()
+        val newTaskIds = plan.tasks.map { it.taskId }.toSet()
         // Snapshot before persist so we can detect which tasks were removed
         val removedTasks = plannedTaskService.findForSession(userId, sessionId)
-            .filter { it.taskId == null || it.taskId !in newTaskIds }
+            .filter { it.taskId !in newTaskIds }
 
         plannedTaskService.persist(sessionId, userId, plan.tasks)
 
         if (newTaskIds.isNotEmpty()) {
             backlogTaskService.stampPlanningSession(userId, newTaskIds.toList(), sessionId)
         }
-        val removedTaskIds = removedTasks.mapNotNull { it.taskId }
+        val removedTaskIds = removedTasks.map { it.taskId }
         if (removedTaskIds.isNotEmpty()) {
             backlogTaskService.clearPlanningSessionStamp(userId, removedTaskIds)
         }

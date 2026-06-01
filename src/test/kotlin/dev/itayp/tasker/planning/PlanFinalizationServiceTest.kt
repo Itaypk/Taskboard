@@ -65,13 +65,6 @@ class PlanFinalizationServiceTest {
         summary = "Agreed on A and B.",
     )
 
-    private val planAdHocOnly = AgreedPlan(
-        tasks = listOf(
-            AgreedPlanTask(taskId = null, title = "Ad-hoc task", slots = listOf(slot)),
-        ),
-        summary = "Ad-hoc only.",
-    )
-
     @BeforeEach
     fun stubDefaults() {
         // Opt out of invites by default so tests that don't care about email don't NPE.
@@ -98,13 +91,6 @@ class PlanFinalizationServiceTest {
             eq(listOf(taskId1, taskId2)),
             eq(sessionId),
         )
-    }
-
-    @Test
-    fun `complete skips stampPlanningSession when plan contains only ad-hoc tasks`() {
-        service.complete(userId, sessionId, planAdHocOnly)
-
-        verify(backlogTaskService, never()).stampPlanningSession(any(), any(), any())
     }
 
     // ── Calendar invite dispatch ─────────────────────────────────────────────
@@ -230,14 +216,6 @@ class PlanFinalizationServiceTest {
         service.addTaskToSession(userId, sessionId, task)
 
         verify(backlogTaskService).stampPlanningSession(eq(userId), eq(listOf(taskId1)), eq(sessionId))
-    }
-
-    @Test
-    fun `addTaskToSession does not stamp when task is ad-hoc`() {
-        val task = AgreedPlanTask(taskId = null, title = "Ad-hoc", slots = listOf(slot))
-        service.addTaskToSession(userId, sessionId, task)
-
-        verify(backlogTaskService, never()).stampPlanningSession(any(), any(), any())
     }
 
     @Test

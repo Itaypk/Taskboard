@@ -2,7 +2,11 @@ package dev.itayp.tasker.planning
 
 import dev.itayp.tasker.ai.prompt.PromptTemplateLoader
 import dev.itayp.tasker.model.BacklogTask
+import dev.itayp.tasker.model.BacklogTaskCategory
+import dev.itayp.tasker.model.BacklogTaskTag
 import dev.itayp.tasker.planning.dto.AgreedPlanTask
+import dev.itayp.tasker.service.BacklogTaskCategoryService
+import dev.itayp.tasker.service.BacklogTaskTagService
 import dev.itayp.tasker.service.UserSettingsService
 import org.springframework.stereotype.Service
 import java.time.Clock
@@ -24,6 +28,8 @@ class WeeklyPlanningPromptAssembler(
     private val plannerTaskSelector: PlannerTaskSelector,
     private val planningSessionService: PlanningSessionService,
     private val calendarWindowProvider: CalendarWindowProvider,
+    private val categoryService: BacklogTaskCategoryService,
+    private val tagService: BacklogTaskTagService,
     private val clock: Clock,
 ) {
 
@@ -51,6 +57,8 @@ class WeeklyPlanningPromptAssembler(
             "task_change_summary" to renderDiff(diff),
             "urgent_tasks" to renderTaskList(selection.urgent, selection.alreadyPlanned),
             "stale_tasks" to renderTaskList(selection.stale, selection.alreadyPlanned),
+            "categories" to renderCategories(categoryService.getAllForUser(userId)),
+            "tags" to renderTags(tagService.getAllForUser(userId)),
             "calendar_window" to calendar,
             "capacity_hint" to capacityHint.ifBlank { "Not stated." },
             "today_iso" to today.format(DateTimeFormatter.ISO_LOCAL_DATE),
@@ -102,6 +110,8 @@ class WeeklyPlanningPromptAssembler(
                 ?: "No personal context shared yet."),
             "previous_plan_summary" to (previousSummary ?: "_(no summary recorded)_"),
             "current_plan" to renderCurrentPlan(currentPlanTasks),
+            "categories" to renderCategories(categoryService.getAllForUser(userId)),
+            "tags" to renderTags(tagService.getAllForUser(userId)),
             "plan_finalized_at" to plannedAt.toString(),
             "days_since_finalized" to daysSinceCompleted.toString(),
             "task_change_summary" to renderDiff(diff),
@@ -124,8 +134,7 @@ class WeeklyPlanningPromptAssembler(
         if (tasks.isEmpty()) return "_(the plan has no scheduled tasks)_"
         return tasks.joinToString("\n") { task ->
             buildString {
-                append("- ")
-                if (task.taskId != null) append("[").append(task.taskId).append("] ")
+                append("- [").append(task.taskId).append("] ")
                 append(task.title)
                 if (task.slots.isNotEmpty()) {
                     append("\n    slots:")
@@ -139,6 +148,16 @@ class WeeklyPlanningPromptAssembler(
                 }
             }
         }
+    }
+
+    private fun renderCategories(categories: List<BacklogTaskCategory>): String {
+        if (categories.isEmpty()) return "_(none)_"
+        return categories.joinToString("\n") { "- [${it.id}] ${it.label}" }
+    }
+
+    private fun renderTags(tags: List<BacklogTaskTag>): String {
+        if (tags.isEmpty()) return "_(none yet)_"
+        return tags.joinToString("\n") { "- [${it.id}] ${it.label} (${it.colorId.name.lowercase()})" }
     }
 
     private fun genderInstruction(gender: String?): String = when (gender) {
