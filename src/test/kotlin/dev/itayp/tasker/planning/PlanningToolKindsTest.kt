@@ -2,6 +2,7 @@ package dev.itayp.tasker.planning
 
 import dev.itayp.tasker.ai.tool.ToolKind
 import org.junit.jupiter.api.Test
+import org.mockito.kotlin.mock
 import tools.jackson.module.kotlin.jacksonObjectMapper
 import kotlin.test.assertEquals
 
@@ -28,5 +29,20 @@ class PlanningToolKindsTest {
     fun `submit_plan is one-way output`() {
         val tool = SubmitPlanTool(PlanSubmissionInbox(), objectMapper)
         assertEquals(ToolKind.ONE_WAY_OUTPUT, tool.kind)
+    }
+
+    @Test
+    fun `find_task is a data lookup`() {
+        assertEquals(ToolKind.DATA_LOOKUP, FindTaskTool(mock(), PlanningToolContext(), objectMapper).kind)
+    }
+
+    @Test
+    fun `suggest_task is a data lookup`() {
+        assertEquals(ToolKind.DATA_LOOKUP, SuggestTaskTool(mock(), PlanningToolContext(), objectMapper).kind)
+    }
+
+    @Test
+    fun `create_task is a data lookup`() {
+        assertEquals(ToolKind.DATA_LOOKUP, CreateTaskTool(mock(), PlanningToolContext(), objectMapper).kind)
     }
 }

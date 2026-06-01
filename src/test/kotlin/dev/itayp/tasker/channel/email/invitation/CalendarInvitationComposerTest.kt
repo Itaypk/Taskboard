@@ -6,6 +6,7 @@ import dev.itayp.tasker.channel.OutboundChannel
 import dev.itayp.tasker.channel.email.EmailMessage
 import dev.itayp.tasker.channel.email.ICalAttachment
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -88,6 +89,24 @@ class CalendarInvitationComposerTest {
     }
 
     @Test
+    fun `buildICalContent includes a 15-minute display reminder`() {
+        val ical = composer.buildICalContent(sampleEvent())
+
+        assertTrue(ical.contains("BEGIN:VALARM"), "missing VALARM")
+        assertTrue(ical.contains("ACTION:DISPLAY"), "missing alarm ACTION")
+        assertTrue(ical.contains("TRIGGER:-PT15M"), "missing 15-minute TRIGGER")
+        assertTrue(ical.contains("END:VALARM"), "missing END:VALARM")
+    }
+
+    @Test
+    fun `cancellation content has no reminder`() {
+        val ical = composer.buildCancellationICalContent(sampleEvent())
+
+        assertTrue(ical.contains("METHOD:CANCEL"), "missing CANCEL method")
+        assertFalse(ical.contains("VALARM"), "cancellation should not carry a reminder")
+    }
+
+    @Test
     fun `buildICalContent uses CRLF line endings`() {
         val ical = composer.buildICalContent(sampleEvent())
         assertTrue(ical.contains("\r\n"), "iCal must use CRLF line endings")
@@ -127,7 +146,9 @@ class CalendarInvitationComposerTest {
     fun `buildICalContent omits optional fields when absent`() {
         val event = sampleEvent(description = null, location = null)
         val ical = composer.buildICalContent(event)
-        assertTrue(!ical.contains("DESCRIPTION:"), "should not include DESCRIPTION when null")
+        // The VALARM legitimately carries its own DESCRIPTION, so scope the check to the event body.
+        val eventBody = ical.substringBefore("BEGIN:VALARM")
+        assertTrue(!eventBody.contains("DESCRIPTION:"), "should not include event DESCRIPTION when null")
         assertTrue(!ical.contains("LOCATION:"), "should not include LOCATION when null")
     }
 

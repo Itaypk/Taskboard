@@ -24,7 +24,7 @@ class PlanInviteDispatcher(
                     val start = OffsetDateTime.parse(slot.startIso).toZonedDateTime()
                     val end = OffsetDateTime.parse(slot.endIso).toZonedDateTime()
                     // Stable UID so calendar clients deduplicate re-sends of the same slot.
-                    val uid = "${task.taskId ?: task.title.hashCode()}-${slot.startIso}"
+                    val uid = "${task.taskId}-${slot.startIso}"
                     calendarInvitationComposer.sendInvitation(
                         to = listOf(userEmail),
                         event = CalendarEvent(
@@ -59,7 +59,7 @@ class PlanInviteDispatcher(
                 runCatching {
                     val start = OffsetDateTime.parse(slot.startIso).toZonedDateTime()
                     val end = OffsetDateTime.parse(slot.endIso).toZonedDateTime()
-                    val uid = "${task.taskId ?: task.title.hashCode()}-${slot.startIso}"
+                    val uid = "${task.taskId}-${slot.startIso}"
                     calendarInvitationComposer.sendCancellation(
                         to = listOf(userEmail),
                         event = CalendarEvent(

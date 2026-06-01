@@ -49,6 +49,8 @@ tasker:
     api-key: ${TASKER_AI_API_KEY:}
     base-url: ${TASKER_AI_BASE_URL:https://openrouter.ai/api/v1}
     weekly-planning-model: ${TASKER_AI_PLANNING_MODEL:openai/gpt-oss-20b:free}
+    # Model for the planner's task search/suggestion sub-agents; defaults to the planning model.
+    task-assistant-model: ${TASKER_AI_TASK_ASSISTANT_MODEL:${TASKER_AI_PLANNING_MODEL:openai/gpt-oss-20b:free}}
   telegram:
     bot-token: ${TASKER_TELEGRAM_BOT_TOKEN:}
     bot-username: ${TASKER_TELEGRAM_BOT_USERNAME:}

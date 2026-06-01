@@ -42,6 +42,7 @@ class WeeklyPlanningOrchestrator(
     private val promptAssembler: WeeklyPlanningPromptAssembler,
     private val aiConversationManager: AiConversationManager,
     private val planSubmissionInbox: PlanSubmissionInbox,
+    private val planningToolContext: PlanningToolContext,
     private val plannedTaskService: PlannedTaskService,
     private val toolRegistry: ToolRegistry,
     private val objectMapper: ObjectMapper,
@@ -207,13 +208,15 @@ class WeeklyPlanningOrchestrator(
         calls: List<RequestedToolCall>,
         channel: ConversationChannel,
     ) {
-        val conversationId = state[sessionId]?.conversationId
+        val current = state[sessionId] ?: error("No orchestrator state for session $sessionId")
+        val conversationId = current.conversationId
             ?: error("No conversation id for session $sessionId")
 
         val pending = mutableListOf<PendingInteractive>()
         var dataLookupRan = false
 
         planSubmissionInbox.begin()
+        planningToolContext.begin(current.userId, resolveZone(current.userId))
         try {
             for (call in calls) {
                 val tool = toolRegistry.get(call.name)
@@ -241,6 +244,7 @@ class WeeklyPlanningOrchestrator(
                 }
             }
         } finally {
+            planningToolContext.clear()
             val submissions = planSubmissionInbox.drain()
             if (submissions.isNotEmpty()) finalizeSubmission(sessionId, submissions.last())
         }
@@ -396,6 +400,10 @@ class WeeklyPlanningOrchestrator(
         }
         state[sessionId] = current.copy(phase = Phase.DONE, agreedPlan = plan)
     }
+
+    private fun resolveZone(userId: UUID): java.time.ZoneId =
+        runCatching { java.time.ZoneId.of(userSettingsService.getOrCreate(userId).timeZone) }
+            .getOrDefault(java.time.ZoneId.of("UTC"))
 
     private fun markConversing(sessionId: UUID) {
         val current = state[sessionId] ?: return

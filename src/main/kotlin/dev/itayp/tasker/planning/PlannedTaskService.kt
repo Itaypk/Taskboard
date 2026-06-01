@@ -24,7 +24,10 @@ class PlannedTaskService(
         val slotsByTask = plannedTaskSlotRepository
             .findAllByPlannedTaskIdIn(tasks.mapNotNull { it.id })
             .groupBy { it.plannedTaskId }
-        return tasks.map { task ->
+        return tasks.mapNotNull { task ->
+            // backlog_task_id is NOT NULL in the DB (changeset 2); the JPA field is nullable only for
+            // no-arg construction, so this guard is just defensive — real rows always have an id.
+            val backlogTaskId = task.backlogTaskId ?: return@mapNotNull null
             val slots = slotsByTask[task.id].orEmpty().map { slot ->
                 AgreedTimeSlot(
                     startIso = slot.startIso ?: "",
@@ -33,7 +36,7 @@ class PlannedTaskService(
                 )
             }
             AgreedPlanTask(
-                taskId = task.backlogTaskId,
+                taskId = backlogTaskId,
                 title = userCrypto.decrypt(userId, task.title).orEmpty(),
                 notes = userCrypto.decrypt(userId, task.notes),
                 slots = slots,
@@ -44,7 +47,7 @@ class PlannedTaskService(
     @Transactional
     fun persist(sessionId: UUID, userId: UUID, tasks: List<AgreedPlanTask>) {
         val existing = plannedTaskRepository.findAllBySessionIdOrderByPosition(sessionId)
-        val incomingIds = tasks.mapNotNull { it.taskId }.toSet()
+        val incomingIds = tasks.map { it.taskId }.toSet()
 
         existing.forEach { pt ->
             if (pt.backlogTaskId == null || pt.backlogTaskId !in incomingIds) {
@@ -58,17 +61,13 @@ class PlannedTaskService(
 
     @Transactional
     fun upsertSingleTask(sessionId: UUID, userId: UUID, task: AgreedPlanTask): PlannedTaskEntity {
-        val position = if (task.taskId != null) {
-            plannedTaskRepository.findBySessionIdAndBacklogTaskId(sessionId, task.taskId)?.position
-                ?: plannedTaskRepository.findAllBySessionIdOrderByPosition(sessionId).size
-        } else {
-            plannedTaskRepository.findAllBySessionIdOrderByPosition(sessionId).size
-        }
+        val position = plannedTaskRepository.findBySessionIdAndBacklogTaskId(sessionId, task.taskId)?.position
+            ?: plannedTaskRepository.findAllBySessionIdOrderByPosition(sessionId).size
         return upsertTask(sessionId, userId, task, position)
     }
 
     private fun upsertTask(sessionId: UUID, userId: UUID, task: AgreedPlanTask, position: Int): PlannedTaskEntity {
-        val existing = task.taskId?.let { plannedTaskRepository.findBySessionIdAndBacklogTaskId(sessionId, it) }
+        val existing = plannedTaskRepository.findBySessionIdAndBacklogTaskId(sessionId, task.taskId)
 
         val entity = if (existing != null) {
             plannedTaskSlotRepository.deleteAllByPlannedTaskId(existing.id!!)

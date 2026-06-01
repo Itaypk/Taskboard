@@ -38,11 +38,13 @@ class SubmitPlanTool(
                     "properties" to mapOf(
                         "task_id" to mapOf(
                             "type" to "string",
-                            "description" to "UUID of the backlog task as shown in the candidate list. Omit only if the user agreed to a task that wasn't in the candidate list (e.g. ad-hoc).",
+                            "description" to "UUID of the backlog task this slot is for. REQUIRED for every task. " +
+                                "If the task isn't in the candidate list, call `find_task` to locate it, " +
+                                "or `suggest_task` + `create_task` to make a new one, BEFORE submitting.",
                         ),
                         "title" to mapOf(
                             "type" to "string",
-                            "description" to "Short title for the task (echo from the backlog or a fresh ad-hoc title).",
+                            "description" to "Short title for the task (echo from the backlog).",
                         ),
                         "slots" to mapOf(
                             "type" to "array",
@@ -59,7 +61,7 @@ class SubmitPlanTool(
                         ),
                         "notes" to mapOf("type" to "string", "description" to "Optional short note, e.g. split decisions."),
                     ),
-                    "required" to listOf("title", "slots"),
+                    "required" to listOf("task_id", "title", "slots"),
                 ),
             ),
             "summary" to mapOf(

@@ -14,7 +14,7 @@ data class AgreedPlan(
 )
 
 data class AgreedPlanTask(
-    @JsonProperty("task_id") val taskId: UUID?,
+    @JsonProperty("task_id") val taskId: UUID,
     val title: String,
     val slots: List<AgreedTimeSlot>,
     val notes: String? = null,
