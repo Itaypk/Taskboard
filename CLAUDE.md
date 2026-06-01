@@ -17,6 +17,7 @@ A few things to consider while working on the project:
 - The number of active users is still very low, and they are all aware of the beta status. Consider the option of starting fresh (wiping the prod DB and re-seeding) rather than writing a complex
   migration. This overrides the additive-only rule, but only when we explicitly decide to reset.
 - On production, the app runs as a single instance on an Ubuntu VPS. Short downtime is acceptable.
+- Deployment: legacy deploy script (./deploy.sh) was recently replaced with an Ansible playbook, maintained on a different repo. Do not deploy yourself unless specifically asked for.
 
 ## Repo layout
 
@@ -117,7 +118,17 @@ Session chain details:
 ## Internationalization
 
 Use the user's selected language and locale in the various communication channels (Telegram, email). We are using Spring's `MessageSource`, with message bundles (on `src/main/resources`).
-The web UI is currently English-only, as are the emails. Telegram is fully localized — keep it that way. 
+The web UI is currently English-only. Emails and Telegram communications are fully localized — keep it that way. 
+
+## Logging
+
+- A rule of thumb for useful log volume: 1-2 INFO + 0-4 DEBUG logs for a mutating operation, 0-2 DEBUG logs for a read-only operation. We might revise that if the number of active users go up.
+- Within user context, user IDs are automatically available in the logs through MDC. When relevant, add user IDs explicitly for operations outside the user's context, such as scheduled background tasks.
+
+## Privacy
+
+- Sensitive user data is encrypted at rest. When adding new fields, assess their sensitivity with the user to decide whether they require encryption or not.
+- **No sensitive user data in logs**: UUIDs (user IDs, task IDs, session IDs) are fine to log. Task titles, descriptions, notes, and any other sensitive user-authored content are not.
 
 ## Testing patterns
 
