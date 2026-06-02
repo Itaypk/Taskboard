@@ -2,7 +2,7 @@ package dev.itayp.tasker.planning
 
 import dev.itayp.tasker.ai.tool.AiTool
 import dev.itayp.tasker.ai.tool.ToolKind
-import dev.itayp.tasker.model.TagColor
+import dev.itayp.tasker.model.BacklogTaskTag
 import dev.itayp.tasker.model.request.TagInput
 import dev.itayp.tasker.model.request.UpdateBacklogTaskRequest
 import dev.itayp.tasker.service.BacklogTaskService
@@ -37,12 +37,12 @@ class UpdateTaskTool(
 
     override val name: String = "update_task"
 
-    override val description: String =
-        "Modify an existing backlog task the user has approved changing. Provide its task_id plus " +
-            "ONLY the fields you want to change; omitted fields are left untouched. Set status to " +
-            "'done' to mark it complete or 'archived' to remove it from active lists (archive is the " +
-            "reversible way to delete — there is no hard delete). Call this only after the user " +
-            "confirms the change."
+    override val description: String = """
+        Modify an existing backlog task the user has approved changing. Provide its task_id plus ONLY the
+        fields you want to change; omitted fields are left untouched. Set status to 'done' to mark it
+        complete or 'archived' to remove it from active lists (archive is the reversible way to delete —
+        there is no hard delete). Call this only after the user confirms the change.
+    """.trimIndent()
 
     override val kind: ToolKind = ToolKind.DATA_LOOKUP
 
@@ -75,7 +75,7 @@ class UpdateTaskTool(
                         "label" to mapOf("type" to "string", "description" to "Tag label."),
                         "color_id" to mapOf(
                             "type" to "string",
-                            "enum" to ALLOWED_TAG_COLORS,
+                            "enum" to TagColorOptions.ALLOWED,
                             "description" to "Color for a new tag. One of the allowed values; a color is assigned if omitted.",
                         ),
                     ),
@@ -92,18 +92,18 @@ class UpdateTaskTool(
             objectMapper.readValue(arguments, Map::class.java) as Map<String, Any?>
         }.getOrElse {
             log.warn("update_task received invalid payload: {}", it.message)
-            return error("Could not parse arguments")
+            return errorJson("Could not parse arguments")
         }
 
         val taskIdText = (root["task_id"] as? String)?.takeIf { it.isNotBlank() }
-            ?: return error("task_id is required")
+            ?: return errorJson("task_id is required")
         val taskId = runCatching { UUID.fromString(taskIdText) }
-            .getOrElse { return error("task_id is not a valid id") }
+            .getOrElse { return errorJson("task_id is not a valid id") }
 
         val userId = toolContext.requireUserId()
 
         val current = backlogTaskService.getTaskById(userId, taskId)
-            ?: return error("Task $taskId not found")
+            ?: return errorJson("Task $taskId not found")
 
         // Seed a complete request from the current task, overlaying only the keys the model sent.
         val request = UpdateBacklogTaskRequest(
@@ -132,7 +132,7 @@ class UpdateTaskTool(
         }.getOrElse { e ->
             // Surface a structured error so the model can correct (e.g. a bad category_id).
             log.warn("update_task failed: {}", e.message)
-            error(e.message ?: "Could not update task")
+            errorJson(e.message ?: "Could not update task")
         }
     }
 
@@ -141,21 +141,12 @@ class UpdateTaskTool(
         return list.mapNotNull { item ->
             val map = item as? Map<*, *> ?: return@mapNotNull null
             val label = (map["label"] as? String)?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-            TagInput(id = map["id"] as? String, label = label, colorId = resolveColor(map["color_id"] as? String))
+            TagInput(id = map["id"] as? String, label = label, colorId = TagColorOptions.resolve(map["color_id"] as? String))
         }
     }
 
-    private fun error(message: String): String = objectMapper.writeValueAsString(mapOf("error" to message))
+    private fun errorJson(message: String): String = objectMapper.writeValueAsString(mapOf("error" to message))
 
-    /** color_id is a closed set; fall back to a random valid color rather than letting an unexpected value fail persistence. */
-    private fun resolveColor(colorId: String?): String =
-        TagColor.entries.firstOrNull { it.name.equals(colorId, ignoreCase = true) }?.name?.lowercase()
-            ?: TagColor.entries.random().name.lowercase()
-
-    private fun dev.itayp.tasker.model.BacklogTaskTag.toTagInput(): TagInput =
+    private fun BacklogTaskTag.toTagInput(): TagInput =
         TagInput(id = id.toString(), label = label, colorId = colorId.name.lowercase())
-
-    companion object {
-        private val ALLOWED_TAG_COLORS = TagColor.entries.map { it.name.lowercase() }
-    }
 }
