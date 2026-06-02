@@ -39,7 +39,7 @@
 .bubbleAssistant {
   background: rgba(90, 70, 30, 0.06);
   border-radius: 14px 14px 14px 4px;
-  padding: 4px 14px;
+  padding: 8px 14px;
   font-family: var(--font-ui);
   font-size: 14px;
   line-height: 1.55;

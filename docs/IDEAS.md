@@ -2,6 +2,12 @@
 This file is for capturing random ideas that don't fit into the current spec but might be worth exploring later. 
 The scope of the individual idea is varying - could be small UI improvements, or large features that change the entire app.
 
+## Planning sessions - issues
+- Planning for the next week while there's an existing plan overrides the current plan. Expected behavior - it's a separate plan.
+- When planning for the next week, the assistant consider tasks that are part of the current week's plan.
+- Planning and abandoning while there's an existing plan overrides the current - no way to roll back.
+- New web UI does not offer a cancel/go back button, and the telegram can do with a `/cancel` as well.
+
 ## Small Improvements and Concerns
 - Client side error messages - more friendly? error reference? email support?
 - AI assistant should be aware of the notification delivery methods (e.g., invitation emails, nothing)
