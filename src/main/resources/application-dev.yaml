@@ -11,5 +11,6 @@ spring:
 
 logging:
   level:
-    org.springframework.jdbc.core.JdbcTemplate: DEBUG
+    # Enable to view SQL - lots of noise
+    # org.springframework.jdbc.core.JdbcTemplate: DEBUG
     dev.itayp: DEBUG
