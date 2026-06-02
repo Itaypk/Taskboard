@@ -3,10 +3,10 @@ This file is for capturing random ideas that don't fit into the current spec but
 The scope of the individual idea is varying - could be small UI improvements, or large features that change the entire app.
 
 ## Planning sessions - issues
-- Planning for the next week while there's an existing plan overrides the current plan. Expected behavior - it's a separate plan.
+- Planning for the next week while there's an existing plan overrides the current plan. Expected behavior - it's a separate plan. _(Partly addressed: starting a session no longer hides the existing finalized plan — `findCurrentPlan` returns the latest **completed** plan, so an in-progress session never replaces it. True per-week separate plans are still not modeled: the board shows a single "current plan" = most recent completed.)_
 - When planning for the next week, the assistant consider tasks that are part of the current week's plan.
-- Planning and abandoning while there's an existing plan overrides the current - no way to roll back.
-- New web UI does not offer a cancel/go back button, and the telegram can do with a `/cancel` as well.
+- ~~Planning and abandoning while there's an existing plan overrides the current - no way to roll back.~~ _(Fixed: starting/abandoning a session has no effect on the existing plan; the reschedule-count bump moved from session-start to finalize.)_
+- New web UI does not offer a cancel/go back button, and the telegram can do with a `/cancel` as well. _(Web "Leave session" button added with a confirmation dialog; Telegram `/cancel` still open.)_
 
 ## Small Improvements and Concerns
 - Client side error messages - more friendly? error reference? email support?

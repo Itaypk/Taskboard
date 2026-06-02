@@ -28,6 +28,10 @@ class PlanFinalizationService(
 
     fun complete(userId: UUID, sessionId: UUID, plan: AgreedPlan) {
         log.debug("Completing agreed plan {}", plan)
+        // Bump carry-over reschedule counts BEFORE this session becomes the latest completed plan,
+        // so "previous completed" still resolves to the prior plan. Doing it here (not at session
+        // start) means an abandoned session never touches the existing plan's task stats.
+        planningSessionService.bumpRescheduleCountsForCarriedOverTasks(userId)
         planningSessionService.completeSession(userId, sessionId, plan.summary)
         applyPlan(userId, sessionId, plan)
     }

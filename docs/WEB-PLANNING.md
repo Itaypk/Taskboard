@@ -68,6 +68,27 @@ via the orchestrator + `MessageSource`.
 Ownership is enforced via `PlanningSessionService.findById(userId, sessionId)`
 before reply, so a guessed UUID cannot drive another user's session.
 
+### Cancelling a session / rollback
+
+The drawer shows a **"Leave session"** control (confirmation dialog) during an
+in-progress chat; it `POST`s `/abandon` and returns to the entry screen.
+
+Cancelling is a clean rollback because **starting a session has no effect on the
+existing plan**:
+
+- `findCurrentPlan` returns the most recently **finalized** (completed) plan and
+  never an in-progress ACTIVE session. Planned tasks are only written at submit,
+  so starting a session (e.g. for next week) no longer hides the current plan.
+- The carry-over reschedule-count bump runs at **finalize** time
+  (`PlanFinalizationService.complete` → `bumpRescheduleCountsForCarriedOverTasks`),
+  not at session start — so an abandoned session leaves the existing plan's task
+  stats untouched.
+
+Abandoning therefore restores nothing because nothing was overwritten; it simply
+drops the ACTIVE session. Backlog edits the assistant made mid-session via
+`create_task` / `update_task` are real, immediate edits and are **not** rolled
+back (the user explicitly asked for them).
+
 ### Formatting
 
 `MarkdownMessageFormatter` (in `channel/MessageFormatter.kt`) maps the supported
