@@ -27,14 +27,9 @@ class PlanningSessionService(
             .findFirstByUserIdAndStatusOrderByStartedAtDesc(userId, PlanningSessionStatus.ACTIVE)
         if (active != null && active.weekStart == weekStart) return active.toDomain(userCrypto)
 
-        // Bump reschedule counts for tasks that were scheduled in the previous completed
-        // session but never marked DONE — they're being carried into this new session.
-        val previous = planningSessionRepository
-            .findFirstByUserIdAndStatusOrderByStartedAtDesc(userId, PlanningSessionStatus.COMPLETED)
-        if (previous?.id != null) {
-            backlogTaskRepository.incrementRescheduleCountForUnfinishedTasks(userId, previous.id!!)
-        }
-
+        // NB: carry-over reschedule counts are bumped at finalize time (see
+        // [bumpRescheduleCountsForCarriedOverTasks]), not here — starting a session must have no
+        // effect on the existing plan so it can be cleanly abandoned.
         return planningSessionRepository.save(PlanningSessionEntity().apply {
             this.userId = userId
             this.conversationId = conversationId
@@ -53,6 +48,21 @@ class PlanningSessionService(
     @Transactional
     fun completeSession(userId: UUID, sessionId: UUID, summary: String?): PlanningSession =
         endSession(userId, sessionId, PlanningSessionStatus.COMPLETED, summary)
+
+    /**
+     * Bumps the reschedule count for tasks scheduled in the user's most recent completed plan that
+     * were never marked done — they're being carried into a newly finalized plan. Call at finalize
+     * time (before the new plan becomes the latest completed one), NOT at session start, so that
+     * starting and then abandoning a session leaves the existing plan and its task stats untouched.
+     */
+    @Transactional
+    fun bumpRescheduleCountsForCarriedOverTasks(userId: UUID) {
+        val previous = planningSessionRepository
+            .findFirstByUserIdAndStatusOrderByStartedAtDesc(userId, PlanningSessionStatus.COMPLETED)
+        if (previous?.id != null) {
+            backlogTaskRepository.incrementRescheduleCountForUnfinishedTasks(userId, previous.id!!)
+        }
+    }
 
     @Transactional
     fun abandonSession(userId: UUID, sessionId: UUID): PlanningSession =
@@ -90,17 +100,18 @@ class PlanningSessionService(
             ?.toDomain(userCrypto)
 
     /**
-     * The session that should be treated as "the user's current weekly plan" in the UI.
-     * Prefers an in-progress session; falls back to the most recently completed one so the
-     * last finalized plan stays visible until a new one is started. ABANDONED sessions
-     * never count.
+     * The session that should be treated as "the user's current weekly plan" in the UI — the most
+     * recently FINALIZED (completed) plan. An in-progress (ACTIVE) session is deliberately NOT
+     * returned: planned tasks are only written at submit, so an in-progress session has nothing to
+     * show, and surfacing it would hide the real plan the moment a new session is started (e.g. for
+     * next week). This makes starting a session a no-op for the existing plan, so abandoning it
+     * rolls back cleanly. ABANDONED sessions never count.
      */
     @Transactional(readOnly = true)
     fun findCurrentPlan(userId: UUID): PlanningSession? =
-        findActiveSession(userId)
-            ?: planningSessionRepository
-                .findFirstByUserIdAndStatusOrderByStartedAtDesc(userId, PlanningSessionStatus.COMPLETED)
-                ?.toDomain(userCrypto)
+        planningSessionRepository
+            .findFirstByUserIdAndStatusOrderByStartedAtDesc(userId, PlanningSessionStatus.COMPLETED)
+            ?.toDomain(userCrypto)
 
     /**
      * Returns the session whose summary should be prepended to the next session's prompt.

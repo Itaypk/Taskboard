@@ -157,7 +157,7 @@ class PlanningSessionServiceTest {
     }
 
     @Test
-    fun `startSession increments reschedule count for tasks carried from previous completed session`() {
+    fun `bumpRescheduleCountsForCarriedOverTasks increments count for tasks from previous completed session`() {
         val previousId = UUID.randomUUID()
         val previous = PlanningSessionEntity().apply {
             this.id = previousId
@@ -168,24 +168,27 @@ class PlanningSessionServiceTest {
             this.weekStart = this@PlanningSessionServiceTest.weekStart
         }
         whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
-            userId, PlanningSessionStatus.ACTIVE)).thenReturn(null)
-        whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
             userId, PlanningSessionStatus.COMPLETED)).thenReturn(previous)
-        whenever(planningSessionRepository.save(any<PlanningSessionEntity>())).thenAnswer {
-            (it.arguments[0] as PlanningSessionEntity).apply { id = id ?: UUID.randomUUID() }
-        }
 
-        service.startSession(userId, weekStart)
+        service.bumpRescheduleCountsForCarriedOverTasks(userId)
 
         verify(backlogTaskRepository).incrementRescheduleCountForUnfinishedTasks(eq(userId), eq(previousId))
     }
 
     @Test
-    fun `startSession does not touch reschedule counts when no prior completed session exists`() {
-        whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
-            userId, PlanningSessionStatus.ACTIVE)).thenReturn(null)
+    fun `bumpRescheduleCountsForCarriedOverTasks does nothing when no prior completed session exists`() {
         whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
             userId, PlanningSessionStatus.COMPLETED)).thenReturn(null)
+
+        service.bumpRescheduleCountsForCarriedOverTasks(userId)
+
+        verify(backlogTaskRepository, never()).incrementRescheduleCountForUnfinishedTasks(any(), any())
+    }
+
+    @Test
+    fun `startSession does not bump reschedule counts at session start`() {
+        whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
+            userId, PlanningSessionStatus.ACTIVE)).thenReturn(null)
         whenever(planningSessionRepository.save(any<PlanningSessionEntity>())).thenAnswer {
             (it.arguments[0] as PlanningSessionEntity).apply { id = id ?: UUID.randomUUID() }
         }
@@ -213,25 +216,7 @@ class PlanningSessionServiceTest {
     }
 
     @Test
-    fun `findCurrentPlan prefers active session`() {
-        val activeId = UUID.randomUUID()
-        val active = PlanningSessionEntity().apply {
-            this.id = activeId
-            this.userId = this@PlanningSessionServiceTest.userId
-            this.status = PlanningSessionStatus.ACTIVE
-            this.startedAt = now.minusSeconds(60)
-            this.weekStart = this@PlanningSessionServiceTest.weekStart
-        }
-        whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
-            userId, PlanningSessionStatus.ACTIVE)).thenReturn(active)
-
-        val result = service.findCurrentPlan(userId)
-        assertEquals(activeId, result?.id)
-        assertEquals(PlanningSessionStatus.ACTIVE, result?.status)
-    }
-
-    @Test
-    fun `findCurrentPlan falls back to most recent completed session`() {
+    fun `findCurrentPlan returns the most recently completed session, ignoring in-progress ones`() {
         val completedId = UUID.randomUUID()
         val completed = PlanningSessionEntity().apply {
             this.id = completedId
@@ -241,8 +226,8 @@ class PlanningSessionServiceTest {
             this.endedAt = now.minusSeconds(6 * 24 * 3600)
             this.weekStart = this@PlanningSessionServiceTest.weekStart
         }
-        whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
-            userId, PlanningSessionStatus.ACTIVE)).thenReturn(null)
+        // No ACTIVE stub: findCurrentPlan must not consult in-progress sessions, so a freshly
+        // started (e.g. next-week) session can never hide the finalized plan.
         whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
             userId, PlanningSessionStatus.COMPLETED)).thenReturn(completed)
 
@@ -252,9 +237,7 @@ class PlanningSessionServiceTest {
     }
 
     @Test
-    fun `findCurrentPlan returns null when neither active nor completed exists`() {
-        whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
-            userId, PlanningSessionStatus.ACTIVE)).thenReturn(null)
+    fun `findCurrentPlan returns null when no completed session exists`() {
         whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
             userId, PlanningSessionStatus.COMPLETED)).thenReturn(null)
 

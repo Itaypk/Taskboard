@@ -1,9 +1,8 @@
 package dev.itayp.tasker.controller
 
+import dev.itayp.tasker.channel.BufferedConversationChannel
 import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.ChannelMessage
-import dev.itayp.tasker.channel.ChoiceOption
-import dev.itayp.tasker.channel.InMemoryConversationChannel
 import dev.itayp.tasker.channel.ToolCallEvent
 import dev.itayp.tasker.planning.WeekOffset
 import dev.itayp.tasker.planning.WeekResolver
@@ -54,11 +53,11 @@ class DevPlanningController(
         return ResponseEntity.ok(mapOf("seeded" to true, "existingTaskCount" to total))
     }
 
-    private val channels = ConcurrentHashMap<UUID, InMemoryConversationChannel>()
+    private val channels = ConcurrentHashMap<UUID, BufferedConversationChannel>()
 
     @PostMapping("/start")
     fun start(@AuthenticationPrincipal principal: TaskerPrincipal): ResponseEntity<DevPlanningResponse> {
-        val channel = InMemoryConversationChannel()
+        val channel = BufferedConversationChannel()
         val settings = userSettingsService.getOrCreate(principal.userId)
         val zone = runCatching { ZoneId.of(settings.timeZone) }.getOrDefault(ZoneId.of("UTC"))
         val today = LocalDate.now(clock.withZone(zone))
@@ -99,7 +98,7 @@ class DevPlanningController(
         @AuthenticationPrincipal principal: TaskerPrincipal,
         @PathVariable sessionId: UUID,
     ): ResponseEntity<DevPlanningResponse> {
-        val channel = InMemoryConversationChannel()
+        val channel = BufferedConversationChannel()
         orchestrator.startRevision(principal.userId, sessionId, channel)
         channels[sessionId] = channel
         return ResponseEntity.ok(DevPlanningResponse.from(sessionId, orchestrator.phase(sessionId), channel.drain(), channel.drainToolCallEvents()))
@@ -149,19 +148,5 @@ data class DevPlanningResponse(
             pendingMessages = messages.map(RenderedMessage::from),
             toolCalls = toolCalls,
         )
-    }
-}
-
-data class RenderedMessage(
-    val type: String,
-    val text: String,
-    val completions: List<String> = emptyList(),
-    val options: List<ChoiceOption> = emptyList(),
-) {
-    companion object {
-        fun from(msg: ChannelMessage): RenderedMessage = when (msg) {
-            is ChannelMessage.Text -> RenderedMessage("text", msg.text, msg.completions)
-            is ChannelMessage.Choice -> RenderedMessage("choice", msg.prompt, options = msg.options)
-        }
     }
 }

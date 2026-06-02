@@ -90,6 +90,20 @@ class PlanFinalizationServiceTest {
         verify(planningSessionService).completeSession(userId, sessionId, "Agreed on A and B.")
     }
 
+    @Test
+    fun `complete bumps carry-over reschedule counts`() {
+        service.complete(userId, sessionId, planWithTasks)
+
+        verify(planningSessionService).bumpRescheduleCountsForCarriedOverTasks(userId)
+    }
+
+    @Test
+    fun `revisePlan does not bump carry-over reschedule counts`() {
+        service.revisePlan(userId, sessionId, planWithTasks)
+
+        verify(planningSessionService, never()).bumpRescheduleCountsForCarriedOverTasks(any())
+    }
+
     // ── Task stamping ────────────────────────────────────────────────────────
 
     @Test

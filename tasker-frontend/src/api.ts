@@ -211,6 +211,54 @@ export const fetchSettingsOptions = (): Promise<SettingsOptions> =>
 export const requestEmailVerification = (email: string): Promise<void> =>
     apiRequest('/settings/email', { method: 'POST', ...jsonBody({ email }) });
 
+// --- Weekly planning (web channel) ---
+
+export interface RenderedChoiceOption {
+    id: string;
+    label: string;
+}
+
+export interface RenderedMessage {
+    type: 'text' | 'choice';
+    text: string;
+    completions: string[];
+    options: RenderedChoiceOption[];
+}
+
+export interface PlanningTurn {
+    sessionId: string;
+    phase: string;
+    messages: RenderedMessage[];
+}
+
+export interface WeekOption {
+    weekStart: string;
+    weekEnd: string;
+}
+
+export interface PlanningEntry {
+    activeSessionId: string | null;
+    completedPlanSummary: string | null;
+    revisableSessionId: string | null;
+    thisWeek: WeekOption;
+    nextWeek: WeekOption;
+}
+
+export const fetchPlanningEntry = (): Promise<PlanningEntry> =>
+    apiRequest('/planning/entry');
+
+export const startPlanning = (offset: 'CURRENT' | 'NEXT'): Promise<PlanningTurn> =>
+    apiRequest('/planning/start', { method: 'POST', ...jsonBody({ offset }) });
+
+export const replyPlanning = (sessionId: string, body: { text?: string; optionId?: string }): Promise<PlanningTurn> =>
+    apiRequest(`/planning/${sessionId}/reply`, { method: 'POST', ...jsonBody(body) });
+
+export const revisePlanning = (sessionId: string): Promise<PlanningTurn> =>
+    apiRequest(`/planning/${sessionId}/revise`, { method: 'POST' });
+
+export const abandonPlanning = (sessionId: string): Promise<void> =>
+    apiRequest(`/planning/${sessionId}/abandon`, { method: 'POST' });
+
 // --- Account ---
 
 export const deleteAccount = (): Promise<void> =>
