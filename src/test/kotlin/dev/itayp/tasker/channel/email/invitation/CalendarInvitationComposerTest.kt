@@ -1,19 +1,15 @@
 package dev.itayp.tasker.channel.email.invitation
 
-import dev.itayp.tasker.channel.email.EmailTemplateEngine
-import org.springframework.context.support.StaticMessageSource
 import dev.itayp.tasker.channel.OutboundChannel
 import dev.itayp.tasker.channel.email.EmailMessage
-import dev.itayp.tasker.channel.email.ICalAttachment
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertNotNull
-import org.junit.jupiter.api.Assertions.assertTrue
+import dev.itayp.tasker.channel.email.EmailTemplateEngine
+import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
+import org.springframework.context.support.StaticMessageSource
 import java.time.ZoneOffset
 import java.time.ZonedDateTime
 

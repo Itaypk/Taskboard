@@ -9,6 +9,7 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Translate the application
 - Auto update (UI) - do we consider changes in tasks, or just additions/deletions?
 - Persisted calendar invite SEQUENCE counter. Plan-revise updates re-send same-time slot edits (label/title/notes) with a fixed `SEQUENCE:1`. A second same-slot edit in a later session sends `SEQUENCE:1` again, which strict calendar clients may not re-apply. Persisting a per-slot revision counter (incremented on each update) would make repeated updates robust. Low priority: time moves go through cancel + fresh invite, which is unaffected.
+- Emails in RTL languages need RTL HTML tags
 
 ### UI - Tasks
 - Better "mark as done"

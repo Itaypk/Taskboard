@@ -152,11 +152,6 @@ class CalendarInvitationComposer(
     // Minimal escape for CN= parameter values (avoid ; and ")
     private fun escapeParam(s: String): String = s.replace("\"", "'").replace(";", " ")
 
-    private fun htmlEscape(s: String): String = s
-        .replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-
     // RFC 5545 §3.1 — fold lines longer than 75 octets at whitespace
     private fun fold(line: String): String {
         if (line.length <= 75) return line
