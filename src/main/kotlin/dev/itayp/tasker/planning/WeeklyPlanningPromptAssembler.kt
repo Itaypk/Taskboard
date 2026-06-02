@@ -57,6 +57,7 @@ class WeeklyPlanningPromptAssembler(
 
         return templateLoader.load("weekly-planning/system.md").render(mapOf(
             "display_name" to displayName,
+            "staying_on_task" to renderStayingOnTask(),
             "user_context_block" to (settings.contextBlock?.takeIf { it.isNotBlank() }
                 ?: "No personal context shared yet."),
             "previous_session_summary" to (previousSummary ?: "No previous session on record."),
@@ -114,6 +115,7 @@ class WeeklyPlanningPromptAssembler(
 
         return templateLoader.load("weekly-planning/revise-system.md").render(mapOf(
             "display_name" to displayName,
+            "staying_on_task" to renderStayingOnTask(),
             "user_context_block" to (settings.contextBlock?.takeIf { it.isNotBlank() }
                 ?: "No personal context shared yet."),
             "previous_plan_summary" to (previousSummary ?: "_(no summary recorded)_"),
@@ -158,6 +160,10 @@ class WeeklyPlanningPromptAssembler(
             }
         }
     }
+
+    /** Shared scope/off-topic guidance, kept in one file so both prompts stay in sync. */
+    private fun renderStayingOnTask(): String =
+        templateLoader.load("weekly-planning/staying-on-task.md").render(emptyMap())
 
     private fun renderCategories(categories: List<BacklogTaskCategory>): String {
         if (categories.isEmpty()) return "_(none)_"
