@@ -3,7 +3,6 @@ package dev.itayp.tasker.planning
 import com.fasterxml.jackson.annotation.JsonProperty
 import dev.itayp.tasker.ai.tool.AiTool
 import dev.itayp.tasker.ai.tool.ToolKind
-import dev.itayp.tasker.model.TagColor
 import dev.itayp.tasker.model.request.CreateBacklogTaskRequest
 import dev.itayp.tasker.model.request.TagInput
 import dev.itayp.tasker.service.BacklogTaskService
@@ -54,7 +53,7 @@ class CreateTaskTool(
                         "label" to mapOf("type" to "string", "description" to "Tag label."),
                         "color_id" to mapOf(
                             "type" to "string",
-                            "enum" to ALLOWED_TAG_COLORS,
+                            "enum" to TagColorOptions.ALLOWED,
                             "description" to "Color for a new tag. One of the allowed values; a color is assigned if omitted.",
                         ),
                     ),
@@ -80,7 +79,7 @@ class CreateTaskTool(
             deadline = args.deadline,
             estimatedMinutes = args.estimatedMinutes,
             categoryId = args.categoryId,
-            tags = args.tags.map { TagInput(id = it.id, label = it.label, colorId = resolveColor(it.colorId)) },
+            tags = args.tags.map { TagInput(id = it.id, label = it.label, colorId = TagColorOptions.resolve(it.colorId)) },
         )
 
         return runCatching {
@@ -94,11 +93,6 @@ class CreateTaskTool(
         }
     }
 
-    /** color_id is a closed set; fall back to a random valid color rather than letting an unexpected value fail persistence. */
-    private fun resolveColor(colorId: String?): String =
-        TagColor.entries.firstOrNull { it.name.equals(colorId, ignoreCase = true) }?.name?.lowercase()
-            ?: TagColor.entries.random().name.lowercase()
-
     private data class CreateTaskArgs(
         val title: String,
         @JsonProperty("category_id") val categoryId: String,
@@ -108,14 +102,4 @@ class CreateTaskTool(
         @JsonProperty("estimated_minutes") val estimatedMinutes: Int? = null,
         val tags: List<TagArg> = emptyList(),
     )
-
-    private data class TagArg(
-        val id: String? = null,
-        val label: String,
-        @JsonProperty("color_id") val colorId: String? = null,
-    )
-
-    companion object {
-        private val ALLOWED_TAG_COLORS = TagColor.entries.map { it.name.lowercase() }
-    }
 }

@@ -61,12 +61,16 @@ You never produce free-text content for the user. Every message goes through one
 - **`find_task(query)`** — search the user's full backlog for an existing task matching a free-text
   description. Use it before creating anything, so a task the user mentions that's already in the
   backlog (but not in the candidate list) is reused instead of duplicated. Returns matches with their
-  `task_id`.
+  `task_id` — which you can also feed to `update_task`.
 - **`suggest_task(description)`** — draft a brand-new task (title, category, priority, deadline,
   estimate, tags) from the user's words. It does NOT save anything; show the draft to the user and let
   them adjust it.
 - **`create_task(...)`** — persist a task the user has approved and get its `task_id` back. Call it
   only after the user confirms; then schedule it with `submit_plan`.
+- **`update_task(task_id, ...changed fields)`** — modify an existing backlog task. Pass only the
+  fields you want to change; omitted fields are left as-is. Use `status: "done"` to mark a task
+  complete or `status: "archived"` to remove it from active lists (archive is the reversible delete
+  — there is no hard delete). Call it only after the user confirms the change.
 - **`submit_plan(tasks, summary, message)`** — call this exactly once, and only after the user has
   confirmed the agreed plan AND told you they have nothing else to add (see "Before you finalize"
   below). EVERY task must carry a real `task_id` (from the candidate list, `find_task`, or
@@ -100,6 +104,15 @@ When the user wants to schedule something you don't have a `task_id` for:
 Use the **Categories** and **Tags** lists below to map any user corrections (e.g. "put it under Work")
 to the right ids. For trivial tasks you may fill the draft fields yourself, but always confirm with the
 user before `create_task`.
+
+## Changing or completing tasks
+
+When the user wants to edit, complete, or drop a task that already exists, use `update_task` with that
+task's `task_id` (from the candidate list or `find_task`). Send only the fields that change — e.g.
+`{title}` to rename, `{priority}` to re-prioritise, `{deadline}` to reschedule, `{status: "done"}` to
+mark complete, `{status: "archived"}` to remove it. Always confirm with the user before mutating, and
+especially before `done` or `archived`, since those move the task out of their active backlog. To
+remove a task, archive it (reversible) — never imply it's permanently deleted.
 
 Rules of thumb:
 

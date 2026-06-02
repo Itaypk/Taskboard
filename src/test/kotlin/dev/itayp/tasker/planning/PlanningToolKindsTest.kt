@@ -45,4 +45,9 @@ class PlanningToolKindsTest {
     fun `create_task is a data lookup`() {
         assertEquals(ToolKind.DATA_LOOKUP, CreateTaskTool(mock(), PlanningToolContext(), objectMapper).kind)
     }
+
+    @Test
+    fun `update_task is a data lookup`() {
+        assertEquals(ToolKind.DATA_LOOKUP, UpdateTaskTool(mock(), PlanningToolContext(), objectMapper).kind)
+    }
 }
