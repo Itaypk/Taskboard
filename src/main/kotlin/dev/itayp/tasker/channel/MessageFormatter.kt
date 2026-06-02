@@ -69,6 +69,31 @@ object HtmlMessageFormatter : MessageFormatter {
 }
 
 /**
+ * Formatter for channels that render messages as Markdown — currently the web planning channel,
+ * whose frontend renders message text through `MarkdownRenderer` (marked + DOMPurify). Maps the
+ * supported features onto standard Markdown so the model emits `**bold**`, `*italic*`, and `-`
+ * bullet lists. [escape] backslash-escapes the inline markers in text WE build (e.g. the capacity
+ * prompt); the model's own free-form `say` output flows through unescaped and is sanitized by
+ * DOMPurify on the frontend.
+ */
+object MarkdownMessageFormatter : MessageFormatter {
+    override val features = setOf(FormattingFeature.BOLD, FormattingFeature.ITALIC, FormattingFeature.BULLET_LIST)
+
+    override fun bold(text: String) = "**${escape(text)}**"
+
+    override fun italic(text: String) = "*${escape(text)}*"
+
+    override fun bulletList(items: List<String>) = items.joinToString("\n") { "- ${escape(it)}" }
+
+    override fun escape(text: String) = text
+        .replace("\\", "\\\\")
+        .replace("*", "\\*")
+        .replace("_", "\\_")
+        .replace("`", "\\`")
+        .replace("[", "\\[")
+}
+
+/**
  * Formatter for channels that render messages as plain text (the dev in-memory channel, whose
  * frontend prints via `textContent`). No markup is interpreted, so emphasis is dropped and
  * escaping is a no-op.
