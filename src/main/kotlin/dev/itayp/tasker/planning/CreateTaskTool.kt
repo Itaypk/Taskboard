@@ -102,10 +102,4 @@ class CreateTaskTool(
         @JsonProperty("estimated_minutes") val estimatedMinutes: Int? = null,
         val tags: List<TagArg> = emptyList(),
     )
-
-    private data class TagArg(
-        val id: String? = null,
-        val label: String,
-        @JsonProperty("color_id") val colorId: String? = null,
-    )
 }

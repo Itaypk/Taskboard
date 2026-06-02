@@ -139,9 +139,12 @@ class UpdateTaskTool(
     private fun parseTags(raw: Any?): List<TagInput> {
         val list = raw as? List<*> ?: return emptyList()
         return list.mapNotNull { item ->
-            val map = item as? Map<*, *> ?: return@mapNotNull null
-            val label = (map["label"] as? String)?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-            TagInput(id = map["id"] as? String, label = label, colorId = TagColorOptions.resolve(map["color_id"] as? String))
+            // Each element is a complete tag (no partial semantics), so bind it to a typed TagArg —
+            // shared with create_task — rather than reading the map by hand. Skip anything malformed
+            // (e.g. a missing label) so one bad tag doesn't fail the whole update.
+            val arg = runCatching { objectMapper.convertValue(item, TagArg::class.java) }.getOrNull()
+            val label = arg?.label?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            TagInput(id = arg.id, label = label, colorId = TagColorOptions.resolve(arg.colorId))
         }
     }
 

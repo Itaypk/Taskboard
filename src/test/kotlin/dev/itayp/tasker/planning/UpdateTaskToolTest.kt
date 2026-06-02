@@ -89,10 +89,15 @@ class UpdateTaskToolTest {
     @Test
     fun `tags array replaces the existing tag set`() {
         stubCurrentTask()
-        val captor = executeAndCapture("""{"task_id":"$taskId","tags":[{"label":"new","color_id":"sage"}]}""")
+        val reusedId = UUID.randomUUID()
+        val captor = executeAndCapture(
+            """{"task_id":"$taskId","tags":[{"id":"$reusedId","label":"new","color_id":"sage"}]}""",
+        )
 
         assertEquals(1, captor.tags.size)
+        assertEquals(reusedId.toString(), captor.tags.first().id)
         assertEquals("new", captor.tags.first().label)
+        assertEquals("sage", captor.tags.first().colorId)
     }
 
     @Test
