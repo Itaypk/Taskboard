@@ -66,7 +66,11 @@ class SubmitPlanTool(
             ),
             "summary" to mapOf(
                 "type" to "string",
-                "description" to "Short human-readable recap to store as this session's summary (used as memory for next week).",
+                "description" to "A self-contained memory note for this week's plan, carried into future sessions. " +
+                    "Recap what was scheduled, plus any context worth remembering next time (preferences, " +
+                    "deferrals, what the user is juggling). Make it stand on its own — not a recap of the last " +
+                    "turn. When revising an existing plan, return the COMPLETE updated note: merge the prior " +
+                    "summary with what changed this session rather than replacing it with just the change.",
             ),
             "message" to mapOf(
                 "type" to "string",
