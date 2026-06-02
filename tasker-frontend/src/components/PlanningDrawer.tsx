@@ -11,6 +11,7 @@ import {
   type RenderedMessage,
 } from '../api';
 import MarkdownRenderer from './MarkdownRenderer';
+import { ConfirmDialog } from './ConfirmDialog';
 import styles from './PlanningDrawer.module.css';
 
 interface PlanningDrawerProps {
@@ -43,6 +44,7 @@ export function PlanningDrawer({ open, onClose, onFinalized }: PlanningDrawerPro
   const [phase, setPhase] = useState<string>('');
   const [thinking, setThinking] = useState(false);
   const [input, setInput] = useState('');
+  const [confirmLeave, setConfirmLeave] = useState(false);
 
   const turnSeq = useRef(0);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -128,6 +130,15 @@ export function PlanningDrawer({ open, onClose, onFinalized }: PlanningDrawerPro
     }
   }, [sessionId, thinking, applyTurn, resetToEntry]);
 
+  // Explicitly abandon the in-progress session and return to the entry screen. Abandoning an
+  // ACTIVE session drops it server-side, so the board's read-only plan falls back to the last
+  // finalized plan — hence onFinalized() to refresh it.
+  const leaveSession = useCallback(async () => {
+    if (sessionId) { try { await abandonPlanning(sessionId); } catch {/* ignore */} }
+    onFinalized();
+    resetToEntry();
+  }, [sessionId, onFinalized, resetToEntry]);
+
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim()) void send(input);
@@ -148,7 +159,14 @@ export function PlanningDrawer({ open, onClose, onFinalized }: PlanningDrawerPro
       >
         <div className="drawer__header">
           <span className="drawer__label">Weekly planning</span>
-          <button className="drawer__close" onClick={onClose} aria-label="Close">×</button>
+          <div className={styles.headerActions}>
+            {view === 'chat' && phase !== DONE && sessionId && (
+              <button type="button" className={styles.leaveBtn} onClick={() => setConfirmLeave(true)}>
+                Leave session
+              </button>
+            )}
+            <button className="drawer__close" onClick={onClose} aria-label="Close">×</button>
+          </div>
         </div>
 
         <div className="drawer__body" ref={bodyRef}>
@@ -160,7 +178,7 @@ export function PlanningDrawer({ open, onClose, onFinalized }: PlanningDrawerPro
               onStart={offset => void begin(() => startPlanning(offset))}
               onRevise={id => void begin(() => revisePlanning(id))}
               onContinue={id => { setSessionId(id); setPhase(''); setView('chat'); }}
-              onAbandon={async id => { try { await abandonPlanning(id); } catch {/* ignore */} resetToEntry(); }}
+              onAbandon={async id => { try { await abandonPlanning(id); } catch {/* ignore */} onFinalized(); resetToEntry(); }}
             />
           ) : (
             <div className={styles.chat}>
@@ -202,6 +220,16 @@ export function PlanningDrawer({ open, onClose, onFinalized }: PlanningDrawerPro
           </form>
         )}
       </aside>
+
+      <ConfirmDialog
+        open={confirmLeave}
+        title="Leave planning session?"
+        message="This discards the in-progress conversation. Your existing plan stays as it is."
+        confirmLabel="Leave"
+        danger
+        onConfirm={() => { void leaveSession(); }}
+        onClose={() => setConfirmLeave(false)}
+      />
     </>
   );
 }
