@@ -5,6 +5,7 @@ import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.MarkdownMessageFormatter
 import dev.itayp.tasker.planning.PlanningSessionService
 import dev.itayp.tasker.planning.PlanningSessionStatus
+import dev.itayp.tasker.planning.PlanningTranscriptService
 import dev.itayp.tasker.planning.WeekOffset
 import dev.itayp.tasker.planning.WeekResolver
 import dev.itayp.tasker.planning.WeeklyPlanningOrchestrator
@@ -42,10 +43,38 @@ import java.util.UUID
 class WebPlanningController(
     private val orchestrator: WeeklyPlanningOrchestrator,
     private val planningSessionService: PlanningSessionService,
+    private val transcriptService: PlanningTranscriptService,
     private val userSettingsService: UserSettingsService,
     private val clock: Clock,
 ) {
     private fun newChannel() = BufferedConversationChannel(formatter = MarkdownMessageFormatter)
+
+    /**
+     * Restores a session's full transcript so a reloaded browser can continue where it left off.
+     * Reconstructs the conversation from stored messages (the React-only transcript is lost on
+     * reload). Returns 409 when the orchestrator no longer holds the session in memory (e.g. after a
+     * server restart) so the client falls back to the entry screen — persisting/rehydrating that
+     * state is deferred to phase 2b.
+     */
+    @GetMapping("/{sessionId}")
+    fun transcript(
+        @AuthenticationPrincipal principal: TaskerPrincipal,
+        @PathVariable sessionId: UUID,
+    ): PlanningTranscriptResponse {
+        requireOwnership(principal.userId, sessionId)
+        val phase = orchestrator.phase(sessionId)
+            ?: throw ResponseStatusException(HttpStatus.CONFLICT, "Planning session is no longer active")
+        val conversationId = orchestrator.conversationId(sessionId)
+        val messages = if (conversationId != null) {
+            transcriptService.reconstruct(conversationId)
+        } else {
+            // Still awaiting the capacity reply — no conversation yet; re-render the capacity question.
+            orchestrator.capacityChoice(sessionId, MarkdownMessageFormatter)
+                ?.let { listOf(TranscriptMessage.assistant(it)) }
+                ?: emptyList()
+        }
+        return PlanningTranscriptResponse(sessionId, phase.name, messages)
+    }
 
     /**
      * Tells the frontend what to offer when the planning drawer opens: a resumable in-flight

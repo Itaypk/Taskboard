@@ -60,6 +60,7 @@ via the orchestrator + `MessageSource`.
 ### Endpoints (`/api/v1/planning`, session auth + CSRF, not profile-gated)
 
 - `GET  /entry` → `PlanningEntryResponse`
+- `GET  /{sessionId}` → `PlanningTranscriptResponse` (reconstructed transcript; 409 if no in-memory state, 404 if not owned)
 - `POST /start` `{ offset: "CURRENT" | "NEXT" }` → `PlanningTurnResponse`
 - `POST /{sessionId}/reply` `{ text?, optionId? }` → `PlanningTurnResponse` (409 if no in-memory state)
 - `POST /{sessionId}/revise` → `PlanningTurnResponse` (404 not found / 409 not COMPLETED)
@@ -89,6 +90,26 @@ drops the ACTIVE session. Backlog edits the assistant made mid-session via
 `create_task` / `update_task` are real, immediate edits and are **not** rolled
 back (the user explicitly asked for them).
 
+### Transcript resume (phase 2a)
+
+Reloading the browser loses the React-only transcript but not the session: the
+`GET /{sessionId}` endpoint rebuilds the conversation from stored messages via
+`PlanningTranscriptService`, and the drawer's "Continue planning" entry option
+loads it. Reconstruction mirrors how the live channel rendered each message:
+
+- assistant `say` → text (+ suggested replies); `ask_choice` → choice;
+  `submit_plan` → the closing message (suppressed if a `say` spoke in the same turn).
+- the user's `ask_choice` tool-result → a user bubble; free-text user messages → user bubbles.
+- the position-0 kickoff, data-lookup tools (`find_task`/`create_task`/…), and one-way
+  acks are internal and skipped. The capacity Q&A aren't in the conversation, so a
+  reconstructed transcript starts at the first real assistant message (a session still
+  `AWAITING_CAPACITY` re-renders the capacity question instead).
+
+This works while the orchestrator still holds the session in memory. After a
+server restart that state is gone, so `GET /{sessionId}` returns **409** and the
+drawer falls back to the entry screen — persisting/rehydrating the orchestrator
+state is phase 2b.
+
 ### Formatting
 
 `MarkdownMessageFormatter` (in `channel/MessageFormatter.kt`) maps the supported
@@ -101,29 +122,33 @@ parameter.
 
 ## Known limitations (v1)
 
-- **No transcript resume across page reload.** The visible transcript lives only
-  in React state. A reload (or losing the in-memory orchestrator state to a server
-  restart) drops the visible history; the `/reply` endpoint returns **409** and the
-  drawer resets to the entry screen. This matches the existing Telegram behavior
-  (orchestrator phase/pending-queue state is in-memory). Acceptable for a single
-  prod instance where short downtime is fine. See Phase 2.
+- **No resume across a server restart.** Transcript resume (phase 2a) works while
+  the orchestrator holds the session in memory, but its phase/pending-queue state
+  is not persisted, so a restart mid-session drops it: `GET`/`reply` return **409**
+  and the drawer resets to the entry screen. This matches existing Telegram
+  behavior. Acceptable for a single prod instance where short downtime is fine.
+  See Phase 2b.
 - **No per-session locking.** A user driving the same session from both Telegram
   and the web simultaneously could interleave model turns. Low practical risk;
-  see Phase 2.
+  see Phase 2c.
 
 ## Phases
 
-- **Phase 1 (this change):** end-to-end synchronous web planning MVP — buffered
+- **Phase 1 (done):** end-to-end synchronous web planning MVP — buffered
   channel + Markdown formatter, `WebPlanningController`, dedicated `PlanningDrawer`.
-- **Phase 2 (deferred):** persist orchestrator phase + pending-interactive queue
-  and reconstruct the transcript from stored conversation messages so a reload
-  resumes the chat (also fixes the restart edge case); add per-`sessionId` locking.
+- **Phase 2a (done):** reconstruct the transcript from stored conversation messages
+  (`PlanningTranscriptService` + `GET /{sessionId}`) so a page reload resumes the chat
+  while the session is still in memory.
+- **Phase 2b (deferred):** persist orchestrator phase + pending-interactive queue and
+  rehydrate after a server restart (also makes `GET`/`reply` survive a restart).
+- **Phase 2c (deferred):** per-`sessionId` locking for concurrent Telegram + web.
 - **Phase 3 (polish):** richer typing animation, localized entry-screen strings if
   non-English users need them, mobile bottom-sheet keyboard tuning.
 
 ## Key files
 
 - `controller/WebPlanningController.kt`, `controller/PlanningResponses.kt`
+- `planning/PlanningTranscriptService.kt` (transcript reconstruction, phase 2a)
 - `channel/BufferedConversationChannel.kt`, `channel/MessageFormatter.kt` (`MarkdownMessageFormatter`)
 - `tasker-frontend/src/components/PlanningDrawer.tsx` + `.module.css`
 - `tasker-frontend/src/api.ts` (planning client), `tasker-frontend/src/App.tsx` (header button + drawer)
