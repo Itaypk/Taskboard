@@ -15,6 +15,8 @@ import java.util.concurrent.ConcurrentHashMap
  * Loads and renders Handlebars templates specifically for emails.
  * Registers a `message` helper to integrate with Spring's MessageSource for i18n support.
  */
+private val RTL_LANGUAGES = setOf("ar", "he", "fa", "ur")
+
 @Component
 class EmailTemplateEngine(
     private val messageSource: MessageSource
@@ -42,6 +44,8 @@ class EmailTemplateEngine(
         
         val fullModel = model.toMutableMap()
         fullModel["locale"] = locale
+        fullModel["lang"] = locale.language
+        fullModel["dir"] = if (locale.language in RTL_LANGUAGES) "rtl" else "ltr"
         return template.apply(fullModel)
     }
 }
