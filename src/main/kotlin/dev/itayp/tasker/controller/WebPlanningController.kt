@@ -34,7 +34,7 @@ import java.util.UUID
  * all cross-request state by session id.
  *
  * Unlike [DevPlanningController] this is not profile-gated and goes through normal session auth +
- * CSRF (only `/api/dev/**` is CSRF-exempt). Messages render as Markdown for the frontend's
+ * CSRF (only `/api/dev/<**>` is CSRF-exempt). Messages render as Markdown for the frontend's
  * `MarkdownRenderer`.
  */
 @RestController
