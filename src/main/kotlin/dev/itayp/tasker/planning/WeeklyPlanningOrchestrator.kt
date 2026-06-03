@@ -147,8 +147,7 @@ class WeeklyPlanningOrchestrator(
         val current = state[sessionId] ?: return null
         if (current.phase != Phase.AWAITING_CAPACITY) return null
         val weekStart = planningSessionService.findById(current.userId, sessionId)?.weekStart ?: return null
-        val settings = userSettingsService.getOrCreate(current.userId)
-        val locale = Locale.forLanguageTag(settings.preferredLanguage)
+        val locale = userSettingsService.getLocale(current.userId)
         return ChannelMessage.Choice(
             prompt = buildCapacityPrompt(weekStart, locale, formatter),
             options = buildCapacityOptions(locale),
