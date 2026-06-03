@@ -46,9 +46,9 @@ class WeeklyPlanningPromptAssembler(
 
         val today = LocalDate.ofInstant(clock.instant(), zone)
         val selection = plannerTaskSelector.select(userId, today, weekStart, zone)
-        val previousSummary = planningSessionService.findPreviousSummarizableSession(userId)
+        val previousSummary = planningSessionService.findPreviousSummarizableSession(userId, weekStart)
             ?.summary?.takeIf { it.isNotBlank() }
-        val diff = planningSessionService.diffSincePreviousSession(userId)
+        val diff = planningSessionService.diffSincePreviousSession(userId, weekStart)
 
         val weekEnd = weekStart.plusDays(7)
         val calendarFrom = weekStart.atStartOfDay(zone).toInstant()
@@ -62,8 +62,8 @@ class WeeklyPlanningPromptAssembler(
                 ?: "No personal context shared yet."),
             "previous_session_summary" to (previousSummary ?: "No previous session on record."),
             "task_change_summary" to renderDiff(diff),
-            "urgent_tasks" to renderTaskList(selection.urgent, selection.alreadyPlanned),
-            "stale_tasks" to renderTaskList(selection.stale, selection.alreadyPlanned),
+            "urgent_tasks" to renderTaskList(selection.urgent, selection.alreadyPlanned, selection.alreadyScheduled),
+            "stale_tasks" to renderTaskList(selection.stale, selection.alreadyPlanned, selection.alreadyScheduled),
             "categories" to renderCategories(categoryService.getAllForUser(userId)),
             "tags" to renderTags(tagService.getAllForUser(userId)),
             "calendar_window" to calendar,
@@ -103,7 +103,7 @@ class WeeklyPlanningPromptAssembler(
         val today = LocalDate.ofInstant(clock.instant(), zone)
         val weekStart = session.weekStart
         val previousSummary = session.summary?.takeIf { it.isNotBlank() }
-        val diff = planningSessionService.diffSincePreviousSession(userId)
+        val diff = planningSessionService.diffSincePreviousSession(userId, weekStart)
 
         val weekEnd = weekStart.plusDays(7)
         val calendarFrom = weekStart.atStartOfDay(zone).toInstant()
@@ -181,7 +181,11 @@ class WeeklyPlanningPromptAssembler(
         else -> "gender-neutral language (they/them forms or avoid gendering)"
     }
 
-    private fun renderTaskList(tasks: List<BacklogTask>, alreadyPlanned: Map<UUID, LocalDate>): String {
+    private fun renderTaskList(
+        tasks: List<BacklogTask>,
+        alreadyPlanned: Map<UUID, LocalDate>,
+        alreadyScheduled: Map<UUID, LocalDate>,
+    ): String {
         if (tasks.isEmpty()) return "_(none)_"
         return tasks.joinToString("\n") { task ->
             buildString {
@@ -192,6 +196,7 @@ class WeeklyPlanningPromptAssembler(
                 task.relevantFrom?.let { append(" · relevant_from=").append(it) }
                 if (task.rescheduleCount > 0) append(" · rescheduled=").append(task.rescheduleCount)
                 alreadyPlanned[task.id]?.let { append(" · already_planned=").append(it) }
+                alreadyScheduled[task.id]?.let { append(" · already_scheduled=").append(it) }
                 if (task.tags.isNotEmpty()) {
                     append(" · tags=")
                     append(task.tags.joinToString(",") { it.label })

@@ -20,5 +20,24 @@ interface PlanningSessionRepository : JpaRepository<PlanningSessionEntity, UUID>
         weekStart: LocalDate,
     ): PlanningSessionEntity?
 
+    /** The plan for a specific week in a given status — the week-keyed lookup behind "current plan". */
+    fun findFirstByUserIdAndWeekStartAndStatusOrderByStartedAtDesc(
+        userId: UUID,
+        weekStart: LocalDate,
+        status: PlanningSessionStatus,
+    ): PlanningSessionEntity?
+
+    /**
+     * The most recent session (by week) in a given status whose week falls strictly before
+     * [weekStart] — i.e. the plan immediately preceding the week being planned. Used so carry-over,
+     * diffing, and the previous-summary all resolve relative to the target week rather than to the
+     * globally-latest completed session (which may be a later week planned ahead of time).
+     */
+    fun findFirstByUserIdAndStatusAndWeekStartLessThanOrderByWeekStartDesc(
+        userId: UUID,
+        status: PlanningSessionStatus,
+        weekStart: LocalDate,
+    ): PlanningSessionEntity?
+
     fun findAllByUserIdOrderByStartedAtDesc(userId: UUID): List<PlanningSessionEntity>
 }

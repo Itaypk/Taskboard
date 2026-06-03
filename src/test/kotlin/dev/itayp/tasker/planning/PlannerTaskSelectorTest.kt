@@ -244,6 +244,38 @@ class PlannerTaskSelectorTest {
         assertEquals(windowEnd.plusDays(2), result.alreadyPlanned[taskA.id!!])
         assertEquals(windowEnd.plusDays(5), result.alreadyPlanned[taskB.id!!])
         assertNull(result.alreadyPlanned[taskC.id!!])
+        // Slots after the window are "planned later", never "already scheduled".
+        assertTrue(result.alreadyScheduled.isEmpty())
+    }
+
+    @Test
+    fun `alreadyScheduled maps each task to its latest slot strictly before the planning window`() {
+        val taskA = task(title = "A", priority = TaskPriority.MEDIUM)
+        val taskB = task(title = "B", priority = TaskPriority.MEDIUM)
+        whenever(backlogTaskRepository.findAllByUserIdAndStatus(userId, TaskStatus.TODO))
+            .thenReturn(listOf(taskA, taskB))
+
+        val plannedA = plannedTask(backlogTaskId = taskA.id!!)
+        val plannedB = plannedTask(backlogTaskId = taskB.id!!)
+        whenever(plannedTaskRepository.findAllByUserIdAndBacklogTaskIdIn(any(), any()))
+            .thenReturn(listOf(plannedA, plannedB))
+
+        // taskA: two slots before the window (the later one is kept) — e.g. the current week's plan.
+        val beforeA1 = slot(plannedA.id!!, startIso = "${weekStart.minusDays(6)}T09:00:00Z")
+        val beforeA2 = slot(plannedA.id!!, startIso = "${weekStart.minusDays(2)}T09:00:00Z")
+        // taskA also has a slot inside the window, which must be ignored entirely.
+        val inWindowA = slot(plannedA.id!!, startIso = "${weekStart.plusDays(1)}T09:00:00Z")
+        // taskB: a slot after the window → "planned later", not "already scheduled".
+        val afterB = slot(plannedB.id!!, startIso = "${weekStart.plusDays(9)}T09:00:00Z")
+        whenever(plannedTaskSlotRepository.findAllByPlannedTaskIdIn(any()))
+            .thenReturn(listOf(beforeA1, beforeA2, inWindowA, afterB))
+
+        val result = select()
+
+        assertEquals(weekStart.minusDays(2), result.alreadyScheduled[taskA.id!!])
+        assertNull(result.alreadyScheduled[taskB.id!!])
+        assertNull(result.alreadyPlanned[taskA.id!!])
+        assertEquals(weekStart.plusDays(9), result.alreadyPlanned[taskB.id!!])
     }
 
     private fun categoryEntity() = BacklogTaskCategoryEntity().apply {

@@ -55,6 +55,7 @@ class PlanFinalizationServiceTest {
 
     private val userId = UUID.randomUUID()
     private val sessionId = UUID.randomUUID()
+    private val sessionWeek = java.time.LocalDate.parse("2026-05-11")
     private val taskId1 = UUID.randomUUID()
     private val taskId2 = UUID.randomUUID()
 
@@ -73,6 +74,10 @@ class PlanFinalizationServiceTest {
         // Opt out of invites by default so tests that don't care about email don't NPE. Lenient because
         // diff-empty paths short-circuit before the email gate is consulted.
         Mockito.lenient().`when`(userSettingsService.getOrCreate(any())).thenReturn(settings(calendarInviteEmail = false))
+        // complete() loads the session to resolve the finalizing week for carry-over. Lenient because
+        // revisePlan/addTaskToSession paths don't consult it.
+        Mockito.lenient().`when`(planningSessionService.findById(eq(userId), eq(sessionId)))
+            .thenReturn(planningSession(sessionWeek))
     }
 
     private fun optInWithVerifiedEmail() {
@@ -91,17 +96,17 @@ class PlanFinalizationServiceTest {
     }
 
     @Test
-    fun `complete bumps carry-over reschedule counts`() {
+    fun `complete bumps carry-over reschedule counts for the finalizing week`() {
         service.complete(userId, sessionId, planWithTasks)
 
-        verify(planningSessionService).bumpRescheduleCountsForCarriedOverTasks(userId)
+        verify(planningSessionService).bumpRescheduleCountsForCarriedOverTasks(userId, sessionWeek)
     }
 
     @Test
     fun `revisePlan does not bump carry-over reschedule counts`() {
         service.revisePlan(userId, sessionId, planWithTasks)
 
-        verify(planningSessionService, never()).bumpRescheduleCountsForCarriedOverTasks(any())
+        verify(planningSessionService, never()).bumpRescheduleCountsForCarriedOverTasks(any(), any())
     }
 
     // ── Task stamping ────────────────────────────────────────────────────────
@@ -350,6 +355,17 @@ class PlanFinalizationServiceTest {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private fun planningSession(weekStart: java.time.LocalDate) = PlanningSession(
+        id = sessionId,
+        userId = userId,
+        conversationId = null,
+        status = PlanningSessionStatus.ACTIVE,
+        startedAt = Instant.parse("2026-05-08T10:00:00Z"),
+        weekStart = weekStart,
+        endedAt = null,
+        summary = null,
+    )
 
     private fun verifiedUser(email: String) = UserEntity().apply {
         this.id = userId
