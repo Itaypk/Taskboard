@@ -11,13 +11,20 @@ import {
   type PlanningTurn,
   type RenderedMessage,
 } from '../api';
+import type { CurrentPlan } from '../types';
 import MarkdownRenderer from './MarkdownRenderer';
 import { ConfirmDialog } from './ConfirmDialog';
-import styles from './PlanningDrawer.module.css';
+import { PlanDetails } from './PlanDetails';
+import styles from './WeeklyPlanDrawer.module.css';
 
-interface PlanningDrawerProps {
+interface WeeklyPlanDrawerProps {
   open: boolean;
   onClose: () => void;
+  /** The current (active or last-finalized) plan, shown read-only in the overview. */
+  currentPlan: CurrentPlan | null;
+  /** Open a task from the plan's task list. */
+  onTaskClick: (taskId: string) => void;
+  onTaskContextMenu?: (e: React.MouseEvent, taskId: string) => void;
   /** Called whenever a turn finalizes a plan, so the board can refresh the read-only plan view. */
   onFinalized: () => void;
 }
@@ -36,8 +43,8 @@ type Turn = UserTurn | AssistantTurn;
 
 const DONE = 'DONE';
 
-export function PlanningDrawer({ open, onClose, onFinalized }: PlanningDrawerProps) {
-  const [view, setView] = useState<'entry' | 'chat'>('entry');
+export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTaskContextMenu, onFinalized }: WeeklyPlanDrawerProps) {
+  const [view, setView] = useState<'overview' | 'chat'>('overview');
   const [entry, setEntry] = useState<PlanningEntry | null>(null);
   const [entryLoading, setEntryLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -49,6 +56,7 @@ export function PlanningDrawer({ open, onClose, onFinalized }: PlanningDrawerPro
 
   const turnSeq = useRef(0);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const nextId = () => ++turnSeq.current;
 
   const loadEntry = useCallback(() => {
@@ -59,12 +67,12 @@ export function PlanningDrawer({ open, onClose, onFinalized }: PlanningDrawerPro
       .finally(() => setEntryLoading(false));
   }, []);
 
-  // On open, resume an in-flight chat if one is still live; otherwise (re)load the entry screen.
+  // On open, resume an in-flight chat if one is still live; otherwise (re)load the overview.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!open) return;
     if (sessionId && view === 'chat' && phase !== DONE) return;
-    setView('entry');
+    setView('overview');
     loadEntry();
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   /* eslint-enable react-hooks/set-state-in-effect */
@@ -80,6 +88,15 @@ export function PlanningDrawer({ open, onClose, onFinalized }: PlanningDrawerPro
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
   }, [transcript, thinking]);
 
+  // Grow the composer to fit its content, capped by max-height in CSS.
+  const resizeInput = useCallback(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, []);
+  useEffect(() => { if (input === '') resizeInput(); }, [input, resizeInput]);
+
   const applyTurn = useCallback((turn: PlanningTurn) => {
     setSessionId(turn.sessionId);
     setPhase(turn.phase);
@@ -92,11 +109,17 @@ export function PlanningDrawer({ open, onClose, onFinalized }: PlanningDrawerPro
     if (turn.phase === DONE) onFinalized();
   }, [onFinalized]);
 
-  const resetToEntry = useCallback(() => {
+  const resetToOverview = useCallback(() => {
     setSessionId(null);
     setTranscript([]);
     setPhase('');
-    setView('entry');
+    setView('overview');
+    loadEntry();
+  }, [loadEntry]);
+
+  // Return to the overview without abandoning a live session — it stays resumable via "Continue".
+  const backToOverview = useCallback(() => {
+    setView('overview');
     loadEntry();
   }, [loadEntry]);
 
@@ -109,14 +132,14 @@ export function PlanningDrawer({ open, onClose, onFinalized }: PlanningDrawerPro
     try {
       applyTurn(await action());
     } catch {
-      resetToEntry();
+      resetToOverview();
     } finally {
       setThinking(false);
     }
-  }, [applyTurn, resetToEntry]);
+  }, [applyTurn, resetToOverview]);
 
   // Resume an in-flight session by reconstructing its transcript from the server (the React-only
-  // transcript is lost on reload). Falls back to the entry screen if the session is gone (409).
+  // transcript is lost on reload). Falls back to the overview if the session is gone (409).
   const resume = useCallback(async (id: string) => {
     setTranscript([]);
     setPhase('');
@@ -130,11 +153,11 @@ export function PlanningDrawer({ open, onClose, onFinalized }: PlanningDrawerPro
         ? { id: nextId(), role: 'user', text: m.text }
         : { id: nextId(), role: 'assistant', message: { type: m.type, text: m.text, completions: m.completions, options: m.options } }));
     } catch {
-      resetToEntry();
+      resetToOverview();
     } finally {
       setThinking(false);
     }
-  }, [resetToEntry]);
+  }, [resetToOverview]);
 
   const send = useCallback(async (text: string, optionId?: string) => {
     if (!sessionId || thinking) return;
@@ -146,24 +169,32 @@ export function PlanningDrawer({ open, onClose, onFinalized }: PlanningDrawerPro
       const body = optionId ? { optionId, text: display || undefined } : { text: display };
       applyTurn(await replyPlanning(sessionId, body));
     } catch (e) {
-      if (e instanceof ApiError && e.status === 409) resetToEntry();
+      if (e instanceof ApiError && e.status === 409) resetToOverview();
     } finally {
       setThinking(false);
     }
-  }, [sessionId, thinking, applyTurn, resetToEntry]);
+  }, [sessionId, thinking, applyTurn, resetToOverview]);
 
-  // Explicitly abandon the in-progress session and return to the entry screen. Abandoning an
+  // Explicitly abandon the in-progress session and return to the overview. Abandoning an
   // ACTIVE session drops it server-side, so the board's read-only plan falls back to the last
   // finalized plan — hence onFinalized() to refresh it.
   const leaveSession = useCallback(async () => {
     if (sessionId) { try { await abandonPlanning(sessionId); } catch {/* ignore */} }
     onFinalized();
-    resetToEntry();
-  }, [sessionId, onFinalized, resetToEntry]);
+    resetToOverview();
+  }, [sessionId, onFinalized, resetToOverview]);
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim()) void send(input);
+  };
+
+  const onInputKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Enter sends; Shift+Enter inserts a newline.
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (input.trim() && !inputDisabled) void send(input);
+    }
   };
 
   const lastIndex = transcript.length - 1;
@@ -177,10 +208,20 @@ export function PlanningDrawer({ open, onClose, onFinalized }: PlanningDrawerPro
         aria-hidden={!open}
         role="dialog"
         aria-modal="true"
-        aria-label="Weekly planning"
+        aria-label="Weekly plan"
       >
         <div className="drawer__header">
-          <span className="drawer__label">Weekly planning</span>
+          <div className={styles.headerLeft}>
+            {view === 'chat' && (
+              <button type="button" className={styles.backBtn} onClick={backToOverview} aria-label="Back to plan">←</button>
+            )}
+            <div className={styles.titleGroup}>
+              <span className="drawer__label">{view === 'chat' ? 'Weekly planning' : "This week's plan"}</span>
+              {view === 'overview' && currentPlan && (
+                <span className={styles.weekRange}>{formatWeekRange(currentPlan.weekStart, currentPlan.weekEnd)}</span>
+              )}
+            </div>
+          </div>
           <div className={styles.headerActions}>
             {view === 'chat' && phase !== DONE && sessionId && (
               <button type="button" className={styles.leaveBtn} onClick={() => setConfirmLeave(true)}>
@@ -192,16 +233,26 @@ export function PlanningDrawer({ open, onClose, onFinalized }: PlanningDrawerPro
         </div>
 
         <div className="drawer__body" ref={bodyRef}>
-          {view === 'entry' ? (
-            <EntryView
-              entry={entry}
-              loading={entryLoading}
-              busy={thinking}
-              onStart={offset => void begin(() => startPlanning(offset))}
-              onRevise={id => void begin(() => revisePlanning(id))}
-              onContinue={id => void resume(id)}
-              onAbandon={async id => { try { await abandonPlanning(id); } catch {/* ignore */} onFinalized(); resetToEntry(); }}
-            />
+          {view === 'overview' ? (
+            <div className={styles.overview}>
+              {currentPlan ? (
+                <PlanDetails plan={currentPlan} onTaskClick={onTaskClick} onTaskContextMenu={onTaskContextMenu} />
+              ) : (
+                <div className={styles.empty}>
+                  <p className={styles.emptyTitle}>No plan yet.</p>
+                  <p className={styles.emptyHint}>Plan your week with the assistant below, or start a session on Telegram.</p>
+                </div>
+              )}
+              <OverviewActions
+                entry={entry}
+                loading={entryLoading}
+                busy={thinking}
+                onStart={offset => void begin(() => startPlanning(offset))}
+                onRevise={id => void begin(() => revisePlanning(id))}
+                onContinue={id => void resume(id)}
+                onAbandon={async id => { try { await abandonPlanning(id); } catch {/* ignore */} onFinalized(); resetToOverview(); }}
+              />
+            </div>
           ) : (
             <div className={styles.chat}>
               {transcript.map((turn, i) => turn.role === 'user' ? (
@@ -221,7 +272,7 @@ export function PlanningDrawer({ open, onClose, onFinalized }: PlanningDrawerPro
               {phase === DONE && (
                 <div className={styles.doneBar}>
                   <span className={styles.doneLabel}>Plan finalized</span>
-                  <button type="button" className={styles.entryBtn} onClick={resetToEntry}>Start a new plan</button>
+                  <button type="button" className={styles.entryBtn} onClick={resetToOverview}>Back to plan</button>
                 </div>
               )}
             </div>
@@ -230,10 +281,14 @@ export function PlanningDrawer({ open, onClose, onFinalized }: PlanningDrawerPro
 
         {view === 'chat' && phase !== DONE && (
           <form className={styles.inputRow} onSubmit={onSubmit}>
-            <input
+            <textarea
+              ref={inputRef}
+              rows={1}
               className={styles.input}
               value={input}
               onChange={e => setInput(e.target.value)}
+              onInput={resizeInput}
+              onKeyDown={onInputKeyDown}
               placeholder={thinking ? 'Thinking…' : 'Type a message…'}
               disabled={inputDisabled}
               aria-label="Message"
@@ -287,7 +342,7 @@ function AssistantBubble({ message, interactive, onChoose, onChip }: {
   );
 }
 
-function EntryView({ entry, loading, busy, onStart, onRevise, onContinue, onAbandon }: {
+function OverviewActions({ entry, loading, busy, onStart, onRevise, onContinue, onAbandon }: {
   entry: PlanningEntry | null;
   loading: boolean;
   busy: boolean;
@@ -303,8 +358,8 @@ function EntryView({ entry, loading, busy, onStart, onRevise, onContinue, onAban
   if (entry.activeSessionId) {
     const id = entry.activeSessionId;
     return (
-      <div className={styles.entry}>
-        <p className={styles.entryTitle}>A planning session is in progress.</p>
+      <div className={styles.actions}>
+        <p className={styles.actionsNote}>A planning session is in progress.</p>
         <button type="button" className={`${styles.entryBtn} ${styles.entryPrimary}`} disabled={busy} onClick={() => onContinue(id)}>
           Continue planning
         </button>
@@ -315,19 +370,15 @@ function EntryView({ entry, loading, busy, onStart, onRevise, onContinue, onAban
     );
   }
 
+  const revisable = entry.revisableSessionId;
   return (
-    <div className={styles.entry}>
-      <p className={styles.entryTitle}>Plan your week with the assistant.</p>
-      {entry.revisableSessionId && (
-        <div className={styles.summaryCard}>
-          <span className={styles.summaryLabel}>Current plan</span>
-          {entry.completedPlanSummary && <p className={styles.summaryText}>{entry.completedPlanSummary}</p>}
-          <button type="button" className={`${styles.entryBtn} ${styles.entryPrimary}`} disabled={busy} onClick={() => onRevise(entry.revisableSessionId!)}>
-            Revise this plan
-          </button>
-        </div>
+    <div className={styles.actions}>
+      {revisable && (
+        <button type="button" className={`${styles.entryBtn} ${styles.entryPrimary}`} disabled={busy} onClick={() => onRevise(revisable)}>
+          Revise this plan
+        </button>
       )}
-      <button type="button" className={styles.entryBtn} disabled={busy} onClick={() => onStart('CURRENT')}>
+      <button type="button" className={`${styles.entryBtn} ${revisable ? '' : styles.entryPrimary}`} disabled={busy} onClick={() => onStart('CURRENT')}>
         Plan this week<span className={styles.entryDates}>{formatRange(entry.thisWeek.weekStart, entry.thisWeek.weekEnd)}</span>
       </button>
       <button type="button" className={styles.entryBtn} disabled={busy} onClick={() => onStart('NEXT')}>
@@ -346,4 +397,17 @@ function formatRange(weekStart: string, weekEnd: string): string {
   return startMonth === endMonth
     ? `${startMonth} ${start.getDate()}–${end.getDate()}`
     : `${startMonth} ${start.getDate()} – ${endMonth} ${end.getDate()}`;
+}
+
+// Like formatRange but includes the year — used in the overview header for the active plan.
+function formatWeekRange(weekStart: string, weekEnd: string): string {
+  const start = new Date(`${weekStart}T00:00:00`);
+  const end = new Date(`${weekEnd}T00:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return '';
+  const year = start.getFullYear();
+  const startMonth = start.toLocaleDateString(undefined, { month: 'short' });
+  const endMonth = end.toLocaleDateString(undefined, { month: 'short' });
+  return startMonth === endMonth
+    ? `${startMonth} ${start.getDate()}–${end.getDate()}, ${year}`
+    : `${startMonth} ${start.getDate()} – ${endMonth} ${end.getDate()}, ${year}`;
 }

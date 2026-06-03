@@ -1,4 +1,37 @@
-/* ─── Header actions ───────────────────────────────────── */
+/* ─── Header ────────────────────────────────────────────── */
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.backBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: color var(--t);
+}
+.backBtn:hover { color: var(--ink); }
+
+.titleGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.weekRange {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-soft);
+  letter-spacing: 0.04em;
+}
+
 .headerActions {
   display: flex;
   align-items: center;
@@ -16,6 +49,48 @@
   transition: color var(--t);
 }
 .leaveBtn:hover { color: #a3361d; text-decoration: underline; }
+
+/* ─── Overview ──────────────────────────────────────────── */
+.overview {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 0;
+}
+.emptyTitle {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  color: var(--ink);
+  margin: 0;
+}
+.emptyHint {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--paper-border);
+}
+
+.actionsNote {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin: 0 0 2px;
+}
 
 /* ─── Chat transcript ──────────────────────────────────── */
 .chat {
@@ -155,6 +230,7 @@
 /* ─── Composer ─────────────────────────────────────────── */
 .inputRow {
   display: flex;
+  align-items: flex-end;
   gap: 8px;
   padding: 14px 28px 18px 60px;
   border-top: 1px dashed var(--paper-border);
@@ -169,7 +245,11 @@
   background: var(--paper-surface);
   font-family: var(--font-ui);
   font-size: 14px;
+  line-height: 1.5;
   color: var(--ink);
+  resize: none;
+  max-height: 8.5em; /* ~6 lines, then scrolls internally */
+  overflow-y: auto;
 }
 .input:focus { outline: none; border-color: var(--ink-ghost); }
 .input:disabled { opacity: 0.6; }
@@ -188,20 +268,7 @@
 }
 .sendBtn:disabled { opacity: 0.4; cursor: default; }
 
-/* ─── Entry screen ─────────────────────────────────────── */
-.entry {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.entryTitle {
-  font-family: var(--font-serif);
-  font-size: 18px;
-  color: var(--ink);
-  margin: 0 0 4px;
-}
-
+/* ─── Action buttons (overview) ────────────────────────── */
 .entryHint {
   font-family: var(--font-ui);
   font-size: 13px;
@@ -243,29 +310,3 @@
   color: var(--ink-soft);
 }
 .entryPrimary .entryDates { color: var(--paper-surface); }
-
-.summaryCard {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 14px 16px;
-  border: 1px solid var(--paper-border);
-  border-radius: var(--r);
-  background: var(--paper-surface-2);
-}
-.summaryLabel {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--ink-ghost);
-}
-.summaryText {
-  font-family: var(--font-serif);
-  font-size: 14px;
-  line-height: 1.55;
-  color: var(--ink);
-  margin: 0;
-  white-space: pre-wrap;
-}

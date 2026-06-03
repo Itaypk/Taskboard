@@ -21,7 +21,9 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Edit existing tags; add "description" to a tag (consider if needed)
 - Task list Markdown (subtasks) checkboxes - makes it possible to check directly from the main screen
 - Following up an assistant planning session, refresh the board (the assistant might've added tasks, changed tasks, etc.)
-- Top action buttons list: the addition of the "planning" button means that on most common mobile screens the buttons need a whole row. Figure out a solution - either cap the number of buttons (remove the "planning" button in favor of a unified drawer for both weekly plan and planning buttons), move the "new" somewhere else, material-style, shorter logo on mobile, different designs.
+- ~~Top action buttons list: the addition of the "planning" button means that on most common mobile screens the buttons need a whole row.~~ _(Fixed: the "planning" (chat) and "weekly plan" buttons were unified into a single `WeeklyPlanDrawer` — the plan is the landing view, and Revise / Plan this week / Plan next week drill into the conversation. The header cluster dropped from 5 to 4 icons. The plan filter chip also shortens to "Week" on mobile so the filter row stops wrapping to two lines.)_
+- Settings + Sign-out are low-frequency actions that still take top-level header slots. Fold them into an avatar/overflow (`⋯`) menu to slim the header cluster further (deferred from the plan-unification work).
+- Filter chips can still wrap on very small screens even after the "Week" shortening. If it keeps bugging us, consider a segmented control or horizontally-scrollable chip row on mobile.
 
 ## Assistant - Mid-week response
 - Re-use the existing "suggest_task" tool for a standalone /add command (would need more development for conversational adjustments - this will be a conversation). 
