@@ -13,6 +13,7 @@ import java.util.UUID
 @Service
 class PlanningSessionService(
     private val planningSessionRepository: PlanningSessionRepository,
+    private val plannedTaskRepository: PlannedTaskRepository,
     private val backlogTaskChangeService: BacklogTaskChangeService,
     private val backlogTaskRepository: BacklogTaskRepository,
     private val userCrypto: UserCryptoService,
@@ -146,6 +147,24 @@ class PlanningSessionService(
         findPlanForWeek(userId, currentWeekStart(userId))
 
     /**
+     * The user's finalized plans, one per week (latest if a week was planned more than once), most
+     * recent week first, each with its scheduled-task count. Backs the drawer's plan index so it can
+     * page across past/current/future weeks without fetching every plan body.
+     */
+    @Transactional(readOnly = true)
+    fun listFinalizedPlans(userId: UUID): List<FinalizedPlanSummary> =
+        planningSessionRepository
+            .findAllByUserIdAndStatusOrderByWeekStartDescStartedAtDesc(userId, PlanningSessionStatus.COMPLETED)
+            // Ordered weekStart-desc then startedAt-desc, so distinctBy keeps the latest session per week.
+            .distinctBy { it.weekStart }
+            .map { entity ->
+                FinalizedPlanSummary(
+                    session = entity.toDomain(userCrypto),
+                    taskCount = plannedTaskRepository.countBySessionId(entity.id!!).toInt(),
+                )
+            }
+
+    /**
      * Returns the session whose summary should be prepended to the prompt for the week starting at
      * [beforeWeek] — the most recent COMPLETED plan for an *earlier* week. Resolving by week (not by
      * globally-latest completed) keeps the "previous session" honest when weeks are planned out of
@@ -171,3 +190,9 @@ class PlanningSessionService(
         return backlogTaskChangeService.summarizeSince(userId, since)
     }
 }
+
+/** A finalized plan plus its scheduled-task count, for the lightweight plan index. */
+data class FinalizedPlanSummary(
+    val session: PlanningSession,
+    val taskCount: Int,
+)

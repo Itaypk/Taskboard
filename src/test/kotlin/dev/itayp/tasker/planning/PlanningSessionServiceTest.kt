@@ -27,6 +27,7 @@ import kotlin.test.assertNotNull
 class PlanningSessionServiceTest {
 
     @Mock lateinit var planningSessionRepository: PlanningSessionRepository
+    @Mock lateinit var plannedTaskRepository: PlannedTaskRepository
     @Mock lateinit var backlogTaskChangeService: BacklogTaskChangeService
     @Mock lateinit var backlogTaskRepository: BacklogTaskRepository
     @Mock lateinit var userSettingsService: UserSettingsService
@@ -39,6 +40,7 @@ class PlanningSessionServiceTest {
     private val service by lazy {
         PlanningSessionService(
             planningSessionRepository,
+            plannedTaskRepository,
             backlogTaskChangeService,
             backlogTaskRepository,
             crypto,
@@ -312,5 +314,37 @@ class PlanningSessionServiceTest {
         val result = service.diffSincePreviousSession(userId, weekStart)
 
         assertEquals(expected, result)
+    }
+
+    @Test
+    fun `listFinalizedPlans returns one summary per week, latest first, with task counts`() {
+        val weekA = LocalDate.parse("2026-05-04")
+        val weekB = LocalDate.parse("2026-04-27")
+        val idA = UUID.randomUUID()
+        val idAOlder = UUID.randomUUID()
+        val idB = UUID.randomUUID()
+        fun entity(id: UUID, week: LocalDate, startedAt: Instant) = PlanningSessionEntity().apply {
+            this.id = id
+            this.userId = this@PlanningSessionServiceTest.userId
+            this.status = PlanningSessionStatus.COMPLETED
+            this.startedAt = startedAt
+            this.weekStart = week
+        }
+        // Repo returns weekStart-desc then startedAt-desc; weekA appears twice (a re-plan).
+        whenever(planningSessionRepository.findAllByUserIdAndStatusOrderByWeekStartDescStartedAtDesc(
+            userId, PlanningSessionStatus.COMPLETED)).thenReturn(listOf(
+            entity(idA, weekA, now),
+            entity(idAOlder, weekA, now.minusSeconds(3600)),
+            entity(idB, weekB, now.minusSeconds(7200)),
+        ))
+        whenever(plannedTaskRepository.countBySessionId(idA)).thenReturn(3L)
+        whenever(plannedTaskRepository.countBySessionId(idB)).thenReturn(1L)
+
+        val result = service.listFinalizedPlans(userId)
+
+        assertEquals(listOf(weekA, weekB), result.map { it.session.weekStart })
+        assertEquals(idA, result[0].session.id) // latest session kept for the duplicated week
+        assertEquals(3, result[0].taskCount)
+        assertEquals(1, result[1].taskCount)
     }
 }

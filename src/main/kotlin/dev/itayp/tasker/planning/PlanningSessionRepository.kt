@@ -40,4 +40,13 @@ interface PlanningSessionRepository : JpaRepository<PlanningSessionEntity, UUID>
     ): PlanningSessionEntity?
 
     fun findAllByUserIdOrderByStartedAtDesc(userId: UUID): List<PlanningSessionEntity>
+
+    /**
+     * All sessions in a status, latest week first (and latest session first within a week), so callers
+     * can dedupe to one plan per week by keeping the first occurrence.
+     */
+    fun findAllByUserIdAndStatusOrderByWeekStartDescStartedAtDesc(
+        userId: UUID,
+        status: PlanningSessionStatus,
+    ): List<PlanningSessionEntity>
 }

@@ -3,18 +3,21 @@ package dev.itayp.tasker.controller
 import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.model.request.AddToPlanRequest
 import dev.itayp.tasker.model.response.CurrentPlanResponse
+import dev.itayp.tasker.model.response.PlanSummaryResponse
 import dev.itayp.tasker.model.response.PlanTaskResponse
 import dev.itayp.tasker.model.response.TimeSlotResponse
 import dev.itayp.tasker.model.response.toResponse
 import dev.itayp.tasker.planning.PlannedTaskRepository
 import dev.itayp.tasker.planning.PlannedTaskSlotRepository
 import dev.itayp.tasker.planning.PlanFinalizationService
+import dev.itayp.tasker.planning.PlanningSession
 import dev.itayp.tasker.planning.PlanningSessionService
 import dev.itayp.tasker.planning.dto.AgreedPlanTask
 import dev.itayp.tasker.planning.dto.AgreedTimeSlot
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.BacklogTaskService
 import jakarta.validation.Valid
+import org.springframework.format.annotation.DateTimeFormat
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.GetMapping
@@ -23,6 +26,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import java.time.LocalDate
 import java.util.UUID
 
 @RestController
@@ -42,10 +46,47 @@ class PlanningSessionController(
     ): ResponseEntity<CurrentPlanResponse> {
         val session = planningSessionService.findCurrentPlan(principal.userId)
             ?: return ResponseEntity.noContent().build()
+        return ResponseEntity.ok(buildPlanResponse(principal.userId, session))
+    }
+
+    /**
+     * The finalized plan for a specific week (the week's start date in ISO form, e.g. 2026-06-01), or
+     * 204 if that week was never planned. Backs the drawer's prev/next week paging.
+     */
+    @GetMapping("/plans/week/{weekStart}")
+    fun getPlanForWeek(
+        @AuthenticationPrincipal principal: TaskerPrincipal,
+        @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) weekStart: LocalDate,
+    ): ResponseEntity<CurrentPlanResponse> {
+        val session = planningSessionService.findPlanForWeek(principal.userId, weekStart)
+            ?: return ResponseEntity.noContent().build()
+        return ResponseEntity.ok(buildPlanResponse(principal.userId, session))
+    }
+
+    /**
+     * Lightweight index of the user's finalized plans (no task bodies), most recent week first. Lets
+     * the drawer know which weeks are navigable and render markers without fetching every plan.
+     */
+    @GetMapping("/plans")
+    fun listPlans(
+        @AuthenticationPrincipal principal: TaskerPrincipal,
+    ): List<PlanSummaryResponse> =
+        planningSessionService.listFinalizedPlans(principal.userId).map { plan ->
+            PlanSummaryResponse(
+                id = plan.session.id.toString(),
+                weekStart = plan.session.weekStart.toString(),
+                weekEnd = plan.session.weekStart.plusDays(6).toString(),
+                status = plan.session.status.name.lowercase(),
+                taskCount = plan.taskCount,
+                hasSummary = !plan.session.summary.isNullOrBlank(),
+            )
+        }
+
+    private fun buildPlanResponse(userId: UUID, session: PlanningSession): CurrentPlanResponse {
         val sessionId = session.id
 
         val backlogTaskMap = backlogTaskService
-            .getTasksScheduledInSession(principal.userId, sessionId)
+            .getTasksScheduledInSession(userId, sessionId)
             .associate { it.id to it.toResponse() }
 
         val plannedTasks = plannedTaskRepository.findAllBySessionIdOrderByPosition(sessionId)
@@ -60,24 +101,20 @@ class PlanningSessionController(
                 slots = slotsByPlannedTask[pt.id].orEmpty().map { slot ->
                     TimeSlotResponse(startIso = slot.startIso!!, endIso = slot.endIso!!, label = slot.label)
                 },
-                notes = userCrypto.decrypt(principal.userId, pt.notes),
+                notes = userCrypto.decrypt(userId, pt.notes),
             )
         }
 
         val weekStart = session.weekStart
-        val weekEnd = weekStart.plusDays(6)
-
-        return ResponseEntity.ok(
-            CurrentPlanResponse(
-                id = sessionId.toString(),
-                status = session.status.name.lowercase(),
-                startedAt = session.startedAt.toString(),
-                endedAt = session.endedAt?.toString(),
-                summary = session.summary,
-                tasks = planTaskResponses,
-                weekStart = weekStart.toString(),
-                weekEnd = weekEnd.toString(),
-            )
+        return CurrentPlanResponse(
+            id = sessionId.toString(),
+            status = session.status.name.lowercase(),
+            startedAt = session.startedAt.toString(),
+            endedAt = session.endedAt?.toString(),
+            summary = session.summary,
+            tasks = planTaskResponses,
+            weekStart = weekStart.toString(),
+            weekEnd = weekStart.plusDays(6).toString(),
         )
     }
 

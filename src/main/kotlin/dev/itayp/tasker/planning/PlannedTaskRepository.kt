@@ -9,4 +9,6 @@ interface PlannedTaskRepository : JpaRepository<PlannedTaskEntity, UUID> {
     fun findAllByUserIdAndBacklogTaskIdIn(userId: UUID, backlogTaskIds: Collection<UUID>): List<PlannedTaskEntity>
 
     fun findBySessionIdAndBacklogTaskId(sessionId: UUID, backlogTaskId: UUID): PlannedTaskEntity?
+
+    fun countBySessionId(sessionId: UUID): Long
 }
