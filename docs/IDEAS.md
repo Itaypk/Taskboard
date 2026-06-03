@@ -12,9 +12,9 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Client side error messages - more friendly? error reference? email support?
 - AI assistant should be aware of the notification delivery methods (e.g., invitation emails, nothing)
 - Fonts look bad in Hebrew (especially the header - serif - ones). Either choose one that support multilanguage, or use language-specific ones.
-- Translate the application
 - Auto update (UI) - do we consider changes in tasks, or just additions/deletions?
 - Persisted calendar invite SEQUENCE counter. Plan-revise updates re-send same-time slot edits (label/title/notes) with a fixed `SEQUENCE:1`. A second same-slot edit in a later session sends `SEQUENCE:1` again, which strict calendar clients may not re-apply. Persisting a per-slot revision counter (incremented on each update) would make repeated updates robust. Low priority: time moves go through cancel + fresh invite, which is unaffected.
+- 
 
 ## UI - Tasks
 - Better "mark as done"
@@ -22,7 +22,6 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Edit existing tags; add "description" to a tag (consider if needed)
 - Task list Markdown (subtasks) checkboxes - makes it possible to check directly from the main screen
 - Following up an assistant planning session, refresh the board (the assistant might've added tasks, changed tasks, etc.)
-- Re-design the welcome page - it can look much better
 
 ## Assistant - Mid-week response
 - Re-use the existing "suggest_task" tool for a standalone /add command (would need more development for conversational adjustments - this will be a conversation). 
@@ -38,9 +37,13 @@ The scope of the individual idea is varying - could be small UI improvements, or
 
 ## Production readiness
 - All AI calls must be accounted for - user ID, token count; create a metric for observation, and apply rate limits per user.
-- Application specific metrics.
+- Application specific metrics and Grafana dashboard.
 
 ## Larger changes - consideration required
 - Open source the application under AGPL
 - Shift from being Telegram-centered to a more generic approach. Needs extra thinking for how to do it - a quick "get started"
-  button is great, but without any sort of login the data is lost. Adding a local-only layer is complicated. 
+  button is great, but without any sort of login the data is lost. Adding a local-only layer is complicated.
+- WhatsApp as a communication channel support.
+- Re-design the welcome page - it can look much better
+- Multi-board and sharing support.
+- Complete i18n support, including the web UI, welcome page, etc. Consider trimming the list of supported languages.
