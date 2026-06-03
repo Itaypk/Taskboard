@@ -7,9 +7,9 @@ interface BoardFilterProps {
   hasCurrentPlan: boolean;
 }
 
-const OPTIONS: { id: TaskFilter; label: string; planOnly?: boolean }[] = [
+const OPTIONS: { id: TaskFilter; label: string; shortLabel?: string; planOnly?: boolean }[] = [
   { id: 'todo', label: 'To do' },
-  { id: 'plan', label: "This week's plan", planOnly: true },
+  { id: 'plan', label: "This week's plan", shortLabel: 'Week', planOnly: true },
   { id: 'done', label: 'Done' },
   { id: 'all',  label: 'All' },
 ];
@@ -31,7 +31,12 @@ export function BoardFilter({ value, onChange, hasCurrentPlan }: BoardFilterProp
             className={`${styles.chip} ${selected ? styles.chipSelected : ''}`}
             onClick={() => onChange(opt.id)}
           >
-            {opt.label}
+            {opt.shortLabel ? (
+              <>
+                <span className={styles.labelFull}>{opt.label}</span>
+                <span className={styles.labelShort}>{opt.shortLabel}</span>
+              </>
+            ) : opt.label}
           </button>
         );
       })}

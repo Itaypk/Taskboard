@@ -18,8 +18,7 @@ import { PostItNote } from './components/PostItNote';
 import { TaskDrawer } from './components/TaskDrawer';
 import { SettingsModal } from './components/SettingsModal';
 import { BoardFilter } from './components/BoardFilter';
-import { CurrentPlanDrawer } from './components/CurrentPlanDrawer';
-import { PlanningDrawer } from './components/PlanningDrawer';
+import { WeeklyPlanDrawer } from './components/WeeklyPlanDrawer';
 import { ContextMenu, type ContextMenuAction } from './components/ContextMenu';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { ScheduleTaskModal } from './components/ScheduleTaskModal';
@@ -73,15 +72,6 @@ function PlanIcon() {
       <path d="M3 6.5h12" />
       <path d="M6 2.5v2M12 2.5v2" />
       <path d="M6 9.5h6M6 12h4" />
-    </svg>
-  );
-}
-
-function ChatIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M3 4.5h12v8H7l-3 2.5V12.5H3z" />
-      <path d="M6 7.5h6M6 10h4" />
     </svg>
   );
 }
@@ -140,7 +130,6 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const [archivedTasks, setArchivedTasks] = useState<Task[]>([]);
   const [currentPlan, setCurrentPlan] = useState<CurrentPlan | null>(null);
   const [planDrawerOpen, setPlanDrawerOpen] = useState(false);
-  const [planningDrawerOpen, setPlanningDrawerOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; taskId: string; inPlan: boolean } | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ taskId: string; title: string } | null>(null);
   const [scheduleModal, setScheduleModal] = useState<{ taskId: string; title: string } | null>(null);
@@ -457,21 +446,12 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
           <button
             type="button"
             className="icon-btn"
-            onClick={() => setPlanningDrawerOpen(true)}
-            aria-label="Plan your week"
-            title="Plan your week"
-          >
-            <ChatIcon />
-          </button>
-          <button
-            type="button"
-            className="icon-btn"
             onClick={() => {
               fetchCurrentPlan().then(setCurrentPlan).catch(e => console.error('Failed to refetch plan', e));
               setPlanDrawerOpen(true);
             }}
-            aria-label="View this week's plan"
-            title="This week's plan"
+            aria-label="Open weekly plan"
+            title="Weekly plan"
           >
             <PlanIcon />
           </button>
@@ -561,21 +541,16 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
         onMarkTodo={handleMarkTodo}
       />
 
-      <CurrentPlanDrawer
-        plan={currentPlan}
+      <WeeklyPlanDrawer
         open={planDrawerOpen}
         onClose={() => setPlanDrawerOpen(false)}
+        currentPlan={currentPlan}
         onTaskClick={(taskId) => {
           setPlanDrawerOpen(false);
           setIsCreating(false);
           setSelectedId(taskId);
         }}
         onTaskContextMenu={(e, taskId) => setContextMenu({ x: e.clientX, y: e.clientY, taskId, inPlan: true })}
-      />
-
-      <PlanningDrawer
-        open={planningDrawerOpen}
-        onClose={() => setPlanningDrawerOpen(false)}
         onFinalized={() => {
           fetchCurrentPlan().then(setCurrentPlan).catch(e => console.error('Failed to refetch plan', e));
         }}
