@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ApiError,
   fetchPlanningEntry,
+  fetchPlanningTranscript,
   startPlanning,
   replyPlanning,
   revisePlanning,
@@ -114,6 +115,27 @@ export function PlanningDrawer({ open, onClose, onFinalized }: PlanningDrawerPro
     }
   }, [applyTurn, resetToEntry]);
 
+  // Resume an in-flight session by reconstructing its transcript from the server (the React-only
+  // transcript is lost on reload). Falls back to the entry screen if the session is gone (409).
+  const resume = useCallback(async (id: string) => {
+    setTranscript([]);
+    setPhase('');
+    setThinking(true);
+    setView('chat');
+    try {
+      const t = await fetchPlanningTranscript(id);
+      setSessionId(t.sessionId);
+      setPhase(t.phase);
+      setTranscript(t.messages.map(m => m.role === 'user'
+        ? { id: nextId(), role: 'user', text: m.text }
+        : { id: nextId(), role: 'assistant', message: { type: m.type, text: m.text, completions: m.completions, options: m.options } }));
+    } catch {
+      resetToEntry();
+    } finally {
+      setThinking(false);
+    }
+  }, [resetToEntry]);
+
   const send = useCallback(async (text: string, optionId?: string) => {
     if (!sessionId || thinking) return;
     const display = text.trim();
@@ -177,7 +199,7 @@ export function PlanningDrawer({ open, onClose, onFinalized }: PlanningDrawerPro
               busy={thinking}
               onStart={offset => void begin(() => startPlanning(offset))}
               onRevise={id => void begin(() => revisePlanning(id))}
-              onContinue={id => { setSessionId(id); setPhase(''); setView('chat'); }}
+              onContinue={id => void resume(id)}
               onAbandon={async id => { try { await abandonPlanning(id); } catch {/* ignore */} onFinalized(); resetToEntry(); }}
             />
           ) : (

@@ -135,6 +135,25 @@ class WeeklyPlanningOrchestrator(
 
     fun phase(sessionId: UUID): Phase? = state[sessionId]?.phase
 
+    /** The AI conversation backing this session, or null before the capacity reply creates one. */
+    fun conversationId(sessionId: UUID): UUID? = state[sessionId]?.conversationId
+
+    /**
+     * Rebuilds the capacity question for a session still in [Phase.AWAITING_CAPACITY], so a web
+     * client that reloaded before answering can re-render it (the capacity prompt isn't part of the
+     * AI conversation, so it can't be reconstructed from stored messages). Returns null otherwise.
+     */
+    fun capacityChoice(sessionId: UUID, formatter: MessageFormatter): ChannelMessage.Choice? {
+        val current = state[sessionId] ?: return null
+        if (current.phase != Phase.AWAITING_CAPACITY) return null
+        val weekStart = planningSessionService.findById(current.userId, sessionId)?.weekStart ?: return null
+        val locale = userSettingsService.getLocale(current.userId)
+        return ChannelMessage.Choice(
+            prompt = buildCapacityPrompt(weekStart, locale, formatter),
+            options = buildCapacityOptions(locale),
+        )
+    }
+
     fun abandon(userId: UUID, sessionId: UUID) {
         // A revise session reuses a COMPLETED session id; abandoning it should drop the
         // in-memory conversation state but never downgrade the persisted plan to ABANDONED.

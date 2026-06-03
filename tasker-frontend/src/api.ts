@@ -244,8 +244,25 @@ export interface PlanningEntry {
     nextWeek: WeekOption;
 }
 
+export interface TranscriptMessage {
+    role: 'user' | 'assistant';
+    type: 'text' | 'choice';
+    text: string;
+    completions: string[];
+    options: RenderedChoiceOption[];
+}
+
+export interface PlanningTranscript {
+    sessionId: string;
+    phase: string;
+    messages: TranscriptMessage[];
+}
+
 export const fetchPlanningEntry = (): Promise<PlanningEntry> =>
     apiRequest('/planning/entry');
+
+export const fetchPlanningTranscript = (sessionId: string): Promise<PlanningTranscript> =>
+    apiRequest(`/planning/${sessionId}`);
 
 export const startPlanning = (offset: 'CURRENT' | 'NEXT'): Promise<PlanningTurn> =>
     apiRequest('/planning/start', { method: 'POST', ...jsonBody({ offset }) });

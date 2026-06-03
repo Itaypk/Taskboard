@@ -47,3 +47,31 @@ data class PlanningTurnResponse(
         )
     }
 }
+
+/**
+ * A single message in a reconstructed transcript. Unlike [RenderedMessage] (which only carries the
+ * assistant's outbound messages for one turn), a transcript interleaves both sides, so it also
+ * carries a [role] ("user" or "assistant").
+ */
+data class TranscriptMessage(
+    val role: String,
+    val type: String,
+    val text: String,
+    val completions: List<String> = emptyList(),
+    val options: List<ChoiceOption> = emptyList(),
+) {
+    companion object {
+        /** Wraps an assistant-side channel message (used for the re-rendered capacity question). */
+        fun assistant(msg: ChannelMessage): TranscriptMessage = when (msg) {
+            is ChannelMessage.Text -> TranscriptMessage("assistant", "text", msg.text, msg.completions)
+            is ChannelMessage.Choice -> TranscriptMessage("assistant", "choice", msg.prompt, options = msg.options)
+        }
+    }
+}
+
+/** The full conversation transcript for a session, used to restore the chat after a page reload. */
+data class PlanningTranscriptResponse(
+    val sessionId: UUID,
+    val phase: String,
+    val messages: List<TranscriptMessage>,
+)

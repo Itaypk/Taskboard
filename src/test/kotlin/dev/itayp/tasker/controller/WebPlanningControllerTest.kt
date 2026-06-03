@@ -7,6 +7,7 @@ import dev.itayp.tasker.model.UserSettings
 import dev.itayp.tasker.planning.PlanningSession
 import dev.itayp.tasker.planning.PlanningSessionService
 import dev.itayp.tasker.planning.PlanningSessionStatus
+import dev.itayp.tasker.planning.PlanningTranscriptService
 import dev.itayp.tasker.planning.WeeklyPlanningOrchestrator
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.UserSettingsService
@@ -44,6 +45,9 @@ class WebPlanningControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @MockitoBean
     lateinit var planningSessionService: PlanningSessionService
+
+    @MockitoBean
+    lateinit var transcriptService: PlanningTranscriptService
 
     @MockitoBean
     lateinit var userSettingsService: UserSettingsService
@@ -116,6 +120,46 @@ class WebPlanningControllerTest(@Autowired val mockMvc: MockMvc) {
             .andExpect(jsonPath("$.phase").value("AWAITING_CAPACITY"))
             .andExpect(jsonPath("$.messages[0].type").value("text"))
             .andExpect(jsonPath("$.messages[0].text").value("How heavy is your week?"))
+    }
+
+    @Test
+    fun `transcript returns the reconstructed conversation`() {
+        whenever(planningSessionService.findById(userId, sessionId))
+            .thenReturn(session(PlanningSessionStatus.ACTIVE, summary = null))
+        whenever(orchestrator.phase(sessionId)).thenReturn(WeeklyPlanningOrchestrator.Phase.CONVERSING)
+        whenever(orchestrator.conversationId(sessionId)).thenReturn(UUID.randomUUID())
+        whenever(transcriptService.reconstruct(any())).thenReturn(
+            listOf(
+                TranscriptMessage("assistant", "text", "Welcome back!"),
+                TranscriptMessage("user", "text", "Monday"),
+            )
+        )
+
+        mockMvc.perform(get("/api/v1/planning/$sessionId").with(authentication(auth)))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.phase").value("CONVERSING"))
+            .andExpect(jsonPath("$.messages[0].role").value("assistant"))
+            .andExpect(jsonPath("$.messages[0].text").value("Welcome back!"))
+            .andExpect(jsonPath("$.messages[1].role").value("user"))
+            .andExpect(jsonPath("$.messages[1].text").value("Monday"))
+    }
+
+    @Test
+    fun `transcript returns 409 when the session has no in-memory state`() {
+        whenever(planningSessionService.findById(userId, sessionId))
+            .thenReturn(session(PlanningSessionStatus.ACTIVE, summary = null))
+        whenever(orchestrator.phase(sessionId)).thenReturn(null)
+
+        mockMvc.perform(get("/api/v1/planning/$sessionId").with(authentication(auth)))
+            .andExpect(status().isConflict)
+    }
+
+    @Test
+    fun `transcript returns 404 for a session the user does not own`() {
+        whenever(planningSessionService.findById(userId, sessionId)).thenReturn(null)
+
+        mockMvc.perform(get("/api/v1/planning/$sessionId").with(authentication(auth)))
+            .andExpect(status().isNotFound)
     }
 
     @Test
