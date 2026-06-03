@@ -63,6 +63,8 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
   const [thinking, setThinking] = useState(false);
   const [input, setInput] = useState('');
   const [confirmLeave, setConfirmLeave] = useState(false);
+  // Set when "Plan this/next week" would overwrite an existing finalized plan for that week.
+  const [overrideConfirm, setOverrideConfirm] = useState<{ offset: 'CURRENT' | 'NEXT'; planId: string } | null>(null);
 
   const turnSeq = useRef(0);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -185,6 +187,18 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
       setThinking(false);
     }
   }, [applyTurn, resetToOverview]);
+
+  // Starting a fresh session for a week that already has a finalized plan would create a second plan
+  // that supersedes it. Warn first and let the user revise the existing plan instead of overwriting.
+  const planForWeek = useCallback((offset: 'CURRENT' | 'NEXT') => {
+    const weekStart = offset === 'CURRENT' ? entry?.thisWeek.weekStart : entry?.nextWeek.weekStart;
+    const existingPlanId = weekStart ? (planIndex.find(p => p.weekStart === weekStart)?.id ?? null) : null;
+    if (existingPlanId) {
+      setOverrideConfirm({ offset, planId: existingPlanId });
+      return;
+    }
+    void begin(() => startPlanning(offset));
+  }, [entry, planIndex, begin]);
 
   // Resume an in-flight session by reconstructing its transcript from the server (the React-only
   // transcript is lost on reload). Falls back to the overview if the session is gone (409).
@@ -320,7 +334,7 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
                 viewedPlan={viewedPlan}
                 loading={entryLoading}
                 busy={thinking}
-                onStart={offset => void begin(() => startPlanning(offset))}
+                onStart={planForWeek}
                 onRevise={id => void begin(() => revisePlanning(id))}
                 onContinue={id => void resume(id)}
                 onAbandon={async id => { try { await abandonPlanning(id); } catch {/* ignore */} onFinalized(); resetToOverview(); }}
@@ -380,7 +394,60 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
         onConfirm={() => { void leaveSession(); }}
         onClose={() => setConfirmLeave(false)}
       />
+
+      <OverridePlanDialog
+        open={overrideConfirm !== null}
+        offset={overrideConfirm?.offset ?? 'CURRENT'}
+        onRevise={() => {
+          const id = overrideConfirm?.planId;
+          setOverrideConfirm(null);
+          if (id) void begin(() => revisePlanning(id));
+        }}
+        onPlanFresh={() => {
+          const offset = overrideConfirm?.offset;
+          setOverrideConfirm(null);
+          if (offset) void begin(() => startPlanning(offset));
+        }}
+        onClose={() => setOverrideConfirm(null)}
+      />
     </>
+  );
+}
+
+/**
+ * Three-way confirmation shown when "Plan this/next week" would overwrite an existing finalized plan
+ * for that week: revise the existing plan, replace it with a fresh session, or cancel.
+ */
+function OverridePlanDialog({ open, offset, onRevise, onPlanFresh, onClose }: {
+  open: boolean;
+  offset: 'CURRENT' | 'NEXT';
+  onRevise: () => void;
+  onPlanFresh: () => void;
+  onClose: () => void;
+}) {
+  const whichWeek = offset === 'CURRENT' ? 'this week' : 'next week';
+  return (
+    <div
+      className={`modal-overlay${open ? ' modal-overlay--open' : ''}`}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="modal" role="alertdialog" aria-modal="true" aria-labelledby="override-title" style={{ width: 400 }}>
+        <div className="modal__header">
+          <span className="modal__title" id="override-title">You already have a plan for {whichWeek}</span>
+        </div>
+        <div className="modal__body" style={{ gap: 0, paddingBottom: 8 }}>
+          <p style={{ margin: 0, fontSize: 14, lineHeight: 1.55, color: 'var(--ink-soft)' }}>
+            Planning {whichWeek} from scratch starts a new session that will replace the existing
+            plan when you finalize it. Revise the current plan instead to keep what's already scheduled.
+          </p>
+        </div>
+        <div className="modal__footer">
+          <button type="button" className="btn btn--ghost" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn btn--danger" onClick={onPlanFresh}>Plan from scratch</button>
+          <button type="button" className="btn btn--primary" onClick={onRevise}>Revise</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
