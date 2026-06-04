@@ -23,12 +23,15 @@ import kotlin.test.assertTrue
 class BacklogTaskChangeServiceTest {
 
     @Mock lateinit var eventRepository: BacklogTaskChangeEventRepository
+    @Mock lateinit var watermarkRepository: BacklogTaskWatermarkRepository
 
     private val now = Instant.parse("2026-05-01T12:00:00Z")
     private val clock = Clock.fixed(now, ZoneOffset.UTC)
 
     private val crypto = noopUserCryptoService()
-    private val service by lazy { BacklogTaskChangeService(eventRepository, crypto, clock) }
+    private val service by lazy {
+        BacklogTaskChangeService(eventRepository, watermarkRepository, crypto, clock)
+    }
 
     private val userId = UUID.randomUUID()
 
@@ -82,6 +85,28 @@ class BacklogTaskChangeServiceTest {
         assertEquals(BacklogTaskChangeType.DELETED, captor.firstValue.changeType)
         assertEquals(TaskStatus.DONE, captor.firstValue.previousStatus)
         assertNull(captor.firstValue.newStatus)
+    }
+
+    @Test
+    fun `bumpWatermark upserts the user watermark to now`() {
+        whenever(watermarkRepository.save(any<BacklogTaskWatermarkEntity>())).thenAnswer { it.arguments[0] }
+
+        service.bumpWatermark(userId)
+
+        val captor = argumentCaptor<BacklogTaskWatermarkEntity>()
+        verify(watermarkRepository).save(captor.capture())
+        assertEquals(userId, captor.firstValue.userId)
+        assertEquals(now, captor.firstValue.tasksChangedAt)
+    }
+
+    @Test
+    fun `changedSince delegates to the watermark existence query`() {
+        val since = now.minusSeconds(60)
+        whenever(watermarkRepository.existsByUserIdAndTasksChangedAtGreaterThanEqual(userId, since))
+            .thenReturn(true)
+
+        assertTrue(service.changedSince(userId, since))
+        verify(watermarkRepository).existsByUserIdAndTasksChangedAtGreaterThanEqual(userId, since)
     }
 
     @Test

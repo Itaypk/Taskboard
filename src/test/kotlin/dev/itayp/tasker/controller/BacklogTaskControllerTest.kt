@@ -227,7 +227,7 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
     fun `GET tasks-has-changes returns hasChanges=true when events exist`() {
         val since = "2026-05-19T09:00:00Z"
         whenever(clock.instant()).thenReturn(fixedNow)
-        whenever(backlogTaskChangeService.hasChangesSince(eq(userId), any())).thenReturn(true)
+        whenever(backlogTaskChangeService.changedSince(eq(userId), any())).thenReturn(true)
 
         mockMvc.perform(get("/api/v1/tasks/has-changes?since=$since").with(authentication(auth)))
             .andExpect(status().isOk)
@@ -239,7 +239,7 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
     fun `GET tasks-has-changes returns hasChanges=false when no events`() {
         val since = "2026-05-19T09:00:00Z"
         whenever(clock.instant()).thenReturn(fixedNow)
-        whenever(backlogTaskChangeService.hasChangesSince(eq(userId), any())).thenReturn(false)
+        whenever(backlogTaskChangeService.changedSince(eq(userId), any())).thenReturn(false)
 
         mockMvc.perform(get("/api/v1/tasks/has-changes?since=$since").with(authentication(auth)))
             .andExpect(status().isOk)

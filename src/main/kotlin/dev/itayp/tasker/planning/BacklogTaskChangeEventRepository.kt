@@ -18,6 +18,4 @@ interface BacklogTaskChangeEventRepository : JpaRepository<BacklogTaskChangeEven
         from: Instant,
         to: Instant,
     ): List<BacklogTaskChangeEventEntity>
-
-    fun existsByUserIdAndOccurredAtGreaterThanEqual(userId: UUID, occurredAt: Instant): Boolean
 }

@@ -45,6 +45,9 @@ class TaskAutoArchiveService(
                     userId, entity.id!!, plaintextTitle, TaskStatus.DONE, TaskStatus.ARCHIVED
                 )
             }
+            if (stale.isNotEmpty()) {
+                taskChangeService.bumpWatermark(userId)
+            }
             totalArchived += stale.size
         }
 

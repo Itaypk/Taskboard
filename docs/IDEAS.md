@@ -12,7 +12,7 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Client side error messages - more friendly? error reference? email support?
 - AI assistant should be aware of the notification delivery methods (e.g., invitation emails, nothing)
 - Fonts look bad in Hebrew (especially the header - serif - ones). Either choose one that support multilanguage, or use language-specific ones.
-- Auto update (UI) - do we consider changes in tasks, or just additions/deletions?
+- ~~Auto update (UI) - do we consider changes in tasks, or just additions/deletions?~~ _(Done: data edits (title/description/tags/…), reorders, and scheduling now mark the board stale, not just create/delete/status. The polling endpoint (`/tasks/has-changes`) is now backed by a per-user `backlog_task_watermark` bumped on every mutation — an O(1) "something changed" signal that also handles deletes (the row is gone, so a tasks-table scan can't see them) and covers the phone-edit→stale-desktop-tab case. The semantic `backlog_task_change_event` log stays scoped to planner-relevant lifecycle events, since the planner sees current state for live tasks and only needs the transitions it can't reconstruct.)_
 - Persisted calendar invite SEQUENCE counter. Plan-revise updates re-send same-time slot edits (label/title/notes) with a fixed `SEQUENCE:1`. A second same-slot edit in a later session sends `SEQUENCE:1` again, which strict calendar clients may not re-apply. Persisting a per-slot revision counter (incremented on each update) would make repeated updates robust. Low priority: time moves go through cancel + fresh invite, which is unaffected.
 
 ## UI - Tasks
@@ -20,7 +20,7 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Drawer improvements (buttons are too dense, for example)
 - Edit existing tags; add "description" to a tag (consider if needed)
 - Task list Markdown (subtasks) checkboxes - makes it possible to check directly from the main screen
-- Following up an assistant planning session, refresh the board (the assistant might've added tasks, changed tasks, etc.)
+- ~~Following up an assistant planning session, refresh the board (the assistant might've added tasks, changed tasks, etc.)~~ _(Done: `onFinalized` now refetches tasks + tags immediately on DONE instead of waiting for the next background poll. Assistant edits to existing tasks also surface via the new watermark, even on other open tabs.)_
 - ~~Top action buttons list: the addition of the "planning" button means that on most common mobile screens the buttons need a whole row.~~ _(Fixed: the "planning" (chat) and "weekly plan" buttons were unified into a single `WeeklyPlanDrawer` — the plan is the landing view, and Revise / Plan this week / Plan next week drill into the conversation. The header cluster dropped from 5 to 4 icons. The plan filter chip also shortens to "Week" on mobile so the filter row stops wrapping to two lines.)_
 - Settings + Sign-out are low-frequency actions that still take top-level header slots. Fold them into an avatar/overflow (`⋯`) menu to slim the header cluster further (deferred from the plan-unification work).
 - Filter chips can still wrap on very small screens even after the "Week" shortening. If it keeps bugging us, consider a segmented control or horizontally-scrollable chip row on mobile.

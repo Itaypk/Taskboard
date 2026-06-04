@@ -16,6 +16,7 @@ import java.util.UUID
 @Service
 class BacklogTaskChangeService(
     private val eventRepository: BacklogTaskChangeEventRepository,
+    private val watermarkRepository: BacklogTaskWatermarkRepository,
     private val userCrypto: UserCryptoService,
     private val clock: Clock,
 ) {
@@ -75,9 +76,27 @@ class BacklogTaskChangeService(
         return summarize(events)
     }
 
+    /**
+     * Bumps the user's lightweight "tasks changed" watermark to now. Call from every
+     * backlog mutation — including plain field edits and reorders that don't warrant a
+     * semantic [BacklogTaskChangeEventEntity]. Backs [changedSince] (the polling endpoint).
+     */
+    @Transactional
+    fun bumpWatermark(userId: UUID) {
+        watermarkRepository.save(BacklogTaskWatermarkEntity().apply {
+            this.userId = userId
+            this.tasksChangedAt = clock.instant()
+        })
+    }
+
+    /**
+     * Cheap O(1) check used by the polling endpoint: has any of the user's tasks changed
+     * at or after [since]? Unlike the semantic event log, this also reflects field edits,
+     * reorders, and scheduling stamps, and never scans the tasks table.
+     */
     @Transactional(readOnly = true)
-    fun hasChangesSince(userId: UUID, since: Instant): Boolean =
-        eventRepository.existsByUserIdAndOccurredAtGreaterThanEqual(userId, since)
+    fun changedSince(userId: UUID, since: Instant): Boolean =
+        watermarkRepository.existsByUserIdAndTasksChangedAtGreaterThanEqual(userId, since)
 
     @Transactional(readOnly = true)
     fun summarizeBetween(userId: UUID, from: Instant, to: Instant): TaskChangeSummary {

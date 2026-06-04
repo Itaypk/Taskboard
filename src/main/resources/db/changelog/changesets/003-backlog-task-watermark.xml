@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Per-user "tasks changed" watermark backing the lightweight polling endpoint
+        (GET /api/v1/tasks/has-changes). Bumped on every backlog mutation so an open
+        board tab can detect staleness in O(1) — without scanning the tasks table and
+        without writing a semantic event per field edit. The richer
+        backlog_task_change_event log stays scoped to planner-relevant lifecycle events.
+    -->
+    <changeSet id="3" author="tasker">
+        <createTable tableName="backlog_task_watermark">
+            <column name="user_id" type="UUID">
+                <constraints primaryKey="true" nullable="false"
+                             foreignKeyName="fk_backlog_task_watermark_user" references="users(id)"/>
+            </column>
+            <column name="tasks_changed_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+</databaseChangeLog>

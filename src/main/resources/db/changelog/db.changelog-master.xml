@@ -6,5 +6,6 @@
 
     <include file="db/changelog/changesets/001-schema.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changesets/002-planned-task-backlog-required.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changesets/003-backlog-task-watermark.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>
