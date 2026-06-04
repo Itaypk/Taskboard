@@ -1,7 +1,9 @@
 package dev.itayp.tasker.planning
 
 import dev.itayp.tasker.crypto.noopUserCryptoService
+import dev.itayp.tasker.model.UserSettings
 import dev.itayp.tasker.repository.BacklogTaskRepository
+import dev.itayp.tasker.service.UserSettingsService
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
@@ -25,9 +27,12 @@ import kotlin.test.assertNotNull
 class PlanningSessionServiceTest {
 
     @Mock lateinit var planningSessionRepository: PlanningSessionRepository
+    @Mock lateinit var plannedTaskRepository: PlannedTaskRepository
     @Mock lateinit var backlogTaskChangeService: BacklogTaskChangeService
     @Mock lateinit var backlogTaskRepository: BacklogTaskRepository
+    @Mock lateinit var userSettingsService: UserSettingsService
 
+    // 2026-05-01 is a Friday; the Monday-anchored week containing it starts 2026-04-27 (== weekStart).
     private val now = Instant.parse("2026-05-01T12:00:00Z")
     private val clock = Clock.fixed(now, ZoneOffset.UTC)
     private val crypto = noopUserCryptoService()
@@ -35,15 +40,31 @@ class PlanningSessionServiceTest {
     private val service by lazy {
         PlanningSessionService(
             planningSessionRepository,
+            plannedTaskRepository,
             backlogTaskChangeService,
             backlogTaskRepository,
             crypto,
+            userSettingsService,
             clock,
         )
     }
 
     private val userId = UUID.randomUUID()
     private val weekStart = LocalDate.parse("2026-04-27")
+
+    private fun settings() = UserSettings(
+        userId = userId,
+        displayName = null,
+        contextBlock = null,
+        timeZone = "UTC",
+        preferredLanguage = "en",
+        calendarInviteEmail = false,
+        gender = null,
+        agentDescription = null,
+        planningCron = null,
+        weekStartDay = "MONDAY",
+        autoArchiveDays = null,
+    )
 
     @Test
     fun `startSession returns existing active session if one already exists for the same week`() {
@@ -157,7 +178,8 @@ class PlanningSessionServiceTest {
     }
 
     @Test
-    fun `bumpRescheduleCountsForCarriedOverTasks increments count for tasks from previous completed session`() {
+    fun `bumpRescheduleCountsForCarriedOverTasks increments count for tasks from the prior week's completed plan`() {
+        val finalizingWeek = LocalDate.parse("2026-05-04")
         val previousId = UUID.randomUUID()
         val previous = PlanningSessionEntity().apply {
             this.id = previousId
@@ -167,20 +189,21 @@ class PlanningSessionServiceTest {
             this.endedAt = now.minusSeconds(7 * 24 * 3600)
             this.weekStart = this@PlanningSessionServiceTest.weekStart
         }
-        whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
-            userId, PlanningSessionStatus.COMPLETED)).thenReturn(previous)
+        whenever(planningSessionRepository.findFirstByUserIdAndStatusAndWeekStartLessThanOrderByWeekStartDesc(
+            userId, PlanningSessionStatus.COMPLETED, finalizingWeek)).thenReturn(previous)
 
-        service.bumpRescheduleCountsForCarriedOverTasks(userId)
+        service.bumpRescheduleCountsForCarriedOverTasks(userId, finalizingWeek)
 
         verify(backlogTaskRepository).incrementRescheduleCountForUnfinishedTasks(eq(userId), eq(previousId))
     }
 
     @Test
-    fun `bumpRescheduleCountsForCarriedOverTasks does nothing when no prior completed session exists`() {
-        whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
-            userId, PlanningSessionStatus.COMPLETED)).thenReturn(null)
+    fun `bumpRescheduleCountsForCarriedOverTasks does nothing when no earlier completed plan exists`() {
+        val finalizingWeek = LocalDate.parse("2026-05-04")
+        whenever(planningSessionRepository.findFirstByUserIdAndStatusAndWeekStartLessThanOrderByWeekStartDesc(
+            userId, PlanningSessionStatus.COMPLETED, finalizingWeek)).thenReturn(null)
 
-        service.bumpRescheduleCountsForCarriedOverTasks(userId)
+        service.bumpRescheduleCountsForCarriedOverTasks(userId, finalizingWeek)
 
         verify(backlogTaskRepository, never()).incrementRescheduleCountForUnfinishedTasks(any(), any())
     }
@@ -216,20 +239,20 @@ class PlanningSessionServiceTest {
     }
 
     @Test
-    fun `findCurrentPlan returns the most recently completed session, ignoring in-progress ones`() {
+    fun `findCurrentPlan returns the completed plan for the week containing today`() {
         val completedId = UUID.randomUUID()
         val completed = PlanningSessionEntity().apply {
             this.id = completedId
             this.userId = this@PlanningSessionServiceTest.userId
             this.status = PlanningSessionStatus.COMPLETED
-            this.startedAt = now.minusSeconds(7 * 24 * 3600)
-            this.endedAt = now.minusSeconds(6 * 24 * 3600)
+            this.startedAt = now.minusSeconds(2 * 24 * 3600)
+            this.endedAt = now.minusSeconds(1 * 24 * 3600)
             this.weekStart = this@PlanningSessionServiceTest.weekStart
         }
-        // No ACTIVE stub: findCurrentPlan must not consult in-progress sessions, so a freshly
-        // started (e.g. next-week) session can never hide the finalized plan.
-        whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
-            userId, PlanningSessionStatus.COMPLETED)).thenReturn(completed)
+        whenever(userSettingsService.getOrCreate(userId)).thenReturn(settings())
+        // The week containing 'now' (2026-05-01) starts 2026-04-27 == weekStart.
+        whenever(planningSessionRepository.findFirstByUserIdAndWeekStartAndStatusOrderByStartedAtDesc(
+            userId, weekStart, PlanningSessionStatus.COMPLETED)).thenReturn(completed)
 
         val result = service.findCurrentPlan(userId)
         assertEquals(completedId, result?.id)
@@ -237,41 +260,91 @@ class PlanningSessionServiceTest {
     }
 
     @Test
-    fun `findCurrentPlan returns null when no completed session exists`() {
-        whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
-            userId, PlanningSessionStatus.COMPLETED)).thenReturn(null)
+    fun `findCurrentPlan returns null when the current week has no completed plan`() {
+        whenever(userSettingsService.getOrCreate(userId)).thenReturn(settings())
+        whenever(planningSessionRepository.findFirstByUserIdAndWeekStartAndStatusOrderByStartedAtDesc(
+            userId, weekStart, PlanningSessionStatus.COMPLETED)).thenReturn(null)
 
         assertEquals(null, service.findCurrentPlan(userId))
     }
 
     @Test
-    fun `diffSincePreviousSession returns empty when no prior completed session`() {
-        whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
-            userId, PlanningSessionStatus.COMPLETED)).thenReturn(null)
+    fun `findPlanForWeek looks up the completed plan for the given week`() {
+        val targetWeek = LocalDate.parse("2026-06-01")
+        val planId = UUID.randomUUID()
+        val plan = PlanningSessionEntity().apply {
+            this.id = planId
+            this.userId = this@PlanningSessionServiceTest.userId
+            this.status = PlanningSessionStatus.COMPLETED
+            this.startedAt = now
+            this.weekStart = targetWeek
+        }
+        whenever(planningSessionRepository.findFirstByUserIdAndWeekStartAndStatusOrderByStartedAtDesc(
+            userId, targetWeek, PlanningSessionStatus.COMPLETED)).thenReturn(plan)
 
-        val summary = service.diffSincePreviousSession(userId)
+        assertEquals(planId, service.findPlanForWeek(userId, targetWeek)?.id)
+    }
+
+    @Test
+    fun `diffSincePreviousSession returns empty when no earlier completed plan`() {
+        whenever(planningSessionRepository.findFirstByUserIdAndStatusAndWeekStartLessThanOrderByWeekStartDesc(
+            userId, PlanningSessionStatus.COMPLETED, weekStart)).thenReturn(null)
+
+        val summary = service.diffSincePreviousSession(userId, weekStart)
 
         assertEquals(0, summary.totalEvents)
         verify(backlogTaskChangeService, never()).summarizeSince(any(), any())
     }
 
     @Test
-    fun `diffSincePreviousSession delegates to change service using previous endedAt`() {
+    fun `diffSincePreviousSession delegates to change service using the prior week plan's endedAt`() {
         val previous = PlanningSessionEntity().apply {
             this.id = UUID.randomUUID()
             this.userId = this@PlanningSessionServiceTest.userId
             this.status = PlanningSessionStatus.COMPLETED
             this.startedAt = now.minusSeconds(8 * 24 * 3600)
             this.endedAt = now.minusSeconds(7 * 24 * 3600)
-            this.weekStart = this@PlanningSessionServiceTest.weekStart
+            this.weekStart = LocalDate.parse("2026-04-20")
         }
-        whenever(planningSessionRepository.findFirstByUserIdAndStatusOrderByStartedAtDesc(
-            userId, PlanningSessionStatus.COMPLETED)).thenReturn(previous)
+        whenever(planningSessionRepository.findFirstByUserIdAndStatusAndWeekStartLessThanOrderByWeekStartDesc(
+            userId, PlanningSessionStatus.COMPLETED, weekStart)).thenReturn(previous)
         val expected = TaskChangeSummary(emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), 7)
         whenever(backlogTaskChangeService.summarizeSince(userId, previous.endedAt!!)).thenReturn(expected)
 
-        val result = service.diffSincePreviousSession(userId)
+        val result = service.diffSincePreviousSession(userId, weekStart)
 
         assertEquals(expected, result)
+    }
+
+    @Test
+    fun `listFinalizedPlans returns one summary per week, latest first, with task counts`() {
+        val weekA = LocalDate.parse("2026-05-04")
+        val weekB = LocalDate.parse("2026-04-27")
+        val idA = UUID.randomUUID()
+        val idAOlder = UUID.randomUUID()
+        val idB = UUID.randomUUID()
+        fun entity(id: UUID, week: LocalDate, startedAt: Instant) = PlanningSessionEntity().apply {
+            this.id = id
+            this.userId = this@PlanningSessionServiceTest.userId
+            this.status = PlanningSessionStatus.COMPLETED
+            this.startedAt = startedAt
+            this.weekStart = week
+        }
+        // Repo returns weekStart-desc then startedAt-desc; weekA appears twice (a re-plan).
+        whenever(planningSessionRepository.findAllByUserIdAndStatusOrderByWeekStartDescStartedAtDesc(
+            userId, PlanningSessionStatus.COMPLETED)).thenReturn(listOf(
+            entity(idA, weekA, now),
+            entity(idAOlder, weekA, now.minusSeconds(3600)),
+            entity(idB, weekB, now.minusSeconds(7200)),
+        ))
+        whenever(plannedTaskRepository.countBySessionId(idA)).thenReturn(3L)
+        whenever(plannedTaskRepository.countBySessionId(idB)).thenReturn(1L)
+
+        val result = service.listFinalizedPlans(userId)
+
+        assertEquals(listOf(weekA, weekB), result.map { it.session.weekStart })
+        assertEquals(idA, result[0].session.id) // latest session kept for the duplicated week
+        assertEquals(3, result[0].taskCount)
+        assertEquals(1, result[1].taskCount)
     }
 }

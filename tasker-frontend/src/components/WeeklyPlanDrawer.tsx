@@ -3,12 +3,15 @@ import {
   ApiError,
   fetchPlanningEntry,
   fetchPlanningTranscript,
+  fetchPlanForWeek,
+  fetchPlans,
   startPlanning,
   replyPlanning,
   revisePlanning,
   abandonPlanning,
   type PlanningEntry,
   type PlanningTurn,
+  type PlanSummary,
   type RenderedMessage,
 } from '../api';
 import type { CurrentPlan } from '../types';
@@ -20,7 +23,7 @@ import styles from './WeeklyPlanDrawer.module.css';
 interface WeeklyPlanDrawerProps {
   open: boolean;
   onClose: () => void;
-  /** The current (active or last-finalized) plan, shown read-only in the overview. */
+  /** The plan for the week containing today (the board's anchor), shown read-only as the default view. */
   currentPlan: CurrentPlan | null;
   /** Open a task from the plan's task list. */
   onTaskClick: (taskId: string) => void;
@@ -47,22 +50,40 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
   const [view, setView] = useState<'overview' | 'chat'>('overview');
   const [entry, setEntry] = useState<PlanningEntry | null>(null);
   const [entryLoading, setEntryLoading] = useState(false);
+  const [planIndex, setPlanIndex] = useState<PlanSummary[]>([]);
+  // The week currently shown in the overview; null until the entry loads.
+  const [viewedWeekStart, setViewedWeekStart] = useState<string | null>(null);
+  // A fetched plan for a non-current week (the current week reuses the `currentPlan` prop).
+  const [otherPlan, setOtherPlan] = useState<CurrentPlan | null>(null);
+  const [otherPlanWeek, setOtherPlanWeek] = useState<string | null>(null);
+  const [planLoading, setPlanLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<Turn[]>([]);
   const [phase, setPhase] = useState<string>('');
   const [thinking, setThinking] = useState(false);
   const [input, setInput] = useState('');
   const [confirmLeave, setConfirmLeave] = useState(false);
+  // Set when "Plan this/next week" would overwrite an existing finalized plan for that week.
+  const [overrideConfirm, setOverrideConfirm] = useState<{ offset: 'CURRENT' | 'NEXT'; planId: string } | null>(null);
 
   const turnSeq = useRef(0);
   const bodyRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const nextId = () => ++turnSeq.current;
 
-  const loadEntry = useCallback(() => {
+  const thisWeekStart = entry?.thisWeek.weekStart ?? null;
+
+  const loadOverview = useCallback(() => {
     setEntryLoading(true);
-    fetchPlanningEntry()
-      .then(setEntry)
+    Promise.all([fetchPlanningEntry(), fetchPlans()])
+      .then(([e, plans]) => {
+        setEntry(e);
+        setPlanIndex(plans);
+        // Default to the week containing today; its plan is the `currentPlan` prop (no extra fetch).
+        setViewedWeekStart(e.thisWeek.weekStart);
+        setOtherPlan(null);
+        setOtherPlanWeek(null);
+      })
       .catch(() => {/* toast already surfaced by api layer */})
       .finally(() => setEntryLoading(false));
   }, []);
@@ -73,7 +94,7 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
     if (!open) return;
     if (sessionId && view === 'chat' && phase !== DONE) return;
     setView('overview');
-    loadEntry();
+    loadOverview();
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   /* eslint-enable react-hooks/set-state-in-effect */
 
@@ -97,6 +118,35 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
   }, []);
   useEffect(() => { if (input === '') resizeInput(); }, [input, resizeInput]);
 
+  // ── Week navigation ─────────────────────────────────────────────────────────
+  // Navigable weeks = every week that has a finalized plan, plus this week and next
+  // week (so they can always be planned even when empty). ISO dates sort chronologically.
+  const navWeeks = (() => {
+    const set = new Set<string>();
+    planIndex.forEach(p => set.add(p.weekStart));
+    if (entry) { set.add(entry.thisWeek.weekStart); set.add(entry.nextWeek.weekStart); }
+    return [...set].sort();
+  })();
+  const navIdx = viewedWeekStart ? navWeeks.indexOf(viewedWeekStart) : -1;
+  const prevWeek = navIdx > 0 ? navWeeks[navIdx - 1] : null;
+  const nextWeek = navIdx >= 0 && navIdx < navWeeks.length - 1 ? navWeeks[navIdx + 1] : null;
+
+  // The plan shown for the currently-viewed week: the prop for this week, a fetched plan otherwise.
+  const isCurrentWeekView = viewedWeekStart != null && viewedWeekStart === thisWeekStart;
+  const viewedPlan = isCurrentWeekView
+    ? currentPlan
+    : (otherPlanWeek === viewedWeekStart ? otherPlan : null);
+
+  const selectWeek = useCallback((week: string) => {
+    setViewedWeekStart(week);
+    if (week === thisWeekStart) return; // reuses the currentPlan prop, no fetch
+    setPlanLoading(true);
+    fetchPlanForWeek(week)
+      .then(p => { setOtherPlan(p); setOtherPlanWeek(week); })
+      .catch(() => { setOtherPlan(null); setOtherPlanWeek(week); })
+      .finally(() => setPlanLoading(false));
+  }, [thisWeekStart]);
+
   const applyTurn = useCallback((turn: PlanningTurn) => {
     setSessionId(turn.sessionId);
     setPhase(turn.phase);
@@ -114,14 +164,14 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
     setTranscript([]);
     setPhase('');
     setView('overview');
-    loadEntry();
-  }, [loadEntry]);
+    loadOverview();
+  }, [loadOverview]);
 
   // Return to the overview without abandoning a live session — it stays resumable via "Continue".
   const backToOverview = useCallback(() => {
     setView('overview');
-    loadEntry();
-  }, [loadEntry]);
+    loadOverview();
+  }, [loadOverview]);
 
   // Begin a brand-new conversation (start a week, or revise a completed plan).
   const begin = useCallback(async (action: () => Promise<PlanningTurn>) => {
@@ -137,6 +187,18 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
       setThinking(false);
     }
   }, [applyTurn, resetToOverview]);
+
+  // Starting a fresh session for a week that already has a finalized plan would create a second plan
+  // that supersedes it. Warn first and let the user revise the existing plan instead of overwriting.
+  const planForWeek = useCallback((offset: 'CURRENT' | 'NEXT') => {
+    const weekStart = offset === 'CURRENT' ? entry?.thisWeek.weekStart : entry?.nextWeek.weekStart;
+    const existingPlanId = weekStart ? (planIndex.find(p => p.weekStart === weekStart)?.id ?? null) : null;
+    if (existingPlanId) {
+      setOverrideConfirm({ offset, planId: existingPlanId });
+      return;
+    }
+    void begin(() => startPlanning(offset));
+  }, [entry, planIndex, begin]);
 
   // Resume an in-flight session by reconstructing its transcript from the server (the React-only
   // transcript is lost on reload). Falls back to the overview if the session is gone (409).
@@ -200,6 +262,8 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
   const lastIndex = transcript.length - 1;
   const inputDisabled = thinking || phase === DONE || !sessionId;
 
+  const weekEnd = viewedWeekStart ? isoWeekEnd(viewedWeekStart) : null;
+
   return (
     <>
       <div className={`overlay${open ? ' overlay--open' : ''}`} onClick={onClose} />
@@ -216,10 +280,7 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
               <button type="button" className={styles.backBtn} onClick={backToOverview} aria-label="Back to plan">←</button>
             )}
             <div className={styles.titleGroup}>
-              <span className="drawer__label">{view === 'chat' ? 'Weekly planning' : "This week's plan"}</span>
-              {view === 'overview' && currentPlan && (
-                <span className={styles.weekRange}>{formatWeekRange(currentPlan.weekStart, currentPlan.weekEnd)}</span>
-              )}
+              <span className="drawer__label">{view === 'chat' ? 'Weekly planning' : 'Weekly plan'}</span>
             </div>
           </div>
           <div className={styles.headerActions}>
@@ -235,19 +296,45 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
         <div className="drawer__body" ref={bodyRef}>
           {view === 'overview' ? (
             <div className={styles.overview}>
-              {currentPlan ? (
-                <PlanDetails plan={currentPlan} onTaskClick={onTaskClick} onTaskContextMenu={onTaskContextMenu} />
+              {viewedWeekStart && weekEnd && (
+                <div className={styles.weekNav}>
+                  <button
+                    type="button"
+                    className={styles.weekNavBtn}
+                    onClick={() => prevWeek && selectWeek(prevWeek)}
+                    disabled={!prevWeek}
+                    aria-label="Previous week"
+                  >‹</button>
+                  <div className={styles.weekNavLabel}>
+                    <span className={styles.weekRelative}>{relativeWeekLabel(viewedWeekStart, thisWeekStart, entry?.nextWeek.weekStart ?? null)}</span>
+                    <span className={styles.weekRange}>{formatWeekRange(viewedWeekStart, weekEnd)}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className={styles.weekNavBtn}
+                    onClick={() => nextWeek && selectWeek(nextWeek)}
+                    disabled={!nextWeek}
+                    aria-label="Next week"
+                  >›</button>
+                </div>
+              )}
+
+              {planLoading ? (
+                <p className={styles.entryHint}>Loading…</p>
+              ) : viewedPlan ? (
+                <PlanDetails plan={viewedPlan} onTaskClick={onTaskClick} onTaskContextMenu={onTaskContextMenu} />
               ) : (
                 <div className={styles.empty}>
-                  <p className={styles.emptyTitle}>No plan yet.</p>
-                  <p className={styles.emptyHint}>Plan your week with the assistant below, or start a session on Telegram.</p>
+                  <p className={styles.emptyTitle}>No plan for this week.</p>
+                  <p className={styles.emptyHint}>Plan it with the assistant below, or start a session on Telegram.</p>
                 </div>
               )}
               <OverviewActions
                 entry={entry}
+                viewedPlan={viewedPlan}
                 loading={entryLoading}
                 busy={thinking}
-                onStart={offset => void begin(() => startPlanning(offset))}
+                onStart={planForWeek}
                 onRevise={id => void begin(() => revisePlanning(id))}
                 onContinue={id => void resume(id)}
                 onAbandon={async id => { try { await abandonPlanning(id); } catch {/* ignore */} onFinalized(); resetToOverview(); }}
@@ -307,7 +394,60 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
         onConfirm={() => { void leaveSession(); }}
         onClose={() => setConfirmLeave(false)}
       />
+
+      <OverridePlanDialog
+        open={overrideConfirm !== null}
+        offset={overrideConfirm?.offset ?? 'CURRENT'}
+        onRevise={() => {
+          const id = overrideConfirm?.planId;
+          setOverrideConfirm(null);
+          if (id) void begin(() => revisePlanning(id));
+        }}
+        onPlanFresh={() => {
+          const offset = overrideConfirm?.offset;
+          setOverrideConfirm(null);
+          if (offset) void begin(() => startPlanning(offset));
+        }}
+        onClose={() => setOverrideConfirm(null)}
+      />
     </>
+  );
+}
+
+/**
+ * Three-way confirmation shown when "Plan this/next week" would overwrite an existing finalized plan
+ * for that week: revise the existing plan, replace it with a fresh session, or cancel.
+ */
+function OverridePlanDialog({ open, offset, onRevise, onPlanFresh, onClose }: {
+  open: boolean;
+  offset: 'CURRENT' | 'NEXT';
+  onRevise: () => void;
+  onPlanFresh: () => void;
+  onClose: () => void;
+}) {
+  const whichWeek = offset === 'CURRENT' ? 'this week' : 'next week';
+  return (
+    <div
+      className={`modal-overlay${open ? ' modal-overlay--open' : ''}`}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="modal" role="alertdialog" aria-modal="true" aria-labelledby="override-title" style={{ width: 400 }}>
+        <div className="modal__header">
+          <span className="modal__title" id="override-title">You already have a plan for {whichWeek}</span>
+        </div>
+        <div className="modal__body" style={{ gap: 0, paddingBottom: 8 }}>
+          <p style={{ margin: 0, fontSize: 14, lineHeight: 1.55, color: 'var(--ink-soft)' }}>
+            Planning {whichWeek} from scratch starts a new session that will replace the existing
+            plan when you finalize it. Revise the current plan instead to keep what's already scheduled.
+          </p>
+        </div>
+        <div className="modal__footer">
+          <button type="button" className="btn btn--ghost" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn btn--danger" onClick={onPlanFresh}>Plan from scratch</button>
+          <button type="button" className="btn btn--primary" onClick={onRevise}>Revise</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -342,8 +482,9 @@ function AssistantBubble({ message, interactive, onChoose, onChip }: {
   );
 }
 
-function OverviewActions({ entry, loading, busy, onStart, onRevise, onContinue, onAbandon }: {
+function OverviewActions({ entry, viewedPlan, loading, busy, onStart, onRevise, onContinue, onAbandon }: {
   entry: PlanningEntry | null;
+  viewedPlan: CurrentPlan | null;
   loading: boolean;
   busy: boolean;
   onStart: (offset: 'CURRENT' | 'NEXT') => void;
@@ -370,7 +511,8 @@ function OverviewActions({ entry, loading, busy, onStart, onRevise, onContinue, 
     );
   }
 
-  const revisable = entry.revisableSessionId;
+  // The viewed week's plan can be revised in place when it's finalized.
+  const revisable = viewedPlan && viewedPlan.status === 'completed' ? viewedPlan.id : null;
   return (
     <div className={styles.actions}>
       {revisable && (
@@ -388,6 +530,29 @@ function OverviewActions({ entry, loading, busy, onStart, onRevise, onContinue, 
   );
 }
 
+/** End date (ISO) of the 7-day week starting at `weekStart`. */
+function isoWeekEnd(weekStart: string): string {
+  const d = new Date(`${weekStart}T00:00:00`);
+  d.setDate(d.getDate() + 6);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** "Last week" / "This week" / "Next week" relative to today's week, else a blank label. */
+function relativeWeekLabel(weekStart: string, thisWeekStart: string | null, nextWeekStart: string | null): string {
+  if (!thisWeekStart) return '';
+  if (weekStart === thisWeekStart) return 'This week';
+  if (nextWeekStart && weekStart === nextWeekStart) return 'Next week';
+  const ms = new Date(`${weekStart}T00:00:00`).getTime() - new Date(`${thisWeekStart}T00:00:00`).getTime();
+  const weeks = Math.round(ms / (7 * 24 * 60 * 60 * 1000));
+  if (weeks === -1) return 'Last week';
+  if (weeks < 0) return `${-weeks} weeks ago`;
+  if (weeks > 1) return `In ${weeks} weeks`;
+  return '';
+}
+
 function formatRange(weekStart: string, weekEnd: string): string {
   const start = new Date(`${weekStart}T00:00:00`);
   const end = new Date(`${weekEnd}T00:00:00`);
@@ -399,7 +564,7 @@ function formatRange(weekStart: string, weekEnd: string): string {
     : `${startMonth} ${start.getDate()} – ${endMonth} ${end.getDate()}`;
 }
 
-// Like formatRange but includes the year — used in the overview header for the active plan.
+// Like formatRange but includes the year — used in the overview week navigator.
 function formatWeekRange(weekStart: string, weekEnd: string): string {
   const start = new Date(`${weekStart}T00:00:00`);
   const end = new Date(`${weekEnd}T00:00:00`);

@@ -28,10 +28,13 @@ class PlanFinalizationService(
 
     fun complete(userId: UUID, sessionId: UUID, plan: AgreedPlan) {
         log.debug("Completing agreed plan {}", plan)
-        // Bump carry-over reschedule counts BEFORE this session becomes the latest completed plan,
-        // so "previous completed" still resolves to the prior plan. Doing it here (not at session
-        // start) means an abandoned session never touches the existing plan's task stats.
-        planningSessionService.bumpRescheduleCountsForCarriedOverTasks(userId)
+        val session = planningSessionService.findById(userId, sessionId)
+            ?: throw NoSuchElementException("Planning session $sessionId not found")
+        // Bump carry-over reschedule counts BEFORE this plan is written, resolving "previous" by the
+        // week immediately before the one being finalized (not the globally-latest completed plan, which
+        // may be a week planned ahead). Doing it here (not at session start) means an abandoned session
+        // never touches the existing plan's task stats.
+        planningSessionService.bumpRescheduleCountsForCarriedOverTasks(userId, session.weekStart)
         planningSessionService.completeSession(userId, sessionId, plan.summary)
         applyPlan(userId, sessionId, plan)
     }

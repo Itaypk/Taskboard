@@ -3,8 +3,8 @@ This file is for capturing random ideas that don't fit into the current spec but
 The scope of the individual idea is varying - could be small UI improvements, or large features that change the entire app.
 
 ## Planning sessions - issues
-- Planning for the next week while there's an existing plan overrides the current plan. Expected behavior - it's a separate plan. _(Partly addressed: starting a session no longer hides the existing finalized plan — `findCurrentPlan` returns the latest **completed** plan, so an in-progress session never replaces it. True per-week separate plans are still not modeled: the board shows a single "current plan" = most recent completed.)_
-- When planning for the next week, the assistant consider tasks that are part of the current week's plan.
+- Planning for the next week while there's an existing plan overrides the current plan. Expected behavior - it's a separate plan. _(Phase 1 done: the read side is now week-aware — `findCurrentPlan` returns the finalized plan for **the week containing today** (via `findPlanForWeek`), so finalizing next week no longer hides this week's plan. Carry-over/diff/previous-summary all resolve relative to the week being planned, not the globally-latest completed session. Phase 2 (UI to page through past/current/future plans) still pending.)_
+- When planning for the next week, the assistant consider tasks that are part of the current week's plan. _(Fixed: `PlannerTaskSelector` now flags candidates that already have a slot in an earlier (e.g. current-week) plan with an `already_scheduled=DATE` annotation; the prompt tells the assistant to treat them as in-progress commitments and not re-propose them as new unless they've rolled over.)_
 - ~~Planning and abandoning while there's an existing plan overrides the current - no way to roll back.~~ _(Fixed: starting/abandoning a session has no effect on the existing plan; the reschedule-count bump moved from session-start to finalize.)_
 - New web UI does not offer a cancel/go back button, and the telegram can do with a `/cancel` as well. _(Web "Leave session" button added with a confirmation dialog; Telegram `/cancel` still open.)_
 

@@ -14,7 +14,7 @@ export function PlanDetails({ plan, onTaskClick, onTaskContextMenu }: PlanDetail
     <>
       <div className={styles.metaRow}>
         <span className={`${styles.statusPill} ${plan.status === 'active' ? styles.statusActive : styles.statusCompleted}`}>
-          {plan.status === 'active' ? 'In progress' : 'Last finalized'}
+          {plan.status === 'active' ? 'In progress' : 'Finalized'}
         </span>
         <span className={styles.timestamp}>
           Started {formatRelative(plan.startedAt)}

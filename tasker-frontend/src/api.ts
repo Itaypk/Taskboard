@@ -143,20 +143,42 @@ interface RawCurrentPlanResponse extends Omit<CurrentPlan, 'tasks'> {
     tasks: RawPlanTaskResponse[];
 }
 
-export const fetchCurrentPlan = async (): Promise<CurrentPlan | null> => {
-    const path = `${BASE}/plans/current`;
+const mapPlan = (raw: RawCurrentPlanResponse): CurrentPlan => ({
+    ...raw,
+    tasks: raw.tasks.map(pt => ({
+        ...pt.task,
+        slots: pt.slots,
+        planNotes: pt.notes ?? undefined,
+    })),
+});
+
+const fetchPlanAt = async (path: string): Promise<CurrentPlan | null> => {
     const res = await rawFetch(path);
     if (res.status === 204) return null;
-    const raw = await handle<RawCurrentPlanResponse>(res, path);
-    return {
-        ...raw,
-        tasks: raw.tasks.map(pt => ({
-            ...pt.task,
-            slots: pt.slots,
-            planNotes: pt.notes ?? undefined,
-        })),
-    };
+    return mapPlan(await handle<RawCurrentPlanResponse>(res, path));
 };
+
+/** The finalized plan for the week containing today (the board's anchor), or null if unplanned. */
+export const fetchCurrentPlan = (): Promise<CurrentPlan | null> =>
+    fetchPlanAt(`${BASE}/plans/current`);
+
+/** The finalized plan for a specific week (ISO week-start date), or null if that week was never planned. */
+export const fetchPlanForWeek = (weekStart: string): Promise<CurrentPlan | null> =>
+    fetchPlanAt(`${BASE}/plans/week/${weekStart}`);
+
+/** Lightweight summary of a finalized weekly plan, used to drive the drawer's week navigation. */
+export interface PlanSummary {
+    id: string;
+    weekStart: string;
+    weekEnd: string;
+    status: string;
+    taskCount: number;
+    hasSummary: boolean;
+}
+
+/** Index of the user's finalized plans, most recent week first. */
+export const fetchPlans = (): Promise<PlanSummary[]> =>
+    apiRequest('/plans');
 
 export const createTask = (payload: Omit<Task, 'id' | 'createdAt' | 'sortKey'>): Promise<Task> =>
     apiRequest('/tasks', { method: 'POST', ...jsonBody(payload) });

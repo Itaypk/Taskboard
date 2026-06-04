@@ -70,46 +70,72 @@ class PlannerTaskSelector(
         }
 
         val selectedIds = (urgent + stale).map { it.id }
-        val alreadyPlanned = lookupFuturePlannedDates(userId, selectedIds, weekStart, zone)
+        val plannedElsewhere = lookupPlannedElsewhere(userId, selectedIds, weekStart, zone)
 
-        return PlannerTaskSelection(urgent = urgent, stale = stale, alreadyPlanned = alreadyPlanned)
+        return PlannerTaskSelection(
+            urgent = urgent,
+            stale = stale,
+            alreadyPlanned = plannedElsewhere.future,
+            alreadyScheduled = plannedElsewhere.earlier,
+        )
     }
 
     /**
-     * For each candidate task, find the earliest planned slot whose start is on a day
-     * strictly after the current planning window's end. Used to flag tasks the assistant
-     * shouldn't re-schedule on top of an existing future plan.
+     * For each candidate task, find its existing planned slots that fall *outside* the planning
+     * window, split into two buckets the prompt annotates differently:
+     *  - [PlannedElsewhere.future]: the earliest slot strictly after the window — the task is already
+     *    committed to a later week, so don't re-schedule it here unless pulling it forward.
+     *  - [PlannedElsewhere.earlier]: the latest slot strictly before the window — the task already has
+     *    (or had) a slot in an active/earlier plan it hasn't completed. When planning next week this
+     *    is the current week's plan; flag it so the assistant doesn't double-book a task the user is
+     *    already working through.
+     * Slots inside the window are ignored (that's the week being planned).
      */
-    private fun lookupFuturePlannedDates(
+    private fun lookupPlannedElsewhere(
         userId: UUID,
         taskIds: List<UUID>,
         weekStart: LocalDate,
         zone: ZoneId,
-    ): Map<UUID, LocalDate> {
-        if (taskIds.isEmpty()) return emptyMap()
+    ): PlannedElsewhere {
+        if (taskIds.isEmpty()) return PlannedElsewhere(emptyMap(), emptyMap())
         val plannedTasks = plannedTaskRepository.findAllByUserIdAndBacklogTaskIdIn(userId, taskIds)
-        if (plannedTasks.isEmpty()) return emptyMap()
+        if (plannedTasks.isEmpty()) return PlannedElsewhere(emptyMap(), emptyMap())
 
         val plannedTaskById = plannedTasks.associateBy { requireNotNull(it.id) }
         val slots = plannedTaskSlotRepository.findAllByPlannedTaskIdIn(plannedTaskById.keys)
-        if (slots.isEmpty()) return emptyMap()
+        if (slots.isEmpty()) return PlannedElsewhere(emptyMap(), emptyMap())
 
-        // Strictly-after-window means: slot's local date in the user's zone is after the last day of the planning week.
+        // Window boundaries as local dates in the user's zone.
+        val windowStart = weekStart
         val windowLastDay = weekStart.plusDays(6)
-        val result = mutableMapOf<UUID, LocalDate>()
+        val future = mutableMapOf<UUID, LocalDate>()
+        val earlier = mutableMapOf<UUID, LocalDate>()
         for (slot in slots) {
             val backlogTaskId = plannedTaskById[slot.plannedTaskId]?.backlogTaskId ?: continue
             val startIso = slot.startIso ?: continue
             val slotDate = runCatching { OffsetDateTime.parse(startIso).atZoneSameInstant(zone).toLocalDate() }
                 .getOrNull() ?: continue
-            if (!slotDate.isAfter(windowLastDay)) continue
-            val existing = result[backlogTaskId]
-            if (existing == null || slotDate.isBefore(existing)) {
-                result[backlogTaskId] = slotDate
+            when {
+                slotDate.isAfter(windowLastDay) -> {
+                    // earliest upcoming commitment
+                    val existing = future[backlogTaskId]
+                    if (existing == null || slotDate.isBefore(existing)) future[backlogTaskId] = slotDate
+                }
+                slotDate.isBefore(windowStart) -> {
+                    // most recent prior commitment
+                    val existing = earlier[backlogTaskId]
+                    if (existing == null || slotDate.isAfter(existing)) earlier[backlogTaskId] = slotDate
+                }
+                // within the planning window: this is the week being planned — ignore.
             }
         }
-        return result
+        return PlannedElsewhere(future, earlier)
     }
+
+    private data class PlannedElsewhere(
+        val future: Map<UUID, LocalDate>,
+        val earlier: Map<UUID, LocalDate>,
+    )
 
     companion object {
         const val DEFAULT_URGENT_SLOTS = 12
@@ -121,7 +147,10 @@ class PlannerTaskSelector(
 data class PlannerTaskSelection(
     val urgent: List<BacklogTask>,
     val stale: List<BacklogTask>,
+    /** Candidates already scheduled in a *later* week, mapped to their earliest upcoming slot date. */
     val alreadyPlanned: Map<UUID, LocalDate> = emptyMap(),
+    /** Candidates already scheduled in an *earlier* (e.g. the current) plan, mapped to the latest such slot date. */
+    val alreadyScheduled: Map<UUID, LocalDate> = emptyMap(),
 )
 
 internal fun urgencyScore(task: BacklogTask, today: LocalDate): Double =

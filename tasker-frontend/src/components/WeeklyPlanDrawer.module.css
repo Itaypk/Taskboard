@@ -57,6 +57,51 @@
   gap: 20px;
 }
 
+/* ─── Week navigator ────────────────────────────────────── */
+.weekNav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 14px;
+  border-bottom: 1px dashed var(--paper-border);
+}
+
+.weekNavBtn {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--paper-border);
+  border-radius: var(--r);
+  background: var(--paper-surface);
+  font-size: 18px;
+  line-height: 1;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background var(--t), border-color var(--t), color var(--t);
+}
+.weekNavBtn:hover:not(:disabled) { background: rgba(90, 70, 30, 0.08); border-color: var(--ink-ghost); color: var(--ink); }
+.weekNavBtn:disabled { opacity: 0.3; cursor: default; }
+
+.weekNavLabel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  text-align: center;
+}
+
+.weekRelative {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  color: var(--ink);
+  line-height: 1.1;
+}
+
 .empty {
   display: flex;
   flex-direction: column;

@@ -171,6 +171,52 @@ class PlanningSessionControllerTest(@Autowired val mockMvc: MockMvc) {
             .andExpect(status().isUnauthorized)
     }
 
+    // ── GET /plans/week/{weekStart} ──────────────────────────────────────────
+
+    @Test
+    fun `GET plans-week returns 204 when the week has no plan`() {
+        val week = LocalDate.parse("2026-06-01")
+        whenever(planningSessionService.findPlanForWeek(userId, week)).thenReturn(null)
+
+        mockMvc.perform(get("/api/v1/plans/week/2026-06-01").with(authentication(auth)))
+            .andExpect(status().isNoContent)
+    }
+
+    @Test
+    fun `GET plans-week returns 200 with the week's plan`() {
+        val week = LocalDate.parse("2026-04-27")
+        whenever(planningSessionService.findPlanForWeek(userId, week))
+            .thenReturn(aSession(PlanningSessionStatus.COMPLETED))
+        whenever(backlogTaskService.getTasksScheduledInSession(userId, sessionId)).thenReturn(listOf(aTask()))
+        whenever(plannedTaskRepository.findAllBySessionIdOrderByPosition(sessionId))
+            .thenReturn(listOf(aPlannedTaskEntity()))
+        whenever(plannedTaskSlotRepository.findAllByPlannedTaskIdIn(listOf(plannedTaskId))).thenReturn(emptyList())
+
+        mockMvc.perform(get("/api/v1/plans/week/2026-04-27").with(authentication(auth)))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.weekStart").value("2026-04-27"))
+            .andExpect(jsonPath("$.weekEnd").value("2026-05-03"))
+            .andExpect(jsonPath("$.tasks[0].task.title").value("Planned task"))
+    }
+
+    // ── GET /plans ───────────────────────────────────────────────────────────
+
+    @Test
+    fun `GET plans returns the finalized-plan index`() {
+        whenever(planningSessionService.listFinalizedPlans(userId)).thenReturn(listOf(
+            dev.itayp.tasker.planning.FinalizedPlanSummary(aSession(PlanningSessionStatus.COMPLETED), taskCount = 4),
+        ))
+
+        mockMvc.perform(get("/api/v1/plans").with(authentication(auth)))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$[0].id").value(sessionId.toString()))
+            .andExpect(jsonPath("$[0].weekStart").value("2026-04-27"))
+            .andExpect(jsonPath("$[0].weekEnd").value("2026-05-03"))
+            .andExpect(jsonPath("$[0].status").value("completed"))
+            .andExpect(jsonPath("$[0].taskCount").value(4))
+            .andExpect(jsonPath("$[0].hasSummary").value(true))
+    }
+
     // ── POST /plans/current/tasks/{taskId} ───────────────────────────────────
 
     @Test
