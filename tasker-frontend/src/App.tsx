@@ -552,7 +552,12 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
         }}
         onTaskContextMenu={(e, taskId) => setContextMenu({ x: e.clientX, y: e.clientY, taskId, inPlan: true })}
         onFinalized={() => {
+          // The assistant can create or edit tasks while planning, so refresh the board (and tags)
+          // immediately rather than waiting for the next background poll.
           fetchCurrentPlan().then(setCurrentPlan).catch(e => console.error('Failed to refetch plan', e));
+          Promise.all([fetchTasks(fetchStatus), fetchTags()])
+            .then(([freshTasks, freshTags]) => { setTasks(freshTasks); setTags(freshTags); })
+            .catch(e => console.error('Failed to refetch tasks after planning', e));
         }}
       />
 

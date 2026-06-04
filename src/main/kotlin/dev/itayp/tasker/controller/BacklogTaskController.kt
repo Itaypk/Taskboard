@@ -46,7 +46,7 @@ class BacklogTaskController(
             return ResponseEntity.badRequest().build()
         }
         val checkedAt = clock.instant()
-        val hasChanges = backlogTaskChangeService.hasChangesSince(principal.userId, sinceInstant)
+        val hasChanges = backlogTaskChangeService.changedSince(principal.userId, sinceInstant)
         return ResponseEntity.ok(HasChangesResponse(hasChanges = hasChanges, checkedAt = checkedAt.toString()))
     }
 
