@@ -16,6 +16,8 @@ interface BacklogTaskRepository : JpaRepository<BacklogTaskEntity, UUID> {
 
     fun findAllByUserIdAndStatus(userId: UUID, status: TaskStatus): List<BacklogTaskEntity>
 
+    fun countByStatus(status: TaskStatus): Long
+
     fun findAllByUserIdAndStatusOrderBySortKeyAsc(userId: UUID, status: TaskStatus): List<BacklogTaskEntity>
 
     fun findAllByUserIdAndStatusNotOrderBySortKeyAsc(userId: UUID, status: TaskStatus): List<BacklogTaskEntity>

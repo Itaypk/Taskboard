@@ -16,4 +16,6 @@ interface UserRepository : JpaRepository<UserEntity, UUID> {
     fun findExpiredDemoUsers(now: Instant): List<UserEntity>
 
     fun findByEmailVerificationToken(token: String): UserEntity?
+
+    fun countByIsDemo(isDemo: Boolean): Long
 }

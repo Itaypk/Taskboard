@@ -10,6 +10,8 @@ interface PlanningSessionRepository : JpaRepository<PlanningSessionEntity, UUID>
 
     fun findByIdAndUserId(id: UUID, userId: UUID): PlanningSessionEntity?
 
+    fun countByStatus(status: PlanningSessionStatus): Long
+
     fun findFirstByUserIdAndStatusOrderByStartedAtDesc(
         userId: UUID,
         status: PlanningSessionStatus,

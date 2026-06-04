@@ -1,0 +1,129 @@
+package dev.itayp.tasker.ai.usage
+
+import dev.itayp.tasker.ai.client.AiCallContext
+import dev.itayp.tasker.ai.client.ChatRequest
+import dev.itayp.tasker.ai.client.ChatResponse
+import io.micrometer.core.instrument.MeterRegistry
+import org.slf4j.LoggerFactory
+import org.springframework.stereotype.Component
+import java.time.Clock
+
+/**
+ * Records AI usage for every [dev.itayp.tasker.ai.client.AiClient.chat] call: a durable per-call
+ * row (per-user accounting, future rate-limit input), aggregate Prometheus counters, and a debug
+ * log line. Tracking is best-effort — a tracking failure must never break the AI call — so all
+ * persistence is wrapped and swallowed here.
+ *
+ * Metrics intentionally carry no per-user tag (cardinality); per-user breakdowns come from the table.
+ */
+@Component
+class AiUsageTracker(
+    private val repository: AiUsageEventRepository,
+    private val meterRegistry: MeterRegistry,
+    private val clock: Clock,
+) {
+    private val log = LoggerFactory.getLogger(AiUsageTracker::class.java)
+
+    fun recordSuccess(context: AiCallContext, request: ChatRequest, response: ChatResponse) {
+        val usage = response.usage
+        // OpenRouter echoes the resolved model/provider; fall back to the requested model.
+        val model = response.model ?: request.model
+        record(
+            context = context,
+            model = model,
+            provider = response.provider,
+            status = AiUsageStatus.SUCCESS,
+            promptTokens = usage?.promptTokens,
+            completionTokens = usage?.completionTokens,
+            totalTokens = usage?.totalTokens
+                ?: usage?.let { it.promptTokens + it.completionTokens },
+        )
+    }
+
+    fun recordFailure(context: AiCallContext, request: ChatRequest) {
+        // No usage body on failure — record the attempt so failed calls are still accounted for.
+        record(
+            context = context,
+            model = request.model,
+            provider = null,
+            status = AiUsageStatus.ERROR,
+            promptTokens = null,
+            completionTokens = null,
+            totalTokens = null,
+        )
+    }
+
+    private fun record(
+        context: AiCallContext,
+        model: String,
+        provider: String?,
+        status: AiUsageStatus,
+        promptTokens: Int?,
+        completionTokens: Int?,
+        totalTokens: Int?,
+    ) {
+        val providerTag = provider ?: "unknown"
+        meterRegistry.counter(
+            "tasker.ai.requests",
+            "conversation_type", context.conversationType,
+            "model", model,
+            "provider", providerTag,
+            "outcome", status.name.lowercase(),
+        ).increment()
+        if (promptTokens != null) {
+            meterRegistry.counter(
+                "tasker.ai.tokens",
+                "conversation_type", context.conversationType,
+                "model", model,
+                "provider", providerTag,
+                "type", "prompt",
+            ).increment(promptTokens.toDouble())
+        }
+        if (completionTokens != null) {
+            meterRegistry.counter(
+                "tasker.ai.tokens",
+                "conversation_type", context.conversationType,
+                "model", model,
+                "provider", providerTag,
+                "type", "completion",
+            ).increment(completionTokens.toDouble())
+        }
+
+        log.debug(
+            "AI usage user={} type={} status={} model={} provider={} promptTokens={} completionTokens={} session={} conversation={}",
+            context.userId, context.conversationType, status, model, providerTag,
+            promptTokens, completionTokens, context.sessionId, context.conversationId,
+        )
+
+        persist(context, model, provider, status, promptTokens, completionTokens, totalTokens)
+    }
+
+    private fun persist(
+        context: AiCallContext,
+        model: String,
+        provider: String?,
+        status: AiUsageStatus,
+        promptTokens: Int?,
+        completionTokens: Int?,
+        totalTokens: Int?,
+    ) {
+        try {
+            repository.save(AiUsageEventEntity().apply {
+                this.userId = context.userId
+                this.conversationType = context.conversationType
+                this.sessionId = context.sessionId
+                this.conversationId = context.conversationId
+                this.model = model
+                this.provider = provider
+                this.promptTokens = promptTokens
+                this.completionTokens = completionTokens
+                this.totalTokens = totalTokens
+                this.status = status
+                this.createdAt = clock.instant()
+            })
+        } catch (e: Exception) {
+            // Accounting must not break the AI flow; the metric + log still captured the call.
+            log.error("Failed to persist AI usage event for user {}", context.userId, e)
+        }
+    }
+}

@@ -45,7 +45,7 @@ class BacklogTaskSearchAgentTest {
         val taskId = UUID.randomUUID()
         whenever(backlogTaskService.getTasksForUser(userId, null))
             .thenReturn(listOf(backlogTask(taskId, "Do taxes")))
-        whenever(aiClient.chat(any())).thenReturn(
+        whenever(aiClient.chat(any(), any())).thenReturn(
             chatResponse("""{"matches":[{"task_id":"$taskId","title":"Do taxes","confidence":"high"}]}"""),
         )
 
@@ -61,7 +61,7 @@ class BacklogTaskSearchAgentTest {
         val userId = UUID.randomUUID()
         whenever(backlogTaskService.getTasksForUser(userId, null))
             .thenReturn(listOf(backlogTask(UUID.randomUUID(), "Do taxes")))
-        whenever(aiClient.chat(any())).thenReturn(chatResponse("sorry, no idea"))
+        whenever(aiClient.chat(any(), any())).thenReturn(chatResponse("sorry, no idea"))
 
         assertTrue(agent.search(userId, "taxes").isEmpty())
     }
