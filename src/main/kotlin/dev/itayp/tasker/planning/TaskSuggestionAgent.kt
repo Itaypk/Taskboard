@@ -1,6 +1,8 @@
 package dev.itayp.tasker.planning
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import dev.itayp.tasker.ai.client.AiCallContext
+import dev.itayp.tasker.ai.client.AiConversationType
 import dev.itayp.tasker.ai.client.AiClient
 import dev.itayp.tasker.ai.client.ChatMessage
 import dev.itayp.tasker.ai.client.ChatRequest
@@ -76,7 +78,8 @@ class TaskSuggestionAgent(
             maxTokens = 800,
         )
 
-        val raw = aiClient.chat(request).choices.firstOrNull()?.message?.content.orEmpty()
+        val context = AiCallContext(userId = userId, conversationType = AiConversationType.TASK_SUGGESTION)
+        val raw = aiClient.chat(request, context).choices.firstOrNull()?.message?.content.orEmpty()
         val draft = runCatching { parseAssistantJsonResponse(objectMapper, raw, TaskDraft::class.java) }
             .getOrElse {
                 log.warn("suggest_task could not parse sub-agent output: {}", it.message)

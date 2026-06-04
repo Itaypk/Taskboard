@@ -56,6 +56,10 @@ data class ChatResponse(
     val id: String,
     val choices: List<Choice>,
     val usage: Usage?,
+    // OpenRouter echoes the resolved model and the upstream provider it routed to. Both are
+    // absent on non-OpenRouter backends, so they stay nullable. Captured for usage accounting.
+    val model: String? = null,
+    val provider: String? = null,
 )
 
 data class Choice(
@@ -66,4 +70,5 @@ data class Choice(
 data class Usage(
     @JsonProperty("prompt_tokens") val promptTokens: Int,
     @JsonProperty("completion_tokens") val completionTokens: Int,
+    @JsonProperty("total_tokens") val totalTokens: Int? = null,
 )

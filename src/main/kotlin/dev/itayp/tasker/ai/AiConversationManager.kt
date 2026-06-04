@@ -1,5 +1,6 @@
 package dev.itayp.tasker.ai
 
+import dev.itayp.tasker.ai.client.AiCallContext
 import dev.itayp.tasker.ai.client.AiClient
 import dev.itayp.tasker.ai.client.ChatMessage
 import dev.itayp.tasker.ai.client.ChatRequest
@@ -98,7 +99,12 @@ class AiConversationManager(
             maxTokens = 4096,
         )
 
-        val response = aiClient.chat(request)
+        val context = AiCallContext(
+            userId = conversation.userId,
+            conversationType = conversation.conversationType,
+            conversationId = conversationId,
+        )
+        val response = aiClient.chat(request, context)
         val choice = response.choices.first()
         val usage = response.usage
 

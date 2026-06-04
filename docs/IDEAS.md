@@ -38,8 +38,8 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Possible help ideas include breaking them down to multiple tasks, finding time for them, or even just reminding us about them.
 
 ## Production readiness
-- All AI calls must be accounted for - user ID, token count; create a metric for observation, and apply rate limits per user.
-- Application specific metrics and Grafana dashboard.
+- All AI calls must be accounted for - user ID, token count; create a metric for observation, and apply rate limits per user. _(Tracking done: every `AiClient.chat` call now takes an `AiCallContext` (userId, conversationType, optional session/conversation id) and is recorded by `AiUsageTracker` — one `ai_usage_event` row per call (model, OpenRouter provider, prompt/completion/total tokens, success/error) plus aggregate `tasker.ai.requests` / `tasker.ai.tokens` Prometheus counters (no per-user tag, to avoid cardinality blowup — per-user lives in the table). An `AiCallGate` hook runs right before the OpenRouter call as the future per-user rate-limit insertion point; the default bean is a no-op. **Still pending: the actual rate limiter** (implement `AiCallGate`, reading `AiUsageEventRepository.countByUserIdAndCreatedAtGreaterThanEqual`).)_
+- Application specific metrics and Grafana dashboard. _(Metrics done (dashboard still out of scope): `UsageMetrics` exposes gauges `tasker.users.total`, `tasker.users.demo`, `tasker.tasks.total{status}`, `tasker.planning.sessions.total{status}`, `tasker.ai.conversations.active`, refreshed off the DB every 5 min into in-memory holders so scrapes never hit the DB. Plus the AI usage counters above. Candidates for later: email send success/failure counters, scheduled-job outcomes, calendar-invite counters.)_
 
 ## Larger changes - consideration required
 - Open source the application under AGPL

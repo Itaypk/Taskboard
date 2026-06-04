@@ -70,7 +70,7 @@ class TaskSuggestionAgentTest {
     @Test
     fun `drafts a task from the model output without persisting`() {
         val categoryId = UUID.randomUUID()
-        whenever(aiClient.chat(any())).thenReturn(
+        whenever(aiClient.chat(any(), any())).thenReturn(
             chatResponse(
                 """{"title":"Call the dentist","category_id":"$categoryId","priority":"medium",
                    "tags":[{"id":null,"label":"health","color_id":"rose"}]}""",
@@ -88,7 +88,7 @@ class TaskSuggestionAgentTest {
 
     @Test
     fun `returns null when the model output is not parseable`() {
-        whenever(aiClient.chat(any())).thenReturn(chatResponse("no json here"))
+        whenever(aiClient.chat(any(), any())).thenReturn(chatResponse("no json here"))
 
         assertNull(agent.suggest(userId, "whatever"))
     }
