@@ -1,15 +1,10 @@
 package dev.itayp.tasker.planning
 
 import dev.itayp.tasker.channel.email.EmailProperties
-import dev.itayp.tasker.crypto.noopUserCryptoService
-import dev.itayp.tasker.jpa.UserEntity
-import dev.itayp.tasker.model.UserSettings
 import dev.itayp.tasker.planning.dto.AgreedPlan
 import dev.itayp.tasker.planning.dto.AgreedPlanTask
 import dev.itayp.tasker.planning.dto.AgreedTimeSlot
-import dev.itayp.tasker.repository.UserRepository
 import dev.itayp.tasker.service.BacklogTaskService
-import dev.itayp.tasker.service.UserSettingsService
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -23,7 +18,7 @@ import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.time.Instant
-import java.util.Optional
+import java.util.Locale
 import java.util.UUID
 import kotlin.test.assertEquals
 
@@ -33,9 +28,8 @@ class PlanFinalizationServiceTest {
     @Mock lateinit var planningSessionService: PlanningSessionService
     @Mock lateinit var backlogTaskService: BacklogTaskService
     @Mock lateinit var plannedTaskService: PlannedTaskService
-    @Mock lateinit var userRepository: UserRepository
-    @Mock lateinit var userSettingsService: UserSettingsService
     @Mock lateinit var planInviteDispatcher: PlanInviteDispatcher
+    @Mock lateinit var inviteDeliveryResolver: InviteDeliveryResolver
 
     private val emailProps = EmailProperties(
         enabled = true,
@@ -43,13 +37,10 @@ class PlanFinalizationServiceTest {
         fromName = "Backlog.fyi",
     )
 
-    private val crypto = noopUserCryptoService()
-
     private val service by lazy {
         PlanFinalizationService(
             planningSessionService, backlogTaskService, plannedTaskService,
-            userRepository, userSettingsService,
-            planInviteDispatcher, emailProps, crypto,
+            planInviteDispatcher, emailProps, inviteDeliveryResolver,
         )
     }
 
@@ -71,9 +62,9 @@ class PlanFinalizationServiceTest {
 
     @BeforeEach
     fun stubDefaults() {
-        // Opt out of invites by default so tests that don't care about email don't NPE. Lenient because
+        // No delivery by default so tests that don't care about email don't dispatch. Lenient because
         // diff-empty paths short-circuit before the email gate is consulted.
-        Mockito.lenient().`when`(userSettingsService.getOrCreate(any())).thenReturn(settings(calendarInviteEmail = false))
+        Mockito.lenient().`when`(inviteDeliveryResolver.resolveEmailContext(any())).thenReturn(null)
         // complete() loads the session to resolve the finalizing week for carry-over. Lenient because
         // revisePlan/addTaskToSession paths don't consult it.
         Mockito.lenient().`when`(planningSessionService.findById(eq(userId), eq(sessionId)))
@@ -81,9 +72,8 @@ class PlanFinalizationServiceTest {
     }
 
     private fun optInWithVerifiedEmail() {
-        whenever(userSettingsService.getOrCreate(userId)).thenReturn(settings(calendarInviteEmail = true))
-        whenever(userSettingsService.getLocale(userId)).thenReturn(java.util.Locale.ENGLISH)
-        whenever(userRepository.findById(userId)).thenReturn(Optional.of(verifiedUser("alice@example.com")))
+        whenever(inviteDeliveryResolver.resolveEmailContext(userId))
+            .thenReturn(InviteDeliveryResolver.EmailContext("alice@example.com", Locale.ENGLISH))
     }
 
     // ── Session completion ───────────────────────────────────────────────────
@@ -125,11 +115,8 @@ class PlanFinalizationServiceTest {
     // ── Calendar invite dispatch ─────────────────────────────────────────────
 
     @Test
-    fun `complete dispatches invites when user has verified email and opted in`() {
-        val user = verifiedUser("alice@example.com")
-        whenever(userSettingsService.getOrCreate(userId)).thenReturn(settings(calendarInviteEmail = true))
-        whenever(userSettingsService.getLocale(userId)).thenReturn(java.util.Locale.ENGLISH)
-        whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
+    fun `complete dispatches invites when delivery is eligible`() {
+        optInWithVerifiedEmail()
 
         service.complete(userId, sessionId, planWithTasks)
 
@@ -146,34 +133,8 @@ class PlanFinalizationServiceTest {
     }
 
     @Test
-    fun `complete does not dispatch when calendarInviteEmail is false`() {
-        whenever(userSettingsService.getOrCreate(userId)).thenReturn(settings(calendarInviteEmail = false))
-
-        service.complete(userId, sessionId, planWithTasks)
-
-        verify(planInviteDispatcher, never()).dispatch(any(), any(), any(), any(), any())
-    }
-
-    @Test
-    fun `complete does not dispatch when email is not verified`() {
-        val user = UserEntity().apply {
-            this.id = userId
-            this.email = "unverified@example.com".toByteArray(Charsets.UTF_8)
-            this.emailVerifiedAt = null
-        }
-        whenever(userSettingsService.getOrCreate(userId)).thenReturn(settings(calendarInviteEmail = true))
-        whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
-
-        service.complete(userId, sessionId, planWithTasks)
-
-        verify(planInviteDispatcher, never()).dispatch(any(), any(), any(), any(), any())
-    }
-
-    @Test
-    fun `complete does not dispatch when user is not found`() {
-        whenever(userSettingsService.getOrCreate(userId)).thenReturn(settings(calendarInviteEmail = true))
-        whenever(userRepository.findById(userId)).thenReturn(Optional.empty())
-
+    fun `complete does not dispatch when delivery is not eligible`() {
+        // stubDefaults() already returns null from the resolver.
         service.complete(userId, sessionId, planWithTasks)
 
         verify(planInviteDispatcher, never()).dispatch(any(), any(), any(), any(), any())
@@ -209,10 +170,7 @@ class PlanFinalizationServiceTest {
 
     @Test
     fun `revisePlan dispatches invites when opted in`() {
-        val user = verifiedUser("alice@example.com")
-        whenever(userSettingsService.getOrCreate(userId)).thenReturn(settings(calendarInviteEmail = true))
-        whenever(userSettingsService.getLocale(userId)).thenReturn(java.util.Locale.ENGLISH)
-        whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
+        optInWithVerifiedEmail()
 
         service.revisePlan(userId, sessionId, planWithTasks)
 
@@ -335,10 +293,7 @@ class PlanFinalizationServiceTest {
 
     @Test
     fun `addTaskToSession dispatches invite when opted in`() {
-        val user = verifiedUser("alice@example.com")
-        whenever(userSettingsService.getOrCreate(userId)).thenReturn(settings(calendarInviteEmail = true))
-        whenever(userSettingsService.getLocale(userId)).thenReturn(java.util.Locale.ENGLISH)
-        whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
+        optInWithVerifiedEmail()
 
         val task = AgreedPlanTask(taskId = taskId1, title = "Task A", slots = listOf(slot))
         service.addTaskToSession(userId, sessionId, task)
@@ -365,25 +320,5 @@ class PlanFinalizationServiceTest {
         weekStart = weekStart,
         endedAt = null,
         summary = null,
-    )
-
-    private fun verifiedUser(email: String) = UserEntity().apply {
-        this.id = userId
-        this.email = email.toByteArray(Charsets.UTF_8)
-        this.emailVerifiedAt = Instant.now()
-    }
-
-    private fun settings(calendarInviteEmail: Boolean) = UserSettings(
-        userId = userId,
-        displayName = null,
-        contextBlock = null,
-        timeZone = "UTC",
-        preferredLanguage = "en-US",
-        calendarInviteEmail = calendarInviteEmail,
-        gender = null,
-        agentDescription = null,
-        planningCron = null,
-        weekStartDay = null,
-        autoArchiveDays = null,
     )
 }
