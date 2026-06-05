@@ -10,19 +10,22 @@ interface UserMenuProps {
   onSignOut: () => void;
 }
 
-/** Vertical three-dot overflow glyph for the menu trigger. */
-function OverflowIcon() {
+/** Sliders glyph for the menu trigger — matches the line-art icon style of the header's plan button. */
+function SettingsIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor" aria-hidden>
-      <circle cx="9" cy="3.5" r="1.5" />
-      <circle cx="9" cy="9" r="1.5" />
-      <circle cx="9" cy="14.5" r="1.5" />
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M3 4h12" />
+      <circle cx="7" cy="4" r="1.5" />
+      <path d="M3 9h12" />
+      <circle cx="11" cy="9" r="1.5" />
+      <path d="M3 14h12" />
+      <circle cx="6" cy="14" r="1.5" />
     </svg>
   );
 }
 
 /**
- * Overflow (⋮) button in the header that folds the low-frequency Stats, Settings and Sign-out
+ * Settings (sliders) button in the header that folds the low-frequency Stats, Settings and Sign-out
  * actions into a single menu. Reads the signed-in identity from auth context for the menu header;
  * the menu itself is right-aligned under the trigger and dismisses on outside-click or Escape.
  */
@@ -56,13 +59,13 @@ export function UserMenu({ displayName, onOpenStats, onOpenSettings, onSignOut }
     <div className={styles.wrap} ref={wrapRef}>
       <button
         type="button"
-        className={styles.triggerBtn}
+        className={`icon-btn ${styles.trigger}`}
         onClick={() => setOpen(o => !o)}
         aria-label="Account menu"
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        <OverflowIcon />
+        <SettingsIcon />
       </button>
 
       {open && (
