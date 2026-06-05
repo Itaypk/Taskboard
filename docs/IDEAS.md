@@ -19,7 +19,6 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Drawer improvements (buttons are too dense, for example)
 - Edit existing tags; add "description" to a tag (consider if needed)
 - Task list Markdown (subtasks) checkboxes - makes it possible to check directly from the main screen
-- Settings + Sign-out are low-frequency actions that still take top-level header slots. Fold them into an avatar/overflow (`⋯`) menu to slim the header cluster further (deferred from the plan-unification work).
 - Filter chips can still wrap on very small screens even after the "Week" shortening. If it keeps bugging us, consider a segmented control or horizontally-scrollable chip row on mobile.
 
 ## Assistant - Mid-week response
@@ -35,10 +34,9 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Possible help ideas include breaking them down to multiple tasks, finding time for them, or even just reminding us about them.
 
 ## Small features
-- User stats. Telegram `/stats` command is **implemented** (join date, open vs. completed tasks,
-  new/completed tasks per week, average completion time, planning-session count — derived from the
-  backlog change-event log). Still **deferred**: surfacing the same stats in the web UI, ideally via
-  the avatar/overflow menu once log-out + settings are folded into it (see the UI - Tasks note above).
+- User stats — **done**, on both surfaces: the Telegram `/stats` command and a web "Stats" entry in
+  the header avatar menu (join date, open vs. completed tasks, new/completed tasks per week, average
+  completion time, planning-session count — derived from the backlog change-event log).
 
 ## Larger changes - consideration required
 - Open source the application under AGPL
