@@ -2,17 +2,10 @@
 This file is for capturing random ideas that don't fit into the current spec but might be worth exploring later. 
 The scope of the individual idea is varying - could be small UI improvements, or large features that change the entire app.
 
-## Planning sessions - issues
-- Planning for the next week while there's an existing plan overrides the current plan. Expected behavior - it's a separate plan. _(Phase 1 done: the read side is now week-aware — `findCurrentPlan` returns the finalized plan for **the week containing today** (via `findPlanForWeek`), so finalizing next week no longer hides this week's plan. Carry-over/diff/previous-summary all resolve relative to the week being planned, not the globally-latest completed session. Phase 2 (UI to page through past/current/future plans) still pending.)_
-- When planning for the next week, the assistant consider tasks that are part of the current week's plan. _(Fixed: `PlannerTaskSelector` now flags candidates that already have a slot in an earlier (e.g. current-week) plan with an `already_scheduled=DATE` annotation; the prompt tells the assistant to treat them as in-progress commitments and not re-propose them as new unless they've rolled over.)_
-- ~~Planning and abandoning while there's an existing plan overrides the current - no way to roll back.~~ _(Fixed: starting/abandoning a session has no effect on the existing plan; the reschedule-count bump moved from session-start to finalize.)_
-- New web UI does not offer a cancel/go back button, and the telegram can do with a `/cancel` as well. _(Web "Leave session" button added with a confirmation dialog; Telegram `/cancel` still open.)_
-
 ## Small Improvements and Concerns
 - Client side error messages - more friendly? error reference? email support?
 - AI assistant should be aware of the notification delivery methods (e.g., invitation emails, nothing)
 - Fonts look bad in Hebrew (especially the header - serif - ones). Either choose one that support multilanguage, or use language-specific ones.
-- ~~Auto update (UI) - do we consider changes in tasks, or just additions/deletions?~~ _(Done: data edits (title/description/tags/…), reorders, and scheduling now mark the board stale, not just create/delete/status. The polling endpoint (`/tasks/has-changes`) is now backed by a per-user `backlog_task_watermark` bumped on every mutation — an O(1) "something changed" signal that also handles deletes (the row is gone, so a tasks-table scan can't see them) and covers the phone-edit→stale-desktop-tab case. The semantic `backlog_task_change_event` log stays scoped to planner-relevant lifecycle events, since the planner sees current state for live tasks and only needs the transitions it can't reconstruct.)_
 - Persisted calendar invite SEQUENCE counter. Plan-revise updates re-send same-time slot edits (label/title/notes) with a fixed `SEQUENCE:1`. A second same-slot edit in a later session sends `SEQUENCE:1` again, which strict calendar clients may not re-apply. Persisting a per-slot revision counter (incremented on each update) would make repeated updates robust. Low priority: time moves go through cancel + fresh invite, which is unaffected.
 
 ## UI - Tasks
@@ -20,8 +13,6 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Drawer improvements (buttons are too dense, for example)
 - Edit existing tags; add "description" to a tag (consider if needed)
 - Task list Markdown (subtasks) checkboxes - makes it possible to check directly from the main screen
-- ~~Following up an assistant planning session, refresh the board (the assistant might've added tasks, changed tasks, etc.)~~ _(Done: `onFinalized` now refetches tasks + tags immediately on DONE instead of waiting for the next background poll. Assistant edits to existing tasks also surface via the new watermark, even on other open tabs.)_
-- ~~Top action buttons list: the addition of the "planning" button means that on most common mobile screens the buttons need a whole row.~~ _(Fixed: the "planning" (chat) and "weekly plan" buttons were unified into a single `WeeklyPlanDrawer` — the plan is the landing view, and Revise / Plan this week / Plan next week drill into the conversation. The header cluster dropped from 5 to 4 icons. The plan filter chip also shortens to "Week" on mobile so the filter row stops wrapping to two lines.)_
 - Settings + Sign-out are low-frequency actions that still take top-level header slots. Fold them into an avatar/overflow (`⋯`) menu to slim the header cluster further (deferred from the plan-unification work).
 - Filter chips can still wrap on very small screens even after the "Week" shortening. If it keeps bugging us, consider a segmented control or horizontally-scrollable chip row on mobile.
 
@@ -37,9 +28,13 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - We'll recognize tasks that are repeatedly rescheduled or not marked done, and proactively suggest help.
 - Possible help ideas include breaking them down to multiple tasks, finding time for them, or even just reminding us about them.
 
-## Production readiness
-- All AI calls must be accounted for - user ID, token count; create a metric for observation, and apply rate limits per user. _(Tracking done: every `AiClient.chat` call now takes an `AiCallContext` (userId, conversationType, optional session/conversation id) and is recorded by `AiUsageTracker` — one `ai_usage_event` row per call (model, OpenRouter provider, prompt/completion/total tokens, success/error) plus aggregate `tasker.ai.requests` / `tasker.ai.tokens` Prometheus counters (no per-user tag, to avoid cardinality blowup — per-user lives in the table). An `AiCallGate` hook runs right before the OpenRouter call as the future per-user rate-limit insertion point; the default bean is a no-op. **Still pending: the actual rate limiter** (implement `AiCallGate`, reading `AiUsageEventRepository.countByUserIdAndCreatedAtGreaterThanEqual`).)_
-- Application specific metrics and Grafana dashboard. _(Metrics done (dashboard still out of scope): `UsageMetrics` exposes gauges `tasker.users.total`, `tasker.users.demo`, `tasker.tasks.total{status}`, `tasker.planning.sessions.total{status}`, `tasker.ai.conversations.active`, refreshed off the DB every 5 min into in-memory holders so scrapes never hit the DB. Plus the AI usage counters above. Candidates for later: email send success/failure counters, scheduled-job outcomes, calendar-invite counters.)_
+## Small features
+- User stats, available on the web and through a /stats command:
+  - When did you join
+  - How many tasks you have vs. completed
+  - Average task completion per week, average new tasks per week 
+  - How much time it takes you on average to complete a task, etc.
+  - How many planning sessions did you have
 
 ## Larger changes - consideration required
 - Open source the application under AGPL
