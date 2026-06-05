@@ -12,6 +12,8 @@ interface PlanningSessionRepository : JpaRepository<PlanningSessionEntity, UUID>
 
     fun countByStatus(status: PlanningSessionStatus): Long
 
+    fun countByUserIdAndStatus(userId: UUID, status: PlanningSessionStatus): Long
+
     fun findFirstByUserIdAndStatusOrderByStartedAtDesc(
         userId: UUID,
         status: PlanningSessionStatus,

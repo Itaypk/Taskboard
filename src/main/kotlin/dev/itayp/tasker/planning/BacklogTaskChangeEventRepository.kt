@@ -13,6 +13,8 @@ interface BacklogTaskChangeEventRepository : JpaRepository<BacklogTaskChangeEven
         occurredAt: Instant,
     ): List<BacklogTaskChangeEventEntity>
 
+    fun findAllByUserIdOrderByOccurredAtAsc(userId: UUID): List<BacklogTaskChangeEventEntity>
+
     fun findAllByUserIdAndOccurredAtBetweenOrderByOccurredAtAsc(
         userId: UUID,
         from: Instant,

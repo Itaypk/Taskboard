@@ -29,12 +29,10 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Possible help ideas include breaking them down to multiple tasks, finding time for them, or even just reminding us about them.
 
 ## Small features
-- User stats, available on the web and through a /stats command:
-  - When did you join
-  - How many tasks you have vs. completed
-  - Average task completion per week, average new tasks per week 
-  - How much time it takes you on average to complete a task, etc.
-  - How many planning sessions did you have
+- User stats. Telegram `/stats` command is **implemented** (join date, open vs. completed tasks,
+  new/completed tasks per week, average completion time, planning-session count — derived from the
+  backlog change-event log). Still **deferred**: surfacing the same stats in the web UI, ideally via
+  the avatar/overflow menu once log-out + settings are folded into it (see the UI - Tasks note above).
 
 ## Larger changes - consideration required
 - Open source the application under AGPL
