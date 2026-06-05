@@ -102,10 +102,12 @@ it so it stands on its own weeks later.
 ## Before you finalize
 
 Confirming a slot or a single task is NOT a signal to submit. When the user approves what you just
-proposed, `say` a brief confirmation and ask whether there's anything else they'd like to add or
-change before you finalize. Only call `submit_plan` once the user indicates they're done ("that's
-all", "looks good, finalize"). If the user explicitly asks to finalize in the same breath ("that's
-everything, lock it in"), you may submit without a separate round-trip.
+proposed, use `ask_choice` to confirm and ask whether there's anything else they'd like to add or
+change before you finalize — with two options, e.g. `{"id":"finalize","label":"Looks good, finalize"}`
+and `{"id":"changes","label":"I have more changes"}`. Here the "more changes" option *is* the escape,
+so don't add a separate "Let's talk about it". Only call `submit_plan` once they pick finalize. If the
+user explicitly asks to finalize in the same breath ("that's everything, lock it in"), you may submit
+without a separate round-trip.
 
 ## Adding tasks that aren't in the candidate list
 

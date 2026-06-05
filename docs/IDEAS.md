@@ -3,6 +3,13 @@ This file is for capturing random ideas that don't fit into the current spec but
 The scope of the individual idea is varying - could be small UI improvements, or large features that change the entire app.
 
 ## Small Improvements and Concerns
+- Revise-session summary maintenance is prompt-only and fragile. On revise, `revisePlan` overwrites
+  `session.summary` wholesale with whatever the model returns, so a thin/regenerated summary silently
+  drops the prior durable context. We've leaned on prompt emphasis ("merge, don't replace") to hold
+  the line, but the model still regresses sometimes. If it keeps slipping, move to a sturdier
+  mechanism instead of trusting the model to rewrite the whole note each time — e.g. keep the original
+  planning summary immutable and store revise deltas separately, or only accept the new summary when
+  it materially grew rather than shrank.
 - Client side error messages - more friendly? error reference? email support?
 - Fonts look bad in Hebrew (especially the header - serif - ones). Either choose one that support multilanguage, or use language-specific ones.
 - Persisted calendar invite SEQUENCE counter. Plan-revise updates re-send same-time slot edits (label/title/notes) with a fixed `SEQUENCE:1`. A second same-slot edit in a later session sends `SEQUENCE:1` again, which strict calendar clients may not re-apply. Persisting a per-slot revision counter (incremented on each update) would make repeated updates robust. Low priority: time moves go through cancel + fresh invite, which is unaffected.
