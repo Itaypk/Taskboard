@@ -23,6 +23,7 @@ import { ContextMenu, type ContextMenuAction } from './components/ContextMenu';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { ScheduleTaskModal } from './components/ScheduleTaskModal';
 import { UserMenu } from './components/UserMenu';
+import { StatsModal } from './components/StatsModal';
 import { DEFAULT_SETTINGS } from './data';
 import { fetchTasks, fetchCategories, fetchUserSettings, fetchTags, fetchCurrentPlan, checkTaskChanges, createTask, updateTask, deleteTask, reorderTask, removeTaskFromPlan, addTaskToPlan, type TaskStatusFilter } from './api';
 import type { Task, UserSettings, Tag, CurrentPlan, TaskFilter } from './types';
@@ -86,6 +87,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const [selectedId, setSelectedId]   = useState<string | null>(null);
   const [isCreating, setIsCreating]   = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
   const [leavingId, setLeavingId]     = useState<string | null>(null);
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState<string | null>(null);
@@ -425,6 +427,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
           </button>
           <UserMenu
             displayName={settings.displayName}
+            onOpenStats={() => setStatsOpen(true)}
             onOpenSettings={() => setSettingsOpen(true)}
             onSignOut={() => { void onSignOut(); }}
           />
@@ -524,6 +527,8 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
         onSave={setSettings}
         onAccountDeleted={() => { void onSignOut(); }}
       />
+
+      <StatsModal open={statsOpen} onClose={() => setStatsOpen(false)} />
 
       {contextMenu && (
         <ContextMenu

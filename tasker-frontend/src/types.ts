@@ -116,3 +116,13 @@ export interface UserSettings {
   emailVerified: boolean;
   categories: Category[];
 }
+
+export interface Stats {
+  joinedAt: string | null;
+  openTasks: number;
+  completedTasks: number;
+  planningSessions: number;
+  avgTasksCreatedPerWeek: number;
+  avgTasksCompletedPerWeek: number;
+  avgCompletionSeconds: number | null;
+}

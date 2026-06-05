@@ -1,4 +1,4 @@
-import type { Task, Category, Tag, UserSettings, SettingsOptions, CurrentPlan, TimeSlot } from './types';
+import type { Task, Category, Tag, UserSettings, SettingsOptions, CurrentPlan, TimeSlot, Stats } from './types';
 
 const BASE = '/api/v1';
 
@@ -297,6 +297,11 @@ export const revisePlanning = (sessionId: string): Promise<PlanningTurn> =>
 
 export const abandonPlanning = (sessionId: string): Promise<void> =>
     apiRequest(`/planning/${sessionId}/abandon`, { method: 'POST' });
+
+// --- Stats ---
+
+export const fetchStats = (): Promise<Stats> =>
+    apiRequest('/stats');
 
 // --- Account ---
 

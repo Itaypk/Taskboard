@@ -5,6 +5,7 @@ import styles from './UserMenu.module.css';
 interface UserMenuProps {
   /** User-chosen display name (from settings); falls back to Telegram identity when absent. */
   displayName?: string | null;
+  onOpenStats: () => void;
   onOpenSettings: () => void;
   onSignOut: () => void;
 }
@@ -14,7 +15,7 @@ interface UserMenuProps {
  * single overflow menu. Reads the signed-in identity from auth context for the avatar/photo;
  * the menu itself is right-aligned under the avatar and dismisses on outside-click or Escape.
  */
-export function UserMenu({ displayName, onOpenSettings, onSignOut }: UserMenuProps) {
+export function UserMenu({ displayName, onOpenStats, onOpenSettings, onSignOut }: UserMenuProps) {
   const { state } = useAuth();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -69,6 +70,16 @@ export function UserMenu({ displayName, onOpenSettings, onSignOut }: UserMenuPro
             </span>
           </li>
           <li className={styles.divider} role="separator" />
+          <li role="none">
+            <button
+              type="button"
+              role="menuitem"
+              className={styles.item}
+              onClick={() => runAction(onOpenStats)}
+            >
+              Stats
+            </button>
+          </li>
           <li role="none">
             <button
               type="button"
