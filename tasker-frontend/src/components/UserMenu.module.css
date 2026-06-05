@@ -41,9 +41,8 @@
   font-size: 16px;
   line-height: 1;
   color: var(--accent-ink);
-  /* Optical centering: a capital glyph reads ~1px high in the circle because its
-     line box leaves empty descender space below the baseline. Nudge it down. */
-  transform: translateY(1px);
+  /* Optical centering */
+  transform: translateY(-1px);
 }
 
 .menu {
