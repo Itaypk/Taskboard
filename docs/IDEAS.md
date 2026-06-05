@@ -3,6 +3,12 @@ This file is for capturing random ideas that don't fit into the current spec but
 The scope of the individual idea is varying - could be small UI improvements, or large features that change the entire app.
 
 ## Small Improvements and Concerns
+- Assistant sometimes leaks internal task IDs into its summaries/messages. These are implementation
+  details and should never be surfaced to the user — tighten the prompt (and/or how tasks are
+  presented to the model) so IDs stay out of user-facing text.
+- When the user mentions during planning that a task was already completed, the assistant should
+  mark it done but keep it in the plan (currently it removes it from the plan instead of just
+  updating status).
 - Client side error messages - more friendly? error reference? email support?
 - AI assistant should be aware of the notification delivery methods (e.g., invitation emails, nothing)
 - Fonts look bad in Hebrew (especially the header - serif - ones). Either choose one that support multilanguage, or use language-specific ones.
