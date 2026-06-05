@@ -22,6 +22,7 @@ import { WeeklyPlanDrawer } from './components/WeeklyPlanDrawer';
 import { ContextMenu, type ContextMenuAction } from './components/ContextMenu';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { ScheduleTaskModal } from './components/ScheduleTaskModal';
+import { UserMenu } from './components/UserMenu';
 import { DEFAULT_SETTINGS } from './data';
 import { fetchTasks, fetchCategories, fetchUserSettings, fetchTags, fetchCurrentPlan, checkTaskChanges, createTask, updateTask, deleteTask, reorderTask, removeTaskFromPlan, addTaskToPlan, type TaskStatusFilter } from './api';
 import type { Task, UserSettings, Tag, CurrentPlan, TaskFilter } from './types';
@@ -32,29 +33,6 @@ import { TermsPage, PrivacyPage } from './auth/PolicyPage';
 import { NotFoundPage } from './NotFoundPage';
 import pineappleUrl from './assets/pineapple.png';
 import './App.css';
-
-function GearIcon() {
-  return (
-      <svg
-          width="18"
-          height="18"
-          viewBox="0 0 18 18"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.3"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden
-      >
-        <path d="M3 4h12" />
-        <circle cx="7" cy="4" r="1.5" />
-        <path d="M3 9h12" />
-        <circle cx="11" cy="9" r="1.5" />
-        <path d="M3 14h12" />
-        <circle cx="6" cy="14" r="1.5" />
-      </svg>
-  );
-}
 
 function emptyMessageFor(filter: TaskFilter): string {
   switch (filter) {
@@ -72,16 +50,6 @@ function PlanIcon() {
       <path d="M3 6.5h12" />
       <path d="M6 2.5v2M12 2.5v2" />
       <path d="M6 9.5h6M6 12h4" />
-    </svg>
-  );
-}
-
-function SignOutIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M7 3H3.5v12H7" />
-      <path d="M11 12l3-3-3-3" />
-      <path d="M14 9H7" />
     </svg>
   );
 }
@@ -455,24 +423,11 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
           >
             <PlanIcon />
           </button>
-          <button
-            type="button"
-            className="icon-btn"
-            onClick={() => setSettingsOpen(true)}
-            aria-label="Open settings"
-            title="Settings"
-          >
-            <GearIcon />
-          </button>
-          <button
-            type="button"
-            className="icon-btn"
-            onClick={() => { void onSignOut(); }}
-            aria-label="Sign out"
-            title="Sign out"
-          >
-            <SignOutIcon />
-          </button>
+          <UserMenu
+            displayName={settings.displayName}
+            onOpenSettings={() => setSettingsOpen(true)}
+            onSignOut={() => { void onSignOut(); }}
+          />
         </div>
       </header>
 
