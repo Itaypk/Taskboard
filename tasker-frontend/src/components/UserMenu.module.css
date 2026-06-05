@@ -3,7 +3,7 @@
   display: inline-flex;
 }
 
-.avatarBtn {
+.triggerBtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -13,36 +13,19 @@
   border: 1px solid var(--paper-border);
   border-radius: 50%;
   background: var(--accent-paper);
+  color: var(--ink-soft);
   cursor: pointer;
-  overflow: hidden;
-  transition: border-color var(--t), transform var(--t), box-shadow var(--t);
+  transition: border-color var(--t), background var(--t), color var(--t), box-shadow var(--t);
 }
 
-.avatarBtn:hover {
+.triggerBtn:hover {
   border-color: var(--paper-border-2);
-  transform: rotate(-8deg);
+  color: var(--ink);
 }
 
-.avatarBtn:focus-visible {
+.triggerBtn:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--paper-border-2);
-}
-
-.avatarImg {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.avatarInitial {
-  font-family: var(--font-ui);
-  font-weight: 600;
-  font-size: 16px;
-  line-height: 1;
-  color: var(--accent-ink);
-  /* Optical centering */
-  transform: translateY(-1px);
 }
 
 .menu {
@@ -68,21 +51,6 @@
   gap: 10px;
   padding: 8px 16px 10px;
 }
-
-.identityAvatar {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--accent-paper);
-  border: 1px solid var(--paper-border);
-  overflow: hidden;
-}
-
-.identityAvatar .avatarInitial { font-size: 14px; }
 
 .identityText {
   display: flex;
