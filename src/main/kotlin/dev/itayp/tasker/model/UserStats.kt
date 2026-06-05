@@ -1,5 +1,6 @@
 package dev.itayp.tasker.model
 
+import java.time.Duration
 import java.time.Instant
 
 /**
@@ -16,7 +17,7 @@ data class UserStats(
     val avgTasksCreatedPerWeek: Double,
     val avgTasksCompletedPerWeek: Double,
     /** Mean time from task creation to its first completion. Null when nothing has been completed. */
-    val avgCompletion: java.time.Duration?,
+    val avgCompletion: Duration?,
 ) {
     /** True for a brand-new user with no tasks and no recorded activity — render an encouraging empty state instead. */
     val isEmpty: Boolean

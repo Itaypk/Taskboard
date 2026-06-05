@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
 import java.time.Duration
+import java.time.Instant
 import java.util.UUID
 
 /**
@@ -75,8 +76,8 @@ class StatsService(
     private fun firstOccurrenceByTask(
         events: List<BacklogTaskChangeEventEntity>,
         predicate: (BacklogTaskChangeEventEntity) -> Boolean,
-    ): Map<UUID, java.time.Instant> {
-        val result = LinkedHashMap<UUID, java.time.Instant>()
+    ): Map<UUID, Instant> {
+        val result = LinkedHashMap<UUID, Instant>()
         for (event in events) {
             if (!predicate(event)) continue
             val taskId = event.taskId ?: continue
