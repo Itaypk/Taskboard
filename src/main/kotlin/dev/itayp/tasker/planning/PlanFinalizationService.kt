@@ -1,28 +1,22 @@
 package dev.itayp.tasker.planning
 
 import dev.itayp.tasker.channel.email.EmailProperties
-import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.planning.dto.AgreedPlan
 import dev.itayp.tasker.planning.dto.AgreedPlanTask
 import dev.itayp.tasker.planning.dto.AgreedTimeSlot
-import dev.itayp.tasker.repository.UserRepository
 import dev.itayp.tasker.service.BacklogTaskService
-import dev.itayp.tasker.service.UserSettingsService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.util.UUID
-import java.util.Locale
 
 @Service
 class PlanFinalizationService(
     private val planningSessionService: PlanningSessionService,
     private val backlogTaskService: BacklogTaskService,
     private val plannedTaskService: PlannedTaskService,
-    private val userRepository: UserRepository,
-    private val userSettingsService: UserSettingsService,
     private val planInviteDispatcher: PlanInviteDispatcher,
     private val emailProperties: EmailProperties,
-    private val userCrypto: UserCryptoService,
+    private val inviteDeliveryResolver: InviteDeliveryResolver,
 ) {
     private val log = LoggerFactory.getLogger(PlanFinalizationService::class.java)
 
@@ -126,7 +120,7 @@ class PlanFinalizationService(
         )
         if (diff.added.isEmpty() && diff.changed.isEmpty() && diff.removed.isEmpty()) return
 
-        val ctx = resolveEmailContext(userId) ?: return
+        val ctx = inviteDeliveryResolver.resolveEmailContext(userId) ?: return
         if (diff.added.isNotEmpty()) {
             planInviteDispatcher.dispatch(
                 ctx.email, emailProperties.from, emailProperties.fromName,
@@ -147,29 +141,8 @@ class PlanFinalizationService(
         }
     }
 
-    private data class EmailContext(val email: String, val locale: Locale)
-
-    private fun resolveEmailContext(userId: UUID): EmailContext? {
-        val settings = userSettingsService.getOrCreate(userId)
-        if (!settings.calendarInviteEmail) {
-            log.debug("Skipping calendar invites: calendarInviteEmail disabled for user {}", userId)
-            return null
-        }
-        val user = userRepository.findById(userId).orElse(null) ?: return null
-        if (user.emailVerifiedAt == null) {
-            log.debug("Skipping calendar invites: email not verified for user {}", userId)
-            return null
-        }
-        val email = userCrypto.decrypt(userId, user.email)
-        if (email.isNullOrBlank()) {
-            log.debug("Skipping calendar invites: no email on file for user {}", userId)
-            return null
-        }
-        return EmailContext(email, userSettingsService.getLocale(userId))
-    }
-
     private fun dispatchInvitesIfEligible(userId: UUID, plan: AgreedPlan) {
-        val ctx = resolveEmailContext(userId) ?: return
+        val ctx = inviteDeliveryResolver.resolveEmailContext(userId) ?: return
         log.debug("Dispatching {} calendar invite(s) for user {}", plan.tasks.sumOf { it.slots.size }, userId)
         planInviteDispatcher.dispatch(
             userEmail = ctx.email,

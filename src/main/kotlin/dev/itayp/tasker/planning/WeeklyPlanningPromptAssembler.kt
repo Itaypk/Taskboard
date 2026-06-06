@@ -31,6 +31,7 @@ class WeeklyPlanningPromptAssembler(
     private val calendarWindowProvider: CalendarWindowProvider,
     private val categoryService: BacklogTaskCategoryService,
     private val tagService: BacklogTaskTagService,
+    private val inviteDeliveryResolver: InviteDeliveryResolver,
     private val clock: Clock,
 ) {
 
@@ -67,6 +68,7 @@ class WeeklyPlanningPromptAssembler(
             "categories" to renderCategories(categoryService.getAllForUser(userId)),
             "tags" to renderTags(tagService.getAllForUser(userId)),
             "calendar_window" to calendar,
+            "delivery_methods" to inviteDeliveryResolver.describeDeliveryMethods(userId),
             "capacity_hint" to capacityHint.ifBlank { "Not stated." },
             "today_iso" to today.format(DateTimeFormatter.ISO_LOCAL_DATE),
             "week_start_iso" to weekStart.format(DateTimeFormatter.ISO_LOCAL_DATE),
@@ -126,6 +128,7 @@ class WeeklyPlanningPromptAssembler(
             "days_since_finalized" to daysSinceCompleted.toString(),
             "task_change_summary" to renderDiff(diff),
             "calendar_window" to calendar,
+            "delivery_methods" to inviteDeliveryResolver.describeDeliveryMethods(userId),
             "today_iso" to today.format(DateTimeFormatter.ISO_LOCAL_DATE),
             "week_start_iso" to weekStart.format(DateTimeFormatter.ISO_LOCAL_DATE),
             "week_end_iso" to weekStart.plusDays(6).format(DateTimeFormatter.ISO_LOCAL_DATE),

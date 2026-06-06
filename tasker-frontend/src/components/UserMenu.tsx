@@ -10,10 +10,24 @@ interface UserMenuProps {
   onSignOut: () => void;
 }
 
+/** Sliders glyph for the menu trigger — matches the line-art icon style of the header's plan button. */
+function SettingsIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M3 4h12" />
+      <circle cx="7" cy="4" r="1.5" />
+      <path d="M3 9h12" />
+      <circle cx="11" cy="9" r="1.5" />
+      <path d="M3 14h12" />
+      <circle cx="6" cy="14" r="1.5" />
+    </svg>
+  );
+}
+
 /**
- * Avatar button in the header that folds the low-frequency Settings and Sign-out actions into a
- * single overflow menu. Reads the signed-in identity from auth context for the avatar/photo;
- * the menu itself is right-aligned under the avatar and dismisses on outside-click or Escape.
+ * Settings (sliders) button in the header that folds the low-frequency Stats, Settings and Sign-out
+ * actions into a single menu. Reads the signed-in identity from auth context for the menu header;
+ * the menu itself is right-aligned under the trigger and dismisses on outside-click or Escape.
  */
 export function UserMenu({ displayName, onOpenStats, onOpenSettings, onSignOut }: UserMenuProps) {
   const { state } = useAuth();
@@ -38,12 +52,6 @@ export function UserMenu({ displayName, onOpenStats, onOpenSettings, onSignOut }
   const primaryName =
     displayName?.trim() || user?.telegramFirstName || user?.telegramUsername || user?.email || 'Account';
   const secondary = user?.telegramUsername ? `@${user.telegramUsername}` : user?.email ?? null;
-  const initial = Array.from(primaryName)[0]?.toUpperCase() ?? '?';
-  const photoUrl = user?.telegramPhotoUrl ?? null;
-
-  const avatar = photoUrl
-    ? <img className={styles.avatarImg} src={photoUrl} alt="" referrerPolicy="no-referrer" />
-    : <span className={styles.avatarInitial} aria-hidden>{initial}</span>;
 
   const runAction = (action: () => void) => { setOpen(false); action(); };
 
@@ -51,19 +59,18 @@ export function UserMenu({ displayName, onOpenStats, onOpenSettings, onSignOut }
     <div className={styles.wrap} ref={wrapRef}>
       <button
         type="button"
-        className={styles.avatarBtn}
+        className={`icon-btn ${styles.trigger}`}
         onClick={() => setOpen(o => !o)}
         aria-label="Account menu"
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        {avatar}
+        <SettingsIcon />
       </button>
 
       {open && (
         <ul className={styles.menu} role="menu">
           <li className={styles.identity} role="none">
-            <span className={styles.identityAvatar} aria-hidden>{avatar}</span>
             <span className={styles.identityText}>
               <span className={styles.identityName}>{primaryName}</span>
               {secondary && <span className={styles.identitySecondary}>{secondary}</span>}
