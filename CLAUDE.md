@@ -106,14 +106,19 @@ Session chain details:
   - `TASKER_DB_USERNAME` / `TASKER_DB_PASSWORD` — Postgres credentials.
 - Backend env var for at-rest data encryption (required in prod):
   - `TASKER_DATA_KEK` — base64-encoded 32-byte key. Wraps per-user DEKs that encrypt task titles, descriptions, LLM messages, user settings, etc. **Losing this key permanently loses all encrypted data.** Generate with `openssl rand -base64 32`; store the prod value offline (e.g. password manager), and keep it out of any archive that also includes DB dumps. Dev/test fall back to a checked-in placeholder key — never reuse that for prod.
-- Backend env vars for the email integration:
-  - `TASKER_EMAIL_ENABLED` - toggle email integration (default: false).
-  - `TASKER_EMAIL_FROM` - email address to use in the "from" field.
-  - `TASKER_EMAIL_FROM_NAME` - name to use in the "from" field.
-  - `TASKER_EMAIL_SMTP_HOST` - SMTP host (default: smtp.protonmail.ch).
-  - `TASKER_EMAIL_SMTP_PORT` - SMTP port (default: 587).
-  - `TASKER_EMAIL_SMTP_USERNAME` - SMTP username (this is the email we use).
-  - `TASKER_EMAIL_SMTP_PASSWORD` - SMTP token, used as password.
+- Backend env vars for the email integration. Email is split into two independent senders, each
+  with its own SMTP account, so a deliverability problem on one mailbox can't take down the other:
+  **`auth`** (critical path — login / register / verification magic links) and **`scheduling`**
+  (calendar invites). Delivery is tracked by the `tasker.email.sent{purpose,outcome}` Prometheus
+  counter (hook it to a Grafana alert, especially `purpose=auth,outcome=failure`).
+  - `TASKER_EMAIL_ENABLED` - toggle email integration (default: false). When false, both senders
+    log instead of sending (and the magic link is printed to the log).
+  - Auth sender: `TASKER_EMAIL_AUTH_FROM`, `TASKER_EMAIL_AUTH_FROM_NAME` (default: Backlog.fyi),
+    `TASKER_EMAIL_AUTH_SMTP_HOST` (default: smtp.protonmail.ch), `TASKER_EMAIL_AUTH_SMTP_PORT`
+    (default: 587), `TASKER_EMAIL_AUTH_SMTP_USERNAME`, `TASKER_EMAIL_AUTH_SMTP_PASSWORD`.
+  - Scheduling sender: `TASKER_EMAIL_SCHEDULING_FROM`, `TASKER_EMAIL_SCHEDULING_FROM_NAME`,
+    `TASKER_EMAIL_SCHEDULING_SMTP_HOST`, `TASKER_EMAIL_SCHEDULING_SMTP_PORT`,
+    `TASKER_EMAIL_SCHEDULING_SMTP_USERNAME`, `TASKER_EMAIL_SCHEDULING_SMTP_PASSWORD`.
 
 ## Internationalization
 

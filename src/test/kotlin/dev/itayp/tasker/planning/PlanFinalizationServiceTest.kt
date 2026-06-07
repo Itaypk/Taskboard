@@ -33,8 +33,7 @@ class PlanFinalizationServiceTest {
 
     private val emailProps = EmailProperties(
         enabled = true,
-        from = "noreply@backlog.fyi",
-        fromName = "Backlog.fyi",
+        scheduling = EmailProperties.SenderConfig(from = "noreply@backlog.fyi", fromName = "Backlog.fyi"),
     )
 
     private val service by lazy {

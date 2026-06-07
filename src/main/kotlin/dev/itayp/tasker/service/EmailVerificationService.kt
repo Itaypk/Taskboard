@@ -3,6 +3,7 @@ package dev.itayp.tasker.service
 import dev.itayp.tasker.channel.OutboundChannel
 import dev.itayp.tasker.channel.email.EmailMessage
 import dev.itayp.tasker.config.AppProperties
+import org.springframework.beans.factory.annotation.Qualifier
 import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.repository.UserRepository
 import org.slf4j.LoggerFactory
@@ -19,7 +20,7 @@ import java.util.UUID
 @EnableConfigurationProperties(AppProperties::class)
 class EmailVerificationService(
     private val userRepository: UserRepository,
-    private val outboundChannel: OutboundChannel,
+    @Qualifier("authEmailChannel") private val outboundChannel: OutboundChannel,
     private val appProperties: AppProperties,
     private val clock: Clock,
     private val emailTemplateEngine: EmailTemplateEngine,

@@ -220,8 +220,22 @@ email buttons stubbed with a "Soon" badge**. For this milestone:
    the first caller. Telegram login keeps working byte-for-byte; demo users stay channel-less
    (no identity); the dev user gets a Telegram identity so a dev Telegram login can't collide on
    `users.telegram_id`.
-2. **Email magic-link login:** new endpoints + token reuse, the collision rules above, wire the
-   welcome-page email button, add the SPA landing route. Ship behind `TASKER_EMAIL_ENABLED`.
+2. **Email magic-link login — ✅ implemented in this PR.** `POST /api/auth/email` sends a
+   single-use, 30-min, rate-limited magic link (always 204, no account enumeration); the pending
+   email is held in a new `email_login_token` table encrypted under the app KEK (no user DEK
+   exists yet — see `UserCryptoService.encryptSystem`). `GET /api/auth/email/callback` consumes
+   the token, applies the collision rules via `UserAuthService.loginByEmail`, creates the session,
+   and redirects into the app (`/`, or `/?emailLogin=unverified|invalid` on the failure branches,
+   surfaced as a notice on the login page). The welcome-page email button is wired; the callback
+   is a server redirect, so no new SPA route was needed. Two add-ons landed alongside:
+   - **Email config split** into two independent senders (`tasker.email.auth.*`,
+     `tasker.email.scheduling.*`), each with its own SMTP account, so a scheduling-mailbox issue
+     can't break login email. `EmailVerificationService`/`EmailLoginService` use the `auth`
+     channel; `CalendarInvitationComposer` uses `scheduling`. (Breaking env-var change — see CLAUDE.md.)
+   - **Delivery metric** `tasker.email.sent{purpose,outcome}` via a `MeteredOutboundChannel`
+     decorator, matching the existing `AiUsageTracker` Prometheus pattern; ready to alert in Grafana.
+
+   Still gated by `TASKER_EMAIL_ENABLED` (disabled → both senders log the link instead of sending).
 3. **Channel-less hardening:** generalize the scheduler / channel resolver, gate cron on a
    deliverable channel, audit non-null `telegramId` assumptions, frontend display-name fallbacks.
 4. **Account linking:** let a logged-in user attach a *second* provider to their existing

@@ -123,19 +123,19 @@ class PlanFinalizationService(
         val ctx = inviteDeliveryResolver.resolveEmailContext(userId) ?: return
         if (diff.added.isNotEmpty()) {
             planInviteDispatcher.dispatch(
-                ctx.email, emailProperties.from, emailProperties.fromName,
+                ctx.email, emailProperties.scheduling.from, emailProperties.scheduling.fromName,
                 AgreedPlan(diff.added, summary = ""), ctx.locale,
             )
         }
         if (diff.changed.isNotEmpty()) {
             planInviteDispatcher.dispatchUpdates(
-                ctx.email, emailProperties.from, emailProperties.fromName,
+                ctx.email, emailProperties.scheduling.from, emailProperties.scheduling.fromName,
                 AgreedPlan(diff.changed, summary = ""), ctx.locale,
             )
         }
         if (diff.removed.isNotEmpty()) {
             planInviteDispatcher.dispatchCancellations(
-                ctx.email, emailProperties.from, emailProperties.fromName,
+                ctx.email, emailProperties.scheduling.from, emailProperties.scheduling.fromName,
                 diff.removed, ctx.locale,
             )
         }
@@ -146,8 +146,8 @@ class PlanFinalizationService(
         log.debug("Dispatching {} calendar invite(s) for user {}", plan.tasks.sumOf { it.slots.size }, userId)
         planInviteDispatcher.dispatch(
             userEmail = ctx.email,
-            organizerEmail = emailProperties.from,
-            organizerName = emailProperties.fromName,
+            organizerEmail = emailProperties.scheduling.from,
+            organizerName = emailProperties.scheduling.fromName,
             plan = plan,
             locale = ctx.locale,
         )

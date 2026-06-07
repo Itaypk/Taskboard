@@ -72,10 +72,21 @@ tasker:
       window-seconds: 3600
   email:
     enabled: ${TASKER_EMAIL_ENABLED:false}
-    from: ${TASKER_EMAIL_FROM:}
-    from-name: ${TASKER_EMAIL_FROM_NAME:Tasker}
-    smtp:
-      host: ${TASKER_EMAIL_SMTP_HOST:smtp.protonmail.ch}
-      port: ${TASKER_EMAIL_SMTP_PORT:587}
-      username: ${TASKER_EMAIL_SMTP_USERNAME:}
-      password: ${TASKER_EMAIL_SMTP_PASSWORD:}
+    # Critical path: login / register / verification magic links.
+    auth:
+      from: ${TASKER_EMAIL_AUTH_FROM:}
+      from-name: ${TASKER_EMAIL_AUTH_FROM_NAME:Backlog.fyi}
+      smtp:
+        host: ${TASKER_EMAIL_AUTH_SMTP_HOST:smtp.protonmail.ch}
+        port: ${TASKER_EMAIL_AUTH_SMTP_PORT:587}
+        username: ${TASKER_EMAIL_AUTH_SMTP_USERNAME:}
+        password: ${TASKER_EMAIL_AUTH_SMTP_PASSWORD:}
+    # Scheduling: calendar invitations for planned time blocks.
+    scheduling:
+      from: ${TASKER_EMAIL_SCHEDULING_FROM:}
+      from-name: ${TASKER_EMAIL_SCHEDULING_FROM_NAME:Backlog.fyi}
+      smtp:
+        host: ${TASKER_EMAIL_SCHEDULING_SMTP_HOST:smtp.protonmail.ch}
+        port: ${TASKER_EMAIL_SCHEDULING_SMTP_PORT:587}
+        username: ${TASKER_EMAIL_SCHEDULING_SMTP_USERNAME:}
+        password: ${TASKER_EMAIL_SCHEDULING_SMTP_PASSWORD:}

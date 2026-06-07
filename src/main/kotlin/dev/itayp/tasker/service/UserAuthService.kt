@@ -90,6 +90,53 @@ class UserAuthService(
         user.telegramFirstName = userCrypto.encrypt(user.id!!, data.firstName)
     }
 
+    /**
+     * Logs in (or registers) by a verified email address, applying the collision rules:
+     *  - a user already owns this *verified* email -> log into that account (ensure an email identity);
+     *  - a user owns this email but it's *unverified* -> [EmailLoginOutcome.UnverifiedConflict]
+     *    (don't auto-merge; they should sign in with their existing method and verify in settings);
+     *  - nobody owns it -> register a fresh account with a verified email identity.
+     *
+     * The caller is responsible for having proven ownership of [email] (the magic-link click).
+     */
+    @Transactional
+    fun loginByEmail(email: String): EmailLoginOutcome {
+        val normalised = email.trim().lowercase()
+        val emailHash = EmailHasher.hash(normalised)
+        val existing = userRepository.findByEmailHash(emailHash)
+        if (existing != null) {
+            if (existing.emailVerifiedAt == null) {
+                logger.info("Email login refused: address belongs to an unverified account {}", existing.id)
+                return EmailLoginOutcome.UnverifiedConflict
+            }
+            // Verified owner: ensure the email identity exists (e.g. legacy rows), then log in.
+            val now = clock.instant()
+            attachIdentityIfMissing(existing.id!!, AuthProvider.EMAIL, emailHash, verified = true, now = now)
+            existing.lastLoginAt = now
+            logger.debug("Logged in existing user {} via email", existing.id)
+            return EmailLoginOutcome.Success(userRepository.save(existing))
+        }
+
+        val user = loginOrRegister(
+            provider = AuthProvider.EMAIL,
+            providerUserId = emailHash,
+            verified = true,
+            onExisting = { /* no email identity can exist here: findByEmailHash was null */ },
+            onCreate = { u ->
+                u.email = userCrypto.encrypt(u.id!!, normalised)
+                u.emailHash = emailHash
+                u.emailVerifiedAt = clock.instant()
+            },
+        )
+        return EmailLoginOutcome.Success(user)
+    }
+
+    private fun attachIdentityIfMissing(userId: UUID, provider: String, providerUserId: String, verified: Boolean, now: Instant) {
+        if (authIdentityRepository.findByProviderAndProviderUserId(provider, providerUserId) == null) {
+            attachIdentity(userId, provider, providerUserId, verified, now)
+        }
+    }
+
     @Transactional
     fun ensureDevUser(userId: UUID, telegramId: Long): UserEntity {
         val existing = userRepository.findById(userId).orElse(null)

@@ -35,29 +35,20 @@ class EmailIntegrationTest {
 
     /** Builds a live SMTP channel from `.env.test` values, or skips the test. */
     private fun buildChannel(env: Map<String, String>): SmtpEmailChannel {
-        val props = EmailProperties(
-            enabled = true,
-            from = env.getValue("TASKER_EMAIL_FROM"),
-            fromName = env.getOrDefault("TASKER_EMAIL_FROM_NAME", "Backlog.fyi Test"),
-            smtp = EmailProperties.SmtpConfig(
-                host = env.getValue("TASKER_EMAIL_SMTP_HOST"),
-                port = env.getValue("TASKER_EMAIL_SMTP_PORT").toInt(),
-                username = env.getValue("TASKER_EMAIL_SMTP_USERNAME"),
-                password = env.getValue("TASKER_EMAIL_SMTP_PASSWORD"),
-            ),
-        )
+        val from = env.getValue("TASKER_EMAIL_FROM")
+        val fromName = env.getOrDefault("TASKER_EMAIL_FROM_NAME", "Backlog.fyi Test")
         val sender = JavaMailSenderImpl().apply {
-            host = props.smtp.host
-            port = props.smtp.port
-            username = props.smtp.username
-            password = props.smtp.password
+            host = env.getValue("TASKER_EMAIL_SMTP_HOST")
+            port = env.getValue("TASKER_EMAIL_SMTP_PORT").toInt()
+            username = env.getValue("TASKER_EMAIL_SMTP_USERNAME")
+            password = env.getValue("TASKER_EMAIL_SMTP_PASSWORD")
             javaMailProperties = Properties().apply {
                 setProperty("mail.smtp.auth", "true")
                 setProperty("mail.smtp.starttls.enable", "true")
                 setProperty("mail.smtp.starttls.required", "true")
             }
         }
-        return SmtpEmailChannel(sender, props)
+        return SmtpEmailChannel(sender, from, fromName)
     }
 
     @Test

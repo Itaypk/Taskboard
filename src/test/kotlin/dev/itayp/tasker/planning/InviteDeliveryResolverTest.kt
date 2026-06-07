@@ -33,7 +33,7 @@ class InviteDeliveryResolverTest {
         userRepository,
         userSettingsService,
         crypto,
-        EmailProperties(enabled = emailEnabled, from = "noreply@backlog.fyi", fromName = "Backlog.fyi"),
+        EmailProperties(enabled = emailEnabled),
     )
 
     private fun stubVerifiedOptIn(email: String = "alice@example.com") {

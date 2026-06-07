@@ -128,6 +128,86 @@ class UserAuthServiceTest {
     }
 
     @Test
+    fun `loginByEmail registers a new account when the address is unknown`() {
+        val email = "new@example.com"
+        val hash = EmailHasher.hash(email)
+        whenever(userRepository.findByEmailHash(hash)).thenReturn(null)
+        whenever(authIdentityRepository.findByProviderAndProviderUserId(AuthProvider.EMAIL, hash)).thenReturn(null)
+        whenever(userRepository.save(any<UserEntity>())).thenAnswer { it.arguments[0] as UserEntity }
+
+        val outcome = service.loginByEmail(email)
+
+        assertThat(outcome).isInstanceOf(EmailLoginOutcome.Success::class.java)
+        val user = (outcome as EmailLoginOutcome.Success).user
+        assertThat(user.emailHash).isEqualTo(hash)
+        assertThat(user.emailVerifiedAt).isEqualTo(fixedNow)
+        assertThat(crypto.decrypt(user.id!!, user.email)).isEqualTo(email)
+        verify(userService).initializeNewUser(eq(user.id!!))
+
+        val identity = argumentCaptor<AuthIdentityEntity>()
+        verify(authIdentityRepository).save(identity.capture())
+        assertThat(identity.firstValue.provider).isEqualTo(AuthProvider.EMAIL)
+        assertThat(identity.firstValue.providerUserId).isEqualTo(hash)
+        assertThat(identity.firstValue.verifiedAt).isEqualTo(fixedNow)
+    }
+
+    @Test
+    fun `loginByEmail normalises case and whitespace before hashing`() {
+        val hash = EmailHasher.hash("new@example.com")
+        whenever(userRepository.findByEmailHash(hash)).thenReturn(null)
+        whenever(authIdentityRepository.findByProviderAndProviderUserId(AuthProvider.EMAIL, hash)).thenReturn(null)
+        whenever(userRepository.save(any<UserEntity>())).thenAnswer { it.arguments[0] as UserEntity }
+
+        val outcome = service.loginByEmail("  NEW@Example.com  ")
+
+        val user = (outcome as EmailLoginOutcome.Success).user
+        assertThat(user.emailHash).isEqualTo(hash)
+        assertThat(crypto.decrypt(user.id!!, user.email)).isEqualTo("new@example.com")
+    }
+
+    @Test
+    fun `loginByEmail logs into the existing owner of a verified address`() {
+        val email = "owner@example.com"
+        val hash = EmailHasher.hash(email)
+        val existing = UserEntity().apply {
+            id = UUID.fromString("00000000-0000-0000-0000-0000000000ee")
+            emailHash = hash
+            emailVerifiedAt = Instant.parse("2026-01-01T00:00:00Z")
+            createdAt = Instant.parse("2026-01-01T00:00:00Z")
+        }
+        whenever(userRepository.findByEmailHash(hash)).thenReturn(existing)
+        whenever(authIdentityRepository.findByProviderAndProviderUserId(AuthProvider.EMAIL, hash))
+            .thenReturn(AuthIdentityEntity().apply { userId = existing.id })
+        whenever(userRepository.save(any<UserEntity>())).thenAnswer { it.arguments[0] as UserEntity }
+
+        val outcome = service.loginByEmail(email)
+
+        assertThat(outcome).isInstanceOf(EmailLoginOutcome.Success::class.java)
+        assertThat((outcome as EmailLoginOutcome.Success).user.id).isEqualTo(existing.id)
+        assertThat(existing.lastLoginAt).isEqualTo(fixedNow)
+        verify(userService, never()).initializeNewUser(any())
+        verify(authIdentityRepository, never()).save(any<AuthIdentityEntity>())
+    }
+
+    @Test
+    fun `loginByEmail refuses an address owned by an unverified account`() {
+        val email = "pending@example.com"
+        val hash = EmailHasher.hash(email)
+        val existing = UserEntity().apply {
+            id = UUID.fromString("00000000-0000-0000-0000-0000000000ef")
+            emailHash = hash
+            emailVerifiedAt = null
+        }
+        whenever(userRepository.findByEmailHash(hash)).thenReturn(existing)
+
+        val outcome = service.loginByEmail(email)
+
+        assertThat(outcome).isEqualTo(EmailLoginOutcome.UnverifiedConflict)
+        verify(userRepository, never()).save(any<UserEntity>())
+        verify(userService, never()).initializeNewUser(any())
+    }
+
+    @Test
     fun `createDemoUser provisions a channel-less user with no auth identity`() {
         whenever(userRepository.save(any<UserEntity>())).thenAnswer { it.arguments[0] as UserEntity }
 
