@@ -1,0 +1,229 @@
+# Decoupling auth from Telegram — plan
+
+Status: **draft / planning**. No code changed yet beyond this document.
+
+## Goal
+
+Today Telegram is the *only* way to register, and it is woven through the app as both an
+**identity** and a **communication channel**. We want to decouple these so that:
+
+- Telegram is no longer *required* to register. It keeps a central role, but becomes one
+  login method among several.
+- Users can register with **email** (passwordless magic link) now, and additional methods
+  (Google OAuth, etc.) can be added later without schema churn.
+- The app behaves correctly for users with **no communication channel at all** (e.g. Google
+  OAuth without email sharing). Such a user can still use AI features through the web UI
+  planning drawer; they simply have no push/scheduled channel.
+
+Decisions locked for this plan:
+
+- **Identity model:** a separate `auth_identities` table (one user → many provider identities).
+- **Email login:** passwordless **magic link**, reusing the existing email-verification + SMTP
+  machinery.
+- We are in limited beta and may make **breaking schema changes**, including wiping/reseeding
+  prod (per `CLAUDE.md`).
+
+## What we found (current coupling)
+
+The good news: the session layer is already decoupled. `TaskerPrincipal` carries only a
+`userId: UUID` (`security/TaskerPrincipal.kt`), `SessionAuthenticator.authenticate` takes any
+principal, and `telegram_id` is already a nullable, unique column. The **demo-login** flow
+(`controller/DemoAuthController.kt` → `UserAuthService.createDemoUser`) already mints fully
+functional users with **no** `telegram_id`, which proves the rest of the app tolerates
+channel-less identities. The coupling that remains is concentrated in two areas.
+
+### A. Identity / registration (the real blocker)
+
+- `controller/AuthController.kt` exposes a single login endpoint, `POST /api/auth/telegram`.
+- `service/UserAuthService.kt`:
+  - `loginOrRegisterByTelegram` is the only real registration path; every new user is created
+    with a `telegramId` set (lines 37–48).
+  - `ensureDevUser(userId, telegramId)` also requires a telegram id; dev passes the sentinel
+    `DEV_USER_TELEGRAM_ID = 0L` (`config/DevAuthConstants.kt`).
+- `repository/UserRepository.kt`: `findByTelegramId` is the only identity-based lookup used in
+  auth. (`findByEmailVerificationToken` already exists for the verify-email flow.)
+- Identity columns live directly on `users` (`jpa/UserEntity.kt`): `telegram_id` (unique),
+  plus `email` / `email_hash` (unique) / `email_verified_at` / `email_verification_token`.
+
+### B. Communication / scheduling channel
+
+- `planning/PlanningSessionScheduler.kt` (lines 84–96): scheduled weekly planning is
+  hard-wired to Telegram — it reads `user.telegramId` as the chat id and **silently returns**
+  if it is null. So a channel-less or email-only user with a `planningCron` set gets nothing.
+- `channel/telegram/TelegramChannel.kt`: inbound Telegram messages are routed by
+  `findByTelegramId`; unknown senders get a "Please sign up at backlog.fyi" reply. This is fine
+  to keep — it is the Telegram *front door*, not a general assumption.
+- `channel/telegram/commands/*` (`/plan`, `/current`): Telegram-only on-demand entry points.
+- The **web planning drawer** already works with **no** channel assumption:
+  `controller/WebPlanningController.kt` drives `WeeklyPlanningOrchestrator` through a
+  `BufferedConversationChannel` and never touches `telegramId`. This is the path channel-less
+  users rely on, and it already exists.
+- **Notifications/delivery** are already abstracted behind an *eligibility* idea:
+  `planning/InviteDeliveryResolver.kt` resolves whether a user can receive calendar invites
+  (email enabled + verified + setting on) and `describeDeliveryMethods` tells the planner, in
+  plain language, when a user has **"NO active reminder/notification delivery method"**. This
+  is the precedent we extend: "no channel" is already a first-class, handled state for delivery
+  — we make it first-class for *registration and scheduling* too.
+
+### Channel abstraction (already present)
+
+- `channel/ConversationChannel.kt` — bidirectional (Telegram, buffered-web).
+- `channel/OutboundChannel.kt` — one-way push (SMTP email, logging fallback).
+
+The interfaces exist; what is missing is a **selector** that picks a conversation channel for a
+user, and a graceful "this user has no conversation channel" answer for scheduling.
+
+## Target design
+
+### 1. `auth_identities` table
+
+A user has zero-or-more identities, each from a provider. Login = look up the identity, resolve
+to its `user_id`, create the session. Registration = create a user (if the identity is new) and
+attach the identity. Linking a second method later = attach another row to the same `user_id`.
+
+```
+auth_identities
+  id                UUID  PK
+  user_id           UUID  FK -> users(id), not null, indexed
+  provider          VARCHAR  not null   -- 'telegram' | 'email' | 'google' | ...
+  provider_user_id  VARCHAR  not null   -- telegram id as text / email_hash / google 'sub'
+  verified_at       TIMESTAMP null      -- when ownership was proven (e.g. magic-link click)
+  created_at        TIMESTAMP not null
+  last_login_at     TIMESTAMP null
+  -- unique (provider, provider_user_id)  -> one external identity maps to one user
+```
+
+Notes:
+- `provider_user_id` is a **non-secret stable handle**. For Telegram it is the numeric id; for
+  email it is the **`email_hash`** (SHA-256 of normalized email — same scheme already used on
+  `users.email_hash`), never the plaintext. Plaintext email stays encrypted on `users.email`.
+- Profile/display data (telegram username/first-name/photo, the encrypted email) **stays on
+  `users`** — those are user attributes, not identity keys. We are only moving the *lookup keys*
+  into `auth_identities`.
+- A user with rows only for providers that carry no channel (e.g. just `google`) is the
+  channel-less case and is fully valid.
+
+#### Migration (changeset `005-auth-identities.xml`, additive + backfill)
+
+Because we are additive-only against a real Postgres (`CLAUDE.md`), this is a *new* changeset,
+not an edit of `001-schema.xml`:
+
+1. `createTable auth_identities` with the unique constraint above.
+2. Backfill: for every `users` row with `telegram_id`, insert a `('telegram', telegram_id)`
+   identity; for every row with a non-null `email_hash` **and** `email_verified_at`, insert a
+   verified `('email', email_hash)` identity. (SQL `INSERT ... SELECT`, runs in the changeset.)
+3. Leave `users.telegram_id` / `email_hash` columns in place for now (read path moves to the
+   new table; we can drop the unique constraints / columns in a later changeset once nothing
+   reads them — or, given beta, fold it into a reseed). **Do not** drop in the same changeset.
+
+> Alternative we explicitly considered and rejected: keeping per-provider nullable columns on
+> `users`. It makes account-linking and the 4th provider awkward and keeps lookups per-column.
+> The user chose the `auth_identities` table for exactly this forward-looking reason.
+
+### 2. Identity-centric service layer
+
+Introduce a thin abstraction so each provider plugs in the same way:
+
+- `AuthIdentityEntity` + `AuthIdentityRepository`
+  - `findByProviderAndProviderUserId(provider, providerUserId): AuthIdentityEntity?`
+  - `findAllByUserId(userId): List<AuthIdentityEntity>`
+- `UserAuthService` (refactor):
+  - Generalize the current Telegram-specific logic into:
+    `loginOrRegister(provider, providerUserId, verified, profileUpdater): UserEntity`
+    1. look up identity → if found, touch `last_login_at`, run `profileUpdater`, return its user;
+    2. else create a `UserEntity` (the existing DEK / `initializeNewUser` dance from
+       `loginOrRegisterByTelegram` lines 36–49, factored out), attach the identity, return.
+  - `loginOrRegisterByTelegram` becomes a thin caller of the above (`provider='telegram'`,
+    `providerUserId = telegramId.toString()`, profileUpdater sets username/first-name/photo).
+  - Dev/demo users get explicit identities too (or none, for demo) instead of the `0L` sentinel.
+
+This keeps the careful ordering that exists today (persist user row before `ensureUserKey` so
+the `user_data_key` FK is satisfied) — see `UserAuthService.kt:34–49`.
+
+### 3. Email magic-link login
+
+Reuse the existing verification infra (`EmailVerificationService`, the `email_verification_token`
++ `*_expires_at` columns, SMTP `OutboundChannel`). Flow:
+
+1. `POST /api/auth/email/request { email }` (unauthenticated, CSRF-exempt like the other login
+   endpoints per `CLAUDE.md`): normalize + hash the email, generate a single-use, short-TTL
+   token, store it (keyed so we can resolve it back to the email on click), and send a localized
+   "click to sign in" email. **Always return 200** regardless of whether the address is known —
+   no account enumeration.
+2. `GET /api/auth/email/callback?token=…` (or a `POST` from a tiny SPA page): validate the token
+   (exists, unexpired, unused), then `loginOrRegister('email', emailHash, verified=true, …)`,
+   storing the encrypted plaintext email + `email_verified_at` on the user, mark token used,
+   create the session via `SessionAuthenticator`, redirect into the app.
+
+Design points:
+- This is **both** registration and login — first click creates the account, later clicks log in.
+- A verified email identity automatically makes the user eligible for calendar invites via the
+  existing `InviteDeliveryResolver` (verified email + setting). Nice reuse, no new delivery code.
+- Reuse / refactor the existing settings-email verification rather than duplicating token logic;
+  consider unifying both under one token service.
+- Token must be single-use and rate-limited per email/IP to prevent abuse of the send endpoint.
+
+### 4. Channel-less correctness (scheduling + planner expectations)
+
+- **Scheduler:** generalize `PlanningSessionScheduler.runPlanningSession` to ask a new
+  `ConversationChannelResolver` for the user's scheduled channel. If the user has a Telegram
+  identity → `TelegramConversationChannel` (today's behavior). If not → there is no push channel,
+  so a scheduled run cannot *deliver* a conversation. Options, in order of preference:
+  - **Preferred for v1:** only register a cron for users who actually have a deliverable channel
+    (gate `scheduleFor` on "has a conversation channel"), and surface scheduling in the web UI as
+    unavailable/"needs Telegram or email" for channel-less users. This avoids firing cron jobs
+    that can only no-op.
+  - Later: an in-app/"next time you open the drawer" nudge or an email-initiated planning link
+    for email-only users.
+- **Planner prompt:** `InviteDeliveryResolver.describeDeliveryMethods` already tells the model
+  when there is no reminder channel — keep using it so the assistant never promises a
+  notification that will not arrive. No change needed beyond making sure email-verified users
+  flip it to the "you'll get a calendar invite" branch (they already do).
+- **Audit for hard `telegramId!!` / non-null assumptions** before shipping: the known ones are
+  `PlanningSessionScheduler` (handled above) and `TelegramChannel` (front-door, fine). Grep for
+  `telegramId` across `planning/`, `channel/`, and any notification code as part of the work.
+
+### 5. Frontend
+
+The redesigned welcome page (`auth/LoginPage.tsx`) already has Telegram wired and **Google /
+email buttons stubbed with a "Soon" badge**. For this milestone:
+
+- Wire the **email** button to a small inline form → `POST /api/auth/email/request` → "check your
+  inbox" confirmation. Leave Google stubbed (out of scope).
+- Handle the magic-link landing route (a new top-level SPA route, e.g. `/auth/email`), which
+  means adding it to `controller/SpaForwardController.kt` (per `CLAUDE.md`'s routing note).
+- `AuthUser` (`auth/authApi.ts`) currently exposes telegram\* + email. Once a user can have *no*
+  telegram and *no* email, make sure the shell/header degrades gracefully (display name fallback,
+  no "telegram first name" assumption). The planning drawer already works channel-agnostically.
+
+## Phasing
+
+1. **Schema + identity layer (no behavior change):** add `auth_identities`, backfill, introduce
+   `AuthIdentityEntity`/repo, refactor `UserAuthService` to the generalized `loginOrRegister`
+   with Telegram as the first caller. Telegram login keeps working byte-for-byte. Ship + verify.
+2. **Email magic-link login:** new endpoints + token reuse, wire the welcome-page email button,
+   add the SPA landing route. Ship behind `TASKER_EMAIL_ENABLED` (already exists).
+3. **Channel-less hardening:** generalize the scheduler / channel resolver, gate cron on a
+   deliverable channel, audit non-null `telegramId` assumptions, frontend display-name fallbacks.
+4. **(Later, out of scope)** Google OAuth as a third provider — drops in as another
+   `loginOrRegister('google', sub, …)` caller + identity rows, no schema change.
+5. **(Later)** Once nothing reads `users.telegram_id` / `email_hash` as a lookup key, retire
+   those columns/constraints in a dedicated changeset (or during a beta reseed).
+
+## Open questions / risks
+
+- **Account linking UX:** the table supports one person having Telegram + email + Google on one
+  `user_id`, but we have not designed *how* a logged-in user links a second method (settings
+  flow) or what happens when a magic-link email matches an existing Telegram-only account. For
+  v1 we can treat each provider as creating/owning its own account and design linking later —
+  but we should decide the collision rule before email ships (proposal: if a verified email
+  already exists on a user, the magic link logs into *that* user).
+- **Email deliverability** is now on the critical *login* path, not just notifications — a
+  bounced/delayed magic-link mail means a user cannot get in. Monitor send failures; keep
+  Telegram as the always-available fallback during beta.
+- **Token security:** single-use, short TTL, constant-time compare, rate-limited send, no
+  enumeration. The settings-email verification flow should be unified with this so there is one
+  hardened token path.
+- **Encryption:** `email` is encrypted at rest under the user DEK; `email_hash` is the only
+  thing stored in `auth_identities`. Confirm no new field needs encryption when we add it
+  (per `CLAUDE.md` privacy rule).
