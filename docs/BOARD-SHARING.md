@@ -279,33 +279,14 @@ needed since the address came from the inviter). Refusing/expiring and re-inviti
 
 ### 9. Export format v2 (migration bridge)
 
-Bump `formatVersion` to **2** and nest content under boards. **Crucially, the Phase-0 reset happens
-*before* multi-board/sharing ship** — at reset time every user has exactly **one** board (their
-migrated default), so v2 only has to wrap today's content under a single board object. It does
-**not** need to solve multi-user shared-board round-tripping (there are none yet).
+The prod reset is bridged by extending the existing export/import to `formatVersion: 2` — v1
+reshaped to nest `categories`/`tags`/`tasks` under a `boards[]` array. **Crucially, the Phase-0
+reset happens *before* multi-board/sharing ship**, so every account exports exactly **one** board;
+v2 never has to represent multiple or shared boards. The export side ships on a **separate,
+prod-safe branch** (it only reshapes read-only JSON — no schema change), decoupled from this
+heavily-tested refactor branch.
 
-```jsonc
-{
-  "formatVersion": 2,
-  "exportedAt": "…",
-  "user": { … },          // unchanged (personal profile)
-  "settings": { … },      // unchanged (personal settings)
-  "boards": [
-    {
-      "name": "My Board",
-      "role": "OWNER",
-      "categories": [ … ],  // as in v1, but per board
-      "tags":       [ … ],
-      "tasks":      [ … ]   // as in v1, plus optional "assignee" (self only at migration time)
-    }
-  ]
-}
-```
-
-Import recreates each board the user owns, mints a `board_data_key`, and re-encrypts task content
-under it. Validation/precondition rules carry over from v1 (import only onto a fresh account).
-Post-Phase-2 shared-board round-tripping (who recreates a shared board, how others re-join) is
-**out of scope** for the migration and deferred.
+**The full format spec and export/import behavior live in `docs/export-format-v2.md`.**
 
 ### 10. Frontend
 
@@ -330,7 +311,9 @@ is incremental.
    `BoardCryptoService` and re-key task content to the board DEK; repoint all
    task/category/tag/change-event/watermark access from `user_id` to `board_id` behind a membership
    check; extend export to v2. Ships looking **identical** to today (one implicit board each).
-   Delivered via **reset + reseed**, with the export(v1)→import(v2) bridge so beta users keep data.
+   Delivered via **reset + reseed**, with the export→import bridge so beta users keep data.
+   **Concrete implementation plan: `docs/BOARD-SHARING-PHASE0.md`. Export/import bridge spec (separate
+   prod-safe branch): `docs/export-format-v2.md`.**
 2. **Phase 1 — multi-board, single user.** Board CRUD + switcher UI; planner spans the user's
    boards (§7); finalize the board-in-request convention (§4). No sharing yet. Delivers need 2.
 3. **Phase 2 — sharing.** Invitations + consent dialog (§8), `MEMBER`/`OWNER` enforcement,
@@ -355,5 +338,3 @@ is incremental.
   `board_membership(user_id)` and `(board_id, user_id)`.
 - **Shared-board export round-trip** post-Phase-2 (coordinating who recreates a shared board) —
   deferred; not needed for the Phase-0 migration.
-</content>
-</invoke>
