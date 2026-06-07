@@ -11,8 +11,14 @@ The scope of the individual idea is varying - could be small UI improvements, or
   planning summary immutable and store revise deltas separately, or only accept the new summary when
   it materially grew rather than shrank.
 - Client side error messages - more friendly? error reference? email support?
+- `tasker-frontend/index.html` still reflects the pre-redesign welcome page: the `#prerendered-landing`
+  crawler fallback, plus the meta/OG/Twitter/JSON-LD copy, describe the old Telegram-only flow and the
+  previous headline/pitch. Update them to match the redesigned landing (new headline "Tasks you keep /
+  actually doing.", multi-provider sign-in: Telegram + Google + Email). Verbiage needs a human pass
+  before shipping.
 - Fonts look bad in Hebrew (especially the header - serif - ones). Either choose one that support multilanguage, or use language-specific ones.
 - Persisted calendar invite SEQUENCE counter. Plan-revise updates re-send same-time slot edits (label/title/notes) with a fixed `SEQUENCE:1`. A second same-slot edit in a later session sends `SEQUENCE:1` again, which strict calendar clients may not re-apply. Persisting a per-slot revision counter (incremented on each update) would make repeated updates robust. Low priority: time moves go through cancel + fresh invite, which is unaffected.
+- Switch over to UUID v7 (better DB performance for indexes).
 
 ## UI - Tasks
 - Better "mark as done"
@@ -20,6 +26,7 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Edit existing tags; add "description" to a tag (consider if needed)
 - Task list Markdown (subtasks) checkboxes - makes it possible to check directly from the main screen
 - Filter chips can still wrap on very small screens even after the "Week" shortening. If it keeps bugging us, consider a segmented control or horizontally-scrollable chip row on mobile.
+- The sliders icon semantically leans "settings," but the menu also holds Stats and Sign out. Still needs improvement 
 
 ## Assistant - Mid-week response
 - Re-use the existing "suggest_task" tool for a standalone /add command (would need more development for conversational adjustments - this will be a conversation). 

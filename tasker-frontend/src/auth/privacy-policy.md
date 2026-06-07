@@ -1,8 +1,9 @@
-Last updated: April 28, 2026
+Last updated: June 7, 2026
 
 ## TL;DR
 
 * Your data is used only to run the service
+* Your private data is encrypted at rest
 * Your data is not sold
 * You can export or delete your data anytime
 * Third-party services are involved (Telegram, AI providers, etc.)
@@ -94,6 +95,8 @@ Logs are retained for up to 30 days.
 ## 9. Security
 
 Reasonable effort is made to protect your data.
+
+Sensitive user content — such as task titles, descriptions, notes, and integration messages — is encrypted at rest.
 
 However, no system is completely secure, and no guarantees are made regarding absolute security.
 
