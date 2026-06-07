@@ -51,6 +51,7 @@ class UserAuthService(
             authIdentityRepository.save(identity)
             user.lastLoginAt = now
             onExisting(user)
+            logger.debug("Logged in existing user {} via {}", user.id, provider)
             return userRepository.save(user)
         }
 
@@ -68,6 +69,7 @@ class UserAuthService(
         val saved = userRepository.save(draft)
         attachIdentity(newId, provider, providerUserId, verified, now)
         userService.initializeNewUser(saved.id!!)
+        logger.info("Registered new user {} via {}", saved.id, provider)
         return saved
     }
 
