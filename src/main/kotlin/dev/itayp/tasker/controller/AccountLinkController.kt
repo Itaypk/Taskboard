@@ -24,8 +24,8 @@ import org.springframework.web.bind.annotation.RestController
 
 /**
  * "Connected accounts": link additional login methods to the signed-in user, list them, and
- * unlink. All endpoints require authentication (they fall under the session chain's `/api/**`
- * rule) and the mutating ones are CSRF-protected — unlike the login endpoints, the user is
+ * unlink. All endpoints require authentication (they fall under the session chain's authenticated
+ * api rule) and the mutating ones are CSRF-protected — unlike the login endpoints, the user is
  * already signed in here.
  */
 @RestController
