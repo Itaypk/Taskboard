@@ -86,18 +86,22 @@ body {
   position: relative;
 }
 
-/* Cream wall — paper texture + gentle radial warmth.
-   The SVG is a tiled paper grain; the gradient is the vignette. */
+/* Cream wall — shared by the board and the welcome page so both share one
+   look. Layers (top→bottom): two faint dot patterns, a radial vignette, a
+   tiled paper-grain SVG, and the warm vertical wall gradient. */
 body::before {
   content: '';
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background:
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(160,130,80,0.05) 0 1px, transparent 1px),
+    radial-gradient(circle at 70% 80%, rgba(160,130,80,0.04) 0 1px, transparent 1px),
     radial-gradient(ellipse 120% 90% at 50% 40%, transparent 0%, rgba(0,0,0,0) 60%, rgba(70,50,10,0.10) 100%),
     url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.13  0 0 0 0 0.10  0 0 0 0 0.06  0 0 0 0.08 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
     linear-gradient(180deg, var(--wall) 0%, var(--wall-2) 100%);
+  background-size: 6px 6px, 9px 9px, auto, auto, auto;
 }
 
 button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
