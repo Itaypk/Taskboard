@@ -9,6 +9,7 @@ import dev.itayp.tasker.planning.WeekResolver
 import dev.itayp.tasker.planning.WeeklyPlanningOrchestrator
 import dev.itayp.tasker.repository.BacklogTaskRepository
 import dev.itayp.tasker.security.TaskerPrincipal
+import dev.itayp.tasker.service.BoardMembershipService
 import dev.itayp.tasker.service.DemoDataSeeder
 import dev.itayp.tasker.service.UserSettingsService
 import org.springframework.context.annotation.Profile
@@ -39,17 +40,19 @@ class DevPlanningController(
     private val demoDataSeeder: DemoDataSeeder,
     private val taskRepository: BacklogTaskRepository,
     private val userSettingsService: UserSettingsService,
+    private val boardMembershipService: BoardMembershipService,
     private val clock: Clock,
 ) {
 
     @PostMapping("/seed")
     fun seed(@AuthenticationPrincipal principal: TaskerPrincipal): ResponseEntity<Map<String, Any>> {
-        val existing = taskRepository.findAllByUserIdOrderBySortKeyAsc(principal.userId).size
+        val boardId = boardMembershipService.resolveSoleBoard(principal.userId)
+        val existing = taskRepository.findAllByBoardIdOrderBySortKeyAsc(boardId).size
         if (existing > 0) {
             return ResponseEntity.ok(mapOf("seeded" to false, "existingTaskCount" to existing))
         }
         demoDataSeeder.seed(principal.userId)
-        val total = taskRepository.findAllByUserIdOrderBySortKeyAsc(principal.userId).size
+        val total = taskRepository.findAllByBoardIdOrderBySortKeyAsc(boardId).size
         return ResponseEntity.ok(mapOf("seeded" to true, "existingTaskCount" to total))
     }
 

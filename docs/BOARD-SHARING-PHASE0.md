@@ -68,8 +68,13 @@ board_data_key                     -- mirrors user_data_key exactly, keyed by bo
 | `backlog_task` | `board_id UUID not null` (FK → board), `assignee_user_id UUID null` (FK → users) | `user_id` column + its FK |
 | `backlog_task_category` | `board_id UUID not null` (FK → board) | `user_id` column + its FK |
 | `backlog_task_tag` | `board_id UUID not null` (FK → board) | `user_id` column + its FK |
-| `backlog_task_change_event` | `board_id UUID not null` (FK → board) | `user_id` column + its FK |
-| `backlog_task_watermark` | re-key to `board_id` (PK/owning column) | `user_id` |
+
+> **Implementation note (deviation from the original plan):** `backlog_task_change_event` and
+> `backlog_task_watermark` stay **user-owned** in Phase 0. They are an audit log / staleness signal,
+> naturally per-actor, and with one board per user they behave identically while keeping the planner
+> orchestrator, the `/has-changes` polling controller, and the `BacklogTaskChangeService` signatures
+> untouched — a big reduction in blast radius. Re-keying them to the board is deferred to the phase
+> where shared boards actually need a cross-member change feed.
 
 > Use the project's `LONGVARCHAR`/blob conventions for the wrapped key and `board.name` (match
 > `user_data_key` and the existing `BYTEA` task columns). `assignee_user_id` is added now (cheap)

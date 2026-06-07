@@ -193,8 +193,8 @@
             <column name="id" type="UUID">
                 <constraints primaryKey="true" nullable="false"/>
             </column>
-            <column name="user_id" type="UUID">
-                <constraints nullable="false" foreignKeyName="fk_backlog_task_category_user" references="users(id)"/>
+            <column name="board_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_backlog_task_category_board" references="board(id)"/>
             </column>
             <column name="label" type="VARCHAR(255)">
                 <constraints nullable="false"/>
@@ -208,8 +208,8 @@
             <column name="id" type="UUID">
                 <constraints primaryKey="true" nullable="false"/>
             </column>
-            <column name="user_id" type="UUID">
-                <constraints nullable="false" foreignKeyName="fk_backlog_task_tag_user" references="users(id)"/>
+            <column name="board_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_backlog_task_tag_board" references="board(id)"/>
             </column>
             <column name="label" type="VARCHAR(255)">
                 <constraints nullable="false"/>
@@ -226,10 +226,18 @@
             <column name="id" type="UUID">
                 <constraints primaryKey="true" nullable="false"/>
             </column>
-            <column name="user_id" type="UUID">
-                <constraints nullable="false" foreignKeyName="fk_backlog_task_user" references="users(id)"/>
+            <column name="board_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_backlog_task_board" references="board(id)"/>
             </column>
-            <!-- Encrypted under the user's DEK. -->
+            <!--
+                Who has claimed/been assigned this task. Null = unassigned (up for grabs). Only
+                meaningful on shared boards; written from a later phase. FK to users so a member
+                leaving is handled by account cleanup.
+            -->
+            <column name="assignee_user_id" type="UUID">
+                <constraints nullable="true" foreignKeyName="fk_backlog_task_assignee" references="users(id)"/>
+            </column>
+            <!-- Encrypted under the board's DEK. -->
             <column name="title" type="BYTEA">
                 <constraints nullable="false"/>
             </column>
@@ -279,8 +287,8 @@
             </column>
         </createTable>
 
-        <createIndex tableName="backlog_task" indexName="idx_backlog_task_user_sort_key">
-            <column name="user_id"/>
+        <createIndex tableName="backlog_task" indexName="idx_backlog_task_board_sort_key">
+            <column name="board_id"/>
             <column name="sort_key"/>
         </createIndex>
 

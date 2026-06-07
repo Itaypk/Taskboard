@@ -1,11 +1,12 @@
 package dev.itayp.tasker.planning
 
-import dev.itayp.tasker.crypto.UserCryptoService
+import dev.itayp.tasker.crypto.BoardCryptoService
 import dev.itayp.tasker.jpa.toDomain
 import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.TaskPriority
 import dev.itayp.tasker.model.TaskStatus
 import dev.itayp.tasker.repository.BacklogTaskRepository
+import dev.itayp.tasker.service.BoardMembershipService
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
@@ -30,7 +31,8 @@ class PlannerTaskSelector(
     private val backlogTaskRepository: BacklogTaskRepository,
     private val plannedTaskRepository: PlannedTaskRepository,
     private val plannedTaskSlotRepository: PlannedTaskSlotRepository,
-    private val userCrypto: UserCryptoService,
+    private val boardCrypto: BoardCryptoService,
+    private val boardMembershipService: BoardMembershipService,
     private val clock: Clock,
 ) {
 
@@ -43,9 +45,10 @@ class PlannerTaskSelector(
         urgentSlots: Int = DEFAULT_URGENT_SLOTS,
         staleSlots: Int = DEFAULT_STALE_SLOTS,
     ): PlannerTaskSelection {
+        val boardId = boardMembershipService.resolveSoleBoard(userId)
         val tasks = backlogTaskRepository
-            .findAllByUserIdAndStatus(userId, TaskStatus.TODO)
-            .map { it.toDomain(userCrypto) }
+            .findAllByBoardIdAndStatus(boardId, TaskStatus.TODO)
+            .map { it.toDomain(boardCrypto) }
             .filter { it.relevantFrom == null || !it.relevantFrom.isAfter(today) }
 
         val totalSlots = urgentSlots + staleSlots

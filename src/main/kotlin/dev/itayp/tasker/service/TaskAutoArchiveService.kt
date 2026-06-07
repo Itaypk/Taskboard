@@ -1,6 +1,6 @@
 package dev.itayp.tasker.service
 
-import dev.itayp.tasker.crypto.UserCryptoService
+import dev.itayp.tasker.crypto.BoardCryptoService
 import dev.itayp.tasker.model.TaskStatus
 import dev.itayp.tasker.planning.BacklogTaskChangeService
 import dev.itayp.tasker.repository.BacklogTaskRepository
@@ -17,7 +17,8 @@ class TaskAutoArchiveService(
     private val userSettingsRepository: UserSettingsRepository,
     private val backlogTaskRepository: BacklogTaskRepository,
     private val taskChangeService: BacklogTaskChangeService,
-    private val userCrypto: UserCryptoService,
+    private val boardCrypto: BoardCryptoService,
+    private val boardMembershipService: BoardMembershipService,
     private val clock: Clock,
 ) {
 
@@ -32,15 +33,18 @@ class TaskAutoArchiveService(
 
         for (settings in users) {
             val userId = settings.userId ?: continue
+            // auto_archive_days is a per-user setting that drives the user's own board. (When shared
+            // boards arrive, revisit whether archiving should be board-level — see docs/BOARD-SHARING.md.)
+            val boardId = runCatching { boardMembershipService.resolveSoleBoard(userId) }.getOrNull() ?: continue
             val cutoff = now.minus(settings.autoArchiveDays!!.toLong(), ChronoUnit.DAYS)
             val stale = backlogTaskRepository
-                .findAllByUserIdAndStatusAndUpdatedAtBeforeOrderBySortKeyAsc(userId, TaskStatus.DONE, cutoff)
+                .findAllByBoardIdAndStatusAndUpdatedAtBeforeOrderBySortKeyAsc(boardId, TaskStatus.DONE, cutoff)
 
             for (entity in stale) {
                 entity.status = TaskStatus.ARCHIVED
                 entity.updatedAt = now
                 backlogTaskRepository.save(entity)
-                val plaintextTitle = userCrypto.decrypt(userId, entity.title) ?: ""
+                val plaintextTitle = boardCrypto.decrypt(boardId, entity.title) ?: ""
                 taskChangeService.recordStatusChange(
                     userId, entity.id!!, plaintextTitle, TaskStatus.DONE, TaskStatus.ARCHIVED
                 )

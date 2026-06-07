@@ -18,8 +18,8 @@ open class BacklogTaskCategoryEntity {
     @GeneratedValue(strategy = GenerationType.UUID)
     var id: UUID? = null
 
-    @Column(name = "user_id")
-    var userId: UUID? = null
+    @Column(name = "board_id")
+    var boardId: UUID? = null
 
     @Column
     var label: String? = null

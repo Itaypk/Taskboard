@@ -14,15 +14,19 @@ import java.util.UUID
 @Service
 class BacklogTaskCategoryService(
     private val categoryRepository: BacklogTaskCategoryRepository,
-    private val taskRepository: BacklogTaskRepository
+    private val taskRepository: BacklogTaskRepository,
+    private val boardMembershipService: BoardMembershipService,
 ) {
 
-    fun getAllForUser(userId: UUID): List<BacklogTaskCategory> =
-        categoryRepository.findAllByUserId(userId).map { it.toDomain() }
+    fun getAllForUser(userId: UUID): List<BacklogTaskCategory> {
+        val boardId = boardMembershipService.resolveSoleBoard(userId)
+        return categoryRepository.findAllByBoardId(boardId).map { it.toDomain() }
+    }
 
     fun createCategory(userId: UUID, request: CreateCategoryRequest): BacklogTaskCategory {
+        val boardId = boardMembershipService.resolveSoleBoard(userId)
         val entity = BacklogTaskCategoryEntity().apply {
-            this.userId = userId
+            this.boardId = boardId
             this.label = request.label
             this.swatchId = CategoryColor.valueOf(request.swatchId.uppercase())
         }
@@ -30,7 +34,8 @@ class BacklogTaskCategoryService(
     }
 
     fun updateCategory(userId: UUID, id: UUID, request: UpdateCategoryRequest): BacklogTaskCategory {
-        val entity = categoryRepository.findByIdAndUserId(id, userId)
+        val boardId = boardMembershipService.resolveSoleBoard(userId)
+        val entity = categoryRepository.findByIdAndBoardId(id, boardId)
             ?: throw NoSuchElementException("Category $id not found")
         entity.label = request.label
         entity.swatchId = CategoryColor.valueOf(request.swatchId.uppercase())
@@ -38,10 +43,11 @@ class BacklogTaskCategoryService(
     }
 
     fun deleteCategory(userId: UUID, id: UUID) {
-        if (taskRepository.existsByCategoryIdAndUserId(id, userId)) {
+        val boardId = boardMembershipService.resolveSoleBoard(userId)
+        if (taskRepository.existsByCategoryIdAndBoardId(id, boardId)) {
             throw IllegalStateException("Category is in use by one or more tasks")
         }
-        categoryRepository.findByIdAndUserId(id, userId)
+        categoryRepository.findByIdAndBoardId(id, boardId)
             ?: throw NoSuchElementException("Category $id not found")
         categoryRepository.deleteById(id)
     }

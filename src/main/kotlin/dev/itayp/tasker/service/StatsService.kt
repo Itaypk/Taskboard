@@ -27,6 +27,7 @@ class StatsService(
     private val taskRepository: BacklogTaskRepository,
     private val sessionRepository: PlanningSessionRepository,
     private val changeEventRepository: BacklogTaskChangeEventRepository,
+    private val boardMembershipService: BoardMembershipService,
     private val clock: Clock,
 ) {
 
@@ -34,8 +35,10 @@ class StatsService(
     fun computeStats(userId: UUID): UserStats {
         val joinedAt = userRepository.findById(userId).orElse(null)?.createdAt
 
-        val openTasks = taskRepository.countByUserIdAndStatus(userId, TaskStatus.TODO)
-        val completedTasks = taskRepository.countByUserIdAndStatus(userId, TaskStatus.DONE)
+        // Task counts are board-scoped; change events and planning sessions remain user-scoped.
+        val boardId = boardMembershipService.resolveSoleBoard(userId)
+        val openTasks = taskRepository.countByBoardIdAndStatus(boardId, TaskStatus.TODO)
+        val completedTasks = taskRepository.countByBoardIdAndStatus(boardId, TaskStatus.DONE)
         val planningSessions = sessionRepository.countByUserIdAndStatus(userId, PlanningSessionStatus.COMPLETED)
 
         val events = changeEventRepository.findAllByUserIdOrderByOccurredAtAsc(userId)

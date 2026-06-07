@@ -1,9 +1,11 @@
 package dev.itayp.tasker.service
 
 import dev.itayp.tasker.crypto.BoardCryptoService
+import dev.itayp.tasker.jpa.BacklogTaskCategoryEntity
 import dev.itayp.tasker.jpa.BoardEntity
 import dev.itayp.tasker.jpa.BoardMembershipEntity
 import dev.itayp.tasker.model.BoardRole
+import dev.itayp.tasker.repository.BacklogTaskCategoryRepository
 import dev.itayp.tasker.repository.BoardMembershipRepository
 import dev.itayp.tasker.repository.BoardRepository
 import org.springframework.stereotype.Service
@@ -16,14 +18,16 @@ import java.util.UUID
 class BoardService(
     private val boardRepository: BoardRepository,
     private val boardMembershipRepository: BoardMembershipRepository,
+    private val categoryRepository: BacklogTaskCategoryRepository,
     private val boardCrypto: BoardCryptoService,
     private val clock: Clock,
 ) {
 
     /**
-     * Creates a board owned by [userId]: the board row, its DEK, and an OWNER membership.
-     * Returns the new board id. The board row is persisted before [BoardCryptoService.ensureBoardKey]
-     * so the `board_data_key` FK is satisfied; the name is encrypted only after the DEK exists.
+     * Creates a board owned by [userId]: the board row, its DEK, an OWNER membership, and the
+     * default category set (categories are board-owned). Returns the new board id. The board row is
+     * persisted before [BoardCryptoService.ensureBoardKey] so the `board_data_key` FK is satisfied;
+     * the name is encrypted only after the DEK exists.
      */
     @Transactional
     fun createBoardForOwner(userId: UUID, name: String): UUID {
@@ -44,6 +48,14 @@ class BoardService(
             this.role = BoardRole.OWNER
             this.joinedAt = now
         })
+
+        UserService.DEFAULT_CATEGORIES.forEach { (label, color) ->
+            categoryRepository.save(BacklogTaskCategoryEntity().apply {
+                this.boardId = boardId
+                this.label = label
+                this.swatchId = color
+            })
+        }
         return boardId
     }
 
