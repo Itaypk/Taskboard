@@ -5,15 +5,16 @@ import dev.itayp.tasker.channel.OutboundMessage
 import io.micrometer.core.instrument.MeterRegistry
 
 /**
- * Wraps an [OutboundChannel] to record a Prometheus counter for every send attempt,
- * tagged by `purpose` (auth / scheduling) and `outcome` (success / failure). This is
- * the email-delivery signal we can later hook to a Grafana alert — especially on the
- * critical auth path, where a delivery failure means a user can't log in.
+ * Wraps an email [OutboundChannel] to record a Prometheus counter for every send attempt,
+ * tagged by `purpose` (auth / scheduling) and `outcome` (success / failure). This is the
+ * email-delivery signal we can later hook to a Grafana alert — especially on the critical
+ * auth path, where a delivery failure means a user can't log in.
  *
- * The counter is incremented around the delegate; a failure is counted and then
- * re-thrown so callers still see the error.
+ * Scoped to email on purpose (the `tasker.email.sent` metric is email-specific); it delegates
+ * through the generic [OutboundChannel] interface only because that's what email senders
+ * implement. The counter is incremented around the delegate; a failure is counted and re-thrown.
  */
-class MeteredOutboundChannel(
+class EmailMetricsOutboundChannel(
     private val delegate: OutboundChannel,
     private val meterRegistry: MeterRegistry,
     private val purpose: String,

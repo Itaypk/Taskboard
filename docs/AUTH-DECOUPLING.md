@@ -232,7 +232,7 @@ email buttons stubbed with a "Soon" badge**. For this milestone:
      `tasker.email.scheduling.*`), each with its own SMTP account, so a scheduling-mailbox issue
      can't break login email. `EmailVerificationService`/`EmailLoginService` use the `auth`
      channel; `CalendarInvitationComposer` uses `scheduling`. (Breaking env-var change — see CLAUDE.md.)
-   - **Delivery metric** `tasker.email.sent{purpose,outcome}` via a `MeteredOutboundChannel`
+   - **Delivery metric** `tasker.email.sent{purpose,outcome}` via an `EmailMetricsOutboundChannel`
      decorator, matching the existing `AiUsageTracker` Prometheus pattern; ready to alert in Grafana.
 
    Still gated by `TASKER_EMAIL_ENABLED` (disabled → both senders log the link instead of sending).

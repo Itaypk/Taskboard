@@ -49,6 +49,14 @@ class EmailAuthController(
             EmailLoginResult.UnverifiedConflict -> "/?emailLogin=unverified"
             EmailLoginResult.Invalid -> "/?emailLogin=invalid"
         }
-        return ResponseEntity.status(302).location(URI.create(location)).build()
+        return ResponseEntity.status(302).location(URI.create(localRedirect(location))).build()
     }
+
+    /**
+     * Defense-in-depth against open redirects: only ever redirect to a same-origin path of
+     * our own. Today every [location] is a hard-coded relative path, but this guards against a
+     * future change accidentally letting an absolute or protocol-relative URL through.
+     */
+    private fun localRedirect(path: String): String =
+        if (path.startsWith("/") && !path.startsWith("//") && !path.contains('\\')) path else "/"
 }

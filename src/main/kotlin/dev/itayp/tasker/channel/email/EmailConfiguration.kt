@@ -34,7 +34,7 @@ class EmailConfiguration(
         } else {
             LoggingEmailChannel(purpose)
         }
-        return MeteredOutboundChannel(base, meterRegistry, purpose)
+        return EmailMetricsOutboundChannel(base, meterRegistry, purpose)
     }
 
     private fun mailSender(smtp: EmailProperties.SmtpConfig): JavaMailSender =
