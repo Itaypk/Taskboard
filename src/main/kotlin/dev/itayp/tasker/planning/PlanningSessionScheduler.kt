@@ -2,9 +2,6 @@ package dev.itayp.tasker.planning
 
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ConversationChannel
-import dev.itayp.tasker.channel.telegram.TelegramConversationChannel
-import dev.itayp.tasker.channel.telegram.TelegramSessionRegistry
-import dev.itayp.tasker.repository.UserRepository
 import dev.itayp.tasker.repository.UserSettingsRepository
 import dev.itayp.tasker.service.UserPlanningScheduleChangedEvent
 import dev.itayp.tasker.service.UserSettingsService
@@ -14,7 +11,6 @@ import org.springframework.context.event.EventListener
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.scheduling.support.CronTrigger
 import org.springframework.stereotype.Component
-import org.telegram.telegrambots.meta.generics.TelegramClient
 import java.time.Clock
 import java.time.LocalDate
 import java.time.ZoneId
@@ -24,23 +20,25 @@ import java.util.concurrent.ScheduledFuture
 
 /**
  * Single-instance weekly-planning cron scheduler. Each user with a [UserSettingsEntity.planningCron]
- * gets one [ScheduledFuture] registered on the shared [TaskScheduler]; firing it kicks off
- * [WeeklyPlanningOrchestrator.start] over the user's Telegram channel.
+ * *and* a deliverable conversation channel gets one [ScheduledFuture] registered on the shared
+ * [TaskScheduler]; firing it kicks off [WeeklyPlanningOrchestrator.start] over that channel.
+ *
+ * The push channel itself is resolved by [ScheduledConversationChannelResolver], which owns the
+ * "scheduled planning needs Telegram" assumption. Users with no deliverable channel are skipped
+ * rather than scheduled into a job that could only no-op.
  *
  * Rescheduling is driven by [UserPlanningScheduleChangedEvent] published from
- * `UserSettingsService.update`. The scheduler is fail-soft: invalid cron expressions or
- * missing Telegram wiring log a warning and skip rather than throw.
+ * `UserSettingsService.update` (and should be re-published when a push channel is linked). The
+ * scheduler is fail-soft: invalid cron expressions or a missing channel log and skip rather than throw.
  */
 @Component
 class PlanningSessionScheduler(
     private val taskScheduler: TaskScheduler,
     private val settingsRepository: UserSettingsRepository,
-    private val userRepository: UserRepository,
     private val orchestrator: WeeklyPlanningOrchestrator,
     private val planningSessionService: PlanningSessionService,
     private val userSettingsService: UserSettingsService,
-    private val telegramClient: TelegramClient?,
-    private val sessionRegistry: TelegramSessionRegistry?,
+    private val channelResolver: ScheduledConversationChannelResolver,
     private val clock: Clock,
 ) {
     private val log = LoggerFactory.getLogger(PlanningSessionScheduler::class.java)
@@ -66,6 +64,13 @@ class PlanningSessionScheduler(
         futures.remove(userId)?.cancel(false)
         val settings = settingsRepository.findById(userId).orElse(null) ?: return
         val cron = settings.planningCron ?: return
+        // Don't register a cron that could only ever no-op: scheduled planning needs a channel
+        // that can push to the user unprompted. Channel-less users (e.g. email-only) are skipped;
+        // linking such a channel later should re-publish UserPlanningScheduleChangedEvent.
+        if (!channelResolver.hasDeliverableChannel(userId)) {
+            log.info("User {} has a planning cron but no deliverable channel; skipping schedule", userId)
+            return
+        }
         val zoneId = runCatching { ZoneId.of(settings.timeZone) }.getOrElse {
             log.warn("User {} has invalid time zone '{}'; skipping schedule", userId, settings.timeZone)
             return
@@ -83,17 +88,12 @@ class PlanningSessionScheduler(
 
     internal fun runPlanningSession(userId: UUID) {
         try {
-            val client = telegramClient
-            if (client == null) {
-                log.warn("Telegram is not configured; cannot start scheduled session for user {}", userId)
+            val resolved = channelResolver.resolve(userId)
+            if (resolved == null) {
+                log.warn("User {} has no deliverable channel; cannot start scheduled session", userId)
                 return
             }
-            val chatId = userRepository.findById(userId).orElse(null)?.telegramId
-            if (chatId == null) {
-                log.warn("User {} has no Telegram id; cannot start scheduled session", userId)
-                return
-            }
-            val channel: ConversationChannel = TelegramConversationChannel(chatId, client)
+            val channel: ConversationChannel = resolved.channel
 
             val targetWeek = computeTargetWeek(userId)
             val existing = planningSessionService.findSessionForWeek(userId, targetWeek)
@@ -111,14 +111,14 @@ class PlanningSessionScheduler(
                     }
                     PlanningSessionStatus.ABANDONED -> {
                         val sessionId = orchestrator.start(userId, channel, targetWeek)
-                        sessionRegistry?.put(chatId, sessionId)
+                        resolved.onSessionStarted(sessionId)
                     }
                 }
                 return
             }
 
             val sessionId = orchestrator.start(userId, channel, targetWeek)
-            sessionRegistry?.put(chatId, sessionId)
+            resolved.onSessionStarted(sessionId)
         } catch (e: Exception) {
             log.error("Failed to run scheduled planning session for user {}", userId, e)
         }

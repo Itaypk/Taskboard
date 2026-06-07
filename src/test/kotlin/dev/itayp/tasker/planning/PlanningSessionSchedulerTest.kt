@@ -1,10 +1,8 @@
 package dev.itayp.tasker.planning
 
-import dev.itayp.tasker.channel.telegram.TelegramSessionRegistry
-import dev.itayp.tasker.jpa.UserEntity
+import dev.itayp.tasker.channel.ConversationChannel
 import dev.itayp.tasker.jpa.UserSettingsEntity
 import dev.itayp.tasker.model.UserSettings
-import dev.itayp.tasker.repository.UserRepository
 import dev.itayp.tasker.repository.UserSettingsRepository
 import dev.itayp.tasker.service.UserPlanningScheduleChangedEvent
 import dev.itayp.tasker.service.UserSettingsService
@@ -22,7 +20,6 @@ import org.mockito.kotlin.whenever
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.scheduling.Trigger
 import org.springframework.scheduling.support.CronTrigger
-import org.telegram.telegrambots.meta.generics.TelegramClient
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
@@ -37,24 +34,21 @@ class PlanningSessionSchedulerTest {
 
     @Mock lateinit var taskScheduler: TaskScheduler
     @Mock lateinit var settingsRepository: UserSettingsRepository
-    @Mock lateinit var userRepository: UserRepository
     @Mock lateinit var orchestrator: WeeklyPlanningOrchestrator
     @Mock lateinit var planningSessionService: PlanningSessionService
     @Mock lateinit var userSettingsService: UserSettingsService
-    @Mock lateinit var telegramClient: TelegramClient
-    @Mock lateinit var sessionRegistry: TelegramSessionRegistry
+    @Mock lateinit var channelResolver: ScheduledConversationChannelResolver
 
     private val userId = UUID.randomUUID()
     // Fixed Wednesday 2026-05-13 UTC; Monday week-start → next week = 2026-05-18
     private val clock = Clock.fixed(Instant.parse("2026-05-13T08:00:00Z"), ZoneOffset.UTC)
 
-    private fun newScheduler(
-        client: TelegramClient? = telegramClient,
-        registry: TelegramSessionRegistry? = sessionRegistry,
-    ) = PlanningSessionScheduler(
-        taskScheduler, settingsRepository, userRepository, orchestrator,
-        planningSessionService, userSettingsService, client, registry, clock,
-    )
+    private val scheduler by lazy {
+        PlanningSessionScheduler(
+            taskScheduler, settingsRepository, orchestrator,
+            planningSessionService, userSettingsService, channelResolver, clock,
+        )
+    }
 
     private fun settings(cron: String?, tz: String = "UTC", weekStartDay: String? = "MONDAY") = UserSettingsEntity().apply {
         this.userId = this@PlanningSessionSchedulerTest.userId
@@ -82,13 +76,17 @@ class PlanningSessionSchedulerTest {
             autoArchiveDays = null,
         )
 
+    private fun resolved(started: MutableList<UUID> = mutableListOf()): ScheduledConversationChannelResolver.Resolved =
+        ScheduledConversationChannelResolver.Resolved(mock<ConversationChannel>()) { started.add(it) }
+
     @Test
-    fun `scheduleFor with non-null cron schedules a cron trigger`() {
+    fun `scheduleFor with cron and deliverable channel schedules a cron trigger`() {
         whenever(settingsRepository.findById(userId)).thenReturn(Optional.of(settings("0 30 9 * * MON")))
+        whenever(channelResolver.hasDeliverableChannel(userId)).thenReturn(true)
         val future: ScheduledFuture<Any> = mock()
         whenever(taskScheduler.schedule(any(), any<Trigger>())).thenReturn(future)
 
-        newScheduler().scheduleFor(userId)
+        scheduler.scheduleFor(userId)
 
         val triggerCaptor = argumentCaptor<Trigger>()
         verify(taskScheduler).schedule(any(), triggerCaptor.capture())
@@ -96,65 +94,61 @@ class PlanningSessionSchedulerTest {
     }
 
     @Test
+    fun `scheduleFor skips scheduling when the user has no deliverable channel`() {
+        whenever(settingsRepository.findById(userId)).thenReturn(Optional.of(settings("0 30 9 * * MON")))
+        whenever(channelResolver.hasDeliverableChannel(userId)).thenReturn(false)
+
+        scheduler.scheduleFor(userId)
+
+        verify(taskScheduler, never()).schedule(any(), any<Trigger>())
+    }
+
+    @Test
     fun `scheduleFor with null cron cancels existing future and schedules nothing`() {
         whenever(settingsRepository.findById(userId)).thenReturn(Optional.of(settings(null)))
-        newScheduler().scheduleFor(userId)
+        scheduler.scheduleFor(userId)
         verify(taskScheduler, never()).schedule(any(), any<Trigger>())
     }
 
     @Test
     fun `event listener triggers reschedule`() {
         whenever(settingsRepository.findById(userId)).thenReturn(Optional.of(settings("0 30 9 * * MON")))
+        whenever(channelResolver.hasDeliverableChannel(userId)).thenReturn(true)
         val future2: ScheduledFuture<Any> = mock()
         whenever(taskScheduler.schedule(any(), any<Trigger>())).thenReturn(future2)
 
-        newScheduler().onScheduleChanged(UserPlanningScheduleChangedEvent(userId))
+        scheduler.onScheduleChanged(UserPlanningScheduleChangedEvent(userId))
 
         verify(taskScheduler).schedule(any(), any<Trigger>())
     }
 
     @Test
-    fun `runPlanningSession skips when telegram client unavailable`() {
-        newScheduler(client = null).runPlanningSession(userId)
-        verify(orchestrator, never()).start(any(), any(), any())
-    }
-
-    @Test
-    fun `runPlanningSession skips when user has no telegram id`() {
-        whenever(userRepository.findById(userId)).thenReturn(Optional.of(UserEntity().apply {
-            id = userId
-            telegramId = null
-        }))
-        newScheduler().runPlanningSession(userId)
+    fun `runPlanningSession skips when no deliverable channel resolves`() {
+        whenever(channelResolver.resolve(userId)).thenReturn(null)
+        scheduler.runPlanningSession(userId)
         verify(orchestrator, never()).start(any(), any(), any())
     }
 
     @Test
     fun `runPlanningSession starts orchestrator with next-week target when no session exists`() {
-        val user = UserEntity().apply {
-            id = userId
-            telegramId = 12345L
-        }
-        whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
+        val started = mutableListOf<UUID>()
+        whenever(channelResolver.resolve(userId)).thenReturn(resolved(started))
         stubUserSettings()
         val targetWeek = LocalDate.parse("2026-05-18") // Monday after the fixed Wednesday
         whenever(planningSessionService.findSessionForWeek(userId, targetWeek)).thenReturn(null)
         val sessionId = UUID.randomUUID()
         whenever(orchestrator.start(eq(userId), any(), eq(targetWeek))).thenReturn(sessionId)
 
-        newScheduler().runPlanningSession(userId)
+        scheduler.runPlanningSession(userId)
 
         verify(orchestrator).start(eq(userId), any(), eq(targetWeek))
-        verify(sessionRegistry).put(12345L, sessionId)
+        assertTrue(started.contains(sessionId), "started session should be recorded against the channel")
     }
 
     @Test
     fun `runPlanningSession sends existing summary when completed session exists for target week`() {
-        val user = UserEntity().apply {
-            id = userId
-            telegramId = 12345L
-        }
-        whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
+        val resolvedChannel = resolved()
+        whenever(channelResolver.resolve(userId)).thenReturn(resolvedChannel)
         stubUserSettings()
         val targetWeek = LocalDate.parse("2026-05-18")
         val existing = PlanningSession(
@@ -169,20 +163,16 @@ class PlanningSessionSchedulerTest {
         )
         whenever(planningSessionService.findSessionForWeek(userId, targetWeek)).thenReturn(existing)
 
-        newScheduler().runPlanningSession(userId)
+        scheduler.runPlanningSession(userId)
 
-        // The channel is constructed inside runPlanningSession (TelegramConversationChannel),
-        // so we can't intercept .send() here — assert the negative: a fresh session is NOT started.
         verify(orchestrator, never()).start(any(), any(), any())
+        verify(resolvedChannel.channel).send(any())
     }
 
     @Test
     fun `runPlanningSession skips when active session exists for target week`() {
-        val user = UserEntity().apply {
-            id = userId
-            telegramId = 12345L
-        }
-        whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
+        val started = mutableListOf<UUID>()
+        whenever(channelResolver.resolve(userId)).thenReturn(resolved(started))
         stubUserSettings()
         val targetWeek = LocalDate.parse("2026-05-18")
         val existing = PlanningSession(
@@ -197,9 +187,9 @@ class PlanningSessionSchedulerTest {
         )
         whenever(planningSessionService.findSessionForWeek(userId, targetWeek)).thenReturn(existing)
 
-        newScheduler().runPlanningSession(userId)
+        scheduler.runPlanningSession(userId)
 
         verify(orchestrator, never()).start(any(), any(), any())
-        verify(sessionRegistry, never()).put(any(), any())
+        assertTrue(started.isEmpty(), "no session should be recorded when an active session already exists")
     }
 }

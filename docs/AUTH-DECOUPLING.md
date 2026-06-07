@@ -236,8 +236,18 @@ email buttons stubbed with a "Soon" badge**. For this milestone:
      decorator, matching the existing `AiUsageTracker` Prometheus pattern; ready to alert in Grafana.
 
    Still gated by `TASKER_EMAIL_ENABLED` (disabled → both senders log the link instead of sending).
-3. **Channel-less hardening:** generalize the scheduler / channel resolver, gate cron on a
-   deliverable channel, audit non-null `telegramId` assumptions, frontend display-name fallbacks.
+3. **Channel-less hardening — ✅ implemented in this PR.** Extracted
+   `ScheduledConversationChannelResolver`, which owns the "scheduled planning needs a push
+   channel (Telegram today)" assumption and returns `null` for channel-less users.
+   `PlanningSessionScheduler` now (a) gates cron registration on `hasDeliverableChannel` — a
+   channel-less user with a `planningCron` is skipped instead of scheduled into a no-op — and
+   (b) resolves the channel at fire time, recording the started session via the resolver's hook
+   rather than touching `telegramId`/`sessionRegistry` directly. Audit of `telegramId` in
+   `planning/`+`channel/` confirms the only remaining use is the legitimate Telegram inbound
+   front door (`TelegramChannel`). The frontend already degrades for channel-less users
+   (`UserMenu` falls back display name → telegram → email → "Account"), so no FE change needed.
+   > Follow-up for Phase 4: linking a push channel to an existing account should re-publish
+   > `UserPlanningScheduleChangedEvent` so a previously-skipped cron gets registered.
 4. **Account linking:** let a logged-in user attach a *second* provider to their existing
    account — most importantly an **email-first user linking Telegram** so they can use the
    Telegram planning features. Because `auth_identities` already supports many identities per
