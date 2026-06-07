@@ -77,6 +77,18 @@ class AccountService(
         // auth_identities and user_data_key both FK to users; remove last so the user row delete can proceed.
         jdbcTemplate.update("DELETE FROM auth_identities WHERE user_id = ?", userId)
         jdbcTemplate.update("DELETE FROM user_data_key WHERE user_id = ?", userId)
+
+        // Boards: in Phase 0 the user is the sole owner of each board they belong to, so the board
+        // and its key go with the account. (Shared-board ownership transfer arrives in a later phase.)
+        // board_membership FKs users, so it must be cleared before the user row is deleted.
+        val boardIds = jdbcTemplate.queryForList(
+            "SELECT board_id FROM board_membership WHERE user_id = ?", UUID::class.java, userId,
+        )
+        for (boardId in boardIds) {
+            jdbcTemplate.update("DELETE FROM board_membership WHERE board_id = ?", boardId)
+            jdbcTemplate.update("DELETE FROM board_data_key WHERE board_id = ?", boardId)
+            jdbcTemplate.update("DELETE FROM board WHERE id = ?", boardId)
+        }
     }
 
     /**

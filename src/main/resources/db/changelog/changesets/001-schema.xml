@@ -129,6 +129,66 @@
             </column>
         </createTable>
 
+        <!--
+            Boards own tasks/categories/tags (board-sharing migration; see docs/BOARD-SHARING.md).
+            A board is "private" when it has exactly one membership; sharing adds members.
+            board.name is encrypted under the board's DEK (board_data_key), shared by all members.
+        -->
+        <createTable tableName="board">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <!-- Encrypted under the board's DEK (board_data_key). -->
+            <column name="name" type="BYTEA">
+                <constraints nullable="true"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="board_membership">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="board_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_board_membership_board" references="board(id)"/>
+            </column>
+            <column name="user_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_board_membership_user" references="users(id)"/>
+            </column>
+            <column name="role" type="VARCHAR(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="joined_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addUniqueConstraint tableName="board_membership"
+                             columnNames="board_id, user_id"
+                             constraintName="uq_board_membership_board_user"/>
+
+        <createIndex tableName="board_membership" indexName="idx_board_membership_user">
+            <column name="user_id"/>
+        </createIndex>
+
+        <createTable tableName="board_data_key">
+            <column name="board_id" type="UUID">
+                <constraints primaryKey="true" nullable="false"
+                             foreignKeyName="fk_board_data_key_board" references="board(id)"/>
+            </column>
+            <column name="wrapped_dek" type="BYTEA">
+                <constraints nullable="false"/>
+            </column>
+            <column name="kek_version" type="SMALLINT" defaultValueNumeric="1">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
         <createTable tableName="backlog_task_category">
             <column name="id" type="UUID">
                 <constraints primaryKey="true" nullable="false"/>
