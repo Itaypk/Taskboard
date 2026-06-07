@@ -8,6 +8,7 @@ import dev.itayp.tasker.model.response.UserSettingsResponse
 import dev.itayp.tasker.model.response.toResponse
 import dev.itayp.tasker.repository.UserRepository
 import dev.itayp.tasker.security.TaskerPrincipal
+import dev.itayp.tasker.service.EmailAlreadyLinkedException
 import dev.itayp.tasker.service.EmailVerificationService
 import dev.itayp.tasker.service.UserSettingsService
 import jakarta.validation.Valid
@@ -15,6 +16,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.http.CacheControl
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
+import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
@@ -76,6 +78,10 @@ class UserSettingsController(
         emailVerificationService.confirmVerification(token)
         return ResponseEntity.status(302).location(URI.create("/?emailVerified=true")).build()
     }
+
+    @ExceptionHandler(EmailAlreadyLinkedException::class)
+    fun handleEmailAlreadyLinked(ex: EmailAlreadyLinkedException): ResponseEntity<Map<String, String>> =
+        ResponseEntity.status(409).body(mapOf("error" to "email_owned_by_another_account"))
 
     @GetMapping("/options")
     fun getOptions(): ResponseEntity<SettingsOptionsResponse> =

@@ -248,14 +248,23 @@ email buttons stubbed with a "Soon" badge**. For this milestone:
    (`UserMenu` falls back display name → telegram → email → "Account"), so no FE change needed.
    > Follow-up for Phase 4: linking a push channel to an existing account should re-publish
    > `UserPlanningScheduleChangedEvent` so a previously-skipped cron gets registered.
-4. **Account linking:** let a logged-in user attach a *second* provider to their existing
-   account — most importantly an **email-first user linking Telegram** so they can use the
-   Telegram planning features. Because `auth_identities` already supports many identities per
-   user, the backend is mostly an "attach identity to the current `userId`" operation guarded
-   against stealing an identity already owned by another account; the work is the **UI/UX**
-   (settings "connected accounts" screen, the link/confirm flow, and the cross-login "is this
-   you? link them" prompt from the collision rules). Design it provider-agnostically — adding
-   Google later should be one more row in the same screen, not a new flow.
+4. **Account linking — ✅ implemented in this PR.** A logged-in user can attach more login
+   methods (a "Connected accounts" section in Settings):
+   - **Link Telegram** (`POST /api/auth/link/telegram`) — synchronous; the widget HMAC proves
+     ownership. On success it sets the Telegram profile, attaches the identity, and re-publishes
+     `UserPlanningScheduleChangedEvent` (the Phase-3 follow-up: a previously-skipped cron now
+     registers because a push channel exists).
+   - **Link email** — handled by making the existing settings email-verify flow create an email
+     identity on confirmation, so "verify your email" == "email is now a login method". The
+     verify request also refuses an address already owned by another account (409).
+   - **List** (`GET /api/auth/identities`) and **unlink**
+     (`DELETE /api/auth/identities/{provider}`), guarded so you can't remove your last login
+     method; unlinking Telegram re-publishes the reschedule event (channel gone → cron skipped).
+   - **Conflict policy (decided):** linking an identity owned by a *different* account is refused
+     with guidance (409) — no data-bearing account merge. Merging two populated accounts remains
+     out of scope.
+   - Provider-agnostic: a future Google method is one more `link/google` caller + a row in the
+     same screen, no new flow. `AccountLinkService`/`AccountLinkController` are the seam.
 5. **(Later, out of scope)** Google OAuth as a provider — drops in as another
    `loginOrRegister('google', sub, …)` caller + identity rows, no schema change.
 6. **(Later)** Once nothing reads `users.telegram_id` / `email_hash` as a lookup key, retire

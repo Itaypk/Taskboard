@@ -46,3 +46,23 @@ export const requestEmailLogin = (email: string): Promise<void> =>
 
 export const logout = (): Promise<void> =>
     request<void>('/api/auth/logout', { method: 'POST' });
+
+export interface LinkedIdentity {
+    provider: string;
+    linkedAt: string | null;
+    lastLoginAt: string | null;
+}
+
+export const fetchIdentities = (): Promise<LinkedIdentity[]> =>
+    request<LinkedIdentity[]>('/api/auth/identities');
+
+// Link a Telegram account to the signed-in user (CSRF-protected; the user is already authenticated).
+export const linkTelegram = (payload: TelegramWidgetPayload): Promise<AuthUser> =>
+    request<AuthUser>('/api/auth/link/telegram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+
+export const unlinkIdentity = (provider: string): Promise<void> =>
+    request<void>(`/api/auth/identities/${provider}`, { method: 'DELETE' });

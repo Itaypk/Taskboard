@@ -12,6 +12,13 @@ data class MeResponse(
     val email: String?,
 )
 
+/** One linked login method for the "connected accounts" settings screen. Provider-agnostic. */
+data class LinkedIdentityResponse(
+    val provider: String,
+    val linkedAt: String?,
+    val lastLoginAt: String?,
+)
+
 fun UserEntity.toMeResponse(crypto: UserCryptoService): MeResponse {
     val ownerId = id ?: error("UserEntity must have an id")
     return MeResponse(

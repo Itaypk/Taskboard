@@ -1362,6 +1362,41 @@ input[type="number"] { -moz-appearance: textfield; }
   min-width: 0;
 }
 
+.connected-accounts {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.connected-account {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.12));
+  border-radius: 8px;
+}
+
+.connected-account__name {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.connected-account__telegram-slot {
+  min-height: 34px;
+  margin-top: 4px;
+}
+
+.settings-error {
+  color: #b3261e;
+  font-size: 13px;
+  margin-top: 6px;
+}
+
 .settings-toggle {
   display: flex;
   align-items: flex-start;
