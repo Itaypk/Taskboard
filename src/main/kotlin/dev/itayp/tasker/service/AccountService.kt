@@ -54,9 +54,9 @@ class AccountService(
         // Boards owned by this user (Phase 0: sole owner of each). Board-owned content
         // (tasks/categories/tags) is deleted here; the board rows themselves go at the very end,
         // once nothing references them. Shared-board ownership transfer arrives in a later phase.
-        val boardIds = jdbcTemplate.queryForList(
+        val boardIds: List<UUID> = jdbcTemplate.queryForList(
             "SELECT board_id FROM board_membership WHERE user_id = ?", UUID::class.java, userId,
-        )
+        ).filterNotNull()
         for (boardId in boardIds) {
             // Task join table has no ON DELETE CASCADE, so join rows must go before the tasks.
             val taskIds = taskRepository.findAllByBoardIdOrderBySortKeyAsc(boardId).mapNotNull { it.id }

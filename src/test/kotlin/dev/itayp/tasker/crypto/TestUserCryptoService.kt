@@ -53,3 +53,21 @@ fun noopUserCryptoService(): UserCryptoService {
     }
     return mock
 }
+
+/**
+ * Identity-only stub for [BoardCryptoService], the board-scoped twin of [noopUserCryptoService]:
+ * encrypt(boardId, s) -> s.toByteArray(UTF-8); decrypt(boardId, b) -> String(b). Use for tests
+ * where board content crypto is not what's under test.
+ */
+fun noopBoardCryptoService(): BoardCryptoService {
+    val mock = mock<BoardCryptoService>()
+    Mockito.lenient().`when`(mock.encrypt(any(), anyOrNull<String>())).thenAnswer {
+        val plaintext = it.arguments[1] as String?
+        plaintext?.toByteArray(Charsets.UTF_8)
+    }
+    Mockito.lenient().`when`(mock.decrypt(any(), anyOrNull<ByteArray>())).thenAnswer {
+        val ciphertext = it.arguments[1] as ByteArray?
+        ciphertext?.toString(Charsets.UTF_8)
+    }
+    return mock
+}
