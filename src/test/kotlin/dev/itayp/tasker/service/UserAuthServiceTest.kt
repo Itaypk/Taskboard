@@ -1,7 +1,10 @@
 package dev.itayp.tasker.service
 
 import dev.itayp.tasker.crypto.newTestUserCryptoService
+import dev.itayp.tasker.jpa.AuthIdentityEntity
+import dev.itayp.tasker.jpa.AuthProvider
 import dev.itayp.tasker.jpa.UserEntity
+import dev.itayp.tasker.repository.AuthIdentityRepository
 import dev.itayp.tasker.repository.UserRepository
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -18,6 +21,7 @@ import java.util.*
 class UserAuthServiceTest {
 
     @Mock lateinit var userRepository: UserRepository
+    @Mock lateinit var authIdentityRepository: AuthIdentityRepository
     @Mock lateinit var userService: UserService
     @Mock lateinit var demoDataSeeder: DemoDataSeeder
 
@@ -26,7 +30,7 @@ class UserAuthServiceTest {
     private val crypto = newTestUserCryptoService()
 
     private val service: UserAuthService by lazy {
-        UserAuthService(userRepository, userService, demoDataSeeder, crypto, clock)
+        UserAuthService(userRepository, authIdentityRepository, userService, demoDataSeeder, crypto, clock)
     }
 
     private fun authData(telegramId: Long = 42L) = TelegramAuthData(
@@ -38,8 +42,8 @@ class UserAuthServiceTest {
     )
 
     @Test
-    fun `new telegram id creates user and seeds default categories`() {
-        whenever(userRepository.findByTelegramId(42L)).thenReturn(null)
+    fun `new telegram identity creates user, attaches identity, and seeds default categories`() {
+        whenever(authIdentityRepository.findByProviderAndProviderUserId(AuthProvider.TELEGRAM, "42")).thenReturn(null)
         whenever(userRepository.save(any<UserEntity>())).thenAnswer { it.arguments[0] as UserEntity }
 
         val saved = service.loginOrRegisterByTelegram(authData())
@@ -49,10 +53,17 @@ class UserAuthServiceTest {
         assertThat(saved.createdAt).isEqualTo(fixedNow)
         assertThat(saved.lastLoginAt).isEqualTo(fixedNow)
         verify(userService).initializeNewUser(eq(saved.id!!))
+
+        val identity = argumentCaptor<AuthIdentityEntity>()
+        verify(authIdentityRepository).save(identity.capture())
+        assertThat(identity.firstValue.userId).isEqualTo(saved.id)
+        assertThat(identity.firstValue.provider).isEqualTo(AuthProvider.TELEGRAM)
+        assertThat(identity.firstValue.providerUserId).isEqualTo("42")
+        assertThat(identity.firstValue.verifiedAt).isEqualTo(fixedNow)
     }
 
     @Test
-    fun `existing telegram id updates fields and does not re-seed categories`() {
+    fun `existing telegram identity updates fields and does not re-seed categories`() {
         val existing = UserEntity().apply {
             id = UUID.fromString("00000000-0000-0000-0000-0000000000aa")
             telegramId = 42L
@@ -62,7 +73,15 @@ class UserAuthServiceTest {
         }
         // Pre-existing users already have a DEK from their original registration.
         crypto.ensureUserKey(existing.id!!)
-        whenever(userRepository.findByTelegramId(42L)).thenReturn(existing)
+        val identity = AuthIdentityEntity().apply {
+            id = UUID.randomUUID()
+            userId = existing.id
+            provider = AuthProvider.TELEGRAM
+            providerUserId = "42"
+            verifiedAt = existing.createdAt
+        }
+        whenever(authIdentityRepository.findByProviderAndProviderUserId(AuthProvider.TELEGRAM, "42")).thenReturn(identity)
+        whenever(userRepository.findById(existing.id!!)).thenReturn(Optional.of(existing))
         val captor = argumentCaptor<UserEntity>()
         whenever(userRepository.save(captor.capture())).thenAnswer { it.arguments[0] as UserEntity }
 
@@ -89,7 +108,7 @@ class UserAuthServiceTest {
     }
 
     @Test
-    fun `ensureDevUser creates and seeds when user is missing`() {
+    fun `ensureDevUser creates user, attaches identity, and seeds when user is missing`() {
         val devId = UUID.fromString("00000000-0000-0000-0000-0000000000dd")
         whenever(userRepository.findById(devId)).thenReturn(Optional.empty())
         whenever(userRepository.save(any<UserEntity>())).thenAnswer { it.arguments[0] as UserEntity }
@@ -100,5 +119,23 @@ class UserAuthServiceTest {
         assertThat(result.telegramId).isEqualTo(99L)
         assertThat(result.createdAt).isEqualTo(fixedNow)
         verify(userService).initializeNewUser(eq(devId))
+
+        val identity = argumentCaptor<AuthIdentityEntity>()
+        verify(authIdentityRepository).save(identity.capture())
+        assertThat(identity.firstValue.userId).isEqualTo(devId)
+        assertThat(identity.firstValue.provider).isEqualTo(AuthProvider.TELEGRAM)
+        assertThat(identity.firstValue.providerUserId).isEqualTo("99")
+    }
+
+    @Test
+    fun `createDemoUser provisions a channel-less user with no auth identity`() {
+        whenever(userRepository.save(any<UserEntity>())).thenAnswer { it.arguments[0] as UserEntity }
+
+        val result = service.createDemoUser()
+
+        assertThat(result.isDemo).isTrue()
+        verify(userService).initializeNewUser(eq(result.id!!))
+        verify(demoDataSeeder).seed(eq(result.id!!))
+        verify(authIdentityRepository, never()).save(any<AuthIdentityEntity>())
     }
 }

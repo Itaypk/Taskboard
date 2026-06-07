@@ -8,5 +8,6 @@
     <include file="db/changelog/changesets/002-planned-task-backlog-required.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changesets/003-backlog-task-watermark.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changesets/004-ai-usage-event.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changesets/005-auth-identities.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

@@ -163,6 +163,21 @@ Design points:
   consider unifying both under one token service.
 - Token must be single-use and rate-limited per email/IP to prevent abuse of the send endpoint.
 
+#### Collision rules (decided)
+
+When a magic-link login resolves an email that already relates to an existing account, the
+callback must decide whether to log into that account, create a new one, or refuse. Rules:
+
+| Situation | Behaviour |
+|-----------|-----------|
+| Email matches an existing user with that email **verified** | Log into that existing user (attach an `email` identity if one isn't already present). |
+| Email matches an existing user with that email **unverified** | **Fail** the login: ask the user to sign in with Telegram and verify the email in settings, and show a support/help email for "I don't recognise this account". This is a rare edge case — keep it cheap, do not auto-merge. |
+| Email belongs to no user | Create a new account with an `email` identity (the normal registration path). |
+| User has a Telegram account with **no** email, then signs in by email | Two separate accounts result. If they later authenticate with the *other* method from within one of these accounts, **offer account linking**; if they decline, disallow the cross-login. (Linking itself is Phase 4 — see below.) |
+
+The matching key is `email_hash`, so we never compare plaintext. "Verified" is decided by the
+existing `users.email_verified_at` (equivalently a verified `email` identity once backfilled).
+
 ### 4. Channel-less correctness (scheduling + planner expectations)
 
 - **Scheduler:** generalize `PlanningSessionScheduler.runPlanningSession` to ask a new
@@ -198,26 +213,37 @@ email buttons stubbed with a "Soon" badge**. For this milestone:
 
 ## Phasing
 
-1. **Schema + identity layer (no behavior change):** add `auth_identities`, backfill, introduce
-   `AuthIdentityEntity`/repo, refactor `UserAuthService` to the generalized `loginOrRegister`
-   with Telegram as the first caller. Telegram login keeps working byte-for-byte. Ship + verify.
-2. **Email magic-link login:** new endpoints + token reuse, wire the welcome-page email button,
-   add the SPA landing route. Ship behind `TASKER_EMAIL_ENABLED` (already exists).
+1. **Schema + identity layer (no behavior change) — ✅ implemented in this PR.** Added the
+   `auth_identities` table + Postgres backfill (`005-auth-identities.xml`), `AuthIdentityEntity`
+   / `AuthIdentityRepository`, and refactored `UserAuthService` to a generalized
+   `loginOrRegister(provider, providerUserId, verified, onExisting, onCreate)` with Telegram as
+   the first caller. Telegram login keeps working byte-for-byte; demo users stay channel-less
+   (no identity); the dev user gets a Telegram identity so a dev Telegram login can't collide on
+   `users.telegram_id`.
+2. **Email magic-link login:** new endpoints + token reuse, the collision rules above, wire the
+   welcome-page email button, add the SPA landing route. Ship behind `TASKER_EMAIL_ENABLED`.
 3. **Channel-less hardening:** generalize the scheduler / channel resolver, gate cron on a
    deliverable channel, audit non-null `telegramId` assumptions, frontend display-name fallbacks.
-4. **(Later, out of scope)** Google OAuth as a third provider — drops in as another
+4. **Account linking:** let a logged-in user attach a *second* provider to their existing
+   account — most importantly an **email-first user linking Telegram** so they can use the
+   Telegram planning features. Because `auth_identities` already supports many identities per
+   user, the backend is mostly an "attach identity to the current `userId`" operation guarded
+   against stealing an identity already owned by another account; the work is the **UI/UX**
+   (settings "connected accounts" screen, the link/confirm flow, and the cross-login "is this
+   you? link them" prompt from the collision rules). Design it provider-agnostically — adding
+   Google later should be one more row in the same screen, not a new flow.
+5. **(Later, out of scope)** Google OAuth as a provider — drops in as another
    `loginOrRegister('google', sub, …)` caller + identity rows, no schema change.
-5. **(Later)** Once nothing reads `users.telegram_id` / `email_hash` as a lookup key, retire
+6. **(Later)** Once nothing reads `users.telegram_id` / `email_hash` as a lookup key, retire
    those columns/constraints in a dedicated changeset (or during a beta reseed).
 
 ## Open questions / risks
 
-- **Account linking UX:** the table supports one person having Telegram + email + Google on one
-  `user_id`, but we have not designed *how* a logged-in user links a second method (settings
-  flow) or what happens when a magic-link email matches an existing Telegram-only account. For
-  v1 we can treat each provider as creating/owning its own account and design linking later —
-  but we should decide the collision rule before email ships (proposal: if a verified email
-  already exists on a user, the magic link logs into *that* user).
+- **Account linking UX:** the collision rules above are decided (verified-email match logs in;
+  unverified-email match fails with guidance; otherwise create). Linking two *existing* accounts
+  is deferred to Phase 4 and is mostly UI/UX work. Open sub-question: when offering "is this you?
+  link them", how do we re-prove ownership of the *other* account before merging — re-auth with
+  that provider in the same session is the likely answer.
 - **Email deliverability** is now on the critical *login* path, not just notifications — a
   bounced/delayed magic-link mail means a user cannot get in. Monitor send failures; keep
   Telegram as the always-available fallback during beta.
