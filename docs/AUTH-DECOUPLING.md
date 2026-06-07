@@ -1,6 +1,9 @@
 # Decoupling auth from Telegram — plan
 
-Status: **draft / planning**. No code changed yet beyond this document.
+Status: **Phases 1–4 implemented** (identity layer, email magic-link login, channel-less
+hardening, account linking — see the per-phase ✅ notes under [Phasing](#phasing)). **Phases 5–6
+deferred**: Google OAuth login, and retiring the legacy `telegram_id` / `email_hash` lookup
+columns. This doc remains the source of truth for the design and the remaining work.
 
 ## Goal
 

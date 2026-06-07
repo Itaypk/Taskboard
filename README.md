@@ -9,7 +9,7 @@ Product spec: [`docs/SPEC.md`](docs/SPEC.md).
 Incomplete, but functional:
 
 - [x] Backlog CRUD (tasks, categories, tags) with a pinboard-style React frontend.
-- [x] Passwordless auth — Telegram Login Widget + dev-login bypass for local iteration.
+- [x] Passwordless auth, decoupled from Telegram — Telegram Login Widget, email magic-link, demo sandbox, and a dev-login bypass for local iteration. Multiple login methods per account ("connected accounts") via an `auth_identities` model. Login no longer requires a Telegram account.
 - [x] Session-cookie security, CSRF, Liquibase-managed schema.
 - [x] Prometheus metrics (`/actuator/prometheus`), health probes (`/actuator/health/liveness`, `/actuator/health/readiness`), structured JSON logging via Logstash encoder.
 - [x] Production config: PostgreSQL via env vars, secure session cookie, graceful shutdown.
@@ -21,7 +21,7 @@ Incomplete, but functional:
 - **Backend**: Kotlin 2.3 + Spring Boot 4.0 on JVM 25, Spring Data JPA, Spring Security 7, Liquibase.
 - **Database**: Postgres in dev/prod, H2 for tests and in-memory dev.
 - **Frontend**: React 19 + TypeScript + Vite 8, bundled into the backend at build time and served same-origin.
-- **Auth**: Telegram Login Widget → HMAC verify → `HttpSession` cookie (`SameSite=Lax`, `HttpOnly`, `Secure` in prod). Prometheus scraper uses HTTP Basic Auth on a separate stateless filter chain.
+- **Auth**: multiple providers resolved through an `auth_identities` table (Telegram HMAC, email magic-link, demo, dev) → `HttpSession` cookie (`SameSite=Lax`, `HttpOnly`, `Secure` in prod). `TaskerPrincipal` carries only `userId`, so the session layer is provider-agnostic. Prometheus scraper uses HTTP Basic Auth on a separate stateless filter chain. See [`docs/AUTH-DECOUPLING.md`](docs/AUTH-DECOUPLING.md).
 - **Observability**: Micrometer + Prometheus registry; health probes for liveness/readiness; structured JSON log rotation via Logstash encoder (prod profile).
 
 ## Getting started
@@ -63,7 +63,10 @@ npm run dev
 
 You'll need a dev proxy to forward `/api/**` to `:8080` (not set up by default; the bundled-into-backend flow is the primary dev loop today).
 
-## Telegram login setup (when you're ready)
+## Telegram login setup (optional)
+
+Telegram is no longer required to sign in — email magic-link, the demo sandbox, and (in dev) the dev-login button all work without it. Set this up when you want the Telegram login button and the Telegram-driven weekly planning conversation.
+
 
 1. `/newbot` with [@BotFather](https://t.me/BotFather), save the token.
 2. `/setdomain` on your bot → point at the HTTPS host you'll serve from (Telegram won't attach the widget to bare `http://localhost`).
@@ -75,7 +78,7 @@ You'll need a dev proxy to forward `/api/**` to `:8080` (not set up by default; 
    ```
 4. Restart `./gradlew bootRun`. The login page will render the Telegram button instead of (in addition to, in dev) the dev-login button.
 
-Without these vars, the dev-login button is the only way in, which is fine for local work.
+Without these vars, the dev-login button (and the demo sandbox) get you in for local work; email magic-link login also works once email is configured.
 
 ## Repo layout
 
@@ -136,12 +139,15 @@ Required environment variables:
 | `TASKER_DB_URL` | JDBC URL, e.g. `jdbc:postgresql://localhost:5432/taskboard` |
 | `TASKER_DB_USERNAME` | Postgres user |
 | `TASKER_DB_PASSWORD` | Postgres password |
+| `TASKER_DATA_KEK` | base64-encoded 32-byte key wrapping per-user DEKs for at-rest encryption. **Losing it loses all encrypted data.** Generate with `openssl rand -base64 32` |
 | `TASKER_TELEGRAM_BOT_TOKEN` | Bot token for HMAC verification |
 | `TASKER_TELEGRAM_BOT_USERNAME` | Bot username (cosmetic) |
 | `TASKER_PROMETHEUS_USERNAME` | Basic Auth username for `/actuator/prometheus` |
 | `TASKER_PROMETHEUS_PASSWORD` | Basic Auth password for `/actuator/prometheus` |
 
-Startup fails fast if any of the database or Prometheus credentials are absent (no fallback defaults in the prod profile).
+Startup fails fast if any of the database, data-encryption, or Prometheus credentials are absent (no fallback defaults in the prod profile).
+
+**Email** (optional, for login magic links and calendar invites) is split into two independent SMTP senders — `auth` (login/register/verification) and `scheduling` (calendar invites). Enable with `TASKER_EMAIL_ENABLED=true` and set the `TASKER_EMAIL_AUTH_*` / `TASKER_EMAIL_SCHEDULING_*` variables (from address + SMTP host/port/username/password per sender). Full list in [`CLAUDE.md`](CLAUDE.md). When disabled, both senders log instead of sending (the magic link is printed to the log).
 
 ### Observability endpoints
 
