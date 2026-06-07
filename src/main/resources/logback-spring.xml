@@ -47,6 +47,8 @@
     <logger name="org.springframework" level="INFO" />
     <logger name="dev.itayp.tasker" level="DEBUG" />
     <springProfile name="dev">
-        <logger name="org.springframework.jdbc.core" level="TRACE" />
+        <!-- Enable for detailed SQL logs - noisy!
+            <logger name="org.springframework.jdbc.core" level="TRACE" />
+        -->
     </springProfile>
 </configuration>
