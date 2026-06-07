@@ -3,7 +3,11 @@ package dev.itayp.tasker.service
 import dev.itayp.tasker.channel.OutboundChannel
 import dev.itayp.tasker.channel.email.EmailMessage
 import dev.itayp.tasker.config.AppProperties
+import org.springframework.beans.factory.annotation.Qualifier
 import dev.itayp.tasker.crypto.UserCryptoService
+import dev.itayp.tasker.jpa.AuthIdentityEntity
+import dev.itayp.tasker.jpa.AuthProvider
+import dev.itayp.tasker.repository.AuthIdentityRepository
 import dev.itayp.tasker.repository.UserRepository
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.EnableConfigurationProperties
@@ -19,7 +23,8 @@ import java.util.UUID
 @EnableConfigurationProperties(AppProperties::class)
 class EmailVerificationService(
     private val userRepository: UserRepository,
-    private val outboundChannel: OutboundChannel,
+    private val authIdentityRepository: AuthIdentityRepository,
+    @Qualifier("authEmailChannel") private val outboundChannel: OutboundChannel,
     private val appProperties: AppProperties,
     private val clock: Clock,
     private val emailTemplateEngine: EmailTemplateEngine,
@@ -32,10 +37,17 @@ class EmailVerificationService(
 
     fun requestVerification(userId: UUID, email: String) {
         val normalised = email.trim().lowercase()
+        val emailHash = EmailHasher.hash(normalised)
+        // An address can back at most one account (unique email_hash). Refuse rather than let the
+        // unique constraint surface as a 500 — and don't let one user claim another's address.
+        val owner = userRepository.findByEmailHash(emailHash)
+        if (owner != null && owner.id != userId) {
+            throw EmailAlreadyLinkedException()
+        }
         val user = userRepository.findById(userId).orElseThrow { NoSuchElementException("User not found") }
         val token = UUID.randomUUID().toString().replace("-", "")
         user.email = userCrypto.encrypt(userId, normalised)
-        user.emailHash = EmailHasher.hash(normalised)
+        user.emailHash = emailHash
         user.emailVerifiedAt = null
         user.emailVerificationToken = token
         user.emailVerificationTokenExpiresAt = clock.instant().plus(Duration.ofHours(24))
@@ -70,12 +82,33 @@ class EmailVerificationService(
         val expiry = user.emailVerificationTokenExpiresAt ?: return false
         if (clock.instant().isAfter(expiry)) return false
 
-        user.emailVerifiedAt = clock.instant()
+        val now = clock.instant()
+        user.emailVerifiedAt = now
         user.emailVerificationToken = null
         user.emailVerificationTokenExpiresAt = null
         userRepository.save(user)
+
+        // A verified email is also a login method: attach an email identity so the address can be
+        // used for passwordless login (and shows up as a connected account).
+        val emailHash = user.emailHash
+        if (emailHash != null &&
+            authIdentityRepository.findByProviderAndProviderUserId(AuthProvider.EMAIL, emailHash) == null
+        ) {
+            authIdentityRepository.save(AuthIdentityEntity().apply {
+                id = UUID.randomUUID()
+                userId = user.id
+                provider = AuthProvider.EMAIL
+                providerUserId = emailHash
+                verifiedAt = now
+                createdAt = now
+                lastLoginAt = now
+            })
+        }
 
         log.info("Email verified for userId={}", user.id)
         return true
     }
 }
+
+/** The submitted address already backs a different account. */
+class EmailAlreadyLinkedException : RuntimeException("Email already linked to another account")

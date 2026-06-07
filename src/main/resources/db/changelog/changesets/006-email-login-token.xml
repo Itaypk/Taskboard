@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Pending passwordless magic-link logins. No FK to users: a token can be the first
+        thing that exists for a brand-new account. The email is stored encrypted under the
+        app KEK; email_hash is the non-secret handle for rate-limiting and account matching.
+    -->
+    <changeSet id="7" author="tasker">
+        <createTable tableName="email_login_token">
+            <column name="token" type="VARCHAR(64)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="email_hash" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <!-- Email plaintext encrypted under the app KEK (UserCryptoService.encryptSystem). -->
+            <column name="email_enc" type="BYTEA">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="expires_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="consumed_at" type="TIMESTAMP">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="email_login_token" indexName="idx_email_login_token_hash_created">
+            <column name="email_hash"/>
+            <column name="created_at"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

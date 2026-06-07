@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        auth_identities: one user -> many external login identities. Decouples
+        authentication from Telegram so email / OAuth / future providers each become a
+        row keyed by (provider, provider_user_id) instead of a column on `users`.
+    -->
+    <changeSet id="5" author="tasker">
+        <createTable tableName="auth_identities">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_auth_identities_user" references="users(id)"/>
+            </column>
+            <column name="provider" type="VARCHAR(32)">
+                <constraints nullable="false"/>
+            </column>
+            <!--
+                Non-secret stable handle: Telegram id as text, email hash (never the
+                plaintext address), OAuth subject, etc.
+            -->
+            <column name="provider_user_id" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="verified_at" type="TIMESTAMP">
+                <constraints nullable="true"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_login_at" type="TIMESTAMP">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+
+        <addUniqueConstraint tableName="auth_identities"
+                             columnNames="provider, provider_user_id"
+                             constraintName="uq_auth_identities_provider_user"/>
+
+        <createIndex tableName="auth_identities" indexName="idx_auth_identities_user">
+            <column name="user_id"/>
+        </createIndex>
+    </changeSet>
+
+    <!--
+        Backfill identities for existing users. Postgres-only: dev/test run against a
+        fresh in-memory H2 where `users` is always empty, so there is nothing to migrate.
+        gen_random_uuid() requires PostgreSQL 13+ (or the pgcrypto extension).
+    -->
+    <changeSet id="6" author="tasker" dbms="postgresql">
+        <comment>Backfill Telegram identities for users registered via Telegram.</comment>
+        <sql>
+            INSERT INTO auth_identities (id, user_id, provider, provider_user_id, verified_at, created_at, last_login_at)
+            SELECT gen_random_uuid(), id, 'telegram', telegram_id::text, created_at, created_at, last_login_at
+            FROM users
+            WHERE telegram_id IS NOT NULL;
+        </sql>
+        <comment>Backfill email identities for users with a verified email address.</comment>
+        <sql>
+            INSERT INTO auth_identities (id, user_id, provider, provider_user_id, verified_at, created_at, last_login_at)
+            SELECT gen_random_uuid(), id, 'email', email_hash, email_verified_at, created_at, last_login_at
+            FROM users
+            WHERE email_hash IS NOT NULL AND email_verified_at IS NOT NULL;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

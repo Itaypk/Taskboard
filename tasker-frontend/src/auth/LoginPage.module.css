@@ -387,6 +387,47 @@
 .chEmail  { background: transparent; color: var(--cb-ink); border: 1.5px solid var(--cb-ink); }
 .channelBtn:disabled { opacity: 0.55; cursor: not-allowed; }
 
+.notice {
+  text-align: center;
+  padding: 12px 18px;
+  background: var(--cb-paper, #fbf6e3);
+  color: #5a3a12;
+  border-bottom: 1px solid rgba(60,40,15,0.2);
+  font-family: var(--font-serif);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.emailForm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.emailInput {
+  width: 100%;
+  padding: 13px 18px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(60,40,15,0.25);
+  background: #fff;
+  color: #2a1f14;
+  font-family: var(--font-serif);
+  font-size: 16px;
+}
+.emailInput:focus {
+  outline: none;
+  border-color: var(--cb-ink);
+}
+
+.emailSent {
+  text-align: center;
+  font-family: var(--font-serif);
+  font-size: 15px;
+  color: var(--cb-ink);
+  line-height: 1.5;
+  margin: 4px 0;
+}
+
 .soonBadge {
   font-family: var(--font-mono);
   font-size: 9px;

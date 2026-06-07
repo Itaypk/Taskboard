@@ -12,7 +12,8 @@ import org.springframework.mail.javamail.MimeMessageHelper
 
 class SmtpEmailChannel(
     private val mailSender: JavaMailSender,
-    private val properties: EmailProperties,
+    private val from: String,
+    private val fromName: String,
 ) : OutboundChannel {
 
     private val log = LoggerFactory.getLogger(SmtpEmailChannel::class.java)
@@ -23,7 +24,7 @@ class SmtpEmailChannel(
 
         if (message.iCalAttachment != null) {
             // Multipart/mixed: HTML body + text/calendar part for Gmail "Add to Calendar"
-            mime.setFrom(InternetAddress(properties.from, properties.fromName, "UTF-8"))
+            mime.setFrom(InternetAddress(from, fromName, "UTF-8"))
             mime.setSubject(message.subject, "UTF-8")
             for (to in message.to) {
                 mime.addRecipients(RecipientType.TO, to)
@@ -47,7 +48,7 @@ class SmtpEmailChannel(
             mime.setContent(mixed)
         } else {
             val helper = MimeMessageHelper(mime, true, "UTF-8")
-            helper.setFrom(properties.from, properties.fromName)
+            helper.setFrom(from, fromName)
             helper.setTo(message.to.toTypedArray())
             helper.setSubject(message.subject)
             if (message.textBody != null) {

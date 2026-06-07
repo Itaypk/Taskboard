@@ -4,6 +4,7 @@ import dev.itayp.tasker.channel.email.EmailTemplateEngine
 import dev.itayp.tasker.channel.OutboundChannel
 import dev.itayp.tasker.channel.email.EmailMessage
 import dev.itayp.tasker.channel.email.ICalAttachment
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.stereotype.Component
 import java.time.ZoneOffset
 import java.time.ZonedDateTime
@@ -12,7 +13,7 @@ import java.util.Locale
 
 @Component
 class CalendarInvitationComposer(
-    private val outboundChannel: OutboundChannel,
+    @Qualifier("schedulingEmailChannel") private val outboundChannel: OutboundChannel,
     private val emailTemplateEngine: EmailTemplateEngine,
 ) {
 

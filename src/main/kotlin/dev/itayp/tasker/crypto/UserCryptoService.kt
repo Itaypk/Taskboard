@@ -55,6 +55,21 @@ class UserCryptoService(
         return String(AesGcmCipher.open(dekFor(userId), ciphertext, userIdAad(userId)), Charsets.UTF_8)
     }
 
+    /**
+     * Encrypts directly under the app KEK, for data that isn't owned by a user yet —
+     * e.g. the email held in a pending magic-link login token before any account exists.
+     * Bound to a fixed AAD so these envelopes can't be swapped in for per-user ciphertext.
+     */
+    fun encryptSystem(plaintext: String?): ByteArray? {
+        if (plaintext == null) return null
+        return AesGcmCipher.seal(properties.kekBytes, plaintext.toByteArray(Charsets.UTF_8), SYSTEM_AAD)
+    }
+
+    fun decryptSystem(ciphertext: ByteArray?): String? {
+        if (ciphertext == null) return null
+        return String(AesGcmCipher.open(properties.kekBytes, ciphertext, SYSTEM_AAD), Charsets.UTF_8)
+    }
+
     private fun dekFor(userId: UUID): ByteArray =
         dekCache.computeIfAbsent(userId) { id ->
             val row = userDataKeyRepository.findById(id).orElseThrow {
@@ -68,4 +83,9 @@ class UserCryptoService(
             .putLong(userId.mostSignificantBits)
             .putLong(userId.leastSignificantBits)
             .array()
+
+    private companion object {
+        // Fixed AAD for KEK-level (non-user) envelopes; distinct from any 16-byte user-id AAD.
+        private val SYSTEM_AAD = "tasker-system".toByteArray(Charsets.UTF_8)
+    }
 }

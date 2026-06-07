@@ -112,6 +112,8 @@ class SecurityConfiguration(
                 authorize("/api/auth/telegram", permitAll)
                 authorize("/api/auth/dev-login", permitAll)
                 authorize("/api/auth/demo-login", permitAll)
+                authorize("/api/auth/email", permitAll)
+                authorize("/api/auth/email/callback", permitAll)
                 authorize("/api/auth/logout", permitAll)
                 authorize("/api/v1/settings/email/verify", permitAll)
                 authorize("/api/**", authenticated)
@@ -155,7 +157,7 @@ class SecurityConfiguration(
             csrf {
                 csrfTokenRepository = CookieCsrfTokenRepository.withHttpOnlyFalse()
                 csrfTokenRequestHandler = SpaCsrfTokenRequestHandler()
-                ignoringRequestMatchers("/api/auth/telegram", "/api/auth/dev-login", "/api/auth/demo-login", "/api/dev/**")
+                ignoringRequestMatchers("/api/auth/telegram", "/api/auth/dev-login", "/api/auth/demo-login", "/api/auth/email", "/api/dev/**")
             }
             sessionManagement {
                 sessionFixation { newSession() }

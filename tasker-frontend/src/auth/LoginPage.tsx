@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from './AuthContext';
-import { demoLogin, devLogin, telegramLogin, type TelegramWidgetPayload } from './authApi';
+import { demoLogin, devLogin, requestEmailLogin, telegramLogin, type TelegramWidgetPayload } from './authApi';
 import pineappleUrl from '../assets/pineapple.png';
 import styles from './LoginPage.module.css';
 
@@ -16,9 +16,27 @@ declare global {
 
 export function LoginPage() {
     const { setUser } = useAuth();
+    // Surfaced when the email magic-link callback bounces back (?emailLogin=...).
+    const [notice] = useState<string | null>(() => {
+        const reason = new URLSearchParams(window.location.search).get('emailLogin');
+        if (reason === 'unverified') {
+            return 'That email is already linked to an account that hasn’t verified it. ' +
+                'Sign in with Telegram, then verify your email under Settings. ' +
+                'Not sure which account this is? Contact support@backlog.fyi.';
+        }
+        if (reason === 'invalid') {
+            return 'That sign-in link is invalid or has expired. Request a new one below.';
+        }
+        return null;
+    });
     const [modalOpen, setModalOpen] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
+
+    // Strip the ?emailLogin marker from the URL so a refresh doesn't re-show the notice.
+    useEffect(() => {
+        if (notice) window.history.replaceState({}, '', window.location.pathname);
+    }, [notice]);
 
     useEffect(() => {
         window[TELEGRAM_CALLBACK] = async (payload) => {
@@ -77,6 +95,7 @@ export function LoginPage() {
 
     return (
         <div className={styles.page}>
+            {notice && <div className={styles.notice} role="status">{notice}</div>}
             <header className={styles.nav}>
                 <div className={styles.brand}>
                     <span className={styles.logoWrap}>
@@ -187,6 +206,28 @@ function LoginModal({
     onClose: () => void;
 }) {
     const telegramSlot = useRef<HTMLDivElement | null>(null);
+    const [emailMode, setEmailMode] = useState(false);
+    const [email, setEmail] = useState('');
+    const [emailSent, setEmailSent] = useState(false);
+    const [emailBusy, setEmailBusy] = useState(false);
+    const [emailErr, setEmailErr] = useState<string | null>(null);
+
+    const submitEmail = async (e: FormEvent) => {
+        e.preventDefault();
+        const trimmed = email.trim();
+        if (!trimmed) return;
+        setEmailBusy(true);
+        setEmailErr(null);
+        try {
+            await requestEmailLogin(trimmed);
+            setEmailSent(true);
+        } catch (err) {
+            console.error('Email login request failed', err);
+            setEmailErr('Could not send the sign-in link. Please try again.');
+        } finally {
+            setEmailBusy(false);
+        }
+    };
 
     // Mount the official Telegram Login Widget inside the modal. It renders its
     // own iframe button (not restyleable), so we host it rather than fake one.
@@ -228,10 +269,40 @@ function LoginModal({
                         <span className={styles.soonBadge}>Soon</span>
                     </button>
 
-                    <button type="button" className={`${styles.channelBtn} ${styles.chEmail}`} disabled>
-                        <MailIcon /> Continue with email
-                        <span className={styles.soonBadge}>Soon</span>
-                    </button>
+                    {emailSent ? (
+                        <p className={styles.emailSent}>
+                            Check your inbox — we sent a sign-in link to <strong>{email.trim()}</strong>.
+                            It expires in 30 minutes.
+                        </p>
+                    ) : emailMode ? (
+                        <form className={styles.emailForm} onSubmit={submitEmail}>
+                            <input
+                                type="email"
+                                className={styles.emailInput}
+                                placeholder="you@example.com"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                autoFocus
+                                required
+                            />
+                            <button
+                                type="submit"
+                                className={`${styles.channelBtn} ${styles.chEmail}`}
+                                disabled={emailBusy}
+                            >
+                                {emailBusy ? 'Sending…' : 'Send sign-in link'}
+                            </button>
+                            {emailErr && <p className={styles.error}>{emailErr}</p>}
+                        </form>
+                    ) : (
+                        <button
+                            type="button"
+                            className={`${styles.channelBtn} ${styles.chEmail}`}
+                            onClick={() => setEmailMode(true)}
+                        >
+                            <MailIcon /> Continue with email
+                        </button>
+                    )}
                 </div>
 
                 <p className={styles.moreNote}>More ways to sign in are on the way</p>

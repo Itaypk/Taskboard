@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef, type ChangeEvent } from 'react';
 import styles from './SettingsModal.module.css';
 import type { UserSettings, Task, SettingsOptions } from '../types';
 import { CategoryEditor } from './CategoryEditor';
+import { ConnectedAccounts } from './ConnectedAccounts';
 import { Tabs } from './Tabs';
 import { createCategory, updateCategory, deleteCategory, updateUserSettings, fetchSettingsOptions, deleteAccount, exportAccount, importAccount, requestEmailVerification } from '../api';
 import type { ImportSummary } from '../api';
@@ -302,6 +303,8 @@ export function SettingsModal({ settings, tasks, open, onClose, onSave, onAccoun
                   <p className="settings-hint">Check your inbox and click the link to verify.</p>
                 )}
               </div>
+
+              <ConnectedAccounts />
 
               <div className="field">
                 <label className="field__label" htmlFor="settings-auto-archive">Auto-archive done tasks</label>

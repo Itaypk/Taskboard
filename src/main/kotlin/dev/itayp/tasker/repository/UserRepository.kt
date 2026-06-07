@@ -12,6 +12,8 @@ interface UserRepository : JpaRepository<UserEntity, UUID> {
 
     fun findByTelegramId(telegramId: Long): UserEntity?
 
+    fun findByEmailHash(emailHash: String): UserEntity?
+
     @Query("SELECT u FROM UserEntity u WHERE u.isDemo = true AND u.demoExpiresAt < :now")
     fun findExpiredDemoUsers(now: Instant): List<UserEntity>
 

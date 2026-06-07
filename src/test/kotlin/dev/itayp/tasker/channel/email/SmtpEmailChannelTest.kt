@@ -19,18 +19,7 @@ import java.util.Properties
 class SmtpEmailChannelTest {
 
     private val mailSender: JavaMailSender = mock()
-    private val properties = EmailProperties(
-        enabled = true,
-        from = "sender@example.com",
-        fromName = "Tasker",
-        smtp = EmailProperties.SmtpConfig(
-            host = "smtp.protonmail.ch",
-            port = 587,
-            username = "sender@example.com",
-            password = "secret",
-        ),
-    )
-    private val channel = SmtpEmailChannel(mailSender, properties)
+    private val channel = SmtpEmailChannel(mailSender, "sender@example.com", "Tasker")
 
     private fun newMimeMessage(): MimeMessage {
         val session = Session.getInstance(Properties())
