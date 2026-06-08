@@ -31,15 +31,17 @@ class StatsServiceTest {
     @Mock private lateinit var taskRepository: BacklogTaskRepository
     @Mock private lateinit var sessionRepository: PlanningSessionRepository
     @Mock private lateinit var changeEventRepository: BacklogTaskChangeEventRepository
+    @Mock private lateinit var boardMembershipService: BoardMembershipService
 
     private val now = Instant.parse("2026-06-05T12:00:00Z")
     private val clock = Clock.fixed(now, ZoneOffset.UTC)
 
     private val service: StatsService by lazy {
-        StatsService(userRepository, taskRepository, sessionRepository, changeEventRepository, clock)
+        StatsService(userRepository, taskRepository, sessionRepository, changeEventRepository, boardMembershipService, clock)
     }
 
     private val userId = UUID.randomUUID()
+    private val boardId = UUID.randomUUID()
 
     @Test
     fun `empty user yields an empty snapshot`() {
@@ -117,8 +119,9 @@ class StatsServiceTest {
     }
 
     private fun stubCounts(open: Long, completed: Long, sessions: Long) {
-        whenever(taskRepository.countByUserIdAndStatus(userId, TaskStatus.TODO)).thenReturn(open)
-        whenever(taskRepository.countByUserIdAndStatus(userId, TaskStatus.DONE)).thenReturn(completed)
+        whenever(boardMembershipService.resolveSoleBoard(userId)).thenReturn(boardId)
+        whenever(taskRepository.countByBoardIdAndStatus(boardId, TaskStatus.TODO)).thenReturn(open)
+        whenever(taskRepository.countByBoardIdAndStatus(boardId, TaskStatus.DONE)).thenReturn(completed)
         whenever(sessionRepository.countByUserIdAndStatus(userId, PlanningSessionStatus.COMPLETED)).thenReturn(sessions)
     }
 

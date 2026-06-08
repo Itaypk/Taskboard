@@ -1,5 +1,6 @@
 package dev.itayp.tasker.service
 
+import dev.itayp.tasker.crypto.BoardCryptoService
 import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.jpa.BacklogTaskCategoryEntity
 import dev.itayp.tasker.jpa.BacklogTaskEntity
@@ -42,10 +43,13 @@ class AccountServiceTest {
     @Mock private lateinit var settingsRepository: UserSettingsRepository
     @Mock private lateinit var jdbcTemplate: JdbcTemplate
     @Mock private lateinit var userCrypto: UserCryptoService
+    @Mock private lateinit var boardCrypto: BoardCryptoService
+    @Mock private lateinit var boardMembershipService: BoardMembershipService
 
     @InjectMocks private lateinit var service: AccountService
 
     private val userId: UUID = UUID.fromString("00000000-0000-0000-0000-000000000001")
+    private val boardId: UUID = UUID.fromString("00000000-0000-0000-0000-0000000000b0")
     private val categoryId: UUID = UUID.fromString("00000000-0000-0000-0000-0000000000c1")
     private val tagId: UUID = UUID.fromString("00000000-0000-0000-0000-0000000000d1")
 
@@ -53,13 +57,13 @@ class AccountServiceTest {
     fun `exportAccount emits formatVersion 1 and all v1 fields`() {
         val workCategory = BacklogTaskCategoryEntity().apply {
             id = categoryId
-            this.userId = this@AccountServiceTest.userId
+            this.boardId = this@AccountServiceTest.boardId
             label = "Work"
             swatchId = CategoryColor.SUNSHINE
         }
         val urgentTag = BacklogTaskTagEntity().apply {
             id = tagId
-            this.userId = this@AccountServiceTest.userId
+            this.boardId = this@AccountServiceTest.boardId
             label = "urgent"
             colorId = TagColor.CORAL
             description = "needs attention"
@@ -70,7 +74,7 @@ class AccountServiceTest {
         val descriptionBytes = "From the place on 5th".toByteArray()
         val task = BacklogTaskEntity().apply {
             id = UUID.randomUUID()
-            this.userId = this@AccountServiceTest.userId
+            this.boardId = this@AccountServiceTest.boardId
             title = titleBytes
             description = descriptionBytes
             url = "https://example.com"
@@ -113,19 +117,21 @@ class AccountServiceTest {
             autoArchiveDays = 30
         }
 
+        // Personal fields decrypt under the user DEK; task content under the board DEK.
         whenever(userCrypto.decrypt(userId, telegramFirstNameBytes)).thenReturn("Alice")
         whenever(userCrypto.decrypt(userId, emailBytes)).thenReturn("alice@example.com")
         whenever(userCrypto.decrypt(userId, displayNameBytes)).thenReturn("Alice")
         whenever(userCrypto.decrypt(userId, contextBlockBytes)).thenReturn("I prefer deep work in the morning")
         whenever(userCrypto.decrypt(userId, agentDescriptionBytes)).thenReturn("Founder working on X")
-        whenever(userCrypto.decrypt(userId, titleBytes)).thenReturn("Buy bread")
-        whenever(userCrypto.decrypt(userId, descriptionBytes)).thenReturn("From the place on 5th")
+        whenever(boardCrypto.decrypt(boardId, titleBytes)).thenReturn("Buy bread")
+        whenever(boardCrypto.decrypt(boardId, descriptionBytes)).thenReturn("From the place on 5th")
 
+        whenever(boardMembershipService.resolveSoleBoard(userId)).thenReturn(boardId)
         whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
         whenever(settingsRepository.findById(userId)).thenReturn(Optional.of(settings))
-        whenever(categoryRepository.findAllByUserId(userId)).thenReturn(listOf(workCategory))
-        whenever(tagRepository.findAllByUserId(userId)).thenReturn(listOf(urgentTag))
-        whenever(taskRepository.findAllByUserIdOrderBySortKeyAsc(userId)).thenReturn(listOf(task))
+        whenever(categoryRepository.findAllByBoardId(boardId)).thenReturn(listOf(workCategory))
+        whenever(tagRepository.findAllByBoardId(boardId)).thenReturn(listOf(urgentTag))
+        whenever(taskRepository.findAllByBoardIdOrderBySortKeyAsc(boardId)).thenReturn(listOf(task))
 
         val result = service.exportAccount(userId)
 
@@ -154,7 +160,7 @@ class AccountServiceTest {
         val titleBytes = "No date task".toByteArray()
         val task = BacklogTaskEntity().apply {
             id = UUID.randomUUID()
-            this.userId = this@AccountServiceTest.userId
+            this.boardId = this@AccountServiceTest.boardId
             title = titleBytes
             status = TaskStatus.TODO
             sortKey = "b00"
@@ -166,15 +172,16 @@ class AccountServiceTest {
             email = null
         }
 
-        // null ciphertext → null plaintext (mirrors UserCryptoService's own null-guard)
+        // null ciphertext → null plaintext (mirrors the crypto services' own null-guard)
         whenever(userCrypto.decrypt(eq(userId), isNull())).thenReturn(null)
-        whenever(userCrypto.decrypt(eq(userId), eq(titleBytes))).thenReturn("No date task")
+        whenever(boardCrypto.decrypt(eq(boardId), eq(titleBytes))).thenReturn("No date task")
 
+        whenever(boardMembershipService.resolveSoleBoard(userId)).thenReturn(boardId)
         whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
         whenever(settingsRepository.findById(userId)).thenReturn(Optional.empty())
-        whenever(categoryRepository.findAllByUserId(userId)).thenReturn(emptyList())
-        whenever(tagRepository.findAllByUserId(userId)).thenReturn(emptyList())
-        whenever(taskRepository.findAllByUserIdOrderBySortKeyAsc(userId)).thenReturn(listOf(task))
+        whenever(categoryRepository.findAllByBoardId(boardId)).thenReturn(emptyList())
+        whenever(tagRepository.findAllByBoardId(boardId)).thenReturn(emptyList())
+        whenever(taskRepository.findAllByBoardIdOrderBySortKeyAsc(boardId)).thenReturn(listOf(task))
 
         val result = service.exportAccount(userId)
 

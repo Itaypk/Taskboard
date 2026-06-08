@@ -1,6 +1,6 @@
 package dev.itayp.tasker.service
 
-import dev.itayp.tasker.crypto.noopUserCryptoService
+import dev.itayp.tasker.crypto.noopBoardCryptoService
 import dev.itayp.tasker.jpa.BacklogTaskEntity
 import dev.itayp.tasker.jpa.UserSettingsEntity
 import dev.itayp.tasker.model.TaskStatus
@@ -28,17 +28,19 @@ class TaskAutoArchiveServiceTest {
     @Mock private lateinit var userSettingsRepository: UserSettingsRepository
     @Mock private lateinit var backlogTaskRepository: BacklogTaskRepository
     @Mock private lateinit var taskChangeService: BacklogTaskChangeService
+    @Mock private lateinit var boardMembershipService: BoardMembershipService
 
     private val fixedNow = Instant.parse("2026-05-22T02:30:00Z")
     private val clock = Clock.fixed(fixedNow, ZoneOffset.UTC)
 
-    private val crypto = noopUserCryptoService()
+    private val boardCrypto = noopBoardCryptoService()
 
     private val service by lazy {
-        TaskAutoArchiveService(userSettingsRepository, backlogTaskRepository, taskChangeService, crypto, clock)
+        TaskAutoArchiveService(userSettingsRepository, backlogTaskRepository, taskChangeService, boardCrypto, boardMembershipService, clock)
     }
 
     private val userId = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+    private val boardId = UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccccccc")
     private val taskId = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
 
     // ── archiveStaleDoneTasks ─────────────────────────────────────────────────
@@ -49,7 +51,7 @@ class TaskAutoArchiveServiceTest {
 
         service.archiveStaleDoneTasks()
 
-        verify(backlogTaskRepository, never()).findAllByUserIdAndStatusAndUpdatedAtBeforeOrderBySortKeyAsc(any(), any(), any())
+        verify(backlogTaskRepository, never()).findAllByBoardIdAndStatusAndUpdatedAtBeforeOrderBySortKeyAsc(any(), any(), any())
     }
 
     @Test
@@ -58,8 +60,9 @@ class TaskAutoArchiveServiceTest {
         val staleTask = taskEntity(title = "Old task", updatedAt = fixedNow.minus(8, ChronoUnit.DAYS))
         val expectedCutoff = fixedNow.minus(7L, ChronoUnit.DAYS)
         whenever(userSettingsRepository.findAllByAutoArchiveDaysIsNotNull()).thenReturn(listOf(settings))
-        whenever(backlogTaskRepository.findAllByUserIdAndStatusAndUpdatedAtBeforeOrderBySortKeyAsc(
-            userId, TaskStatus.DONE, expectedCutoff
+        whenever(boardMembershipService.resolveSoleBoard(userId)).thenReturn(boardId)
+        whenever(backlogTaskRepository.findAllByBoardIdAndStatusAndUpdatedAtBeforeOrderBySortKeyAsc(
+            boardId, TaskStatus.DONE, expectedCutoff
         )).thenReturn(listOf(staleTask))
         whenever(backlogTaskRepository.save(any<BacklogTaskEntity>())).thenAnswer { it.arguments[0] }
 
@@ -74,7 +77,8 @@ class TaskAutoArchiveServiceTest {
     fun `does not archive tasks when none are stale`() {
         val settings = settingsEntity(autoArchiveDays = 7)
         whenever(userSettingsRepository.findAllByAutoArchiveDaysIsNotNull()).thenReturn(listOf(settings))
-        whenever(backlogTaskRepository.findAllByUserIdAndStatusAndUpdatedAtBeforeOrderBySortKeyAsc(
+        whenever(boardMembershipService.resolveSoleBoard(userId)).thenReturn(boardId)
+        whenever(backlogTaskRepository.findAllByBoardIdAndStatusAndUpdatedAtBeforeOrderBySortKeyAsc(
             any(), any(), any()
         )).thenReturn(emptyList())
 
@@ -89,14 +93,15 @@ class TaskAutoArchiveServiceTest {
         val settings = settingsEntity(autoArchiveDays = 30)
         val expectedCutoff = fixedNow.minus(30L, ChronoUnit.DAYS)
         whenever(userSettingsRepository.findAllByAutoArchiveDaysIsNotNull()).thenReturn(listOf(settings))
-        whenever(backlogTaskRepository.findAllByUserIdAndStatusAndUpdatedAtBeforeOrderBySortKeyAsc(
-            userId, TaskStatus.DONE, expectedCutoff
+        whenever(boardMembershipService.resolveSoleBoard(userId)).thenReturn(boardId)
+        whenever(backlogTaskRepository.findAllByBoardIdAndStatusAndUpdatedAtBeforeOrderBySortKeyAsc(
+            boardId, TaskStatus.DONE, expectedCutoff
         )).thenReturn(emptyList())
 
         service.archiveStaleDoneTasks()
 
-        verify(backlogTaskRepository).findAllByUserIdAndStatusAndUpdatedAtBeforeOrderBySortKeyAsc(
-            userId, TaskStatus.DONE, expectedCutoff
+        verify(backlogTaskRepository).findAllByBoardIdAndStatusAndUpdatedAtBeforeOrderBySortKeyAsc(
+            boardId, TaskStatus.DONE, expectedCutoff
         )
     }
 
@@ -109,7 +114,7 @@ class TaskAutoArchiveServiceTest {
 
     private fun taskEntity(title: String, updatedAt: Instant) = BacklogTaskEntity().apply {
         this.id = taskId
-        this.userId = this@TaskAutoArchiveServiceTest.userId
+        this.boardId = this@TaskAutoArchiveServiceTest.boardId
         this.title = title.toByteArray(Charsets.UTF_8)
         this.status = TaskStatus.DONE
         this.updatedAt = updatedAt
