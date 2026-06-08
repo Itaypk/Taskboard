@@ -7,6 +7,7 @@ import dev.itayp.tasker.jpa.BacklogTaskTagEntity
 import dev.itayp.tasker.jpa.UserEntity
 import dev.itayp.tasker.model.CategoryColor
 import dev.itayp.tasker.model.response.AccountExportResponse
+import dev.itayp.tasker.model.response.BoardExport
 import dev.itayp.tasker.model.response.CategoryExport
 import dev.itayp.tasker.model.response.SettingsExport
 import dev.itayp.tasker.model.response.TagExport
@@ -120,7 +121,7 @@ class AccountImportServiceTest {
 
     @Test
     fun `rejects an unsupported formatVersion`() {
-        val payload = exportPayload().copy(formatVersion = 99)
+        val payload = exportPayload().copy(formatVersion = 1)
         // Version check runs before any repository interaction, so no other stubs needed.
         assertFailsWith<IllegalArgumentException> { service.import(userId, payload) }
         verify(categoryRepository, never()).deleteAllByUserId(any())
@@ -192,13 +193,11 @@ class AccountImportServiceTest {
         tasks: List<TaskExport> = emptyList(),
         settings: SettingsExport? = null,
     ) = AccountExportResponse(
-        formatVersion = 1,
+        formatVersion = 2,
         exportedAt = Instant.parse("2026-05-25T12:00:00Z").toString(),
         user = UserExport(id = "old-uuid", telegramUsername = "alice", telegramFirstName = "Alice", email = null, createdAt = null),
         settings = settings,
-        categories = categories,
-        tags = tags,
-        tasks = tasks,
+        boards = listOf(BoardExport(name = "My tasks", role = "OWNER", categories = categories, tags = tags, tasks = tasks)),
     )
 
     private fun taskExport(
