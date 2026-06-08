@@ -58,18 +58,17 @@ class AccountService(
             "SELECT board_id FROM board_membership WHERE user_id = ?", UUID::class.java, userId,
         ).filterNotNull()
         for (boardId in boardIds) {
-            // Task join table has no ON DELETE CASCADE, so join rows must go before the tasks.
-            val taskIds = taskRepository.findAllByBoardIdOrderBySortKeyAsc(boardId).mapNotNull { it.id }
-            if (taskIds.isNotEmpty()) {
-                val placeholders = taskIds.joinToString(",") { "?" }
-                jdbcTemplate.update(
-                    "DELETE FROM backlog_task_tags WHERE task_id IN ($placeholders)",
-                    *taskIds.toTypedArray(),
-                )
-            }
-            taskRepository.deleteAllByBoardId(boardId)
-            tagRepository.deleteAllByBoardId(boardId)
-            categoryRepository.deleteAllByBoardId(boardId)
+            // Raw SQL (not JPA repo deletes) so each statement executes immediately and in FK order.
+            // A deferred Hibernate flush would otherwise let the `DELETE FROM board` below run while
+            // board-owned rows still reference it — a Postgres FK violation. The task join table has
+            // no ON DELETE CASCADE, so its rows go before the tasks.
+            jdbcTemplate.update(
+                "DELETE FROM backlog_task_tags WHERE task_id IN (SELECT id FROM backlog_task WHERE board_id = ?)",
+                boardId,
+            )
+            jdbcTemplate.update("DELETE FROM backlog_task WHERE board_id = ?", boardId)
+            jdbcTemplate.update("DELETE FROM backlog_task_tag WHERE board_id = ?", boardId)
+            jdbcTemplate.update("DELETE FROM backlog_task_category WHERE board_id = ?", boardId)
         }
 
         settingsRepository.deleteById(userId)
