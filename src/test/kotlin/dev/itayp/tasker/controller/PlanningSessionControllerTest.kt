@@ -96,7 +96,8 @@ class PlanningSessionControllerTest(@Autowired val mockMvc: MockMvc) {
 
     private fun aTask() = BacklogTask(
         id = taskId,
-        userId = userId,
+        boardId = userId,
+        assigneeUserId = null,
         title = "Planned task",
         description = null,
         url = null,

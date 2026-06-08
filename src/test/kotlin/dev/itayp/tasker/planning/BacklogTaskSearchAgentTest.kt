@@ -74,7 +74,8 @@ class BacklogTaskSearchAgentTest {
 
     private fun backlogTask(id: UUID, title: String) = BacklogTask(
         id = id,
-        userId = UUID.randomUUID(),
+        boardId = UUID.randomUUID(),
+        assigneeUserId = null,
         title = title,
         description = null,
         url = null,

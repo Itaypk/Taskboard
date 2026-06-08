@@ -62,7 +62,8 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
 
     private fun aTask(id: UUID = taskId, title: String = "Test Task") = BacklogTask(
         id = id,
-        userId = userId,
+        boardId = userId,
+        assigneeUserId = null,
         title = title,
         description = null,
         url = null,
