@@ -2,6 +2,7 @@ package dev.itayp.tasker.service
 
 import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.model.response.AccountExportResponse
+import dev.itayp.tasker.model.response.BoardExport
 import dev.itayp.tasker.model.response.CategoryExport
 import dev.itayp.tasker.model.response.SettingsExport
 import dev.itayp.tasker.model.response.TagExport
@@ -107,7 +108,7 @@ class AccountService(
         val tasks = taskRepository.findAllByUserIdOrderBySortKeyAsc(userId)
 
         return AccountExportResponse(
-            formatVersion = 1,
+            formatVersion = 2,
             exportedAt = Instant.now().toString(),
             user = UserExport(
                 id = user.id.toString(),
@@ -130,39 +131,46 @@ class AccountService(
                     autoArchiveDays = it.autoArchiveDays,
                 )
             },
-            categories = categories.map {
-                CategoryExport(
-                    id = it.id.toString(),
-                    label = it.label ?: "",
-                    swatchId = it.swatchId?.name?.lowercase() ?: "",
+            boards = listOf(
+                BoardExport(
+                    name = "My tasks",
+                    role = "OWNER",
+                    categories = categories.map {
+                        CategoryExport(
+                            id = it.id.toString(),
+                            label = it.label ?: "",
+                            swatchId = it.swatchId?.name?.lowercase() ?: "",
+                        )
+                    },
+                    tags = tags.map {
+                        TagExport(
+                            id = it.id.toString(),
+                            label = it.label ?: "",
+                            colorId = it.colorId?.name?.lowercase() ?: "",
+                            description = it.description,
+                        )
+                    },
+                    tasks = tasks.map { task ->
+                        TaskExport(
+                            id = task.id.toString(),
+                            title = userCrypto.decrypt(userId, task.title) ?: "",
+                            description = userCrypto.decrypt(userId, task.description),
+                            url = task.url,
+                            priority = task.priority?.name?.lowercase(),
+                            deadline = task.deadline?.toString(),
+                            estimatedMinutes = task.estimatedMinutes,
+                            status = task.status?.name?.lowercase() ?: "",
+                            categoryId = task.category?.id?.toString() ?: "",
+                            tagIds = task.tags.map { it.id.toString() },
+                            sortKey = task.sortKey ?: "",
+                            createdAt = task.createdAt?.toString() ?: "",
+                            updatedAt = task.updatedAt?.toString(),
+                            relevantFrom = task.relevantFrom?.toString(),
+                            assignee = null,
+                        )
+                    },
                 )
-            },
-            tags = tags.map {
-                TagExport(
-                    id = it.id.toString(),
-                    label = it.label ?: "",
-                    colorId = it.colorId?.name?.lowercase() ?: "",
-                    description = it.description,
-                )
-            },
-            tasks = tasks.map { task ->
-                TaskExport(
-                    id = task.id.toString(),
-                    title = userCrypto.decrypt(userId, task.title) ?: "",
-                    description = userCrypto.decrypt(userId, task.description),
-                    url = task.url,
-                    priority = task.priority?.name?.lowercase(),
-                    deadline = task.deadline?.toString(),
-                    estimatedMinutes = task.estimatedMinutes,
-                    status = task.status?.name?.lowercase() ?: "",
-                    categoryId = task.category?.id?.toString() ?: "",
-                    tagIds = task.tags.map { it.id.toString() },
-                    sortKey = task.sortKey ?: "",
-                    createdAt = task.createdAt?.toString() ?: "",
-                    updatedAt = task.updatedAt?.toString(),
-                    relevantFrom = task.relevantFrom?.toString(),
-                )
-            },
+            ),
         )
     }
 

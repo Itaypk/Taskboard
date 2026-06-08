@@ -40,13 +40,13 @@ class AccountControllerImportTest(@Autowired val mockMvc: MockMvc) {
 
     private val minimalPayload = """
         {
-          "formatVersion": 1,
+          "formatVersion": 2,
           "exportedAt": "2026-05-25T12:00:00Z",
           "user": { "id": "old", "telegramUsername": null, "telegramFirstName": null, "email": null, "createdAt": null },
           "settings": null,
-          "categories": [],
-          "tags": [],
-          "tasks": []
+          "boards": [
+            { "name": "My tasks", "role": "OWNER", "categories": [], "tags": [], "tasks": [] }
+          ]
         }
     """.trimIndent()
 
@@ -108,16 +108,16 @@ class AccountControllerImportTest(@Autowired val mockMvc: MockMvc) {
     @Test
     fun `POST import returns 400 on unsupported formatVersion`() {
         whenever(accountImportService.import(eq(userId), any()))
-            .thenThrow(IllegalArgumentException("Unsupported export formatVersion: 99 (expected 1)"))
+            .thenThrow(IllegalArgumentException("Unsupported export formatVersion: 99 (expected 2)"))
 
         mockMvc.perform(
             post("/api/v1/account/import")
                 .with(authentication(auth))
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(minimalPayload.replace("\"formatVersion\": 1", "\"formatVersion\": 99"))
+                .content(minimalPayload.replace("\"formatVersion\": 2", "\"formatVersion\": 99"))
         )
             .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.error").value("Unsupported export formatVersion: 99 (expected 1)"))
+            .andExpect(jsonPath("$.error").value("Unsupported export formatVersion: 99 (expected 2)"))
     }
 }
