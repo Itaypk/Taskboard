@@ -50,7 +50,7 @@ class AccountServiceTest {
     private val tagId: UUID = UUID.fromString("00000000-0000-0000-0000-0000000000d1")
 
     @Test
-    fun `exportAccount emits formatVersion 1 and all v1 fields`() {
+    fun `exportAccount emits formatVersion 2 and all v2 fields`() {
         val workCategory = BacklogTaskCategoryEntity().apply {
             id = categoryId
             this.userId = this@AccountServiceTest.userId
@@ -129,7 +129,7 @@ class AccountServiceTest {
 
         val result = service.exportAccount(userId)
 
-        assertEquals(1, result.formatVersion)
+        assertEquals(2, result.formatVersion)
 
         assertEquals("alice@example.com", result.user.email)
         assertEquals("Alice", result.user.telegramFirstName)
@@ -142,11 +142,14 @@ class AccountServiceTest {
         assertEquals("MONDAY", exportedSettings.weekStartDay)
         assertEquals(30, exportedSettings.autoArchiveDays)
 
-        assertEquals(1, result.tasks.size)
-        assertEquals("2026-05-20", result.tasks[0].relevantFrom)
-        assertEquals("Work", result.categories[0].label)
-        assertEquals("sunshine", result.categories[0].swatchId)
-        assertEquals("coral", result.tags[0].colorId)
+        val board = result.boards[0]
+        assertEquals("My tasks", board.name)
+        assertEquals("OWNER", board.role)
+        assertEquals(1, board.tasks.size)
+        assertEquals("2026-05-20", board.tasks[0].relevantFrom)
+        assertEquals("Work", board.categories[0].label)
+        assertEquals("sunshine", board.categories[0].swatchId)
+        assertEquals("coral", board.tags[0].colorId)
     }
 
     @Test
@@ -178,9 +181,9 @@ class AccountServiceTest {
 
         val result = service.exportAccount(userId)
 
-        assertEquals(1, result.formatVersion)
+        assertEquals(2, result.formatVersion)
         assertNull(result.settings)
         assertNull(result.user.email)
-        assertNull(result.tasks[0].relevantFrom)
+        assertNull(result.boards[0].tasks[0].relevantFrom)
     }
 }
