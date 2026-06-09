@@ -19,9 +19,12 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Fonts look bad in Hebrew (especially the header - serif - ones). Either choose one that support multilanguage, or use language-specific ones.
 - Persisted calendar invite SEQUENCE counter. Plan-revise updates re-send same-time slot edits (label/title/notes) with a fixed `SEQUENCE:1`. A second same-slot edit in a later session sends `SEQUENCE:1` again, which strict calendar clients may not re-apply. Persisting a per-slot revision counter (incremented on each update) would make repeated updates robust. Low priority: time moves go through cancel + fresh invite, which is unaffected.
 - Switch over to UUID v7 (better DB performance for indexes).
+- Currently, a single task is tied to a single time-block; would we like to change that, so that a single task might have mutiple (or zero) time blocks attached?
+- Add a search functionality in the "All" tasks tab. 
 
 ## UI - Tasks
-- Better "mark as done"
+- Work on tagline and satellite notes in the welcome page with better texts. See if we need to move a few things around 
+- Better - more satisfying - "mark as done"
 - Drawer improvements (buttons are too dense, for example)
 - Edit existing tags; add "description" to a tag (consider if needed)
 - Task list Markdown (subtasks) checkboxes - makes it possible to check directly from the main screen
@@ -41,11 +44,9 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Possible help ideas include breaking them down to multiple tasks, finding time for them, or even just reminding us about them.
 
 ## Larger changes - consideration required
-- Open source the application under AGPL
-- Shift from being Telegram-centered to a more generic approach. Needs extra thinking for how to do it - a quick "get started"
-  button is great, but without any sort of login the data is lost. Adding a local-only layer is complicated.
+- Open source the application under AGPL.
+- Following up on the multi-identity migration - re-consider demo mode: do we still need the "demo" concept, or would it be a regular account without communication channels? Do we want a promotion flow from demo to a real user? Either way, the option of getting started with a single click is still useful.
 - WhatsApp as a communication channel support.
-- Re-design the welcome page - it can look much better
 - Multi-board and sharing support.
 - Complete i18n support, including the web UI, welcome page, etc. Consider trimming the list of supported languages.
 - Multi-modal support: the assistant can process images and voice messages. 
