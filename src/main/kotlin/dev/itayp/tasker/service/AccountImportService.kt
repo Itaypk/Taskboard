@@ -51,6 +51,9 @@ class AccountImportService(
         require(payload.formatVersion == SUPPORTED_FORMAT_VERSION) {
             "Unsupported export formatVersion: ${payload.formatVersion} (expected $SUPPORTED_FORMAT_VERSION)"
         }
+        require(payload.boards.isNotEmpty()) {
+            "Import payload must contain at least one board"
+        }
         check(accountService.isEmptyForImport(userId)) {
             "Account already has user data; import is only valid on a fresh account"
         }
@@ -58,14 +61,16 @@ class AccountImportService(
         // Content is written into the account's sole board (Phase 0). Task title/description are
         // encrypted under the board DEK; user/settings stay under the user DEK.
         val boardId = boardMembershipService.resolveSoleBoard(userId)
+        // The export always emits exactly one board; take the first.
+        val board = payload.boards[0]
 
         // Step 1: wipe the auto-seeded defaults. With isEmptyForImport already verified,
         // there are no tasks/tags blocking the category delete.
         categoryRepository.deleteAllByBoardId(boardId)
 
         // Step 2: categories — keep an old→new UUID map so task FKs can be retargeted.
-        val categoryIdMap = HashMap<String, UUID>(payload.categories.size)
-        for (cat in payload.categories) {
+        val categoryIdMap = HashMap<String, UUID>(board.categories.size)
+        for (cat in board.categories) {
             val swatch = runCatching { CategoryColor.valueOf(cat.swatchId.uppercase()) }
                 .getOrElse { throw IllegalArgumentException("Unknown category swatchId: ${cat.swatchId}") }
             val saved = categoryRepository.save(BacklogTaskCategoryEntity().apply {
@@ -78,8 +83,8 @@ class AccountImportService(
 
         // Step 3: tags — same id-map pattern. We also keep the entities directly so step 4
         // can attach them to task.tags without a second `findAll` round-trip.
-        val tagsByOldId = HashMap<String, BacklogTaskTagEntity>(payload.tags.size)
-        for (tag in payload.tags) {
+        val tagsByOldId = HashMap<String, BacklogTaskTagEntity>(board.tags.size)
+        for (tag in board.tags) {
             val color = runCatching { TagColor.valueOf(tag.colorId.uppercase()) }
                 .getOrElse { throw IllegalArgumentException("Unknown tag colorId: ${tag.colorId}") }
             val saved = tagRepository.save(BacklogTaskTagEntity().apply {
@@ -92,7 +97,8 @@ class AccountImportService(
         }
 
         // Step 4: tasks. Encrypt sensitive fields, translate FKs, parse dates.
-        for (task in payload.tasks) {
+        // assignee is always null at migration time and is not persisted on this build.
+        for (task in board.tasks) {
             val newCategoryId = categoryIdMap[task.categoryId]
                 ?: throw IllegalArgumentException("Task ${task.id} references unknown categoryId ${task.categoryId}")
             val category = categoryRepository.findByIdAndBoardId(newCategoryId, boardId)
@@ -165,9 +171,9 @@ class AccountImportService(
         }
 
         val summary = ImportSummary(
-            categories = payload.categories.size,
-            tags = payload.tags.size,
-            tasks = payload.tasks.size,
+            categories = board.categories.size,
+            tags = board.tags.size,
+            tasks = board.tasks.size,
         )
         log.info("Imported account for user {}: {}", userId, summary)
         return summary
@@ -190,7 +196,7 @@ class AccountImportService(
     }
 
     companion object {
-        const val SUPPORTED_FORMAT_VERSION = 1
+        const val SUPPORTED_FORMAT_VERSION = 2
     }
 }
 

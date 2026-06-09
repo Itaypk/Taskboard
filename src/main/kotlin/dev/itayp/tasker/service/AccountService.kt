@@ -3,6 +3,7 @@ package dev.itayp.tasker.service
 import dev.itayp.tasker.crypto.BoardCryptoService
 import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.model.response.AccountExportResponse
+import dev.itayp.tasker.model.response.BoardExport
 import dev.itayp.tasker.model.response.CategoryExport
 import dev.itayp.tasker.model.response.SettingsExport
 import dev.itayp.tasker.model.response.TagExport
@@ -124,8 +125,8 @@ class AccountService(
 
     @Transactional(readOnly = true)
     fun exportAccount(userId: UUID): AccountExportResponse {
-        // Phase 0: a user owns exactly one board, so the v1 flat shape still round-trips. Task
-        // content is decrypted with the board DEK; user/settings stay under the user DEK.
+        // Phase 0: a user owns exactly one board, emitted as the single v2 board. Task content is
+        // decrypted with the board DEK; user/settings stay under the user DEK.
         val boardId = boardMembershipService.resolveSoleBoard(userId)
         val user = userRepository.findById(userId).orElseThrow()
         val settings = settingsRepository.findById(userId).orElse(null)
@@ -134,7 +135,7 @@ class AccountService(
         val tasks = taskRepository.findAllByBoardIdOrderBySortKeyAsc(boardId)
 
         return AccountExportResponse(
-            formatVersion = 1,
+            formatVersion = 2,
             exportedAt = Instant.now().toString(),
             user = UserExport(
                 id = user.id.toString(),
@@ -157,39 +158,46 @@ class AccountService(
                     autoArchiveDays = it.autoArchiveDays,
                 )
             },
-            categories = categories.map {
-                CategoryExport(
-                    id = it.id.toString(),
-                    label = it.label ?: "",
-                    swatchId = it.swatchId?.name?.lowercase() ?: "",
+            boards = listOf(
+                BoardExport(
+                    name = "My tasks",
+                    role = "OWNER",
+                    categories = categories.map {
+                        CategoryExport(
+                            id = it.id.toString(),
+                            label = it.label ?: "",
+                            swatchId = it.swatchId?.name?.lowercase() ?: "",
+                        )
+                    },
+                    tags = tags.map {
+                        TagExport(
+                            id = it.id.toString(),
+                            label = it.label ?: "",
+                            colorId = it.colorId?.name?.lowercase() ?: "",
+                            description = it.description,
+                        )
+                    },
+                    tasks = tasks.map { task ->
+                        TaskExport(
+                            id = task.id.toString(),
+                            title = boardCrypto.decrypt(boardId, task.title) ?: "",
+                            description = boardCrypto.decrypt(boardId, task.description),
+                            url = task.url,
+                            priority = task.priority?.name?.lowercase(),
+                            deadline = task.deadline?.toString(),
+                            estimatedMinutes = task.estimatedMinutes,
+                            status = task.status?.name?.lowercase() ?: "",
+                            categoryId = task.category?.id?.toString() ?: "",
+                            tagIds = task.tags.map { it.id.toString() },
+                            sortKey = task.sortKey ?: "",
+                            createdAt = task.createdAt?.toString() ?: "",
+                            updatedAt = task.updatedAt?.toString(),
+                            relevantFrom = task.relevantFrom?.toString(),
+                            assignee = task.assigneeUserId?.toString(),
+                        )
+                    },
                 )
-            },
-            tags = tags.map {
-                TagExport(
-                    id = it.id.toString(),
-                    label = it.label ?: "",
-                    colorId = it.colorId?.name?.lowercase() ?: "",
-                    description = it.description,
-                )
-            },
-            tasks = tasks.map { task ->
-                TaskExport(
-                    id = task.id.toString(),
-                    title = boardCrypto.decrypt(boardId, task.title) ?: "",
-                    description = boardCrypto.decrypt(boardId, task.description),
-                    url = task.url,
-                    priority = task.priority?.name?.lowercase(),
-                    deadline = task.deadline?.toString(),
-                    estimatedMinutes = task.estimatedMinutes,
-                    status = task.status?.name?.lowercase() ?: "",
-                    categoryId = task.category?.id?.toString() ?: "",
-                    tagIds = task.tags.map { it.id.toString() },
-                    sortKey = task.sortKey ?: "",
-                    createdAt = task.createdAt?.toString() ?: "",
-                    updatedAt = task.updatedAt?.toString(),
-                    relevantFrom = task.relevantFrom?.toString(),
-                )
-            },
+            ),
         )
     }
 

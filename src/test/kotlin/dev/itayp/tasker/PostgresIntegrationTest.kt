@@ -15,6 +15,7 @@ import dev.itayp.tasker.model.CategoryColor
 import dev.itayp.tasker.model.TagColor
 import dev.itayp.tasker.model.TaskStatus
 import dev.itayp.tasker.model.response.AccountExportResponse
+import dev.itayp.tasker.model.response.BoardExport
 import dev.itayp.tasker.model.response.CategoryExport
 import dev.itayp.tasker.model.response.TagExport
 import dev.itayp.tasker.model.response.TaskExport
@@ -263,7 +264,7 @@ class PostgresIntegrationTest(
         val boardId = boardMembershipService.resolveSoleBoard(userId)
 
         val payload = AccountExportResponse(
-            formatVersion = 1,
+            formatVersion = 2,
             exportedAt = Instant.parse("2026-05-25T12:00:00Z").toString(),
             user = UserExport(
                 id = "old-uuid",
@@ -273,28 +274,34 @@ class PostgresIntegrationTest(
                 createdAt = null,
             ),
             settings = null,
-            categories = listOf(
-                CategoryExport(id = "cat-1", label = "Imported Work", swatchId = "sky"),
-            ),
-            tags = listOf(
-                TagExport(id = "tag-1", label = "urgent", colorId = "coral", description = null),
-            ),
-            tasks = listOf(
-                TaskExport(
-                    id = "task-1",
-                    title = "ENCRYPT-CHECK-12345",
-                    description = "secret notes",
-                    url = null,
-                    priority = "high",
-                    deadline = null,
-                    estimatedMinutes = 30,
-                    status = "todo",
-                    categoryId = "cat-1",
-                    tagIds = listOf("tag-1"),
-                    sortKey = "a",
-                    createdAt = Instant.parse("2026-05-01T12:00:00Z").toString(),
-                    updatedAt = null,
-                    relevantFrom = null,
+            boards = listOf(
+                BoardExport(
+                    name = "My tasks",
+                    role = "OWNER",
+                    categories = listOf(
+                        CategoryExport(id = "cat-1", label = "Imported Work", swatchId = "sky"),
+                    ),
+                    tags = listOf(
+                        TagExport(id = "tag-1", label = "urgent", colorId = "coral", description = null),
+                    ),
+                    tasks = listOf(
+                        TaskExport(
+                            id = "task-1",
+                            title = "ENCRYPT-CHECK-12345",
+                            description = "secret notes",
+                            url = null,
+                            priority = "high",
+                            deadline = null,
+                            estimatedMinutes = 30,
+                            status = "todo",
+                            categoryId = "cat-1",
+                            tagIds = listOf("tag-1"),
+                            sortKey = "a",
+                            createdAt = Instant.parse("2026-05-01T12:00:00Z").toString(),
+                            updatedAt = null,
+                            relevantFrom = null,
+                        )
+                    ),
                 )
             ),
         )
@@ -323,12 +330,12 @@ class PostgresIntegrationTest(
     }
 
     @Test
-    fun `account import of export v1 populates tasks and stores ciphertext in title column`() {
-        val json = ClassPathResource("import/export-v1.json").getContentAsString(StandardCharsets.UTF_8)
+    fun `account import of export v2 populates tasks and stores ciphertext in title column`() {
+        val json = ClassPathResource("import/export-v2.json").getContentAsString(StandardCharsets.UTF_8)
         val payload = objectMapper.readValue(json, AccountExportResponse::class.java)
-        assertThat(payload.formatVersion).isEqualTo(1)
-        assertThat(payload.tasks).hasSize(8)
-        assertThat(payload.categories).hasSize(6)
+        assertThat(payload.formatVersion).isEqualTo(2)
+        assertThat(payload.boards[0].tasks).hasSize(8)
+        assertThat(payload.boards[0].categories).hasSize(6)
 
         val userId = UUID.randomUUID()
         userAuthService.ensureDevUser(userId, telegramId = System.nanoTime())

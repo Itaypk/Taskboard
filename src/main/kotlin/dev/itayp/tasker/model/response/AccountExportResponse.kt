@@ -8,17 +8,26 @@ import jakarta.validation.constraints.Size
 
 /**
  * Round-trippable account snapshot used by both `GET /account/export` and
- * `POST /account/import`. Spec lives in `docs/export-format-v1.md`; bump
+ * `POST /account/import`. Spec lives in `docs/export-format-v2.md`; bump
  * [formatVersion] when the schema changes.
  */
 data class AccountExportResponse(
     @field:Positive
-    val formatVersion: Int = 1,
+    val formatVersion: Int = 2,
     val exportedAt: String,
     @field:Valid
     val user: UserExport,
     @field:Valid
     val settings: SettingsExport?,
+    @field:Valid
+    val boards: List<BoardExport>,
+)
+
+data class BoardExport(
+    @field:NotBlank @field:Size(max = 255)
+    val name: String,
+    @field:NotBlank @field:Size(max = 50)
+    val role: String,
     @field:Valid
     val categories: List<CategoryExport>,
     @field:Valid
@@ -102,4 +111,5 @@ data class TaskExport(
     val updatedAt: String?,
     @field:Pattern(regexp = "^$|^\\d{4}-\\d{2}-\\d{2}$")
     val relevantFrom: String?,
+    val assignee: String? = null,
 )
