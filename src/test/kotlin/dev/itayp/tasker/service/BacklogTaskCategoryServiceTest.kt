@@ -6,7 +6,6 @@ import dev.itayp.tasker.model.request.CreateCategoryRequest
 import dev.itayp.tasker.model.request.UpdateCategoryRequest
 import dev.itayp.tasker.repository.BacklogTaskCategoryRepository
 import dev.itayp.tasker.repository.BacklogTaskRepository
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.InjectMocks
@@ -32,13 +31,9 @@ class BacklogTaskCategoryServiceTest {
     private val userId: UUID = UUID.fromString("00000000-0000-0000-0000-000000000001")
     private val boardId: UUID = UUID.fromString("00000000-0000-0000-0000-0000000000b0")
 
-    @BeforeEach
-    fun stubBoard() {
-        whenever(boardMembershipService.resolveSoleBoard(userId)).thenReturn(boardId)
-    }
-
     @Test
-    fun `getAllForUser returns mapped categories`() {
+    fun `getAllForUser bridge resolves the sole board and returns mapped categories`() {
+        whenever(boardMembershipService.resolveSoleBoard(userId)).thenReturn(boardId)
         whenever(categoryRepository.findAllByBoardId(boardId))
             .thenReturn(listOf(categoryEntity(label = "Work", swatchId = CategoryColor.SUNSHINE)))
 
@@ -55,7 +50,7 @@ class BacklogTaskCategoryServiceTest {
             (inv.arguments[0] as BacklogTaskCategoryEntity).also { it.id = UUID.randomUUID() }
         }
 
-        service.createCategory(userId, CreateCategoryRequest(label = "Home", swatchId = "mint"))
+        service.createCategory(userId, boardId, CreateCategoryRequest(label = "Home", swatchId = "mint"))
 
         val captor = argumentCaptor<BacklogTaskCategoryEntity>()
         verify(categoryRepository).save(captor.capture())
@@ -71,7 +66,7 @@ class BacklogTaskCategoryServiceTest {
         whenever(categoryRepository.findByIdAndBoardId(id, boardId)).thenReturn(entity)
         whenever(categoryRepository.save(any<BacklogTaskCategoryEntity>())).thenAnswer { inv -> inv.arguments[0] as BacklogTaskCategoryEntity }
 
-        service.updateCategory(userId, id, UpdateCategoryRequest(label = "New", swatchId = "blossom"))
+        service.updateCategory(userId, boardId, id, UpdateCategoryRequest(label = "New", swatchId = "blossom"))
 
         assertEquals("New", entity.label)
         assertEquals(CategoryColor.BLOSSOM, entity.swatchId)
@@ -83,7 +78,7 @@ class BacklogTaskCategoryServiceTest {
         whenever(categoryRepository.findByIdAndBoardId(id, boardId)).thenReturn(null)
 
         assertFailsWith<NoSuchElementException> {
-            service.updateCategory(userId, id, UpdateCategoryRequest(label = "X", swatchId = "mint"))
+            service.updateCategory(userId, boardId, id, UpdateCategoryRequest(label = "X", swatchId = "mint"))
         }
     }
 
@@ -93,7 +88,7 @@ class BacklogTaskCategoryServiceTest {
         whenever(taskRepository.existsByCategoryIdAndBoardId(id, boardId)).thenReturn(false)
         whenever(categoryRepository.findByIdAndBoardId(id, boardId)).thenReturn(categoryEntity(id = id))
 
-        service.deleteCategory(userId, id)
+        service.deleteCategory(userId, boardId, id)
 
         verify(categoryRepository).deleteById(id)
     }
@@ -104,7 +99,7 @@ class BacklogTaskCategoryServiceTest {
         whenever(taskRepository.existsByCategoryIdAndBoardId(id, boardId)).thenReturn(true)
 
         assertFailsWith<IllegalStateException> {
-            service.deleteCategory(userId, id)
+            service.deleteCategory(userId, boardId, id)
         }
     }
 
@@ -115,7 +110,7 @@ class BacklogTaskCategoryServiceTest {
         whenever(categoryRepository.findByIdAndBoardId(id, boardId)).thenReturn(null)
 
         assertFailsWith<NoSuchElementException> {
-            service.deleteCategory(userId, id)
+            service.deleteCategory(userId, boardId, id)
         }
     }
 

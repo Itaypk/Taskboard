@@ -122,15 +122,28 @@ function jsonBody(body: unknown): RequestInit {
     };
 }
 
+// --- Boards ---
+
+export interface Board {
+    id: string;
+    name: string;
+    role: 'OWNER' | 'MEMBER';
+    createdAt: string;
+}
+
+/** The user's boards, default board first (the backend orders by membership age). */
+export const fetchBoards = (): Promise<Board[]> =>
+    apiRequest('/boards');
+
 // --- Tasks ---
 
 export type TaskStatusFilter = 'todo' | 'done' | 'all' | 'archived';
 
-export const fetchTasks = (status: TaskStatusFilter = 'todo'): Promise<Task[]> =>
-    apiRequest(`/tasks?status=${status}`);
+export const fetchTasks = (boardId: string, status: TaskStatusFilter = 'todo'): Promise<Task[]> =>
+    apiRequest(`/boards/${boardId}/tasks?status=${status}`);
 
-export const checkTaskChanges = (since: string): Promise<{ hasChanges: boolean; checkedAt: string }> =>
-    apiRequest(`/tasks/has-changes?since=${encodeURIComponent(since)}`);
+export const checkTaskChanges = (boardId: string, since: string): Promise<{ hasChanges: boolean; checkedAt: string }> =>
+    apiRequest(`/boards/${boardId}/tasks/has-changes?since=${encodeURIComponent(since)}`);
 
 // --- Current plan ---
 
@@ -180,42 +193,42 @@ export interface PlanSummary {
 export const fetchPlans = (): Promise<PlanSummary[]> =>
     apiRequest('/plans');
 
-export const createTask = (payload: Omit<Task, 'id' | 'createdAt' | 'sortKey'>): Promise<Task> =>
-    apiRequest('/tasks', { method: 'POST', ...jsonBody(payload) });
+export const createTask = (boardId: string, payload: Omit<Task, 'id' | 'createdAt' | 'sortKey'>): Promise<Task> =>
+    apiRequest(`/boards/${boardId}/tasks`, { method: 'POST', ...jsonBody(payload) });
 
-export const updateTask = (id: string, payload: Omit<Task, 'id' | 'createdAt' | 'sortKey'>): Promise<Task> =>
-    apiRequest(`/tasks/${id}`, { method: 'PUT', ...jsonBody(payload) });
+export const updateTask = (boardId: string, id: string, payload: Omit<Task, 'id' | 'createdAt' | 'sortKey'>): Promise<Task> =>
+    apiRequest(`/boards/${boardId}/tasks/${id}`, { method: 'PUT', ...jsonBody(payload) });
 
-export const reorderTask = (id: string, afterId: string | null, beforeId: string | null): Promise<Task> =>
-    apiRequest(`/tasks/${id}/reorder`, { method: 'PATCH', ...jsonBody({ afterId, beforeId }) });
+export const reorderTask = (boardId: string, id: string, afterId: string | null, beforeId: string | null): Promise<Task> =>
+    apiRequest(`/boards/${boardId}/tasks/${id}/reorder`, { method: 'PATCH', ...jsonBody({ afterId, beforeId }) });
 
-export const deleteTask = (id: string): Promise<void> =>
-    apiRequest(`/tasks/${id}`, { method: 'DELETE' });
+export const deleteTask = (boardId: string, id: string): Promise<void> =>
+    apiRequest(`/boards/${boardId}/tasks/${id}`, { method: 'DELETE' });
 
-export const removeTaskFromPlan = (id: string): Promise<void> =>
-    apiRequest(`/tasks/${id}/plan-schedule`, { method: 'DELETE' });
+export const removeTaskFromPlan = (boardId: string, id: string): Promise<void> =>
+    apiRequest(`/boards/${boardId}/tasks/${id}/plan-schedule`, { method: 'DELETE' });
 
 export const addTaskToPlan = (taskId: string, startIso: string, endIso: string): Promise<void> =>
     apiRequest(`/plans/current/tasks/${taskId}`, { method: 'POST', ...jsonBody({ startIso, endIso }) });
 
 // --- Categories ---
 
-export const fetchCategories = (): Promise<Category[]> =>
-    apiRequest('/categories');
+export const fetchCategories = (boardId: string): Promise<Category[]> =>
+    apiRequest(`/boards/${boardId}/categories`);
 
-export const createCategory = (payload: Omit<Category, 'id'>): Promise<Category> =>
-    apiRequest('/categories', { method: 'POST', ...jsonBody(payload) });
+export const createCategory = (boardId: string, payload: Omit<Category, 'id'>): Promise<Category> =>
+    apiRequest(`/boards/${boardId}/categories`, { method: 'POST', ...jsonBody(payload) });
 
-export const updateCategory = (id: string, payload: Omit<Category, 'id'>): Promise<Category> =>
-    apiRequest(`/categories/${id}`, { method: 'PUT', ...jsonBody(payload) });
+export const updateCategory = (boardId: string, id: string, payload: Omit<Category, 'id'>): Promise<Category> =>
+    apiRequest(`/boards/${boardId}/categories/${id}`, { method: 'PUT', ...jsonBody(payload) });
 
-export const deleteCategory = (id: string): Promise<void> =>
-    apiRequest(`/categories/${id}`, { method: 'DELETE' });
+export const deleteCategory = (boardId: string, id: string): Promise<void> =>
+    apiRequest(`/boards/${boardId}/categories/${id}`, { method: 'DELETE' });
 
 // --- Tags ---
 
-export const fetchTags = (): Promise<Tag[]> =>
-    apiRequest('/tags');
+export const fetchTags = (boardId: string): Promise<Tag[]> =>
+    apiRequest(`/boards/${boardId}/tags`);
 
 // --- User Settings ---
 

@@ -25,7 +25,7 @@ import { ScheduleTaskModal } from './components/ScheduleTaskModal';
 import { UserMenu } from './components/UserMenu';
 import { StatsModal } from './components/StatsModal';
 import { DEFAULT_SETTINGS } from './data';
-import { fetchTasks, fetchCategories, fetchUserSettings, fetchTags, fetchCurrentPlan, checkTaskChanges, createTask, updateTask, deleteTask, reorderTask, removeTaskFromPlan, addTaskToPlan, type TaskStatusFilter } from './api';
+import { fetchBoards, fetchTasks, fetchCategories, fetchUserSettings, fetchTags, fetchCurrentPlan, checkTaskChanges, createTask, updateTask, deleteTask, reorderTask, removeTaskFromPlan, addTaskToPlan, type TaskStatusFilter } from './api';
 import type { Task, UserSettings, Tag, CurrentPlan, TaskFilter } from './types';
 import { Routes, Route } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
@@ -81,6 +81,9 @@ function AuthShell() {
 }
 
 function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
+  // One active board at a time; every account has at least one. The switcher UI arrives with
+  // multi-board (docs/BOARD-SHARING-PHASE1.md) — until then this is always the default board.
+  const [activeBoardId, setActiveBoardId] = useState<string | null>(null);
   const [tasks, setTasks]             = useState<Task[]>([]);
   const [tags, setTags]               = useState<Tag[]>([]);
   const [settings, setSettings]       = useState<UserSettings>({ ...DEFAULT_SETTINGS, categories: [] });
@@ -120,8 +123,14 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   }, [emailVerifiedBanner]);
 
   useEffect(() => {
-    Promise.all([fetchTasks('todo'), fetchCategories(), fetchUserSettings(), fetchTags(), fetchCurrentPlan()])
-      .then(([loadedTasks, loadedCategories, loadedSettings, loadedTags, loadedPlan]) => {
+    (async () => {
+      try {
+        const boards = await fetchBoards();
+        const boardId = boards[0].id;
+        const [loadedTasks, loadedCategories, loadedSettings, loadedTags, loadedPlan] = await Promise.all([
+          fetchTasks(boardId, 'todo'), fetchCategories(boardId), fetchUserSettings(), fetchTags(boardId), fetchCurrentPlan(),
+        ]);
+        setActiveBoardId(boardId);
         setTasks(loadedTasks);
         setTags(loadedTags);
         setCurrentPlan(loadedPlan);
@@ -132,36 +141,39 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
           contextBlock: loadedSettings.contextBlock ?? prev.contextBlock,
           categories: loadedCategories,
         }));
-      })
-      .catch(() => setError('Failed to load data. Is the backend running?'))
-      .finally(() => setLoading(false));
+      } catch {
+        setError('Failed to load data. Is the backend running?');
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   // Refetch tasks when the filter's status dimension changes.
   // 'plan' reuses the open-tasks fetch and applies plan-membership client-side.
   const fetchStatus: TaskStatusFilter = filter === 'plan' ? 'todo' : filter;
   useEffect(() => {
-    if (loading) return;
-    fetchTasks(fetchStatus).then(setTasks).catch(e => console.error('Failed to refetch tasks', e));
-  }, [fetchStatus, loading]);
+    if (loading || !activeBoardId) return;
+    fetchTasks(activeBoardId, fetchStatus).then(setTasks).catch(e => console.error('Failed to refetch tasks', e));
+  }, [fetchStatus, loading, activeBoardId]);
 
   const drawerOpen   = selectedId !== null || isCreating;
 
   // Periodic sync — check for task changes every 60 s; skip while tab is hidden or drawer is open.
   // On visibility restore, run an immediate catch-up sync.
   useEffect(() => {
-    if (loading) return;
+    if (loading || !activeBoardId) return;
 
     const sync = async () => {
       if (drawerOpen || document.hidden) return;
       try {
-        const { hasChanges, checkedAt } = await checkTaskChanges(lastSyncedAt.current);
+        const { hasChanges, checkedAt } = await checkTaskChanges(activeBoardId, lastSyncedAt.current);
         lastSyncedAt.current = checkedAt;
-        const [freshPlan, freshTags] = await Promise.all([fetchCurrentPlan(), fetchTags()]);
+        const [freshPlan, freshTags] = await Promise.all([fetchCurrentPlan(), fetchTags(activeBoardId)]);
         setCurrentPlan(freshPlan);
         setTags(freshTags);
         if (hasChanges) {
-          const freshTasks = await fetchTasks(fetchStatus);
+          const freshTasks = await fetchTasks(activeBoardId, fetchStatus);
           setTasks(freshTasks);
         }
       } catch { /* silent — don't surface background network blips */ }
@@ -173,7 +185,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
       clearInterval(id);
       document.removeEventListener('visibilitychange', sync);
     };
-  }, [loading, drawerOpen, fetchStatus]);
+  }, [loading, drawerOpen, fetchStatus, activeBoardId]);
   const selectedTask = tasks.find(t => t.id === selectedId) ?? null;
 
   const sortedTasks = useMemo(
@@ -209,19 +221,20 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const closeDrawer = () => { setSelectedId(null); setIsCreating(false); };
 
   const handleSave = async (updated: Omit<Task, 'sortKey'>) => {
+    if (!activeBoardId) return;
     try {
       const { id: _id, createdAt: _ca, ...payload } = updated;
       if (isCreating) {
-        const created = await createTask(payload);
+        const created = await createTask(activeBoardId, payload);
         setTasks(prev => [...prev, created]);
       } else {
-        const saved = await updateTask(updated.id, payload);
+        const saved = await updateTask(activeBoardId, updated.id, payload);
         setTasks(prev => prev.map(t => t.id === saved.id ? saved : t));
       }
-      
+
       // Refetch tags in case a new tag was created
-      fetchTags().then(setTags).catch(e => console.error('Failed to refetch tags', e));
-      
+      fetchTags(activeBoardId).then(setTags).catch(e => console.error('Failed to refetch tags', e));
+
       closeDrawer();
     } catch (e) {
       console.error('Failed to save task', e);
@@ -229,20 +242,21 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   };
 
   const handleDelete = useCallback(async (id: string) => {
+    if (!activeBoardId) return;
     try {
-      await deleteTask(id);
+      await deleteTask(activeBoardId, id);
       setTasks(prev => prev.filter(t => t.id !== id));
     } catch (e) {
       console.error('Failed to delete task', e);
     }
-  }, []);
+  }, [activeBoardId]);
 
   const handleMarkDone = useCallback((id: string) => {
     const task = tasks.find(t => t.id === id);
-    if (!task) return;
+    if (!task || !activeBoardId) return;
     setLeavingId(id);
     const { id: _id, createdAt: _ca, sortKey: _sk, ...payload } = task;
-    updateTask(id, { ...payload, status: 'done' }).then(() => {
+    updateTask(activeBoardId, id, { ...payload, status: 'done' }).then(() => {
       setTimeout(() => {
         setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'done' } : t));
         setLeavingId(null);
@@ -251,13 +265,13 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
       console.error('Failed to mark task done', e);
       setLeavingId(null);
     });
-  }, [tasks]);
+  }, [tasks, activeBoardId]);
 
   const handleMarkTodo = useCallback((id: string) => {
     const task = tasks.find(t => t.id === id) ?? archivedTasks.find(t => t.id === id);
-    if (!task) return;
+    if (!task || !activeBoardId) return;
     const { id: _id, createdAt: _ca, sortKey: _sk, ...payload } = task;
-    updateTask(id, { ...payload, status: 'todo' }).then(() => {
+    updateTask(activeBoardId, id, { ...payload, status: 'todo' }).then(() => {
       setTasks(prev => {
         const existing = prev.find(t => t.id === id);
         return existing
@@ -268,29 +282,30 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
     }).catch(e => {
       console.error('Failed to mark task todo', e);
     });
-  }, [tasks, archivedTasks]);
+  }, [tasks, archivedTasks, activeBoardId]);
 
   const handleRemoveFromPlan = useCallback(async (id: string) => {
+    if (!activeBoardId) return;
     try {
-      await removeTaskFromPlan(id);
+      await removeTaskFromPlan(activeBoardId, id);
       setTasks(prev => prev.map(t => t.id === id ? { ...t, lastScheduledInSessionId: null } : t));
       setCurrentPlan(prev => prev ? { ...prev, tasks: prev.tasks.filter(t => t.id !== id) } : prev);
     } catch (e) {
       console.error('Failed to remove task from plan', e);
     }
-  }, []);
+  }, [activeBoardId]);
 
   const handleAddToPlan = useCallback(async (taskId: string, startIso: string, endIso: string) => {
-    if (!currentPlan) return;
+    if (!currentPlan || !activeBoardId) return;
     try {
       await addTaskToPlan(taskId, startIso, endIso);
-      const [freshPlan, freshTasks] = await Promise.all([fetchCurrentPlan(), fetchTasks(fetchStatus)]);
+      const [freshPlan, freshTasks] = await Promise.all([fetchCurrentPlan(), fetchTasks(activeBoardId, fetchStatus)]);
       setCurrentPlan(freshPlan);
       setTasks(freshTasks);
     } catch (e) {
       console.error('Failed to add task to plan', e);
     }
-  }, [currentPlan, fetchStatus]);
+  }, [currentPlan, fetchStatus, activeBoardId]);
 
   const requestDelete = useCallback((id: string) => {
     const task = tasks.find(t => t.id === id) ?? archivedTasks.find(t => t.id === id);
@@ -353,23 +368,24 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
     const afterId  = newIndex > 0                     ? reordered[newIndex - 1].id : null;
     const beforeId = newIndex < reordered.length - 1  ? reordered[newIndex + 1].id : null;
 
+    if (!activeBoardId) return;
     try {
-      await reorderTask(draggedId, afterId, beforeId);
-      const fresh = await fetchTasks(fetchStatus);
+      await reorderTask(activeBoardId, draggedId, afterId, beforeId);
+      const fresh = await fetchTasks(activeBoardId, fetchStatus);
       setTasks(fresh);
     } catch (e) {
       console.error('Failed to reorder task', e);
-      fetchTasks(fetchStatus).then(setTasks).catch(() => {});
+      fetchTasks(activeBoardId, fetchStatus).then(setTasks).catch(() => {});
     }
-  }, [visibleIds, visibleTasks, fetchStatus]);
+  }, [visibleIds, visibleTasks, fetchStatus, activeBoardId]);
 
   const handleDragCancel = () => setDraggingId(null);
 
   const defaultCategoryId = settings.categories[0]?.id ?? null;
 
   const handleToggleArchived = () => {
-    if (!showArchived && archivedTasks.length === 0) {
-      fetchTasks('archived').then(setArchivedTasks).catch(e => console.error('Failed to fetch archived tasks', e));
+    if (!showArchived && archivedTasks.length === 0 && activeBoardId) {
+      fetchTasks(activeBoardId, 'archived').then(setArchivedTasks).catch(e => console.error('Failed to fetch archived tasks', e));
     }
     setShowArchived(v => !v);
   };
@@ -387,8 +403,8 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
     return <div className="board-wrap"><div className="board board--empty">Loading…</div></div>;
   }
 
-  if (error) {
-    return <div className="board-wrap"><div className="board board--empty">{error}</div></div>;
+  if (error || !activeBoardId) {
+    return <div className="board-wrap"><div className="board board--empty">{error ?? 'Failed to load data. Is the backend running?'}</div></div>;
   }
 
   return (
@@ -510,16 +526,18 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
         }}
         onTaskContextMenu={(e, taskId) => setContextMenu({ x: e.clientX, y: e.clientY, taskId, inPlan: true })}
         onFinalized={() => {
+          if (!activeBoardId) return;
           // The assistant can create or edit tasks while planning, so refresh the board (and tags)
           // immediately rather than waiting for the next background poll.
           fetchCurrentPlan().then(setCurrentPlan).catch(e => console.error('Failed to refetch plan', e));
-          Promise.all([fetchTasks(fetchStatus), fetchTags()])
+          Promise.all([fetchTasks(activeBoardId, fetchStatus), fetchTags(activeBoardId)])
             .then(([freshTasks, freshTags]) => { setTasks(freshTasks); setTags(freshTags); })
             .catch(e => console.error('Failed to refetch tasks after planning', e));
         }}
       />
 
       <SettingsModal
+        boardId={activeBoardId}
         settings={settings}
         tasks={tasks}
         open={settingsOpen}

@@ -2,8 +2,10 @@ package dev.itayp.tasker.service
 
 import dev.itayp.tasker.model.BoardRole
 import dev.itayp.tasker.repository.BoardMembershipRepository
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.web.bind.annotation.ResponseStatus
 import java.util.UUID
 
 /**
@@ -43,6 +45,10 @@ class BoardMembershipService(
     }
 }
 
-/** Thrown when a user attempts to access a board they are not a member of. Maps to HTTP 403. */
+/**
+ * Thrown when a user attempts to access a board they are not a member of. Maps to HTTP 403.
+ * Deliberately raised whether the board exists or not, so the response doesn't reveal board ids.
+ */
+@ResponseStatus(HttpStatus.FORBIDDEN)
 class BoardAccessDeniedException(userId: UUID, boardId: UUID) :
     RuntimeException("User $userId is not a member of board $boardId")
