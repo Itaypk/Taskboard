@@ -53,3 +53,42 @@ fun noopUserCryptoService(): UserCryptoService {
     }
     return mock
 }
+
+/**
+ * Real BoardCryptoService backed by an in-memory key store — the board-scoped twin of
+ * [newTestUserCryptoService]. Call `ensureBoardKey(boardId)` before encrypting for a board.
+ */
+fun newTestBoardCryptoService(): BoardCryptoService {
+    val store = HashMap<UUID, BoardDataKeyEntity>()
+    val repo = mock<BoardDataKeyRepository> {
+        on { existsById(any()) } doAnswer { store.containsKey(it.arguments[0] as UUID) }
+        on { findById(any()) } doAnswer { Optional.ofNullable(store[it.arguments[0] as UUID]) }
+    }
+    whenever(repo.save(any<BoardDataKeyEntity>())).thenAnswer {
+        val entity = it.arguments[0] as BoardDataKeyEntity
+        store[entity.boardId!!] = entity
+        entity
+    }
+    val props = DataEncryptionProperties(
+        kek = Base64.getEncoder().encodeToString(ByteArray(32) { 0x42 })
+    )
+    return BoardCryptoService(repo, props, Clock.systemUTC())
+}
+
+/**
+ * Identity-only stub for [BoardCryptoService], the board-scoped twin of [noopUserCryptoService]:
+ * encrypt(boardId, s) -> s.toByteArray(UTF-8); decrypt(boardId, b) -> String(b). Use for tests
+ * where board content crypto is not what's under test.
+ */
+fun noopBoardCryptoService(): BoardCryptoService {
+    val mock = mock<BoardCryptoService>()
+    Mockito.lenient().`when`(mock.encrypt(any(), anyOrNull<String>())).thenAnswer {
+        val plaintext = it.arguments[1] as String?
+        plaintext?.toByteArray(Charsets.UTF_8)
+    }
+    Mockito.lenient().`when`(mock.decrypt(any(), anyOrNull<ByteArray>())).thenAnswer {
+        val ciphertext = it.arguments[1] as ByteArray?
+        ciphertext?.toString(Charsets.UTF_8)
+    }
+    return mock
+}

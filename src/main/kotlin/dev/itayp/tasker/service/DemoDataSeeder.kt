@@ -1,5 +1,6 @@
 package dev.itayp.tasker.service
 
+import dev.itayp.tasker.crypto.BoardCryptoService
 import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.jpa.BacklogTaskEntity
 import dev.itayp.tasker.model.TaskPriority
@@ -29,13 +30,16 @@ class DemoDataSeeder(
     private val planningSessionRepository: PlanningSessionRepository,
     private val plannedTaskRepository: PlannedTaskRepository,
     private val plannedTaskSlotRepository: PlannedTaskSlotRepository,
+    private val boardCrypto: BoardCryptoService,
     private val userCrypto: UserCryptoService,
+    private val boardMembershipService: BoardMembershipService,
     private val clock: Clock,
 ) {
 
     @Transactional
     fun seed(userId: UUID) {
-        val categories = categoryRepository.findAllByUserId(userId).associateBy { it.label }
+        val boardId = boardMembershipService.resolveSoleBoard(userId)
+        val categories = categoryRepository.findAllByBoardId(boardId).associateBy { it.label }
         val now = clock.instant()
         val today = LocalDate.now(clock)
 
@@ -54,9 +58,9 @@ class DemoDataSeeder(
         ): SeedTask {
             val category = categories[categoryLabel] ?: return SeedTask(title, BacklogTaskEntity())
             return SeedTask(title, BacklogTaskEntity().apply {
-                this.userId = userId
-                this.title = userCrypto.encrypt(userId, title)
-                this.description = userCrypto.encrypt(userId, description)
+                this.boardId = boardId
+                this.title = boardCrypto.encrypt(boardId, title)
+                this.description = boardCrypto.encrypt(boardId, description)
                 this.priority = priority
                 this.status = status
                 this.estimatedMinutes = estimatedMinutes
@@ -76,7 +80,7 @@ class DemoDataSeeder(
         val run         = task("Go for a 30-min run", "Health", TaskPriority.MEDIUM, estimatedMinutes = 35)
 
         val seedTasks = listOf(teamUpdate, pullReviews, retroNotes, dentist, book, tap, bulbs, run)
-            .filter { it.entity.userId != null }
+            .filter { it.entity.boardId != null }
         val taskList = seedTasks.map { it.entity }
 
         val sortKeys = SortKeyGenerator.spreadKeys(taskList.size)
@@ -97,15 +101,15 @@ class DemoDataSeeder(
         })
         val sessionId = session.id!!
 
-        // Schedule the first 3 meaningful tasks into the plan
-        val plannedTasks = listOf(
-            savedByPlaintextTitle[teamUpdate.plaintextTitle],
-            savedByPlaintextTitle[pullReviews.plaintextTitle],
-            savedByPlaintextTitle[run.plaintextTitle],
-        ).filterNotNull()
+        // Schedule the first 3 meaningful tasks into the plan. Keep each task's plaintext title so the
+        // planned_task row can be encrypted under the user DEK (planned_task content is user-owned,
+        // unlike the backlog task itself which is board-owned).
+        val plannedPairs = listOf(teamUpdate, pullReviews, run).mapNotNull { seed ->
+            savedByPlaintextTitle[seed.plaintextTitle]?.let { it to seed.plaintextTitle }
+        }
 
-        plannedTasks.forEach { t -> t.lastScheduledInSessionId = sessionId }
-        taskRepository.saveAll(plannedTasks)
+        plannedPairs.forEach { (entity, _) -> entity.lastScheduledInSessionId = sessionId }
+        taskRepository.saveAll(plannedPairs.map { it.first })
 
         // Create planned task entries with time slots
         val monday    = weekStart
@@ -120,14 +124,15 @@ class DemoDataSeeder(
             SlotSpec(wednesday, 7,  7, 35),
         )
 
-        plannedTasks.zip(slotSpecs).forEachIndexed { index, (backlogTask, slot) ->
+        plannedPairs.zip(slotSpecs).forEachIndexed { index, (pair, slot) ->
+            val (backlogTask, plaintextTitle) = pair
             val pt = plannedTaskRepository.save(PlannedTaskEntity().apply {
                 this.sessionId = sessionId
                 this.userId = userId
                 this.backlogTaskId = backlogTask.id
-                // backlogTask.title is ciphertext here; copy it verbatim — both rows belong
-                // to the same user, so the ciphertext is valid in either column.
-                this.title = backlogTask.title
+                // planned_task.title is encrypted under the user DEK (see PlannedTaskService); encrypt
+                // from plaintext rather than copying the board-DEK ciphertext on the backlog task.
+                this.title = userCrypto.encrypt(userId, plaintextTitle)
                 this.position = index
             })
             val startInstant = slot.date.atTime(LocalTime.of(slot.startHour, 0)).toInstant(ZoneOffset.UTC)

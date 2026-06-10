@@ -8,7 +8,7 @@ import java.util.UUID
 @Repository
 interface BacklogTaskTagRepository : JpaRepository<BacklogTaskTagEntity, UUID> {
 
-    fun findAllByUserId(userId: UUID): List<BacklogTaskTagEntity>
+    fun findAllByBoardId(boardId: UUID): List<BacklogTaskTagEntity>
 
-    fun deleteAllByUserId(userId: UUID)
+    fun deleteAllByBoardId(boardId: UUID)
 }

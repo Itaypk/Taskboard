@@ -26,8 +26,12 @@ open class BacklogTaskEntity {
     @GeneratedValue(strategy = GenerationType.UUID)
     var id: UUID? = null
 
-    @Column(name = "user_id")
-    var userId: UUID? = null
+    @Column(name = "board_id")
+    var boardId: UUID? = null
+
+    /** Member who has claimed/been assigned this task; null = unassigned. Written from a later phase. */
+    @Column(name = "assignee_user_id")
+    var assigneeUserId: UUID? = null
 
     @Column
     var title: ByteArray? = null

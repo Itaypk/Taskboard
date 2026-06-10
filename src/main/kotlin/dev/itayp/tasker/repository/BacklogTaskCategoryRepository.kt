@@ -8,9 +8,9 @@ import java.util.UUID
 @Repository
 interface BacklogTaskCategoryRepository : JpaRepository<BacklogTaskCategoryEntity, UUID> {
 
-    fun findAllByUserId(userId: UUID): List<BacklogTaskCategoryEntity>
+    fun findAllByBoardId(boardId: UUID): List<BacklogTaskCategoryEntity>
 
-    fun findByIdAndUserId(id: UUID, userId: UUID): BacklogTaskCategoryEntity?
+    fun findByIdAndBoardId(id: UUID, boardId: UUID): BacklogTaskCategoryEntity?
 
-    fun deleteAllByUserId(userId: UUID)
+    fun deleteAllByBoardId(boardId: UUID)
 }

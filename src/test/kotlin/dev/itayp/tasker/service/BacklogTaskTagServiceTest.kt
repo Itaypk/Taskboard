@@ -3,6 +3,7 @@ package dev.itayp.tasker.service
 import dev.itayp.tasker.jpa.BacklogTaskTagEntity
 import dev.itayp.tasker.model.TagColor
 import dev.itayp.tasker.repository.BacklogTaskTagRepository
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.InjectMocks
@@ -16,20 +17,27 @@ import kotlin.test.assertEquals
 class BacklogTaskTagServiceTest {
 
     @Mock private lateinit var tagRepository: BacklogTaskTagRepository
+    @Mock private lateinit var boardMembershipService: BoardMembershipService
 
     @InjectMocks private lateinit var service: BacklogTaskTagService
 
     private val userId: UUID = UUID.fromString("00000000-0000-0000-0000-000000000001")
+    private val boardId: UUID = UUID.fromString("00000000-0000-0000-0000-0000000000b0")
+
+    @BeforeEach
+    fun stubBoard() {
+        whenever(boardMembershipService.resolveSoleBoard(userId)).thenReturn(boardId)
+    }
 
     @Test
     fun `getAllForUser returns tags mapped to domain`() {
         val entity = BacklogTaskTagEntity().apply {
             id = UUID.randomUUID()
-            this.userId = this@BacklogTaskTagServiceTest.userId
+            this.boardId = this@BacklogTaskTagServiceTest.boardId
             label = "deep-work"
             colorId = TagColor.VIOLET
         }
-        whenever(tagRepository.findAllByUserId(userId)).thenReturn(listOf(entity))
+        whenever(tagRepository.findAllByBoardId(boardId)).thenReturn(listOf(entity))
 
         val result = service.getAllForUser(userId)
 
@@ -40,7 +48,7 @@ class BacklogTaskTagServiceTest {
 
     @Test
     fun `getAllForUser returns empty list when no tags exist`() {
-        whenever(tagRepository.findAllByUserId(userId)).thenReturn(emptyList())
+        whenever(tagRepository.findAllByBoardId(boardId)).thenReturn(emptyList())
 
         val result = service.getAllForUser(userId)
 

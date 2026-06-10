@@ -168,7 +168,8 @@ class CurrentBotCommandTest {
         val now = Instant.parse("2026-05-14T10:00:00Z")
         return BacklogTask(
             id = UUID.randomUUID(),
-            userId = userId,
+            boardId = userId,
+            assigneeUserId = null,
             title = title,
             description = null,
             url = null,
@@ -178,7 +179,7 @@ class CurrentBotCommandTest {
             status = status,
             category = BacklogTaskCategory(
                 id = UUID.randomUUID(),
-                userId = userId,
+                boardId = userId,
                 label = "Work",
                 swatchId = CategoryColor.SKY,
             ),

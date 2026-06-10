@@ -31,6 +31,7 @@ class PlanningSessionServiceTest {
     @Mock lateinit var backlogTaskChangeService: BacklogTaskChangeService
     @Mock lateinit var backlogTaskRepository: BacklogTaskRepository
     @Mock lateinit var userSettingsService: UserSettingsService
+    @Mock lateinit var boardMembershipService: dev.itayp.tasker.service.BoardMembershipService
 
     // 2026-05-01 is a Friday; the Monday-anchored week containing it starts 2026-04-27 (== weekStart).
     private val now = Instant.parse("2026-05-01T12:00:00Z")
@@ -45,11 +46,13 @@ class PlanningSessionServiceTest {
             backlogTaskRepository,
             crypto,
             userSettingsService,
+            boardMembershipService,
             clock,
         )
     }
 
     private val userId = UUID.randomUUID()
+    private val boardId = UUID.randomUUID()
     private val weekStart = LocalDate.parse("2026-04-27")
 
     private fun settings() = UserSettings(
@@ -191,10 +194,11 @@ class PlanningSessionServiceTest {
         }
         whenever(planningSessionRepository.findFirstByUserIdAndStatusAndWeekStartLessThanOrderByWeekStartDesc(
             userId, PlanningSessionStatus.COMPLETED, finalizingWeek)).thenReturn(previous)
+        whenever(boardMembershipService.resolveSoleBoard(userId)).thenReturn(boardId)
 
         service.bumpRescheduleCountsForCarriedOverTasks(userId, finalizingWeek)
 
-        verify(backlogTaskRepository).incrementRescheduleCountForUnfinishedTasks(eq(userId), eq(previousId))
+        verify(backlogTaskRepository).incrementRescheduleCountForUnfinishedTasks(eq(boardId), eq(previousId))
     }
 
     @Test

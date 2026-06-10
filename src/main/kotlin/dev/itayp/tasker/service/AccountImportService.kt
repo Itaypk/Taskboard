@@ -1,5 +1,6 @@
 package dev.itayp.tasker.service
 
+import dev.itayp.tasker.crypto.BoardCryptoService
 import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.jpa.BacklogTaskCategoryEntity
 import dev.itayp.tasker.jpa.BacklogTaskEntity
@@ -40,6 +41,8 @@ class AccountImportService(
     private val tagRepository: BacklogTaskTagRepository,
     private val taskRepository: BacklogTaskRepository,
     private val userCrypto: UserCryptoService,
+    private val boardCrypto: BoardCryptoService,
+    private val boardMembershipService: BoardMembershipService,
 ) {
     private val log = LoggerFactory.getLogger(AccountImportService::class.java)
 
@@ -55,12 +58,15 @@ class AccountImportService(
             "Account already has user data; import is only valid on a fresh account"
         }
 
-        // The pre-board build always exports exactly one board; take the first.
+        // Content is written into the account's sole board (Phase 0). Task title/description are
+        // encrypted under the board DEK; user/settings stay under the user DEK.
+        val boardId = boardMembershipService.resolveSoleBoard(userId)
+        // The export always emits exactly one board; take the first.
         val board = payload.boards[0]
 
         // Step 1: wipe the auto-seeded defaults. With isEmptyForImport already verified,
         // there are no tasks/tags blocking the category delete.
-        categoryRepository.deleteAllByUserId(userId)
+        categoryRepository.deleteAllByBoardId(boardId)
 
         // Step 2: categories — keep an old→new UUID map so task FKs can be retargeted.
         val categoryIdMap = HashMap<String, UUID>(board.categories.size)
@@ -68,7 +74,7 @@ class AccountImportService(
             val swatch = runCatching { CategoryColor.valueOf(cat.swatchId.uppercase()) }
                 .getOrElse { throw IllegalArgumentException("Unknown category swatchId: ${cat.swatchId}") }
             val saved = categoryRepository.save(BacklogTaskCategoryEntity().apply {
-                this.userId = userId
+                this.boardId = boardId
                 this.label = cat.label
                 this.swatchId = swatch
             })
@@ -82,7 +88,7 @@ class AccountImportService(
             val color = runCatching { TagColor.valueOf(tag.colorId.uppercase()) }
                 .getOrElse { throw IllegalArgumentException("Unknown tag colorId: ${tag.colorId}") }
             val saved = tagRepository.save(BacklogTaskTagEntity().apply {
-                this.userId = userId
+                this.boardId = boardId
                 this.label = tag.label
                 this.colorId = color
                 this.description = tag.description
@@ -95,7 +101,7 @@ class AccountImportService(
         for (task in board.tasks) {
             val newCategoryId = categoryIdMap[task.categoryId]
                 ?: throw IllegalArgumentException("Task ${task.id} references unknown categoryId ${task.categoryId}")
-            val category = categoryRepository.findByIdAndUserId(newCategoryId, userId)
+            val category = categoryRepository.findByIdAndBoardId(newCategoryId, boardId)
                 ?: error("Category $newCategoryId was just persisted but cannot be loaded")
 
             val tagEntities = task.tagIds.map { oldId ->
@@ -107,9 +113,9 @@ class AccountImportService(
             val priority = task.priority?.let { parseEnum<TaskPriority>("priority", it) }
 
             taskRepository.save(BacklogTaskEntity().apply {
-                this.userId = userId
-                this.title = userCrypto.encrypt(userId, task.title)
-                this.description = userCrypto.encrypt(userId, task.description)
+                this.boardId = boardId
+                this.title = boardCrypto.encrypt(boardId, task.title)
+                this.description = boardCrypto.encrypt(boardId, task.description)
                 this.url = task.url
                 this.priority = priority
                 this.deadline = parseLocalDate("deadline", task.deadline)

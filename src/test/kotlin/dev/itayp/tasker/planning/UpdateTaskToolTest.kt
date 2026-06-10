@@ -165,7 +165,8 @@ class UpdateTaskToolTest {
 
     private fun currentTask() = BacklogTask(
         id = taskId,
-        userId = userId,
+        boardId = userId,
+        assigneeUserId = null,
         title = "Old title",
         description = "notes",
         url = null,

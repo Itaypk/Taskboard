@@ -6,6 +6,8 @@ import dev.itayp.tasker.model.CategoryColor
 import dev.itayp.tasker.model.TaskPriority
 import dev.itayp.tasker.model.TaskStatus
 import dev.itayp.tasker.repository.BacklogTaskRepository
+import dev.itayp.tasker.service.BoardMembershipService
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
@@ -28,6 +30,7 @@ class PlannerTaskSelectorTest {
     @Mock private lateinit var backlogTaskRepository: BacklogTaskRepository
     @Mock private lateinit var plannedTaskRepository: PlannedTaskRepository
     @Mock private lateinit var plannedTaskSlotRepository: PlannedTaskSlotRepository
+    @Mock private lateinit var boardMembershipService: BoardMembershipService
 
     private val today: LocalDate = LocalDate.parse("2026-05-01")
     private val weekStart: LocalDate = LocalDate.parse("2026-04-27") // Monday of that week
@@ -35,20 +38,26 @@ class PlannerTaskSelectorTest {
     private val now: Instant = today.atStartOfDay(ZoneOffset.UTC).toInstant()
     private val clock: Clock = Clock.fixed(now, ZoneOffset.UTC)
 
-    private val crypto = dev.itayp.tasker.crypto.noopUserCryptoService()
+    private val boardCrypto = dev.itayp.tasker.crypto.noopBoardCryptoService()
 
     private val selector by lazy {
-        PlannerTaskSelector(backlogTaskRepository, plannedTaskRepository, plannedTaskSlotRepository, crypto, clock)
+        PlannerTaskSelector(backlogTaskRepository, plannedTaskRepository, plannedTaskSlotRepository, boardCrypto, boardMembershipService, clock)
     }
 
     private val userId: UUID = UUID.fromString("00000000-0000-0000-0000-000000000001")
+    private val boardId: UUID = UUID.fromString("00000000-0000-0000-0000-0000000000b0")
     private val sharedCategory = categoryEntity()
+
+    @BeforeEach
+    fun stubBoard() {
+        whenever(boardMembershipService.resolveSoleBoard(userId)).thenReturn(boardId)
+    }
 
     private fun select() = selector.select(userId, today, weekStart, zone)
 
     @Test
     fun `empty backlog returns empty selection`() {
-        whenever(backlogTaskRepository.findAllByUserIdAndStatus(userId, TaskStatus.TODO))
+        whenever(backlogTaskRepository.findAllByBoardIdAndStatus(boardId, TaskStatus.TODO))
             .thenReturn(emptyList())
 
         val result = select()
@@ -65,7 +74,7 @@ class PlannerTaskSelectorTest {
             task(title = "B", priority = TaskPriority.HIGH),
             task(title = "C", priority = TaskPriority.MEDIUM),
         )
-        whenever(backlogTaskRepository.findAllByUserIdAndStatus(userId, TaskStatus.TODO))
+        whenever(backlogTaskRepository.findAllByBoardIdAndStatus(boardId, TaskStatus.TODO))
             .thenReturn(tasks)
         whenever(plannedTaskRepository.findAllByUserIdAndBacklogTaskIdIn(any(), any())).thenReturn(emptyList())
 
@@ -81,7 +90,7 @@ class PlannerTaskSelectorTest {
     fun `HIGH-priority overdue task ranks above MEDIUM no-deadline`() {
         val overdue = task(title = "overdue", priority = TaskPriority.HIGH, deadline = today.minusDays(2))
         val noDeadline = task(title = "noDeadline", priority = TaskPriority.MEDIUM, deadline = null)
-        whenever(backlogTaskRepository.findAllByUserIdAndStatus(userId, TaskStatus.TODO))
+        whenever(backlogTaskRepository.findAllByBoardIdAndStatus(boardId, TaskStatus.TODO))
             .thenReturn(listOf(noDeadline, overdue))
         whenever(plannedTaskRepository.findAllByUserIdAndBacklogTaskIdIn(any(), any())).thenReturn(emptyList())
 
@@ -94,7 +103,7 @@ class PlannerTaskSelectorTest {
     fun `rescheduleCount boosts a task above an otherwise-equal one`() {
         val plain = task(title = "plain", priority = TaskPriority.MEDIUM, rescheduleCount = 0)
         val deferred = task(title = "deferred", priority = TaskPriority.MEDIUM, rescheduleCount = 3)
-        whenever(backlogTaskRepository.findAllByUserIdAndStatus(userId, TaskStatus.TODO))
+        whenever(backlogTaskRepository.findAllByBoardIdAndStatus(boardId, TaskStatus.TODO))
             .thenReturn(listOf(plain, deferred))
         whenever(plannedTaskRepository.findAllByUserIdAndBacklogTaskIdIn(any(), any())).thenReturn(emptyList())
 
@@ -107,7 +116,7 @@ class PlannerTaskSelectorTest {
     fun `urgent priority near deadline beats LOW priority with massive reschedule count`() {
         val urgent = task(title = "urgent", priority = TaskPriority.HIGH, deadline = today.plusDays(1))
         val deferredJunk = task(title = "deferredJunk", priority = TaskPriority.LOW, rescheduleCount = 10)
-        whenever(backlogTaskRepository.findAllByUserIdAndStatus(userId, TaskStatus.TODO))
+        whenever(backlogTaskRepository.findAllByBoardIdAndStatus(boardId, TaskStatus.TODO))
             .thenReturn(listOf(deferredJunk, urgent))
         whenever(plannedTaskRepository.findAllByUserIdAndBacklogTaskIdIn(any(), any())).thenReturn(emptyList())
 
@@ -146,7 +155,7 @@ class PlannerTaskSelectorTest {
             createdAt = now.minus(30, java.time.temporal.ChronoUnit.DAYS),
             updatedAt = now.minus(20, java.time.temporal.ChronoUnit.DAYS),
         )
-        whenever(backlogTaskRepository.findAllByUserIdAndStatus(userId, TaskStatus.TODO))
+        whenever(backlogTaskRepository.findAllByBoardIdAndStatus(boardId, TaskStatus.TODO))
             .thenReturn(urgentFillers + listOf(freshlyModified, oldestStale, midStale, recentStale))
         whenever(plannedTaskRepository.findAllByUserIdAndBacklogTaskIdIn(any(), any())).thenReturn(emptyList())
 
@@ -182,7 +191,7 @@ class PlannerTaskSelectorTest {
             createdAt = now.minus(60, java.time.temporal.ChronoUnit.DAYS),
             updatedAt = null,
         )
-        whenever(backlogTaskRepository.findAllByUserIdAndStatus(userId, TaskStatus.TODO))
+        whenever(backlogTaskRepository.findAllByBoardIdAndStatus(boardId, TaskStatus.TODO))
             .thenReturn(urgentFillers + listOf(deferredOld, genuinelyStale))
         whenever(plannedTaskRepository.findAllByUserIdAndBacklogTaskIdIn(any(), any())).thenReturn(emptyList())
 
@@ -205,7 +214,7 @@ class PlannerTaskSelectorTest {
             priority = TaskPriority.MEDIUM,
             relevantFrom = localToday.plusDays(1),
         )
-        whenever(backlogTaskRepository.findAllByUserIdAndStatus(userId, TaskStatus.TODO))
+        whenever(backlogTaskRepository.findAllByBoardIdAndStatus(boardId, TaskStatus.TODO))
             .thenReturn(listOf(becomesRelevantTomorrowUtc, futureRelevant))
         whenever(plannedTaskRepository.findAllByUserIdAndBacklogTaskIdIn(any(), any())).thenReturn(emptyList())
 
@@ -220,7 +229,7 @@ class PlannerTaskSelectorTest {
         val taskA = task(title = "A", priority = TaskPriority.MEDIUM)
         val taskB = task(title = "B", priority = TaskPriority.MEDIUM)
         val taskC = task(title = "C", priority = TaskPriority.MEDIUM)
-        whenever(backlogTaskRepository.findAllByUserIdAndStatus(userId, TaskStatus.TODO))
+        whenever(backlogTaskRepository.findAllByBoardIdAndStatus(boardId, TaskStatus.TODO))
             .thenReturn(listOf(taskA, taskB, taskC))
 
         val plannedA = plannedTask(backlogTaskId = taskA.id!!)
@@ -252,7 +261,7 @@ class PlannerTaskSelectorTest {
     fun `alreadyScheduled maps each task to its latest slot strictly before the planning window`() {
         val taskA = task(title = "A", priority = TaskPriority.MEDIUM)
         val taskB = task(title = "B", priority = TaskPriority.MEDIUM)
-        whenever(backlogTaskRepository.findAllByUserIdAndStatus(userId, TaskStatus.TODO))
+        whenever(backlogTaskRepository.findAllByBoardIdAndStatus(boardId, TaskStatus.TODO))
             .thenReturn(listOf(taskA, taskB))
 
         val plannedA = plannedTask(backlogTaskId = taskA.id!!)
@@ -280,7 +289,7 @@ class PlannerTaskSelectorTest {
 
     private fun categoryEntity() = BacklogTaskCategoryEntity().apply {
         this.id = UUID.randomUUID()
-        this.userId = this@PlannerTaskSelectorTest.userId
+        this.boardId = this@PlannerTaskSelectorTest.boardId
         this.label = "Work"
         this.swatchId = CategoryColor.SUNSHINE
     }
@@ -295,7 +304,7 @@ class PlannerTaskSelectorTest {
         relevantFrom: LocalDate? = null,
     ): BacklogTaskEntity = BacklogTaskEntity().apply {
         this.id = UUID.randomUUID()
-        this.userId = this@PlannerTaskSelectorTest.userId
+        this.boardId = this@PlannerTaskSelectorTest.boardId
         this.title = title.toByteArray(Charsets.UTF_8)
         this.status = TaskStatus.TODO
         this.priority = priority

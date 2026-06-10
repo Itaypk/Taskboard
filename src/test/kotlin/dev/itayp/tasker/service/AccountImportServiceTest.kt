@@ -1,5 +1,6 @@
 package dev.itayp.tasker.service
 
+import dev.itayp.tasker.crypto.newTestBoardCryptoService
 import dev.itayp.tasker.crypto.newTestUserCryptoService
 import dev.itayp.tasker.jpa.BacklogTaskCategoryEntity
 import dev.itayp.tasker.jpa.BacklogTaskEntity
@@ -48,15 +49,19 @@ class AccountImportServiceTest {
     @Mock lateinit var taskRepository: BacklogTaskRepository
     @Mock lateinit var accountService: AccountService
     @Mock lateinit var eventPublisher: ApplicationEventPublisher
+    @Mock lateinit var boardMembershipService: BoardMembershipService
 
     private val crypto = newTestUserCryptoService()
+    private val boardCrypto = newTestBoardCryptoService()
     private val userId = UUID.fromString("00000000-0000-0000-0000-0000000000aa")
+    private val boardId = UUID.fromString("00000000-0000-0000-0000-0000000000b0")
 
     private lateinit var service: AccountImportService
 
     @BeforeEach
     fun setUp() {
         crypto.ensureUserKey(userId)
+        boardCrypto.ensureBoardKey(boardId)
         // Real UserSettingsService gives us the validateSettingsInput helper without re-mocking.
         val userSettingsService = UserSettingsService(userSettingsRepository, eventPublisher, crypto)
         service = AccountImportService(
@@ -68,6 +73,8 @@ class AccountImportServiceTest {
             tagRepository = tagRepository,
             taskRepository = taskRepository,
             userCrypto = crypto,
+            boardCrypto = boardCrypto,
+            boardMembershipService = boardMembershipService,
         )
     }
 
@@ -88,10 +95,10 @@ class AccountImportServiceTest {
         whenever(tagRepository.save(any<BacklogTaskTagEntity>())).thenAnswer { invocation ->
             (invocation.arguments[0] as BacklogTaskTagEntity).apply { id = id ?: UUID.randomUUID() }
         }
-        whenever(categoryRepository.findByIdAndUserId(any(), any())).thenAnswer { invocation ->
+        whenever(categoryRepository.findByIdAndBoardId(any(), any())).thenAnswer { invocation ->
             BacklogTaskCategoryEntity().apply {
                 this.id = invocation.arguments[0] as UUID
-                this.userId = invocation.arguments[1] as UUID
+                this.boardId = invocation.arguments[1] as UUID
                 this.label = "Work"
                 this.swatchId = CategoryColor.SUNSHINE
             }
@@ -108,15 +115,15 @@ class AccountImportServiceTest {
         assertEquals(1, summary.tags)
         assertEquals(1, summary.tasks)
         // The auto-seeded defaults are wiped before insertion.
-        verify(categoryRepository).deleteAllByUserId(userId)
+        verify(categoryRepository).deleteAllByBoardId(boardId)
 
-        // Captured task entity has ciphertext title — encryption was applied.
+        // Captured task entity has ciphertext title — encryption was applied under the board DEK.
         val captor = argumentCaptor<BacklogTaskEntity>()
         verify(taskRepository).save(captor.capture())
         val savedTitle = captor.firstValue.title
         assertNotNull(savedTitle)
         assertTrue(!String(savedTitle).contains("Buy bread"), "title must be encrypted, not plaintext")
-        assertEquals("Buy bread", crypto.decrypt(userId, savedTitle))
+        assertEquals("Buy bread", boardCrypto.decrypt(boardId, savedTitle))
     }
 
     @Test
@@ -124,14 +131,14 @@ class AccountImportServiceTest {
         val payload = exportPayload().copy(formatVersion = 1)
         // Version check runs before any repository interaction, so no other stubs needed.
         assertFailsWith<IllegalArgumentException> { service.import(userId, payload) }
-        verify(categoryRepository, never()).deleteAllByUserId(any())
+        verify(categoryRepository, never()).deleteAllByBoardId(any())
     }
 
     @Test
     fun `rejects when account is not empty`() {
         whenever(accountService.isEmptyForImport(userId)).thenReturn(false)
         assertFailsWith<IllegalStateException> { service.import(userId, exportPayload()) }
-        verify(categoryRepository, never()).deleteAllByUserId(any())
+        verify(categoryRepository, never()).deleteAllByBoardId(any())
     }
 
     @Test
@@ -185,6 +192,7 @@ class AccountImportServiceTest {
 
     private fun stubFreshAccount() {
         whenever(accountService.isEmptyForImport(userId)).thenReturn(true)
+        whenever(boardMembershipService.resolveSoleBoard(userId)).thenReturn(boardId)
     }
 
     private fun exportPayload(

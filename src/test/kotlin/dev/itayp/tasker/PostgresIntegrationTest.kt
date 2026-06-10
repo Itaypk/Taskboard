@@ -9,6 +9,7 @@ import dev.itayp.tasker.jpa.BacklogTaskCategoryEntity
 import dev.itayp.tasker.jpa.BacklogTaskEntity
 import dev.itayp.tasker.jpa.BacklogTaskTagEntity
 import dev.itayp.tasker.jpa.UserEntity
+import dev.itayp.tasker.crypto.BoardCryptoService
 import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.model.CategoryColor
 import dev.itayp.tasker.model.TagColor
@@ -29,6 +30,7 @@ import dev.itayp.tasker.planning.PlanningSessionRepository
 import dev.itayp.tasker.service.AccountImportService
 import dev.itayp.tasker.service.AccountService
 import dev.itayp.tasker.service.BacklogTaskService
+import dev.itayp.tasker.service.BoardMembershipService
 import dev.itayp.tasker.service.DemoDataSeeder
 import dev.itayp.tasker.service.UserAuthService
 import org.assertj.core.api.Assertions.assertThat
@@ -67,6 +69,8 @@ class PostgresIntegrationTest(
     @Autowired val plannedTaskRepository: PlannedTaskRepository,
     @Autowired val plannedTaskSlotRepository: PlannedTaskSlotRepository,
     @Autowired val userCrypto: UserCryptoService,
+    @Autowired val boardCrypto: BoardCryptoService,
+    @Autowired val boardMembershipService: BoardMembershipService,
     @Autowired val backlogTaskService: BacklogTaskService,
     @Autowired val jdbc: JdbcTemplate,
     @Autowired val objectMapper: ObjectMapper,
@@ -106,24 +110,18 @@ class PostgresIntegrationTest(
 
     @Test
     fun `deleteUserData removes tasks and tag join rows against PostgreSQL UUID columns`() {
-        val user = UserEntity().apply {
-            id = UUID.randomUUID()
-            telegramId = System.nanoTime()
-            telegramFirstName = "Delete Test".toByteArray()
-            telegramUsername = "delete_test_${System.nanoTime()}"
-            createdAt = Instant.now()
-            lastLoginAt = Instant.now()
-        }
-        userRepository.save(user)
+        val userId = UUID.randomUUID()
+        userAuthService.ensureDevUser(userId, telegramId = System.nanoTime())
+        val boardId = boardMembershipService.resolveSoleBoard(userId)
 
-        val testCategory = BacklogTaskCategoryEntity().apply { userId = user.id; label = "Work"; swatchId = CategoryColor.SUNSHINE }
+        val testCategory = BacklogTaskCategoryEntity().apply { this.boardId = boardId; label = "Work"; swatchId = CategoryColor.SUNSHINE }
         categoryRepository.save(testCategory)
 
-        val tag = BacklogTaskTagEntity().apply { userId = user.id; label = "urgent"; colorId = TagColor.CORAL }
+        val tag = BacklogTaskTagEntity().apply { this.boardId = boardId; label = "urgent"; colorId = TagColor.CORAL }
         tagRepository.save(tag)
 
         val task = BacklogTaskEntity().apply {
-            userId = user.id
+            this.boardId = boardId
             title = "Task to delete".toByteArray()
             status = TaskStatus.TODO
             category = testCategory
@@ -133,17 +131,18 @@ class PostgresIntegrationTest(
         }
         taskRepository.save(task)
 
-        accountService.deleteUserData(user.id!!)
+        accountService.deleteUserData(userId)
 
-        assertThat(taskRepository.findAllByUserIdOrderBySortKeyAsc(user.id!!)).isEmpty()
-        assertThat(tagRepository.findAllByUserId(user.id!!)).isEmpty()
-        assertThat(categoryRepository.findAllByUserId(user.id!!)).isEmpty()
+        assertThat(taskRepository.findAllByBoardIdOrderBySortKeyAsc(boardId)).isEmpty()
+        assertThat(tagRepository.findAllByBoardId(boardId)).isEmpty()
+        assertThat(categoryRepository.findAllByBoardId(boardId)).isEmpty()
     }
 
     @Test
     fun `deleteAccount removes all data including planning sessions, planned tasks, and slots`() {
         val userId = UUID.randomUUID()
         userAuthService.ensureDevUser(userId, telegramId = System.nanoTime())
+        val boardId = boardMembershipService.resolveSoleBoard(userId)
 
         // DemoDataSeeder creates 8 tasks, 1 planning session, 3 planned tasks each with 1 slot
         demoDataSeeder.seed(userId)
@@ -159,9 +158,9 @@ class PostgresIntegrationTest(
         // User row is gone
         assertThat(userRepository.findById(userId)).isEmpty
 
-        // All task-related rows are gone
-        assertThat(taskRepository.findAllByUserIdOrderBySortKeyAsc(userId)).isEmpty()
-        assertThat(categoryRepository.findAllByUserId(userId)).isEmpty()
+        // All board-owned rows are gone (the board itself was the user's sole board)
+        assertThat(taskRepository.findAllByBoardIdOrderBySortKeyAsc(boardId)).isEmpty()
+        assertThat(categoryRepository.findAllByBoardId(boardId)).isEmpty()
 
         // All planning rows are gone — use JDBC for tables without a findAllByUserId method
         assertThat(planningSessionRepository.findAllByUserIdOrderByStartedAtDesc(userId)).isEmpty()
@@ -257,11 +256,12 @@ class PostgresIntegrationTest(
     @Test
     fun `account import populates tasks and stores ciphertext in title column`() {
         // Use the dev-user path with a random UUID: it creates an authenticated user
-        // with a DEK and the auto-seeded default categories but no tasks/tags — exactly
-        // what import expects. The demo path additionally seeds tasks, which would
+        // with a DEK, a board, and the auto-seeded default categories but no tasks/tags —
+        // exactly what import expects. The demo path additionally seeds tasks, which would
         // trip the isEmptyForImport guard.
         val userId = UUID.randomUUID()
         userAuthService.ensureDevUser(userId, telegramId = System.nanoTime())
+        val boardId = boardMembershipService.resolveSoleBoard(userId)
 
         val payload = AccountExportResponse(
             formatVersion = 2,
@@ -311,18 +311,18 @@ class PostgresIntegrationTest(
         assertThat(summary.categories).isEqualTo(1)
         assertThat(summary.tags).isEqualTo(1)
 
-        // Title column holds ciphertext: encrypted bytes never contain the marker plaintext.
+        // Title column holds ciphertext (board DEK): encrypted bytes never contain the marker plaintext.
         val rawTitleBytes: ByteArray = jdbc.queryForList(
-            "SELECT title FROM backlog_task WHERE user_id = ?",
+            "SELECT title FROM backlog_task WHERE board_id = ?",
             ByteArray::class.java,
-            userId,
+            boardId,
         ).single() ?: error("imported task has null title")
         assertThat(String(rawTitleBytes, Charsets.UTF_8))
             .doesNotContain("ENCRYPT-CHECK-12345")
-        assertThat(userCrypto.decrypt(userId, rawTitleBytes)).isEqualTo("ENCRYPT-CHECK-12345")
+        assertThat(boardCrypto.decrypt(boardId, rawTitleBytes)).isEqualTo("ENCRYPT-CHECK-12345")
 
         // Imported categories replaced the auto-seeded defaults.
-        val categories = categoryRepository.findAllByUserId(userId)
+        val categories = categoryRepository.findAllByBoardId(boardId)
         assertThat(categories).singleElement().satisfies({
             assertThat(it.label).isEqualTo("Imported Work")
             assertThat(it.swatchId).isEqualTo(CategoryColor.SKY)
@@ -339,20 +339,21 @@ class PostgresIntegrationTest(
 
         val userId = UUID.randomUUID()
         userAuthService.ensureDevUser(userId, telegramId = System.nanoTime())
+        val boardId = boardMembershipService.resolveSoleBoard(userId)
 
         val summary = accountImportService.import(userId, payload)
         assertThat(summary.tasks).isEqualTo(8)
         assertThat(summary.categories).isEqualTo(6)
         assertThat(summary.tags).isEqualTo(2)
 
-        // Each task title is encrypted: the raw column never contains the plaintext.
+        // Each task title is encrypted under the board DEK: the raw column never contains the plaintext.
         val rawTitles: List<ByteArray> = jdbc.queryForList(
-            "SELECT title FROM backlog_task WHERE user_id = ?",
+            "SELECT title FROM backlog_task WHERE board_id = ?",
             ByteArray::class.java,
-            userId,
+            boardId,
         ).filterNotNull()
         assertThat(rawTitles).hasSize(8)
-        val decrypted = rawTitles.map { userCrypto.decrypt(userId, it) }
+        val decrypted = rawTitles.map { boardCrypto.decrypt(boardId, it) }
         assertThat(decrypted).contains(
             "Prepare weekly team update",
             "Book dentist appointment",
@@ -368,15 +369,16 @@ class PostgresIntegrationTest(
     fun `getTasksForUser resolves lazy category and tags outside HTTP request context`() {
         val userId = UUID.randomUUID()
         userAuthService.ensureDevUser(userId, telegramId = System.nanoTime())
+        val boardId = boardMembershipService.resolveSoleBoard(userId)
 
         val category = categoryRepository.save(BacklogTaskCategoryEntity().apply {
-            this.userId = userId
+            this.boardId = boardId
             label = "Work"
             swatchId = CategoryColor.SUNSHINE
         })
         taskRepository.save(BacklogTaskEntity().apply {
-            this.userId = userId
-            title = userCrypto.encrypt(userId, "Lazy-load regression task")
+            this.boardId = boardId
+            title = boardCrypto.encrypt(boardId, "Lazy-load regression task")
             status = TaskStatus.TODO
             this.category = category
             sortKey = "a"
@@ -388,8 +390,7 @@ class PostgresIntegrationTest(
         // threw LazyInitializationException on category and tags.
         val tasks = backlogTaskService.getTasksForUser(userId, null)
 
-        assertThat(tasks).singleElement().satisfies({ t ->
-            assertThat(t.title).isEqualTo("Lazy-load regression task")
+        assertThat(tasks).filteredOn { it.title == "Lazy-load regression task" }.singleElement().satisfies({ t ->
             assertThat(t.category.label).isEqualTo("Work")
         })
     }

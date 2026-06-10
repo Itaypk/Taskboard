@@ -2,6 +2,7 @@ package dev.itayp.tasker.planning
 
 import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.repository.BacklogTaskRepository
+import dev.itayp.tasker.service.BoardMembershipService
 import dev.itayp.tasker.service.UserSettingsService
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -18,6 +19,7 @@ class PlanningSessionService(
     private val backlogTaskRepository: BacklogTaskRepository,
     private val userCrypto: UserCryptoService,
     private val userSettingsService: UserSettingsService,
+    private val boardMembershipService: BoardMembershipService,
     private val clock: Clock,
 ) {
 
@@ -70,7 +72,8 @@ class PlanningSessionService(
                 userId, PlanningSessionStatus.COMPLETED, finalizingWeek,
             )
         if (previous?.id != null) {
-            backlogTaskRepository.incrementRescheduleCountForUnfinishedTasks(userId, previous.id!!)
+            val boardId = boardMembershipService.resolveSoleBoard(userId)
+            backlogTaskRepository.incrementRescheduleCountForUnfinishedTasks(boardId, previous.id!!)
         }
     }
 

@@ -1,5 +1,6 @@
 package dev.itayp.tasker.service
 
+import dev.itayp.tasker.crypto.BoardCryptoService
 import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.model.response.AccountExportResponse
 import dev.itayp.tasker.model.response.BoardExport
@@ -29,6 +30,8 @@ class AccountService(
     private val settingsRepository: UserSettingsRepository,
     private val jdbcTemplate: JdbcTemplate,
     private val userCrypto: UserCryptoService,
+    private val boardCrypto: BoardCryptoService,
+    private val boardMembershipService: BoardMembershipService,
 ) {
 
     /** Deletes all data for a user then the user row itself. */
@@ -49,20 +52,32 @@ class AccountService(
         // Sessions: SPRING_SESSION_ATTRIBUTES cascades from SPRING_SESSION
         jdbcTemplate.update("DELETE FROM SPRING_SESSION WHERE PRINCIPAL_NAME = ?", userId.toString())
 
-        // Task join table has no ON DELETE CASCADE, so join rows must go first
-        val taskIds = taskRepository.findAllByUserIdOrderBySortKeyAsc(userId).mapNotNull { it.id }
-        if (taskIds.isNotEmpty()) {
-            val placeholders = taskIds.joinToString(",") { "?" }
+        // Boards owned by this user (Phase 0: sole owner of each). Board-owned content
+        // (tasks/categories/tags) is deleted here; the board rows themselves go at the very end,
+        // once nothing references them. Shared-board ownership transfer arrives in a later phase.
+        val boardIds: List<UUID> = jdbcTemplate.queryForList(
+            "SELECT board_id FROM board_membership WHERE user_id = ?", UUID::class.java, userId,
+        ).filterNotNull()
+        for (boardId in boardIds) {
+            // Raw SQL (not JPA repo deletes) so each statement executes immediately and in FK order.
+            // A deferred Hibernate flush would otherwise let the `DELETE FROM board` below run while
+            // board-owned rows still reference it — a Postgres FK violation. The task join table has
+            // no ON DELETE CASCADE, so its rows go before the tasks.
             jdbcTemplate.update(
-                "DELETE FROM backlog_task_tags WHERE task_id IN ($placeholders)",
-                *taskIds.toTypedArray(),
+                "DELETE FROM backlog_task_tags WHERE task_id IN (SELECT id FROM backlog_task WHERE board_id = ?)",
+                boardId,
             )
+            jdbcTemplate.update("DELETE FROM backlog_task WHERE board_id = ?", boardId)
+            jdbcTemplate.update("DELETE FROM backlog_task_tag WHERE board_id = ?", boardId)
+            jdbcTemplate.update("DELETE FROM backlog_task_category WHERE board_id = ?", boardId)
         }
-        taskRepository.deleteAllByUserId(userId)
-        tagRepository.deleteAllByUserId(userId)
-        categoryRepository.deleteAllByUserId(userId)
+
         settingsRepository.deleteById(userId)
 
+        // User-owned planner/audit rows. watermark + ai_usage_event both FK users(id) with no
+        // cascade, so they must be cleared before the user row is deleted.
+        jdbcTemplate.update("DELETE FROM backlog_task_watermark WHERE user_id = ?", userId)
+        jdbcTemplate.update("DELETE FROM ai_usage_event WHERE user_id = ?", userId)
         // backlog_task_change_event has FKs to both users and planning_session, so it goes first
         jdbcTemplate.update("DELETE FROM backlog_task_change_event WHERE user_id = ?", userId)
         // planned_task_slot → planned_task → planning_session; no user_id on slot, so use a subquery
@@ -78,6 +93,14 @@ class AccountService(
         // auth_identities and user_data_key both FK to users; remove last so the user row delete can proceed.
         jdbcTemplate.update("DELETE FROM auth_identities WHERE user_id = ?", userId)
         jdbcTemplate.update("DELETE FROM user_data_key WHERE user_id = ?", userId)
+
+        // Board rows last: board-owned content above is gone, and board_membership FKs users, so it
+        // must be cleared before the user row delete can proceed.
+        for (boardId in boardIds) {
+            jdbcTemplate.update("DELETE FROM board_membership WHERE board_id = ?", boardId)
+            jdbcTemplate.update("DELETE FROM board_data_key WHERE board_id = ?", boardId)
+            jdbcTemplate.update("DELETE FROM board WHERE id = ?", boardId)
+        }
     }
 
     /**
@@ -88,10 +111,11 @@ class AccountService(
      */
     @Transactional(readOnly = true)
     fun isEmptyForImport(userId: UUID): Boolean {
-        if (taskRepository.findAllByUserIdOrderBySortKeyAsc(userId).isNotEmpty()) return false
-        if (tagRepository.findAllByUserId(userId).isNotEmpty()) return false
+        val boardId = boardMembershipService.resolveSoleBoard(userId)
+        if (taskRepository.findAllByBoardIdOrderBySortKeyAsc(boardId).isNotEmpty()) return false
+        if (tagRepository.findAllByBoardId(boardId).isNotEmpty()) return false
         val expected = UserService.DEFAULT_CATEGORIES.toSet()
-        val actual = categoryRepository.findAllByUserId(userId).mapNotNull { entity ->
+        val actual = categoryRepository.findAllByBoardId(boardId).mapNotNull { entity ->
             val label = entity.label ?: return@mapNotNull null
             val swatch = entity.swatchId ?: return@mapNotNull null
             label to swatch
@@ -101,11 +125,14 @@ class AccountService(
 
     @Transactional(readOnly = true)
     fun exportAccount(userId: UUID): AccountExportResponse {
+        // Phase 0: a user owns exactly one board, emitted as the single v2 board. Task content is
+        // decrypted with the board DEK; user/settings stay under the user DEK.
+        val boardId = boardMembershipService.resolveSoleBoard(userId)
         val user = userRepository.findById(userId).orElseThrow()
         val settings = settingsRepository.findById(userId).orElse(null)
-        val categories = categoryRepository.findAllByUserId(userId)
-        val tags = tagRepository.findAllByUserId(userId)
-        val tasks = taskRepository.findAllByUserIdOrderBySortKeyAsc(userId)
+        val categories = categoryRepository.findAllByBoardId(boardId)
+        val tags = tagRepository.findAllByBoardId(boardId)
+        val tasks = taskRepository.findAllByBoardIdOrderBySortKeyAsc(boardId)
 
         return AccountExportResponse(
             formatVersion = 2,
@@ -153,8 +180,8 @@ class AccountService(
                     tasks = tasks.map { task ->
                         TaskExport(
                             id = task.id.toString(),
-                            title = userCrypto.decrypt(userId, task.title) ?: "",
-                            description = userCrypto.decrypt(userId, task.description),
+                            title = boardCrypto.decrypt(boardId, task.title) ?: "",
+                            description = boardCrypto.decrypt(boardId, task.description),
                             url = task.url,
                             priority = task.priority?.name?.lowercase(),
                             deadline = task.deadline?.toString(),
@@ -166,7 +193,7 @@ class AccountService(
                             createdAt = task.createdAt?.toString() ?: "",
                             updatedAt = task.updatedAt?.toString(),
                             relevantFrom = task.relevantFrom?.toString(),
-                            assignee = null,
+                            assignee = task.assigneeUserId?.toString(),
                         )
                     },
                 )

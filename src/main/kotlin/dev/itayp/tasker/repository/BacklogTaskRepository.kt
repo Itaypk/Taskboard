@@ -12,49 +12,50 @@ import java.util.UUID
 @Repository
 interface BacklogTaskRepository : JpaRepository<BacklogTaskEntity, UUID> {
 
-    fun findAllByUserIdOrderBySortKeyAsc(userId: UUID): List<BacklogTaskEntity>
+    fun findAllByBoardIdOrderBySortKeyAsc(boardId: UUID): List<BacklogTaskEntity>
 
-    fun findAllByUserIdAndStatus(userId: UUID, status: TaskStatus): List<BacklogTaskEntity>
+    fun findAllByBoardIdAndStatus(boardId: UUID, status: TaskStatus): List<BacklogTaskEntity>
 
+    /** Global count for metrics; not board-scoped. */
     fun countByStatus(status: TaskStatus): Long
 
-    fun countByUserIdAndStatus(userId: UUID, status: TaskStatus): Long
+    fun countByBoardIdAndStatus(boardId: UUID, status: TaskStatus): Long
 
-    fun findAllByUserIdAndStatusOrderBySortKeyAsc(userId: UUID, status: TaskStatus): List<BacklogTaskEntity>
+    fun findAllByBoardIdAndStatusOrderBySortKeyAsc(boardId: UUID, status: TaskStatus): List<BacklogTaskEntity>
 
-    fun findAllByUserIdAndStatusNotOrderBySortKeyAsc(userId: UUID, status: TaskStatus): List<BacklogTaskEntity>
+    fun findAllByBoardIdAndStatusNotOrderBySortKeyAsc(boardId: UUID, status: TaskStatus): List<BacklogTaskEntity>
 
-    fun findAllByUserIdAndStatusAndUpdatedAtBeforeOrderBySortKeyAsc(
-        userId: UUID,
+    fun findAllByBoardIdAndStatusAndUpdatedAtBeforeOrderBySortKeyAsc(
+        boardId: UUID,
         status: TaskStatus,
         before: Instant,
     ): List<BacklogTaskEntity>
 
-    fun findAllByUserIdAndLastScheduledInSessionIdOrderBySortKeyAsc(
-        userId: UUID,
+    fun findAllByBoardIdAndLastScheduledInSessionIdOrderBySortKeyAsc(
+        boardId: UUID,
         lastScheduledInSessionId: UUID,
     ): List<BacklogTaskEntity>
 
-    fun findAllByUserIdAndIdIn(userId: UUID, ids: List<UUID>): List<BacklogTaskEntity>
+    fun findAllByBoardIdAndIdIn(boardId: UUID, ids: List<UUID>): List<BacklogTaskEntity>
 
-    fun findByIdAndUserId(id: UUID, userId: UUID): BacklogTaskEntity?
+    fun findByIdAndBoardId(id: UUID, boardId: UUID): BacklogTaskEntity?
 
-    fun existsByCategoryIdAndUserId(categoryId: UUID, userId: UUID): Boolean
+    fun existsByCategoryIdAndBoardId(categoryId: UUID, boardId: UUID): Boolean
 
-    fun deleteAllByUserId(userId: UUID)
+    fun deleteAllByBoardId(boardId: UUID)
 
-    @Query("SELECT MAX(t.sortKey) FROM BacklogTaskEntity t WHERE t.userId = :userId")
-    fun findMaxSortKeyByUserId(userId: UUID): String?
+    @Query("SELECT MAX(t.sortKey) FROM BacklogTaskEntity t WHERE t.boardId = :boardId")
+    fun findMaxSortKeyByBoardId(boardId: UUID): String?
 
     @Modifying
     @Query(
         """
         UPDATE BacklogTaskEntity t
         SET t.rescheduleCount = t.rescheduleCount + 1
-        WHERE t.userId = :userId
+        WHERE t.boardId = :boardId
           AND t.status = dev.itayp.tasker.model.TaskStatus.TODO
           AND t.lastScheduledInSessionId = :sessionId
         """
     )
-    fun incrementRescheduleCountForUnfinishedTasks(userId: UUID, sessionId: UUID): Int
+    fun incrementRescheduleCountForUnfinishedTasks(boardId: UUID, sessionId: UUID): Int
 }

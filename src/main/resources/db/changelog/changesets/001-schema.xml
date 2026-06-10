@@ -5,10 +5,15 @@
         xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-        Consolidated baseline schema. Squashed from the original 001..012 changesets
-        when at-rest encryption was introduced; the prod database was wiped at that
-        time, so this is now the only "create-from-scratch" path. After this
-        changeset lands, the additive-only rule resumes — never edit this file.
+        Consolidated baseline schema. Squashed a second time for the board-sharing
+        migration: the prod database is wiped again for that change, so the original
+        001..006 changesets (including the Postgres-only auth_identities backfill, which
+        only ever migrated pre-existing rows) are folded into this single create-from-
+        scratch changeset. After this changeset lands, the additive-only rule resumes —
+        never edit this file; add a new changeset instead.
+
+        NOTE: the board-ownership tables and the user_id -> board_id repoint are layered
+        on by later changesets in this same migration; see docs/BOARD-SHARING-PHASE0.md.
     -->
     <changeSet id="1" author="tasker">
         <createTable tableName="users">
@@ -124,12 +129,72 @@
             </column>
         </createTable>
 
+        <!--
+            Boards own tasks/categories/tags (board-sharing migration; see docs/BOARD-SHARING.md).
+            A board is "private" when it has exactly one membership; sharing adds members.
+            board.name is encrypted under the board's DEK (board_data_key), shared by all members.
+        -->
+        <createTable tableName="board">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <!-- Encrypted under the board's DEK (board_data_key). -->
+            <column name="name" type="BYTEA">
+                <constraints nullable="true"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="board_membership">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="board_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_board_membership_board" references="board(id)"/>
+            </column>
+            <column name="user_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_board_membership_user" references="users(id)"/>
+            </column>
+            <column name="role" type="VARCHAR(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="joined_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addUniqueConstraint tableName="board_membership"
+                             columnNames="board_id, user_id"
+                             constraintName="uq_board_membership_board_user"/>
+
+        <createIndex tableName="board_membership" indexName="idx_board_membership_user">
+            <column name="user_id"/>
+        </createIndex>
+
+        <createTable tableName="board_data_key">
+            <column name="board_id" type="UUID">
+                <constraints primaryKey="true" nullable="false"
+                             foreignKeyName="fk_board_data_key_board" references="board(id)"/>
+            </column>
+            <column name="wrapped_dek" type="BYTEA">
+                <constraints nullable="false"/>
+            </column>
+            <column name="kek_version" type="SMALLINT" defaultValueNumeric="1">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
         <createTable tableName="backlog_task_category">
             <column name="id" type="UUID">
                 <constraints primaryKey="true" nullable="false"/>
             </column>
-            <column name="user_id" type="UUID">
-                <constraints nullable="false" foreignKeyName="fk_backlog_task_category_user" references="users(id)"/>
+            <column name="board_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_backlog_task_category_board" references="board(id)"/>
             </column>
             <column name="label" type="VARCHAR(255)">
                 <constraints nullable="false"/>
@@ -143,8 +208,8 @@
             <column name="id" type="UUID">
                 <constraints primaryKey="true" nullable="false"/>
             </column>
-            <column name="user_id" type="UUID">
-                <constraints nullable="false" foreignKeyName="fk_backlog_task_tag_user" references="users(id)"/>
+            <column name="board_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_backlog_task_tag_board" references="board(id)"/>
             </column>
             <column name="label" type="VARCHAR(255)">
                 <constraints nullable="false"/>
@@ -161,10 +226,18 @@
             <column name="id" type="UUID">
                 <constraints primaryKey="true" nullable="false"/>
             </column>
-            <column name="user_id" type="UUID">
-                <constraints nullable="false" foreignKeyName="fk_backlog_task_user" references="users(id)"/>
+            <column name="board_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_backlog_task_board" references="board(id)"/>
             </column>
-            <!-- Encrypted under the user's DEK. -->
+            <!--
+                Who has claimed/been assigned this task. Null = unassigned (up for grabs). Only
+                meaningful on shared boards; written from a later phase. FK to users so a member
+                leaving is handled by account cleanup.
+            -->
+            <column name="assignee_user_id" type="UUID">
+                <constraints nullable="true" foreignKeyName="fk_backlog_task_assignee" references="users(id)"/>
+            </column>
+            <!-- Encrypted under the board's DEK. -->
             <column name="title" type="BYTEA">
                 <constraints nullable="false"/>
             </column>
@@ -214,8 +287,8 @@
             </column>
         </createTable>
 
-        <createIndex tableName="backlog_task" indexName="idx_backlog_task_user_sort_key">
-            <column name="user_id"/>
+        <createIndex tableName="backlog_task" indexName="idx_backlog_task_board_sort_key">
+            <column name="board_id"/>
             <column name="sort_key"/>
         </createIndex>
 
@@ -431,7 +504,10 @@
                 <constraints nullable="false" foreignKeyName="fk_planned_task_user"
                              references="users(id)"/>
             </column>
-            <column name="backlog_task_id" type="UUID"/>
+            <!-- NOT NULL: every planned task references a real backlog task (was enforced by changeset 2). -->
+            <column name="backlog_task_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
             <!-- Encrypted under the user's DEK. -->
             <column name="title" type="BYTEA">
                 <constraints nullable="false"/>
@@ -470,6 +546,131 @@
 
         <createIndex tableName="planned_task_slot" indexName="idx_planned_task_slot_task">
             <column name="planned_task_id"/>
+        </createIndex>
+
+        <!--
+            Per-user "tasks changed" watermark backing the lightweight polling endpoint
+            (GET /api/v1/tasks/has-changes). Bumped on every backlog mutation so an open
+            board tab can detect staleness in O(1). (Was changeset 3.)
+        -->
+        <createTable tableName="backlog_task_watermark">
+            <column name="user_id" type="UUID">
+                <constraints primaryKey="true" nullable="false"
+                             foreignKeyName="fk_backlog_task_watermark_user" references="users(id)"/>
+            </column>
+            <column name="tasks_changed_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <!--
+            Per-call AI usage accounting. Metadata + token counts only (no content), so not
+            encrypted. The (user_id, created_at) index backs "tokens since T" queries. (Was changeset 4.)
+        -->
+        <createTable tableName="ai_usage_event">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="UUID">
+                <constraints nullable="false"
+                             foreignKeyName="fk_ai_usage_event_user" references="users(id)"/>
+            </column>
+            <column name="conversation_type" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="session_id" type="UUID"/>
+            <column name="conversation_id" type="UUID"/>
+            <column name="model" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="provider" type="VARCHAR(100)"/>
+            <column name="prompt_tokens" type="INT"/>
+            <column name="completion_tokens" type="INT"/>
+            <column name="total_tokens" type="INT"/>
+            <column name="status" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="ai_usage_event" indexName="idx_ai_usage_event_user_created">
+            <column name="user_id"/>
+            <column name="created_at"/>
+        </createIndex>
+
+        <!--
+            auth_identities: one user -> many external login identities (telegram / email /
+            future OAuth), keyed by (provider, provider_user_id). (Was changeset 5; the
+            Postgres-only backfill changeset 6 is dropped — nothing to migrate post-wipe.)
+        -->
+        <createTable tableName="auth_identities">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_auth_identities_user" references="users(id)"/>
+            </column>
+            <column name="provider" type="VARCHAR(32)">
+                <constraints nullable="false"/>
+            </column>
+            <!--
+                Non-secret stable handle: Telegram id as text, email hash (never the
+                plaintext address), OAuth subject, etc.
+            -->
+            <column name="provider_user_id" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="verified_at" type="TIMESTAMP">
+                <constraints nullable="true"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_login_at" type="TIMESTAMP">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+
+        <addUniqueConstraint tableName="auth_identities"
+                             columnNames="provider, provider_user_id"
+                             constraintName="uq_auth_identities_provider_user"/>
+
+        <createIndex tableName="auth_identities" indexName="idx_auth_identities_user">
+            <column name="user_id"/>
+        </createIndex>
+
+        <!--
+            Pending passwordless magic-link logins. No FK to users: a token can be the first
+            thing that exists for a brand-new account. Email encrypted under the app KEK;
+            email_hash is the non-secret handle. (Was changeset 7.)
+        -->
+        <createTable tableName="email_login_token">
+            <column name="token" type="VARCHAR(64)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="email_hash" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <!-- Email plaintext encrypted under the app KEK (UserCryptoService.encryptSystem). -->
+            <column name="email_enc" type="BYTEA">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="expires_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="consumed_at" type="TIMESTAMP">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="email_login_token" indexName="idx_email_login_token_hash_created">
+            <column name="email_hash"/>
+            <column name="created_at"/>
         </createIndex>
 
         <!--

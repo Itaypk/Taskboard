@@ -6,6 +6,7 @@ import dev.itayp.tasker.model.request.CreateCategoryRequest
 import dev.itayp.tasker.model.request.UpdateCategoryRequest
 import dev.itayp.tasker.repository.BacklogTaskCategoryRepository
 import dev.itayp.tasker.repository.BacklogTaskRepository
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.InjectMocks
@@ -24,14 +25,21 @@ class BacklogTaskCategoryServiceTest {
 
     @Mock private lateinit var categoryRepository: BacklogTaskCategoryRepository
     @Mock private lateinit var taskRepository: BacklogTaskRepository
+    @Mock private lateinit var boardMembershipService: BoardMembershipService
 
     @InjectMocks private lateinit var service: BacklogTaskCategoryService
 
     private val userId: UUID = UUID.fromString("00000000-0000-0000-0000-000000000001")
+    private val boardId: UUID = UUID.fromString("00000000-0000-0000-0000-0000000000b0")
+
+    @BeforeEach
+    fun stubBoard() {
+        whenever(boardMembershipService.resolveSoleBoard(userId)).thenReturn(boardId)
+    }
 
     @Test
     fun `getAllForUser returns mapped categories`() {
-        whenever(categoryRepository.findAllByUserId(userId))
+        whenever(categoryRepository.findAllByBoardId(boardId))
             .thenReturn(listOf(categoryEntity(label = "Work", swatchId = CategoryColor.SUNSHINE)))
 
         val result = service.getAllForUser(userId)
@@ -53,14 +61,14 @@ class BacklogTaskCategoryServiceTest {
         verify(categoryRepository).save(captor.capture())
         assertEquals("Home", captor.firstValue.label)
         assertEquals(CategoryColor.MINT, captor.firstValue.swatchId)
-        assertEquals(userId, captor.firstValue.userId)
+        assertEquals(boardId, captor.firstValue.boardId)
     }
 
     @Test
     fun `updateCategory updates label and swatchId`() {
         val id = UUID.randomUUID()
         val entity = categoryEntity(id = id, label = "Old", swatchId = CategoryColor.SUNSHINE)
-        whenever(categoryRepository.findByIdAndUserId(id, userId)).thenReturn(entity)
+        whenever(categoryRepository.findByIdAndBoardId(id, boardId)).thenReturn(entity)
         whenever(categoryRepository.save(any<BacklogTaskCategoryEntity>())).thenAnswer { inv -> inv.arguments[0] as BacklogTaskCategoryEntity }
 
         service.updateCategory(userId, id, UpdateCategoryRequest(label = "New", swatchId = "blossom"))
@@ -72,7 +80,7 @@ class BacklogTaskCategoryServiceTest {
     @Test
     fun `updateCategory throws when category not found`() {
         val id = UUID.randomUUID()
-        whenever(categoryRepository.findByIdAndUserId(id, userId)).thenReturn(null)
+        whenever(categoryRepository.findByIdAndBoardId(id, boardId)).thenReturn(null)
 
         assertFailsWith<NoSuchElementException> {
             service.updateCategory(userId, id, UpdateCategoryRequest(label = "X", swatchId = "mint"))
@@ -82,8 +90,8 @@ class BacklogTaskCategoryServiceTest {
     @Test
     fun `deleteCategory deletes when no tasks reference it`() {
         val id = UUID.randomUUID()
-        whenever(taskRepository.existsByCategoryIdAndUserId(id, userId)).thenReturn(false)
-        whenever(categoryRepository.findByIdAndUserId(id, userId)).thenReturn(categoryEntity(id = id))
+        whenever(taskRepository.existsByCategoryIdAndBoardId(id, boardId)).thenReturn(false)
+        whenever(categoryRepository.findByIdAndBoardId(id, boardId)).thenReturn(categoryEntity(id = id))
 
         service.deleteCategory(userId, id)
 
@@ -93,7 +101,7 @@ class BacklogTaskCategoryServiceTest {
     @Test
     fun `deleteCategory throws when tasks reference the category`() {
         val id = UUID.randomUUID()
-        whenever(taskRepository.existsByCategoryIdAndUserId(id, userId)).thenReturn(true)
+        whenever(taskRepository.existsByCategoryIdAndBoardId(id, boardId)).thenReturn(true)
 
         assertFailsWith<IllegalStateException> {
             service.deleteCategory(userId, id)
@@ -103,8 +111,8 @@ class BacklogTaskCategoryServiceTest {
     @Test
     fun `deleteCategory throws when category not found`() {
         val id = UUID.randomUUID()
-        whenever(taskRepository.existsByCategoryIdAndUserId(id, userId)).thenReturn(false)
-        whenever(categoryRepository.findByIdAndUserId(id, userId)).thenReturn(null)
+        whenever(taskRepository.existsByCategoryIdAndBoardId(id, boardId)).thenReturn(false)
+        whenever(categoryRepository.findByIdAndBoardId(id, boardId)).thenReturn(null)
 
         assertFailsWith<NoSuchElementException> {
             service.deleteCategory(userId, id)
@@ -117,7 +125,7 @@ class BacklogTaskCategoryServiceTest {
         swatchId: CategoryColor = CategoryColor.SUNSHINE,
     ) = BacklogTaskCategoryEntity().apply {
         this.id = id
-        this.userId = this@BacklogTaskCategoryServiceTest.userId
+        this.boardId = this@BacklogTaskCategoryServiceTest.boardId
         this.label = label
         this.swatchId = swatchId
     }
