@@ -1,11 +1,10 @@
 package dev.itayp.tasker.controller
 
 import dev.itayp.tasker.config.SecurityConfiguration
-import dev.itayp.tasker.model.BacklogTaskTag
-import dev.itayp.tasker.model.TagColor
+import dev.itayp.tasker.model.BoardRole
+import dev.itayp.tasker.model.BoardSummary
 import dev.itayp.tasker.security.TaskerPrincipal
-import dev.itayp.tasker.service.BacklogTaskTagService
-import dev.itayp.tasker.service.BoardAccessDeniedException
+import dev.itayp.tasker.service.BoardService
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
@@ -19,19 +18,18 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import java.time.Instant
 import java.util.UUID
 
-@WebMvcTest(BacklogTaskTagController::class)
+@WebMvcTest(BoardController::class)
 @Import(SecurityConfiguration::class)
-class BacklogTaskTagControllerTest(@Autowired val mockMvc: MockMvc) {
+class BoardControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @MockitoBean
-    lateinit var tagService: BacklogTaskTagService
+    lateinit var boardService: BoardService
 
     private val userId = UUID.fromString("00000000-0000-0000-0000-000000000099")
     private val boardId = UUID.fromString("00000000-0000-0000-0000-000000000003")
-
-    private val basePath = "/api/v1/boards/$boardId/tags"
 
     private val auth = UsernamePasswordAuthenticationToken(
         TaskerPrincipal(userId),
@@ -40,32 +38,26 @@ class BacklogTaskTagControllerTest(@Autowired val mockMvc: MockMvc) {
     )
 
     @Test
-    fun `GET tags returns 200 with tag list`() {
-        whenever(tagService.getTags(userId, boardId)).thenReturn(listOf(
-            BacklogTaskTag(UUID.randomUUID(), boardId, "deep-work", TagColor.VIOLET, null)
+    fun `GET boards returns the user's boards`() {
+        whenever(boardService.listBoardsForUser(userId)).thenReturn(listOf(
+            BoardSummary(
+                id = boardId,
+                name = "My tasks",
+                role = BoardRole.OWNER,
+                createdAt = Instant.parse("2026-01-01T00:00:00Z"),
+            ),
         ))
 
-        mockMvc.perform(get(basePath).with(authentication(auth)))
+        mockMvc.perform(get("/api/v1/boards").with(authentication(auth)))
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$[0].label").value("deep-work"))
-            .andExpect(jsonPath("$[0].colorId").value("violet"))
+            .andExpect(jsonPath("$[0].id").value(boardId.toString()))
+            .andExpect(jsonPath("$[0].name").value("My tasks"))
+            .andExpect(jsonPath("$[0].role").value("OWNER"))
     }
 
     @Test
-    fun `GET tags returns 200 with empty list`() {
-        whenever(tagService.getTags(userId, boardId)).thenReturn(emptyList())
-
-        mockMvc.perform(get(basePath).with(authentication(auth)))
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$").isEmpty)
-    }
-
-    @Test
-    fun `GET tags on a board the user is not a member of returns 403`() {
-        whenever(tagService.getTags(userId, boardId))
-            .thenThrow(BoardAccessDeniedException(userId, boardId))
-
-        mockMvc.perform(get(basePath).with(authentication(auth)))
-            .andExpect(status().isForbidden)
+    fun `GET boards unauthenticated returns 401`() {
+        mockMvc.perform(get("/api/v1/boards"))
+            .andExpect(status().isUnauthorized)
     }
 }

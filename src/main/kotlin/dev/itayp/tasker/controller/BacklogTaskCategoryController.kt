@@ -21,32 +21,35 @@ import org.springframework.web.bind.annotation.RestController
 import java.util.UUID
 
 @RestController
-@RequestMapping("/api/v1/categories")
+@RequestMapping("/api/v1/boards/{boardId}/categories")
 class BacklogTaskCategoryController(private val categoryService: BacklogTaskCategoryService) {
 
     @GetMapping
     fun getCategories(
         @AuthenticationPrincipal principal: TaskerPrincipal,
+        @PathVariable boardId: UUID,
     ): ResponseEntity<List<CategoryResponse>> =
-        ResponseEntity.ok(categoryService.getAllForUser(principal.userId).map { it.toResponse() })
+        ResponseEntity.ok(categoryService.getCategories(principal.userId, boardId).map { it.toResponse() })
 
     @PostMapping
     fun createCategory(
         @AuthenticationPrincipal principal: TaskerPrincipal,
+        @PathVariable boardId: UUID,
         @Valid @RequestBody request: CreateCategoryRequest,
     ): ResponseEntity<CategoryResponse> {
-        val category = categoryService.createCategory(principal.userId, request)
+        val category = categoryService.createCategory(principal.userId, boardId, request)
         return ResponseEntity.status(HttpStatus.CREATED).body(category.toResponse())
     }
 
     @PutMapping("/{id}")
     fun updateCategory(
         @AuthenticationPrincipal principal: TaskerPrincipal,
+        @PathVariable boardId: UUID,
         @PathVariable id: UUID,
         @Valid @RequestBody request: UpdateCategoryRequest,
     ): ResponseEntity<CategoryResponse> {
         return try {
-            ResponseEntity.ok(categoryService.updateCategory(principal.userId, id, request).toResponse())
+            ResponseEntity.ok(categoryService.updateCategory(principal.userId, boardId, id, request).toResponse())
         } catch (e: NoSuchElementException) {
             ResponseEntity.notFound().build()
         }
@@ -55,10 +58,11 @@ class BacklogTaskCategoryController(private val categoryService: BacklogTaskCate
     @DeleteMapping("/{id}")
     fun deleteCategory(
         @AuthenticationPrincipal principal: TaskerPrincipal,
+        @PathVariable boardId: UUID,
         @PathVariable id: UUID,
     ): ResponseEntity<Void> {
         return try {
-            categoryService.deleteCategory(principal.userId, id)
+            categoryService.deleteCategory(principal.userId, boardId, id)
             ResponseEntity.noContent().build()
         } catch (e: NoSuchElementException) {
             ResponseEntity.notFound().build()

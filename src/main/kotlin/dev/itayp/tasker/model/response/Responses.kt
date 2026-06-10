@@ -3,6 +3,7 @@ package dev.itayp.tasker.model.response
 import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.BacklogTaskTag
+import dev.itayp.tasker.model.BoardSummary
 import dev.itayp.tasker.model.UserSettings
 
 data class LanguageOption(val code: String, val label: String)
@@ -43,6 +44,20 @@ fun UserSettings.toResponse(email: String?, emailVerified: Boolean) = UserSettin
     autoArchiveDays = autoArchiveDays,
     email = email,
     emailVerified = emailVerified,
+)
+
+data class BoardResponse(
+    val id: String,
+    val name: String,
+    val role: String,
+    val createdAt: String,
+)
+
+fun BoardSummary.toResponse() = BoardResponse(
+    id = id.toString(),
+    name = name,
+    role = role.name,
+    createdAt = createdAt.toString(),
 )
 
 data class TagResponseItem(val label: String, val colorId: String)

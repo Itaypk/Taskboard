@@ -12,8 +12,15 @@ class BacklogTaskTagService(
     private val boardMembershipService: BoardMembershipService,
 ) {
 
-    fun getAllForUser(userId: UUID): List<BacklogTaskTag> {
-        val boardId = boardMembershipService.resolveSoleBoard(userId)
+    /**
+     * Planner-facing bridge: resolves the user's sole board. Goes away when the planner becomes
+     * board-aware (Phase 1 PR 3, `docs/BOARD-SHARING-PHASE1.md`).
+     */
+    fun getAllForUser(userId: UUID): List<BacklogTaskTag> =
+        getTags(userId, boardMembershipService.resolveSoleBoard(userId))
+
+    fun getTags(userId: UUID, boardId: UUID): List<BacklogTaskTag> {
+        boardMembershipService.requireMember(userId, boardId)
         return tagRepository.findAllByBoardId(boardId).map { it.toDomain() }
     }
 }

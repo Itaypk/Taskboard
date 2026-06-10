@@ -5,6 +5,7 @@ import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.CategoryColor
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.BacklogTaskCategoryService
+import dev.itayp.tasker.service.BoardAccessDeniedException
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.doThrow
@@ -36,7 +37,10 @@ class BacklogTaskCategoryControllerTest(@Autowired val mockMvc: MockMvc) {
     lateinit var categoryService: BacklogTaskCategoryService
 
     private val userId = UUID.fromString("00000000-0000-0000-0000-000000000099")
+    private val boardId = UUID.fromString("00000000-0000-0000-0000-000000000003")
     private val categoryId = UUID.fromString("00000000-0000-0000-0000-000000000010")
+
+    private val basePath = "/api/v1/boards/$boardId/categories"
 
     private val auth = UsernamePasswordAuthenticationToken(
         TaskerPrincipal(userId),
@@ -45,24 +49,33 @@ class BacklogTaskCategoryControllerTest(@Autowired val mockMvc: MockMvc) {
     )
 
     private fun aCategory(id: UUID = categoryId, label: String = "Work") =
-        BacklogTaskCategory(id, userId, label, CategoryColor.SUNSHINE)
+        BacklogTaskCategory(id, boardId, label, CategoryColor.SUNSHINE)
 
     @Test
     fun `GET categories returns 200 with category list`() {
-        whenever(categoryService.getAllForUser(userId)).thenReturn(listOf(aCategory()))
+        whenever(categoryService.getCategories(userId, boardId)).thenReturn(listOf(aCategory()))
 
-        mockMvc.perform(get("/api/v1/categories").with(authentication(auth)))
+        mockMvc.perform(get(basePath).with(authentication(auth)))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$[0].label").value("Work"))
             .andExpect(jsonPath("$[0].swatchId").value("sunshine"))
     }
 
     @Test
+    fun `GET categories on a board the user is not a member of returns 403`() {
+        whenever(categoryService.getCategories(userId, boardId))
+            .thenThrow(BoardAccessDeniedException(userId, boardId))
+
+        mockMvc.perform(get(basePath).with(authentication(auth)))
+            .andExpect(status().isForbidden)
+    }
+
+    @Test
     fun `POST categories returns 201 with created category`() {
-        whenever(categoryService.createCategory(eq(userId), any())).thenReturn(aCategory(label = "Home"))
+        whenever(categoryService.createCategory(eq(userId), eq(boardId), any())).thenReturn(aCategory(label = "Home"))
 
         mockMvc.perform(
-            post("/api/v1/categories")
+            post(basePath)
                 .with(authentication(auth))
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
@@ -75,11 +88,11 @@ class BacklogTaskCategoryControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @Test
     fun `PUT categories-id returns 200 with updated category`() {
-        whenever(categoryService.updateCategory(eq(userId), eq(categoryId), any()))
+        whenever(categoryService.updateCategory(eq(userId), eq(boardId), eq(categoryId), any()))
             .thenReturn(aCategory(label = "Renamed"))
 
         mockMvc.perform(
-            put("/api/v1/categories/$categoryId")
+            put("$basePath/$categoryId")
                 .with(authentication(auth))
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
@@ -91,11 +104,11 @@ class BacklogTaskCategoryControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @Test
     fun `PUT categories-id returns 404 when not found`() {
-        whenever(categoryService.updateCategory(any(), any(), any()))
+        whenever(categoryService.updateCategory(any(), any(), any(), any()))
             .thenThrow(NoSuchElementException("not found"))
 
         mockMvc.perform(
-            put("/api/v1/categories/$categoryId")
+            put("$basePath/$categoryId")
                 .with(authentication(auth))
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
@@ -106,23 +119,23 @@ class BacklogTaskCategoryControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @Test
     fun `DELETE categories-id returns 204`() {
-        mockMvc.perform(delete("/api/v1/categories/$categoryId").with(authentication(auth)).with(csrf()))
+        mockMvc.perform(delete("$basePath/$categoryId").with(authentication(auth)).with(csrf()))
             .andExpect(status().isNoContent)
     }
 
     @Test
     fun `DELETE categories-id returns 404 when not found`() {
-        doThrow(NoSuchElementException("not found")).whenever(categoryService).deleteCategory(any(), any())
+        doThrow(NoSuchElementException("not found")).whenever(categoryService).deleteCategory(any(), any(), any())
 
-        mockMvc.perform(delete("/api/v1/categories/$categoryId").with(authentication(auth)).with(csrf()))
+        mockMvc.perform(delete("$basePath/$categoryId").with(authentication(auth)).with(csrf()))
             .andExpect(status().isNotFound)
     }
 
     @Test
     fun `DELETE categories-id returns 409 when category is in use`() {
-        doThrow(IllegalStateException("Category is in use")).whenever(categoryService).deleteCategory(any(), any())
+        doThrow(IllegalStateException("Category is in use")).whenever(categoryService).deleteCategory(any(), any(), any())
 
-        mockMvc.perform(delete("/api/v1/categories/$categoryId").with(authentication(auth)).with(csrf()))
+        mockMvc.perform(delete("$basePath/$categoryId").with(authentication(auth)).with(csrf()))
             .andExpect(status().isConflict)
     }
 }

@@ -1,7 +1,8 @@
 # Multi-board & sharing — plan
 
-Status: **Design draft — not yet implemented.** This is the source of truth for the design and
-the phased work. It supersedes the "Multi-board and sharing support" line in `docs/IDEAS.md` and
+Status: **Phase 0 shipped to production; Phase 1 in progress (`docs/BOARD-SHARING-PHASE1.md`).**
+This is the source of truth for the design and the phased work. It supersedes the
+"Multi-board and sharing support" line in `docs/IDEAS.md` and
 extends the non-goal "Shared tasks or collaboration features" in `docs/SPEC.md` (that non-goal is
 being deliberately revisited — see [Goal](#goal)).
 
@@ -195,12 +196,11 @@ BoardMembershipService.requireMember(userId, boardId): Role   // throws 403/404 
 ```
 
 Every board-scoped controller resolves the board from the request, calls `requireMember`, then
-operates by `board_id`. Two ways to carry the board in the request — to decide during Phase 1:
-
-- **Path-scoped (preferred):** `/api/v1/boards/{boardId}/tasks`. Explicit, every request names its
-  board, easy to guard centrally. Larger but mechanical API change.
-- **Active-board in session:** keep today's endpoint shapes, store the "active board" on the
-  session. Smaller diff, but statefulness in the session and a hidden dependency.
+operates by `board_id`. **Decided at Phase 1 start: path-scoped** —
+`/api/v1/boards/{boardId}/tasks`. Explicit, every request names its board, easy to guard
+centrally; the alternative (active-board in the session) was rejected for its hidden state and
+awkward multi-tab behavior. Non-member access uniformly returns 403 without revealing whether the
+board exists.
 
 Owner-only actions (rename, manage members, delete board) additionally assert `role == OWNER`.
 
@@ -316,13 +316,13 @@ is incremental.
    prod-safe branch): `docs/export-format-v2.md`.**
 2. **Phase 1 — multi-board, single user.** Board CRUD + switcher UI; planner spans the user's
    boards (§7); finalize the board-in-request convention (§4). No sharing yet. Delivers need 2.
+   **Concrete implementation plan (three PRs): `docs/BOARD-SHARING-PHASE1.md`.**
 3. **Phase 2 — sharing.** Invitations + consent dialog (§8), `MEMBER`/`OWNER` enforcement,
    claim/assignee UI (§5), Members panel, ownership-transfer-on-delete (§6). Delivers need 1.
 
 ## Open questions / risks
 
-- **Board-in-request convention** (path-scoped vs active-board-in-session) — decide at Phase 1
-  start; affects every board-scoped endpoint and the frontend api layer.
+- ~~**Board-in-request convention**~~ — resolved: path-scoped (§4, `BOARD-SHARING-PHASE1.md`).
 - **Planner fairness across boards** — fixed urgent/stale slots over a merged pool may let a busy
   board starve a quiet one. May need per-board caps or interleaving. Tune in Phase 2.
 - **`board.name` encryption** — encrypting under the board DEK is consistent but adds a decrypt on

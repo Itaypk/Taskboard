@@ -18,13 +18,20 @@ class BacklogTaskCategoryService(
     private val boardMembershipService: BoardMembershipService,
 ) {
 
-    fun getAllForUser(userId: UUID): List<BacklogTaskCategory> {
-        val boardId = boardMembershipService.resolveSoleBoard(userId)
+    /**
+     * Planner-facing bridge: resolves the user's sole board. Goes away when the planner becomes
+     * board-aware (Phase 1 PR 3, `docs/BOARD-SHARING-PHASE1.md`).
+     */
+    fun getAllForUser(userId: UUID): List<BacklogTaskCategory> =
+        getCategories(userId, boardMembershipService.resolveSoleBoard(userId))
+
+    fun getCategories(userId: UUID, boardId: UUID): List<BacklogTaskCategory> {
+        boardMembershipService.requireMember(userId, boardId)
         return categoryRepository.findAllByBoardId(boardId).map { it.toDomain() }
     }
 
-    fun createCategory(userId: UUID, request: CreateCategoryRequest): BacklogTaskCategory {
-        val boardId = boardMembershipService.resolveSoleBoard(userId)
+    fun createCategory(userId: UUID, boardId: UUID, request: CreateCategoryRequest): BacklogTaskCategory {
+        boardMembershipService.requireMember(userId, boardId)
         val entity = BacklogTaskCategoryEntity().apply {
             this.boardId = boardId
             this.label = request.label
@@ -33,8 +40,8 @@ class BacklogTaskCategoryService(
         return categoryRepository.save(entity).toDomain()
     }
 
-    fun updateCategory(userId: UUID, id: UUID, request: UpdateCategoryRequest): BacklogTaskCategory {
-        val boardId = boardMembershipService.resolveSoleBoard(userId)
+    fun updateCategory(userId: UUID, boardId: UUID, id: UUID, request: UpdateCategoryRequest): BacklogTaskCategory {
+        boardMembershipService.requireMember(userId, boardId)
         val entity = categoryRepository.findByIdAndBoardId(id, boardId)
             ?: throw NoSuchElementException("Category $id not found")
         entity.label = request.label
@@ -42,8 +49,8 @@ class BacklogTaskCategoryService(
         return categoryRepository.save(entity).toDomain()
     }
 
-    fun deleteCategory(userId: UUID, id: UUID) {
-        val boardId = boardMembershipService.resolveSoleBoard(userId)
+    fun deleteCategory(userId: UUID, boardId: UUID, id: UUID) {
+        boardMembershipService.requireMember(userId, boardId)
         if (taskRepository.existsByCategoryIdAndBoardId(id, boardId)) {
             throw IllegalStateException("Category is in use by one or more tasks")
         }

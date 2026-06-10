@@ -38,15 +38,17 @@ class BacklogTaskService(
     private val clock: Clock,
 ) {
 
+    /**
+     * Planner-facing bridge: resolves the user's sole board. Goes away when the planner becomes
+     * board-aware (Phase 1 PR 3, `docs/BOARD-SHARING-PHASE1.md`).
+     */
     @Transactional(readOnly = true)
-    fun getAllTasksForUser(userId: UUID): List<BacklogTask> {
-        val boardId = boardMembershipService.resolveSoleBoard(userId)
-        return backlogTaskRepository.findAllByBoardIdOrderBySortKeyAsc(boardId).map { it.toDomain(boardCrypto) }
-    }
+    fun getTasksForUser(userId: UUID, status: TaskStatus?): List<BacklogTask> =
+        getTasks(userId, boardMembershipService.resolveSoleBoard(userId), status)
 
     @Transactional(readOnly = true)
-    fun getTasksForUser(userId: UUID, status: TaskStatus?): List<BacklogTask> {
-        val boardId = boardMembershipService.resolveSoleBoard(userId)
+    fun getTasks(userId: UUID, boardId: UUID, status: TaskStatus?): List<BacklogTask> {
+        boardMembershipService.requireMember(userId, boardId)
         val entities = when (status) {
             null -> backlogTaskRepository.findAllByBoardIdAndStatusNotOrderBySortKeyAsc(boardId, TaskStatus.ARCHIVED)
             else -> backlogTaskRepository.findAllByBoardIdAndStatusOrderBySortKeyAsc(boardId, status)
@@ -61,9 +63,14 @@ class BacklogTaskService(
         } else tasks
     }
 
+    /** Planner-facing bridge — see [getTasksForUser]. */
     @Transactional(readOnly = true)
-    fun getTaskById(userId: UUID, id: UUID): BacklogTask? {
-        val boardId = boardMembershipService.resolveSoleBoard(userId)
+    fun getTaskById(userId: UUID, id: UUID): BacklogTask? =
+        getTaskById(userId, boardMembershipService.resolveSoleBoard(userId), id)
+
+    @Transactional(readOnly = true)
+    fun getTaskById(userId: UUID, boardId: UUID, id: UUID): BacklogTask? {
+        boardMembershipService.requireMember(userId, boardId)
         return backlogTaskRepository.findByIdAndBoardId(id, boardId)?.toDomain(boardCrypto)
     }
 
@@ -86,9 +93,14 @@ class BacklogTaskService(
         taskChangeService.bumpWatermark(userId)
     }
 
+    /** Planner-facing bridge — see [getTasksForUser]. */
     @Transactional
-    fun createTask(userId: UUID, request: CreateBacklogTaskRequest): BacklogTask {
-        val boardId = boardMembershipService.resolveSoleBoard(userId)
+    fun createTask(userId: UUID, request: CreateBacklogTaskRequest): BacklogTask =
+        createTask(userId, boardMembershipService.resolveSoleBoard(userId), request)
+
+    @Transactional
+    fun createTask(userId: UUID, boardId: UUID, request: CreateBacklogTaskRequest): BacklogTask {
+        boardMembershipService.requireMember(userId, boardId)
         val categoryId = UUID.fromString(request.categoryId)
         val category = categoryRepository.findByIdAndBoardId(categoryId, boardId)
             ?: throw NoSuchElementException("Category $categoryId not found")
@@ -118,9 +130,14 @@ class BacklogTaskService(
         return saved.toDomain(boardCrypto)
     }
 
+    /** Planner-facing bridge — see [getTasksForUser]. */
     @Transactional
-    fun updateTask(userId: UUID, id: UUID, request: UpdateBacklogTaskRequest): BacklogTask {
-        val boardId = boardMembershipService.resolveSoleBoard(userId)
+    fun updateTask(userId: UUID, id: UUID, request: UpdateBacklogTaskRequest): BacklogTask =
+        updateTask(userId, boardMembershipService.resolveSoleBoard(userId), id, request)
+
+    @Transactional
+    fun updateTask(userId: UUID, boardId: UUID, id: UUID, request: UpdateBacklogTaskRequest): BacklogTask {
+        boardMembershipService.requireMember(userId, boardId)
         val entity = backlogTaskRepository.findByIdAndBoardId(id, boardId)
             ?: throw NoSuchElementException("Task $id not found")
 
@@ -152,8 +169,8 @@ class BacklogTaskService(
     }
 
     @Transactional
-    fun reorderTask(userId: UUID, taskId: UUID, request: ReorderTaskRequest): BacklogTask {
-        val boardId = boardMembershipService.resolveSoleBoard(userId)
+    fun reorderTask(userId: UUID, boardId: UUID, taskId: UUID, request: ReorderTaskRequest): BacklogTask {
+        boardMembershipService.requireMember(userId, boardId)
         val entity = backlogTaskRepository.findByIdAndBoardId(taskId, boardId)
             ?: throw NoSuchElementException("Task $taskId not found")
 
@@ -207,8 +224,8 @@ class BacklogTaskService(
     }
 
     @Transactional
-    fun unscheduleTask(userId: UUID, id: UUID) {
-        val boardId = boardMembershipService.resolveSoleBoard(userId)
+    fun unscheduleTask(userId: UUID, boardId: UUID, id: UUID) {
+        boardMembershipService.requireMember(userId, boardId)
         val entity = backlogTaskRepository.findByIdAndBoardId(id, boardId)
             ?: throw NoSuchElementException("Task $id not found")
         entity.lastScheduledInSessionId = null
@@ -218,8 +235,8 @@ class BacklogTaskService(
     }
 
     @Transactional
-    fun deleteTask(userId: UUID, id: UUID) {
-        val boardId = boardMembershipService.resolveSoleBoard(userId)
+    fun deleteTask(userId: UUID, boardId: UUID, id: UUID) {
+        boardMembershipService.requireMember(userId, boardId)
         val entity = backlogTaskRepository.findByIdAndBoardId(id, boardId)
             ?: throw NoSuchElementException("Task $id not found")
         val title = boardCrypto.decrypt(boardId, entity.title) ?: ""

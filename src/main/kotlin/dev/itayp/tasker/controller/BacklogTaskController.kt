@@ -10,6 +10,7 @@ import dev.itayp.tasker.model.response.toResponse
 import dev.itayp.tasker.planning.BacklogTaskChangeService
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.BacklogTaskService
+import dev.itayp.tasker.service.BoardMembershipService
 import jakarta.validation.Valid
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
@@ -30,18 +31,26 @@ import java.time.Instant
 import java.util.UUID
 
 @RestController
-@RequestMapping("/api/v1")
+@RequestMapping("/api/v1/boards/{boardId}/tasks")
 class BacklogTaskController(
     private val backlogTaskService: BacklogTaskService,
     private val backlogTaskChangeService: BacklogTaskChangeService,
+    private val boardMembershipService: BoardMembershipService,
     private val clock: Clock,
 ) {
 
-    @GetMapping("/tasks/has-changes")
+    /**
+     * The watermark behind this is still per-user (Phase-0 deviation), so a change on another of
+     * the user's boards may over-trigger a refresh here; becomes exactly board-scoped when Phase 2
+     * re-keys the watermark.
+     */
+    @GetMapping("/has-changes")
     fun hasTaskChanges(
         @AuthenticationPrincipal principal: TaskerPrincipal,
+        @PathVariable boardId: UUID,
         @RequestParam since: String,
     ): ResponseEntity<HasChangesResponse> {
+        boardMembershipService.requireMember(principal.userId, boardId)
         val sinceInstant = runCatching { Instant.parse(since) }.getOrElse {
             return ResponseEntity.badRequest().build()
         }
@@ -50,15 +59,16 @@ class BacklogTaskController(
         return ResponseEntity.ok(HasChangesResponse(hasChanges = hasChanges, checkedAt = checkedAt.toString()))
     }
 
-    @GetMapping("/tasks")
+    @GetMapping
     fun getBacklogTasks(
         @AuthenticationPrincipal principal: TaskerPrincipal,
+        @PathVariable boardId: UUID,
         @RequestParam(required = false) status: String?,
     ): ResponseEntity<List<TaskResponse>> {
         val statusFilter = parseStatusFilter(status)
             ?: return ResponseEntity.badRequest().build()
         return ResponseEntity.ok(
-            backlogTaskService.getTasksForUser(principal.userId, statusFilter.value).map { it.toResponse() }
+            backlogTaskService.getTasks(principal.userId, boardId, statusFilter.value).map { it.toResponse() }
         )
     }
 
@@ -76,63 +86,68 @@ class BacklogTaskController(
         else -> null
     }
 
-    @PostMapping("/tasks")
+    @PostMapping
     fun createBacklogTask(
         @AuthenticationPrincipal principal: TaskerPrincipal,
+        @PathVariable boardId: UUID,
         @Valid @RequestBody request: CreateBacklogTaskRequest,
     ): ResponseEntity<TaskResponse> {
-        logger.info("Creating backlog task: ${request.title}")
-        val task = backlogTaskService.createTask(principal.userId, request)
+        logger.info("Creating backlog task on board $boardId")
+        val task = backlogTaskService.createTask(principal.userId, boardId, request)
         return ResponseEntity.status(HttpStatus.CREATED).body(task.toResponse())
     }
 
-    @PutMapping("/tasks/{id}")
+    @PutMapping("/{id}")
     fun updateBacklogTask(
         @AuthenticationPrincipal principal: TaskerPrincipal,
+        @PathVariable boardId: UUID,
         @PathVariable id: UUID,
         @Valid @RequestBody request: UpdateBacklogTaskRequest,
     ): ResponseEntity<TaskResponse> {
         return try {
-            ResponseEntity.ok(backlogTaskService.updateTask(principal.userId, id, request).toResponse())
+            ResponseEntity.ok(backlogTaskService.updateTask(principal.userId, boardId, id, request).toResponse())
         } catch (_: NoSuchElementException) {
             ResponseEntity.notFound().build()
         }
     }
 
-    @DeleteMapping("/tasks/{id}")
+    @DeleteMapping("/{id}")
     fun deleteBacklogTask(
         @AuthenticationPrincipal principal: TaskerPrincipal,
+        @PathVariable boardId: UUID,
         @PathVariable id: UUID,
     ): ResponseEntity<Void> {
         return try {
-            backlogTaskService.deleteTask(principal.userId, id)
+            backlogTaskService.deleteTask(principal.userId, boardId, id)
             ResponseEntity.noContent().build()
         } catch (_: NoSuchElementException) {
             ResponseEntity.notFound().build()
         }
     }
 
-    @DeleteMapping("/tasks/{id}/plan-schedule")
+    @DeleteMapping("/{id}/plan-schedule")
     fun unscheduleTask(
         @AuthenticationPrincipal principal: TaskerPrincipal,
+        @PathVariable boardId: UUID,
         @PathVariable id: UUID,
     ): ResponseEntity<Void> {
         return try {
-            backlogTaskService.unscheduleTask(principal.userId, id)
+            backlogTaskService.unscheduleTask(principal.userId, boardId, id)
             ResponseEntity.noContent().build()
         } catch (_: NoSuchElementException) {
             ResponseEntity.notFound().build()
         }
     }
 
-    @PatchMapping("/tasks/{id}/reorder")
+    @PatchMapping("/{id}/reorder")
     fun reorderBacklogTask(
         @AuthenticationPrincipal principal: TaskerPrincipal,
+        @PathVariable boardId: UUID,
         @PathVariable id: UUID,
         @RequestBody request: ReorderTaskRequest,
     ): ResponseEntity<TaskResponse> {
         return try {
-            ResponseEntity.ok(backlogTaskService.reorderTask(principal.userId, id, request).toResponse())
+            ResponseEntity.ok(backlogTaskService.reorderTask(principal.userId, boardId, id, request).toResponse())
         } catch (_: NoSuchElementException) {
             ResponseEntity.notFound().build()
         }

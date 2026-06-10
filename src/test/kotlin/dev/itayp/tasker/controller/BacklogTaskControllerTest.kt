@@ -8,6 +8,8 @@ import dev.itayp.tasker.model.TaskStatus
 import dev.itayp.tasker.planning.BacklogTaskChangeService
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.BacklogTaskService
+import dev.itayp.tasker.service.BoardAccessDeniedException
+import dev.itayp.tasker.service.BoardMembershipService
 import dev.itayp.tasker.service.SortKeyGenerator
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
@@ -46,13 +48,19 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
     lateinit var backlogTaskChangeService: BacklogTaskChangeService
 
     @MockitoBean
+    lateinit var boardMembershipService: BoardMembershipService
+
+    @MockitoBean
     lateinit var clock: Clock
 
     private val fixedNow = Instant.parse("2026-05-19T10:00:00Z")
 
     private val userId = UUID.fromString("00000000-0000-0000-0000-000000000099")
+    private val boardId = UUID.fromString("00000000-0000-0000-0000-000000000003")
     private val taskId = UUID.fromString("00000000-0000-0000-0000-000000000001")
     private val categoryId = UUID.fromString("00000000-0000-0000-0000-000000000002")
+
+    private val basePath = "/api/v1/boards/$boardId/tasks"
 
     private val auth = UsernamePasswordAuthenticationToken(
         TaskerPrincipal(userId),
@@ -62,7 +70,7 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
 
     private fun aTask(id: UUID = taskId, title: String = "Test Task") = BacklogTask(
         id = id,
-        boardId = userId,
+        boardId = boardId,
         assigneeUserId = null,
         title = title,
         description = null,
@@ -71,7 +79,7 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
         deadline = null,
         estimatedMinutes = null,
         status = TaskStatus.TODO,
-        category = BacklogTaskCategory(categoryId, userId, "Work", CategoryColor.SUNSHINE),
+        category = BacklogTaskCategory(categoryId, boardId, "Work", CategoryColor.SUNSHINE),
         tags = emptySet(),
         sortKey = SortKeyGenerator.INITIAL,
         createdAt = Instant.parse("2026-01-01T00:00:00Z"),
@@ -83,9 +91,9 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @Test
     fun `GET tasks defaults to TODO filter`() {
-        whenever(backlogTaskService.getTasksForUser(userId, TaskStatus.TODO)).thenReturn(listOf(aTask()))
+        whenever(backlogTaskService.getTasks(userId, boardId, TaskStatus.TODO)).thenReturn(listOf(aTask()))
 
-        mockMvc.perform(get("/api/v1/tasks").with(authentication(auth)))
+        mockMvc.perform(get(basePath).with(authentication(auth)))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$[0].title").value("Test Task"))
             .andExpect(jsonPath("$[0].status").value("todo"))
@@ -94,9 +102,9 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @Test
     fun `GET tasks with status=done filters to DONE`() {
-        whenever(backlogTaskService.getTasksForUser(userId, TaskStatus.DONE)).thenReturn(emptyList())
+        whenever(backlogTaskService.getTasks(userId, boardId, TaskStatus.DONE)).thenReturn(emptyList())
 
-        mockMvc.perform(get("/api/v1/tasks?status=done").with(authentication(auth)))
+        mockMvc.perform(get("$basePath?status=done").with(authentication(auth)))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$").isArray)
             .andExpect(jsonPath("$").isEmpty)
@@ -104,24 +112,24 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @Test
     fun `GET tasks with status=all passes null filter`() {
-        whenever(backlogTaskService.getTasksForUser(userId, null)).thenReturn(listOf(aTask()))
+        whenever(backlogTaskService.getTasks(userId, boardId, null)).thenReturn(listOf(aTask()))
 
-        mockMvc.perform(get("/api/v1/tasks?status=all").with(authentication(auth)))
+        mockMvc.perform(get("$basePath?status=all").with(authentication(auth)))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$[0].title").value("Test Task"))
     }
 
     @Test
     fun `GET tasks with invalid status returns 400`() {
-        mockMvc.perform(get("/api/v1/tasks?status=bogus").with(authentication(auth)))
+        mockMvc.perform(get("$basePath?status=bogus").with(authentication(auth)))
             .andExpect(status().isBadRequest)
     }
 
     @Test
     fun `GET tasks returns 200 with empty list`() {
-        whenever(backlogTaskService.getTasksForUser(userId, TaskStatus.TODO)).thenReturn(emptyList())
+        whenever(backlogTaskService.getTasks(userId, boardId, TaskStatus.TODO)).thenReturn(emptyList())
 
-        mockMvc.perform(get("/api/v1/tasks").with(authentication(auth)))
+        mockMvc.perform(get(basePath).with(authentication(auth)))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$").isArray)
             .andExpect(jsonPath("$").isEmpty)
@@ -129,16 +137,25 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @Test
     fun `GET tasks unauthenticated returns 401`() {
-        mockMvc.perform(get("/api/v1/tasks"))
+        mockMvc.perform(get(basePath))
             .andExpect(status().isUnauthorized)
     }
 
     @Test
+    fun `GET tasks on a board the user is not a member of returns 403`() {
+        whenever(backlogTaskService.getTasks(userId, boardId, TaskStatus.TODO))
+            .thenThrow(BoardAccessDeniedException(userId, boardId))
+
+        mockMvc.perform(get(basePath).with(authentication(auth)))
+            .andExpect(status().isForbidden)
+    }
+
+    @Test
     fun `POST tasks returns 201 with created task`() {
-        whenever(backlogTaskService.createTask(eq(userId), any())).thenReturn(aTask(title = "New Task"))
+        whenever(backlogTaskService.createTask(eq(userId), eq(boardId), any())).thenReturn(aTask(title = "New Task"))
 
         mockMvc.perform(
-            post("/api/v1/tasks")
+            post(basePath)
                 .with(authentication(auth))
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
@@ -151,10 +168,11 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @Test
     fun `PUT tasks-id returns 200 with updated task`() {
-        whenever(backlogTaskService.updateTask(eq(userId), eq(taskId), any())).thenReturn(aTask(title = "Updated"))
+        whenever(backlogTaskService.updateTask(eq(userId), eq(boardId), eq(taskId), any()))
+            .thenReturn(aTask(title = "Updated"))
 
         mockMvc.perform(
-            put("/api/v1/tasks/$taskId")
+            put("$basePath/$taskId")
                 .with(authentication(auth))
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
@@ -166,11 +184,11 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @Test
     fun `PUT tasks-id returns 404 when task not found`() {
-        whenever(backlogTaskService.updateTask(any(), any(), any()))
+        whenever(backlogTaskService.updateTask(any(), any(), any(), any()))
             .thenThrow(NoSuchElementException("not found"))
 
         mockMvc.perform(
-            put("/api/v1/tasks/$taskId")
+            put("$basePath/$taskId")
                 .with(authentication(auth))
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
@@ -181,24 +199,24 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @Test
     fun `DELETE tasks-id returns 204`() {
-        mockMvc.perform(delete("/api/v1/tasks/$taskId").with(authentication(auth)).with(csrf()))
+        mockMvc.perform(delete("$basePath/$taskId").with(authentication(auth)).with(csrf()))
             .andExpect(status().isNoContent)
     }
 
     @Test
     fun `DELETE tasks-id returns 404 when task not found`() {
-        doThrow(NoSuchElementException("not found")).whenever(backlogTaskService).deleteTask(any(), any())
+        doThrow(NoSuchElementException("not found")).whenever(backlogTaskService).deleteTask(any(), any(), any())
 
-        mockMvc.perform(delete("/api/v1/tasks/$taskId").with(authentication(auth)).with(csrf()))
+        mockMvc.perform(delete("$basePath/$taskId").with(authentication(auth)).with(csrf()))
             .andExpect(status().isNotFound)
     }
 
     @Test
     fun `PATCH tasks-id-reorder returns 200 with updated task`() {
-        whenever(backlogTaskService.reorderTask(eq(userId), eq(taskId), any())).thenReturn(aTask())
+        whenever(backlogTaskService.reorderTask(eq(userId), eq(boardId), eq(taskId), any())).thenReturn(aTask())
 
         mockMvc.perform(
-            patch("/api/v1/tasks/$taskId/reorder")
+            patch("$basePath/$taskId/reorder")
                 .with(authentication(auth))
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
@@ -211,11 +229,11 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @Test
     fun `PATCH tasks-id-reorder returns 404 when task not found`() {
-        whenever(backlogTaskService.reorderTask(any(), any(), any()))
+        whenever(backlogTaskService.reorderTask(any(), any(), any(), any()))
             .thenThrow(NoSuchElementException("not found"))
 
         mockMvc.perform(
-            patch("/api/v1/tasks/$taskId/reorder")
+            patch("$basePath/$taskId/reorder")
                 .with(authentication(auth))
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
@@ -230,7 +248,7 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
         whenever(clock.instant()).thenReturn(fixedNow)
         whenever(backlogTaskChangeService.changedSince(eq(userId), any())).thenReturn(true)
 
-        mockMvc.perform(get("/api/v1/tasks/has-changes?since=$since").with(authentication(auth)))
+        mockMvc.perform(get("$basePath/has-changes?since=$since").with(authentication(auth)))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.hasChanges").value(true))
             .andExpect(jsonPath("$.checkedAt").value(fixedNow.toString()))
@@ -242,20 +260,29 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
         whenever(clock.instant()).thenReturn(fixedNow)
         whenever(backlogTaskChangeService.changedSince(eq(userId), any())).thenReturn(false)
 
-        mockMvc.perform(get("/api/v1/tasks/has-changes?since=$since").with(authentication(auth)))
+        mockMvc.perform(get("$basePath/has-changes?since=$since").with(authentication(auth)))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.hasChanges").value(false))
     }
 
     @Test
     fun `GET tasks-has-changes returns 400 for invalid since parameter`() {
-        mockMvc.perform(get("/api/v1/tasks/has-changes?since=not-a-date").with(authentication(auth)))
+        mockMvc.perform(get("$basePath/has-changes?since=not-a-date").with(authentication(auth)))
             .andExpect(status().isBadRequest)
     }
 
     @Test
+    fun `GET tasks-has-changes enforces board membership`() {
+        whenever(boardMembershipService.requireMember(userId, boardId))
+            .thenThrow(BoardAccessDeniedException(userId, boardId))
+
+        mockMvc.perform(get("$basePath/has-changes?since=2026-05-19T09:00:00Z").with(authentication(auth)))
+            .andExpect(status().isForbidden)
+    }
+
+    @Test
     fun `GET tasks-has-changes unauthenticated returns 401`() {
-        mockMvc.perform(get("/api/v1/tasks/has-changes?since=2026-05-19T09:00:00Z"))
+        mockMvc.perform(get("$basePath/has-changes?since=2026-05-19T09:00:00Z"))
             .andExpect(status().isUnauthorized)
     }
 }

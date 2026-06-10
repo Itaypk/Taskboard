@@ -16,7 +16,6 @@ import dev.itayp.tasker.planning.BacklogTaskChangeService
 import dev.itayp.tasker.repository.BacklogTaskCategoryRepository
 import dev.itayp.tasker.repository.BacklogTaskRepository
 import dev.itayp.tasker.repository.BacklogTaskTagRepository
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
@@ -64,25 +63,31 @@ class BacklogTaskServiceTest {
     private val userId: UUID = UUID.fromString("00000000-0000-0000-0000-000000000001")
     private val boardId: UUID = UUID.fromString("00000000-0000-0000-0000-0000000000b0")
 
-    @BeforeEach
-    fun stubBoard() {
-        // Every public method resolves the caller's sole board before touching board-owned rows.
-        whenever(boardMembershipService.resolveSoleBoard(userId)).thenReturn(boardId)
-    }
-
-    // --- getAllTasksForUser ---
+    // --- getTasks / planner bridge ---
 
     @Test
-    fun `getAllTasksForUser returns tasks mapped to domain`() {
+    fun `getTasks returns tasks mapped to domain`() {
         val category = categoryEntity()
         val entity = taskEntity(category, title = "My Task")
-        whenever(backlogTaskRepository.findAllByBoardIdOrderBySortKeyAsc(boardId)).thenReturn(listOf(entity))
+        whenever(backlogTaskRepository.findAllByBoardIdAndStatusNotOrderBySortKeyAsc(boardId, TaskStatus.ARCHIVED))
+            .thenReturn(listOf(entity))
 
-        val result = service.getAllTasksForUser(userId)
+        val result = service.getTasks(userId, boardId, null)
 
         assertEquals(1, result.size)
         assertEquals("My Task", result[0].title)
         assertEquals(TaskStatus.TODO, result[0].status)
+    }
+
+    @Test
+    fun `getTasksForUser bridge resolves the sole board and delegates`() {
+        whenever(boardMembershipService.resolveSoleBoard(userId)).thenReturn(boardId)
+        whenever(backlogTaskRepository.findAllByBoardIdAndStatusNotOrderBySortKeyAsc(boardId, TaskStatus.ARCHIVED))
+            .thenReturn(listOf(taskEntity(categoryEntity(), title = "Bridged")))
+
+        val result = service.getTasksForUser(userId, null)
+
+        assertEquals(listOf("Bridged"), result.map { it.title })
     }
 
     // --- createTask ---
@@ -96,7 +101,7 @@ class BacklogTaskServiceTest {
         whenever(backlogTaskRepository.findMaxSortKeyByBoardId(boardId)).thenReturn(null)
         stubSaveTask()
 
-        service.createTask(userId, CreateBacklogTaskRequest(
+        service.createTask(userId, boardId, CreateBacklogTaskRequest(
             title = "Task",
             priority = "high",
             status = "todo",
@@ -117,7 +122,7 @@ class BacklogTaskServiceTest {
         whenever(backlogTaskRepository.findMaxSortKeyByBoardId(boardId)).thenReturn(null)
         stubSaveTask()
 
-        service.createTask(userId, CreateBacklogTaskRequest(title = "Task", categoryId = catId.toString()))
+        service.createTask(userId, boardId, CreateBacklogTaskRequest(title = "Task", categoryId = catId.toString()))
 
         val captor = argumentCaptor<BacklogTaskEntity>()
         verify(backlogTaskRepository).save(captor.capture())
@@ -132,7 +137,7 @@ class BacklogTaskServiceTest {
         whenever(backlogTaskRepository.findMaxSortKeyByBoardId(boardId)).thenReturn("M")
         stubSaveTask()
 
-        service.createTask(userId, CreateBacklogTaskRequest(title = "Task", categoryId = catId.toString()))
+        service.createTask(userId, boardId, CreateBacklogTaskRequest(title = "Task", categoryId = catId.toString()))
 
         val captor = argumentCaptor<BacklogTaskEntity>()
         verify(backlogTaskRepository).save(captor.capture())
@@ -147,7 +152,7 @@ class BacklogTaskServiceTest {
         whenever(backlogTaskRepository.findMaxSortKeyByBoardId(boardId)).thenReturn(null)
         stubSaveTask()
 
-        service.createTask(userId, CreateBacklogTaskRequest(
+        service.createTask(userId, boardId, CreateBacklogTaskRequest(
             title = "Task",
             deadline = "2026-05-01",
             categoryId = catId.toString(),
@@ -168,7 +173,7 @@ class BacklogTaskServiceTest {
         whenever(backlogTaskRepository.findMaxSortKeyByBoardId(boardId)).thenReturn(null)
         stubSaveTask()
 
-        service.createTask(userId, CreateBacklogTaskRequest(title = "Task", categoryId = catId.toString()))
+        service.createTask(userId, boardId, CreateBacklogTaskRequest(title = "Task", categoryId = catId.toString()))
 
         val captor = argumentCaptor<BacklogTaskEntity>()
         verify(backlogTaskRepository).save(captor.capture())
@@ -182,7 +187,7 @@ class BacklogTaskServiceTest {
         whenever(categoryRepository.findByIdAndBoardId(catId, boardId)).thenReturn(null)
 
         assertFailsWith<NoSuchElementException> {
-            service.createTask(userId, CreateBacklogTaskRequest(title = "Task", categoryId = catId.toString()))
+            service.createTask(userId, boardId, CreateBacklogTaskRequest(title = "Task", categoryId = catId.toString()))
         }
     }
 
@@ -197,7 +202,7 @@ class BacklogTaskServiceTest {
         }
         stubSaveTask()
 
-        service.createTask(userId, CreateBacklogTaskRequest(
+        service.createTask(userId, boardId, CreateBacklogTaskRequest(
             title = "Task",
             categoryId = catId.toString(),
             tags = listOf(TagInput(label = "urgent", colorId = "coral")),
@@ -218,7 +223,7 @@ class BacklogTaskServiceTest {
         whenever(backlogTaskRepository.findMaxSortKeyByBoardId(boardId)).thenReturn(null)
         stubSaveTask()
 
-        service.createTask(userId, CreateBacklogTaskRequest(
+        service.createTask(userId, boardId, CreateBacklogTaskRequest(
             title = "Task",
             categoryId = catId.toString(),
             tags = listOf(TagInput(label = "urgent", colorId = "coral")),
@@ -239,7 +244,7 @@ class BacklogTaskServiceTest {
         whenever(tagRepository.findAllByBoardId(boardId)).thenReturn(emptyList())
         stubSaveTask(existingEntity)
 
-        service.updateTask(userId, taskId, UpdateBacklogTaskRequest(
+        service.updateTask(userId, boardId, taskId, UpdateBacklogTaskRequest(
             title = "New Title",
             status = "done",
             categoryId = catId.toString(),
@@ -256,7 +261,7 @@ class BacklogTaskServiceTest {
         whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(null)
 
         assertFailsWith<NoSuchElementException> {
-            service.updateTask(userId, taskId, UpdateBacklogTaskRequest(
+            service.updateTask(userId, boardId, taskId, UpdateBacklogTaskRequest(
                 title = "Title",
                 status = "todo",
                 categoryId = UUID.randomUUID().toString(),
@@ -278,7 +283,7 @@ class BacklogTaskServiceTest {
             .thenReturn(listOf(taskA, taskB, taskC))
         stubSaveTask(taskC)
 
-        service.reorderTask(userId, taskC.id!!, ReorderTaskRequest(
+        service.reorderTask(userId, boardId, taskC.id!!, ReorderTaskRequest(
             afterId = taskA.id.toString(),
             beforeId = taskB.id.toString(),
         ))
@@ -300,7 +305,7 @@ class BacklogTaskServiceTest {
             .thenReturn(listOf(taskA, taskB))
         stubSaveTask(taskB)
 
-        service.reorderTask(userId, taskB.id!!, ReorderTaskRequest(
+        service.reorderTask(userId, boardId, taskB.id!!, ReorderTaskRequest(
             afterId = null,
             beforeId = taskA.id.toString(),
         ))
@@ -321,7 +326,7 @@ class BacklogTaskServiceTest {
             .thenReturn(listOf(taskA, taskB))
         stubSaveTask(taskA)
 
-        service.reorderTask(userId, taskA.id!!, ReorderTaskRequest(
+        service.reorderTask(userId, boardId, taskA.id!!, ReorderTaskRequest(
             afterId = taskB.id.toString(),
             beforeId = null,
         ))
@@ -338,7 +343,7 @@ class BacklogTaskServiceTest {
         whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(null)
 
         assertFailsWith<NoSuchElementException> {
-            service.reorderTask(userId, taskId, ReorderTaskRequest(null, null))
+            service.reorderTask(userId, boardId, taskId, ReorderTaskRequest(null, null))
         }
     }
 
@@ -352,7 +357,7 @@ class BacklogTaskServiceTest {
             .thenReturn(listOf(taskA))
 
         assertFailsWith<NoSuchElementException> {
-            service.reorderTask(userId, taskA.id!!, ReorderTaskRequest(
+            service.reorderTask(userId, boardId, taskA.id!!, ReorderTaskRequest(
                 afterId = unknownId.toString(),
                 beforeId = null,
             ))
@@ -367,7 +372,7 @@ class BacklogTaskServiceTest {
         val entity = taskEntity(categoryEntity(), id = taskId)
         whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(entity)
 
-        service.deleteTask(userId, taskId)
+        service.deleteTask(userId, boardId, taskId)
 
         verify(backlogTaskRepository).delete(entity)
     }
@@ -378,7 +383,7 @@ class BacklogTaskServiceTest {
         whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(null)
 
         assertFailsWith<NoSuchElementException> {
-            service.deleteTask(userId, taskId)
+            service.deleteTask(userId, boardId, taskId)
         }
     }
 

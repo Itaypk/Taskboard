@@ -5,6 +5,7 @@ import dev.itayp.tasker.jpa.BacklogTaskCategoryEntity
 import dev.itayp.tasker.jpa.BoardEntity
 import dev.itayp.tasker.jpa.BoardMembershipEntity
 import dev.itayp.tasker.model.BoardRole
+import dev.itayp.tasker.model.BoardSummary
 import dev.itayp.tasker.repository.BacklogTaskCategoryRepository
 import dev.itayp.tasker.repository.BoardMembershipRepository
 import dev.itayp.tasker.repository.BoardRepository
@@ -57,6 +58,27 @@ class BoardService(
             })
         }
         return boardId
+    }
+
+    /**
+     * The user's boards, oldest membership first. That ordering is load-bearing: the first entry
+     * is the **default board** (where channel-less task writes land — see
+     * `docs/BOARD-SHARING-PHASE1.md`), and the frontend picks it as the initially active board.
+     */
+    @Transactional(readOnly = true)
+    fun listBoardsForUser(userId: UUID): List<BoardSummary> {
+        val memberships = boardMembershipRepository.findAllByUserId(userId)
+            .sortedWith(compareBy({ it.joinedAt }, { it.boardId }))
+        val boardsById = boardRepository.findAllById(memberships.mapNotNull { it.boardId }).associateBy { it.id }
+        return memberships.mapNotNull { membership ->
+            val board = boardsById[membership.boardId] ?: return@mapNotNull null
+            BoardSummary(
+                id = board.id!!,
+                name = boardCrypto.decrypt(board.id!!, board.name) ?: "",
+                role = membership.role!!,
+                createdAt = board.createdAt!!,
+            )
+        }
     }
 
     companion object {

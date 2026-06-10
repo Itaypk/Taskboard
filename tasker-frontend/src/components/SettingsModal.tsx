@@ -8,6 +8,8 @@ import { createCategory, updateCategory, deleteCategory, updateUserSettings, fet
 import type { ImportSummary } from '../api';
 
 interface SettingsModalProps {
+  /** Categories are board-owned, so their edits go to the active board. */
+  boardId: string;
   settings: UserSettings;
   tasks: Task[];
   open: boolean;
@@ -52,7 +54,7 @@ function parseCron(cron: string | null | undefined): { day: string; time: string
   return { day: dow.toUpperCase(), time };
 }
 
-export function SettingsModal({ settings, tasks, open, onClose, onSave, onAccountDeleted }: SettingsModalProps) {
+export function SettingsModal({ boardId, settings, tasks, open, onClose, onSave, onAccountDeleted }: SettingsModalProps) {
   const [form, setForm] = useState<UserSettings>(settings);
   const [activeTab, setActiveTab] = useState<'general' | 'categories' | 'assistant'>('general');
   const [wasOpen, setWasOpen] = useState(open);
@@ -127,7 +129,7 @@ export function SettingsModal({ settings, tasks, open, onClose, onSave, onAccoun
         }),
         ...settings.categories
           .filter(c => !newIdSet.has(c.id))
-          .map(c => deleteCategory(c.id)),
+          .map(c => deleteCategory(boardId, c.id)),
       ]);
 
       await Promise.all(
@@ -136,12 +138,12 @@ export function SettingsModal({ settings, tasks, open, onClose, onSave, onAccoun
             const orig = settings.categories.find(o => o.id === c.id);
             return orig && (orig.label !== c.label || orig.swatchId !== c.swatchId);
           })
-          .map(c => updateCategory(c.id, { label: c.label, swatchId: c.swatchId }))
+          .map(c => updateCategory(boardId, c.id, { label: c.label, swatchId: c.swatchId }))
       );
 
       const toCreate = form.categories.filter(c => !originalIds.has(c.id));
       const created = await Promise.all(
-        toCreate.map(c => createCategory({ label: c.label, swatchId: c.swatchId }))
+        toCreate.map(c => createCategory(boardId, { label: c.label, swatchId: c.swatchId }))
       );
 
       let createIdx = 0;
