@@ -44,7 +44,7 @@ class BacklogTaskService(
      */
     @Transactional(readOnly = true)
     fun getTasksForUser(userId: UUID, status: TaskStatus?): List<BacklogTask> =
-        getTasks(userId, boardMembershipService.resolveSoleBoard(userId), status)
+        getTasks(userId, boardMembershipService.resolveDefaultBoard(userId), status)
 
     @Transactional(readOnly = true)
     fun getTasks(userId: UUID, boardId: UUID, status: TaskStatus?): List<BacklogTask> {
@@ -66,7 +66,7 @@ class BacklogTaskService(
     /** Planner-facing bridge — see [getTasksForUser]. */
     @Transactional(readOnly = true)
     fun getTaskById(userId: UUID, id: UUID): BacklogTask? =
-        getTaskById(userId, boardMembershipService.resolveSoleBoard(userId), id)
+        getTaskById(userId, boardMembershipService.resolveDefaultBoard(userId), id)
 
     @Transactional(readOnly = true)
     fun getTaskById(userId: UUID, boardId: UUID, id: UUID): BacklogTask? {
@@ -76,7 +76,7 @@ class BacklogTaskService(
 
     @Transactional(readOnly = true)
     fun getTasksScheduledInSession(userId: UUID, sessionId: UUID): List<BacklogTask> {
-        val boardId = boardMembershipService.resolveSoleBoard(userId)
+        val boardId = boardMembershipService.resolveDefaultBoard(userId)
         return backlogTaskRepository
             .findAllByBoardIdAndLastScheduledInSessionIdOrderBySortKeyAsc(boardId, sessionId)
             .map { it.toDomain(boardCrypto) }
@@ -84,7 +84,7 @@ class BacklogTaskService(
 
     @Transactional
     fun stampPlanningSession(userId: UUID, taskIds: List<UUID>, sessionId: UUID) {
-        val boardId = boardMembershipService.resolveSoleBoard(userId)
+        val boardId = boardMembershipService.resolveDefaultBoard(userId)
         val entities = backlogTaskRepository.findAllByBoardIdAndIdIn(boardId, taskIds)
         for (entity in entities) {
             entity.lastScheduledInSessionId = sessionId
@@ -96,7 +96,7 @@ class BacklogTaskService(
     /** Planner-facing bridge — see [getTasksForUser]. */
     @Transactional
     fun createTask(userId: UUID, request: CreateBacklogTaskRequest): BacklogTask =
-        createTask(userId, boardMembershipService.resolveSoleBoard(userId), request)
+        createTask(userId, boardMembershipService.resolveDefaultBoard(userId), request)
 
     @Transactional
     fun createTask(userId: UUID, boardId: UUID, request: CreateBacklogTaskRequest): BacklogTask {
@@ -133,7 +133,7 @@ class BacklogTaskService(
     /** Planner-facing bridge — see [getTasksForUser]. */
     @Transactional
     fun updateTask(userId: UUID, id: UUID, request: UpdateBacklogTaskRequest): BacklogTask =
-        updateTask(userId, boardMembershipService.resolveSoleBoard(userId), id, request)
+        updateTask(userId, boardMembershipService.resolveDefaultBoard(userId), id, request)
 
     @Transactional
     fun updateTask(userId: UUID, boardId: UUID, id: UUID, request: UpdateBacklogTaskRequest): BacklogTask {
@@ -213,7 +213,7 @@ class BacklogTaskService(
 
     @Transactional
     fun clearPlanningSessionStamp(userId: UUID, taskIds: List<UUID>) {
-        val boardId = boardMembershipService.resolveSoleBoard(userId)
+        val boardId = boardMembershipService.resolveDefaultBoard(userId)
         val entities = backlogTaskRepository.findAllByBoardIdAndIdIn(boardId, taskIds)
         for (entity in entities) {
             entity.lastScheduledInSessionId = null

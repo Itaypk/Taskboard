@@ -72,7 +72,7 @@ class PlanningSessionService(
                 userId, PlanningSessionStatus.COMPLETED, finalizingWeek,
             )
         if (previous?.id != null) {
-            val boardId = boardMembershipService.resolveSoleBoard(userId)
+            val boardId = boardMembershipService.resolveDefaultBoard(userId)
             backlogTaskRepository.incrementRescheduleCountForUnfinishedTasks(boardId, previous.id!!)
         }
     }

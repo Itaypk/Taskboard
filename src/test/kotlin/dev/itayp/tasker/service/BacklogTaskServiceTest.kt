@@ -81,7 +81,7 @@ class BacklogTaskServiceTest {
 
     @Test
     fun `getTasksForUser bridge resolves the sole board and delegates`() {
-        whenever(boardMembershipService.resolveSoleBoard(userId)).thenReturn(boardId)
+        whenever(boardMembershipService.resolveDefaultBoard(userId)).thenReturn(boardId)
         whenever(backlogTaskRepository.findAllByBoardIdAndStatusNotOrderBySortKeyAsc(boardId, TaskStatus.ARCHIVED))
             .thenReturn(listOf(taskEntity(categoryEntity(), title = "Bridged")))
 

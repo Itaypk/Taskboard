@@ -194,7 +194,7 @@ class PlanningSessionServiceTest {
         }
         whenever(planningSessionRepository.findFirstByUserIdAndStatusAndWeekStartLessThanOrderByWeekStartDesc(
             userId, PlanningSessionStatus.COMPLETED, finalizingWeek)).thenReturn(previous)
-        whenever(boardMembershipService.resolveSoleBoard(userId)).thenReturn(boardId)
+        whenever(boardMembershipService.resolveDefaultBoard(userId)).thenReturn(boardId)
 
         service.bumpRescheduleCountsForCarriedOverTasks(userId, finalizingWeek)
 

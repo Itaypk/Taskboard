@@ -38,7 +38,7 @@ class DemoDataSeeder(
 
     @Transactional
     fun seed(userId: UUID) {
-        val boardId = boardMembershipService.resolveSoleBoard(userId)
+        val boardId = boardMembershipService.resolveDefaultBoard(userId)
         val categories = categoryRepository.findAllByBoardId(boardId).associateBy { it.label }
         val now = clock.instant()
         val today = LocalDate.now(clock)

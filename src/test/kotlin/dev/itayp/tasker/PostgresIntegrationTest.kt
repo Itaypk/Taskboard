@@ -112,7 +112,7 @@ class PostgresIntegrationTest(
     fun `deleteUserData removes tasks and tag join rows against PostgreSQL UUID columns`() {
         val userId = UUID.randomUUID()
         userAuthService.ensureDevUser(userId, telegramId = System.nanoTime())
-        val boardId = boardMembershipService.resolveSoleBoard(userId)
+        val boardId = boardMembershipService.resolveDefaultBoard(userId)
 
         val testCategory = BacklogTaskCategoryEntity().apply { this.boardId = boardId; label = "Work"; swatchId = CategoryColor.SUNSHINE }
         categoryRepository.save(testCategory)
@@ -142,7 +142,7 @@ class PostgresIntegrationTest(
     fun `deleteAccount removes all data including planning sessions, planned tasks, and slots`() {
         val userId = UUID.randomUUID()
         userAuthService.ensureDevUser(userId, telegramId = System.nanoTime())
-        val boardId = boardMembershipService.resolveSoleBoard(userId)
+        val boardId = boardMembershipService.resolveDefaultBoard(userId)
 
         // DemoDataSeeder creates 8 tasks, 1 planning session, 3 planned tasks each with 1 slot
         demoDataSeeder.seed(userId)
@@ -261,7 +261,7 @@ class PostgresIntegrationTest(
         // trip the isEmptyForImport guard.
         val userId = UUID.randomUUID()
         userAuthService.ensureDevUser(userId, telegramId = System.nanoTime())
-        val boardId = boardMembershipService.resolveSoleBoard(userId)
+        val boardId = boardMembershipService.resolveDefaultBoard(userId)
 
         val payload = AccountExportResponse(
             formatVersion = 2,
@@ -339,7 +339,7 @@ class PostgresIntegrationTest(
 
         val userId = UUID.randomUUID()
         userAuthService.ensureDevUser(userId, telegramId = System.nanoTime())
-        val boardId = boardMembershipService.resolveSoleBoard(userId)
+        val boardId = boardMembershipService.resolveDefaultBoard(userId)
 
         val summary = accountImportService.import(userId, payload)
         assertThat(summary.tasks).isEqualTo(8)
@@ -369,7 +369,7 @@ class PostgresIntegrationTest(
     fun `getTasksForUser resolves lazy category and tags outside HTTP request context`() {
         val userId = UUID.randomUUID()
         userAuthService.ensureDevUser(userId, telegramId = System.nanoTime())
-        val boardId = boardMembershipService.resolveSoleBoard(userId)
+        val boardId = boardMembershipService.resolveDefaultBoard(userId)
 
         val category = categoryRepository.save(BacklogTaskCategoryEntity().apply {
             this.boardId = boardId

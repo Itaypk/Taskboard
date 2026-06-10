@@ -6,6 +6,8 @@ import dev.itayp.tasker.jpa.BacklogTaskCategoryEntity
 import dev.itayp.tasker.jpa.BacklogTaskEntity
 import dev.itayp.tasker.jpa.BacklogTaskTagEntity
 import dev.itayp.tasker.jpa.UserEntity
+import dev.itayp.tasker.model.BoardRole
+import dev.itayp.tasker.model.BoardSummary
 import dev.itayp.tasker.model.CategoryColor
 import dev.itayp.tasker.model.response.AccountExportResponse
 import dev.itayp.tasker.model.response.BoardExport
@@ -26,6 +28,7 @@ import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -50,6 +53,7 @@ class AccountImportServiceTest {
     @Mock lateinit var accountService: AccountService
     @Mock lateinit var eventPublisher: ApplicationEventPublisher
     @Mock lateinit var boardMembershipService: BoardMembershipService
+    @Mock lateinit var boardService: BoardService
 
     private val crypto = newTestUserCryptoService()
     private val boardCrypto = newTestBoardCryptoService()
@@ -75,6 +79,7 @@ class AccountImportServiceTest {
             userCrypto = crypto,
             boardCrypto = boardCrypto,
             boardMembershipService = boardMembershipService,
+            boardService = boardService,
         )
     }
 
@@ -188,11 +193,64 @@ class AccountImportServiceTest {
         assertNull(saved.emailVerifiedAt, "verification status must not be restored")
     }
 
+    @Test
+    fun `imports multiple boards, reusing the default board and creating the rest`() {
+        val secondBoardId = UUID.fromString("00000000-0000-0000-0000-0000000000b1")
+        val payload = AccountExportResponse(
+            formatVersion = 2,
+            exportedAt = Instant.parse("2026-05-25T12:00:00Z").toString(),
+            user = UserExport(id = "old", telegramUsername = null, telegramFirstName = null, email = null, createdAt = null),
+            settings = null,
+            boards = listOf(
+                BoardExport(
+                    name = "My tasks", role = "OWNER",
+                    categories = listOf(CategoryExport(id = "c0", label = "Work", swatchId = "sunshine")),
+                    tags = emptyList(),
+                    tasks = listOf(taskExport(categoryId = "c0", title = "A")),
+                ),
+                BoardExport(
+                    name = "Side", role = "OWNER",
+                    categories = listOf(CategoryExport(id = "c1", label = "Home", swatchId = "sky")),
+                    tags = emptyList(),
+                    tasks = listOf(taskExport(categoryId = "c1", title = "B")),
+                ),
+            ),
+        )
+        stubFreshAccount()
+        // The real BoardService.createBoard would seed the new board's DEK; mimic that for the mock.
+        boardCrypto.ensureBoardKey(secondBoardId)
+        whenever(boardService.createBoard(eq(userId), any())).thenReturn(
+            BoardSummary(secondBoardId, "Side", BoardRole.OWNER, Instant.parse("2026-01-01T00:00:00Z"))
+        )
+        whenever(categoryRepository.save(any<BacklogTaskCategoryEntity>())).thenAnswer { inv ->
+            (inv.arguments[0] as BacklogTaskCategoryEntity).apply { id = id ?: UUID.randomUUID() }
+        }
+        whenever(categoryRepository.findByIdAndBoardId(any(), any())).thenAnswer { inv ->
+            BacklogTaskCategoryEntity().apply {
+                this.id = inv.arguments[0] as UUID
+                this.boardId = inv.arguments[1] as UUID
+                this.label = "x"
+                this.swatchId = CategoryColor.SUNSHINE
+            }
+        }
+        whenever(taskRepository.save(any<BacklogTaskEntity>())).thenAnswer { it.arguments[0] }
+        whenever(userRepository.findById(userId)).thenReturn(Optional.of(UserEntity().apply { id = userId }))
+
+        val summary = service.import(userId, payload)
+
+        assertEquals(2, summary.categories)
+        assertEquals(2, summary.tasks)
+        verify(boardService).createBoard(eq(userId), eq("Side"))
+        // First board reuses the default board; the second uses the freshly created one.
+        verify(categoryRepository).deleteAllByBoardId(boardId)
+        verify(categoryRepository).deleteAllByBoardId(secondBoardId)
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private fun stubFreshAccount() {
         whenever(accountService.isEmptyForImport(userId)).thenReturn(true)
-        whenever(boardMembershipService.resolveSoleBoard(userId)).thenReturn(boardId)
+        whenever(boardMembershipService.resolveDefaultBoard(userId)).thenReturn(boardId)
     }
 
     private fun exportPayload(

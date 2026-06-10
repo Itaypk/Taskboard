@@ -119,7 +119,7 @@ class StatsServiceTest {
     }
 
     private fun stubCounts(open: Long, completed: Long, sessions: Long) {
-        whenever(boardMembershipService.resolveSoleBoard(userId)).thenReturn(boardId)
+        whenever(boardMembershipService.listBoardIds(userId)).thenReturn(listOf(boardId))
         whenever(taskRepository.countByBoardIdAndStatus(boardId, TaskStatus.TODO)).thenReturn(open)
         whenever(taskRepository.countByBoardIdAndStatus(boardId, TaskStatus.DONE)).thenReturn(completed)
         whenever(sessionRepository.countByUserIdAndStatus(userId, PlanningSessionStatus.COMPLETED)).thenReturn(sessions)

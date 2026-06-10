@@ -35,10 +35,11 @@ class StatsService(
     fun computeStats(userId: UUID): UserStats {
         val joinedAt = userRepository.findById(userId).orElse(null)?.createdAt
 
-        // Task counts are board-scoped; change events and planning sessions remain user-scoped.
-        val boardId = boardMembershipService.resolveSoleBoard(userId)
-        val openTasks = taskRepository.countByBoardIdAndStatus(boardId, TaskStatus.TODO)
-        val completedTasks = taskRepository.countByBoardIdAndStatus(boardId, TaskStatus.DONE)
+        // Task counts are board-scoped and summed across every board the user belongs to; change
+        // events and planning sessions remain user-scoped.
+        val boardIds = boardMembershipService.listBoardIds(userId)
+        val openTasks = boardIds.sumOf { taskRepository.countByBoardIdAndStatus(it, TaskStatus.TODO) }
+        val completedTasks = boardIds.sumOf { taskRepository.countByBoardIdAndStatus(it, TaskStatus.DONE) }
         val planningSessions = sessionRepository.countByUserIdAndStatus(userId, PlanningSessionStatus.COMPLETED)
 
         val events = changeEventRepository.findAllByUserIdOrderByOccurredAtAsc(userId)

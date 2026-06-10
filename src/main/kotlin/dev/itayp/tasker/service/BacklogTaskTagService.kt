@@ -17,7 +17,7 @@ class BacklogTaskTagService(
      * board-aware (Phase 1 PR 3, `docs/BOARD-SHARING-PHASE1.md`).
      */
     fun getAllForUser(userId: UUID): List<BacklogTaskTag> =
-        getTags(userId, boardMembershipService.resolveSoleBoard(userId))
+        getTags(userId, boardMembershipService.resolveDefaultBoard(userId))
 
     fun getTags(userId: UUID, boardId: UUID): List<BacklogTaskTag> {
         boardMembershipService.requireMember(userId, boardId)

@@ -18,6 +18,8 @@ import { PostItNote } from './components/PostItNote';
 import { TaskDrawer } from './components/TaskDrawer';
 import { SettingsModal } from './components/SettingsModal';
 import { BoardFilter } from './components/BoardFilter';
+import { BoardSwitcher } from './components/BoardSwitcher';
+import { BoardNameDialog } from './components/BoardNameDialog';
 import { WeeklyPlanDrawer } from './components/WeeklyPlanDrawer';
 import { ContextMenu, type ContextMenuAction } from './components/ContextMenu';
 import { ConfirmDialog } from './components/ConfirmDialog';
@@ -25,8 +27,10 @@ import { ScheduleTaskModal } from './components/ScheduleTaskModal';
 import { UserMenu } from './components/UserMenu';
 import { StatsModal } from './components/StatsModal';
 import { DEFAULT_SETTINGS } from './data';
-import { fetchBoards, fetchTasks, fetchCategories, fetchUserSettings, fetchTags, fetchCurrentPlan, checkTaskChanges, createTask, updateTask, deleteTask, reorderTask, removeTaskFromPlan, addTaskToPlan, type TaskStatusFilter } from './api';
+import { fetchBoards, createBoard, renameBoard, deleteBoard, fetchTasks, fetchCategories, fetchUserSettings, fetchTags, fetchCurrentPlan, checkTaskChanges, createTask, updateTask, deleteTask, reorderTask, removeTaskFromPlan, addTaskToPlan, type TaskStatusFilter, type Board } from './api';
 import type { Task, UserSettings, Tag, CurrentPlan, TaskFilter } from './types';
+
+const ACTIVE_BOARD_KEY = 'backlog.activeBoardId';
 import { Routes, Route } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
 import { LoginPage } from './auth/LoginPage';
@@ -81,9 +85,11 @@ function AuthShell() {
 }
 
 function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
-  // One active board at a time; every account has at least one. The switcher UI arrives with
-  // multi-board (docs/BOARD-SHARING-PHASE1.md) — until then this is always the default board.
+  // One active board at a time; every account has at least one (the backend lists them default-first).
+  const [boards, setBoards]           = useState<Board[]>([]);
   const [activeBoardId, setActiveBoardId] = useState<string | null>(null);
+  const [boardDialog, setBoardDialog] = useState<{ mode: 'create' | 'rename' } | null>(null);
+  const [boardDeleteConfirm, setBoardDeleteConfirm] = useState(false);
   const [tasks, setTasks]             = useState<Task[]>([]);
   const [tags, setTags]               = useState<Tag[]>([]);
   const [settings, setSettings]       = useState<UserSettings>({ ...DEFAULT_SETTINGS, categories: [] });
@@ -122,40 +128,58 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
     return () => clearTimeout(timer);
   }, [emailVerifiedBanner]);
 
+  // User-scoped bootstrap: the board list plus settings and the (per-user) current plan. Picks the
+  // active board from the last-used one in localStorage, falling back to the default board.
   useEffect(() => {
     (async () => {
       try {
-        const boards = await fetchBoards();
-        const boardId = boards[0].id;
-        const [loadedTasks, loadedCategories, loadedSettings, loadedTags, loadedPlan] = await Promise.all([
-          fetchTasks(boardId, 'todo'), fetchCategories(boardId), fetchUserSettings(), fetchTags(boardId), fetchCurrentPlan(),
+        const [loadedBoards, loadedSettings, loadedPlan] = await Promise.all([
+          fetchBoards(), fetchUserSettings(), fetchCurrentPlan(),
         ]);
-        setActiveBoardId(boardId);
-        setTasks(loadedTasks);
-        setTags(loadedTags);
+        setBoards(loadedBoards);
         setCurrentPlan(loadedPlan);
         setSettings(prev => ({
           ...prev,
           ...loadedSettings,
           displayName: loadedSettings.displayName ?? prev.displayName,
           contextBlock: loadedSettings.contextBlock ?? prev.contextBlock,
-          categories: loadedCategories,
+          categories: prev.categories,
         }));
+        const stored = localStorage.getItem(ACTIVE_BOARD_KEY);
+        setActiveBoardId(loadedBoards.find(b => b.id === stored)?.id ?? loadedBoards[0].id);
       } catch {
         setError('Failed to load data. Is the backend running?');
-      } finally {
         setLoading(false);
       }
     })();
   }, []);
 
-  // Refetch tasks when the filter's status dimension changes.
-  // 'plan' reuses the open-tasks fetch and applies plan-membership client-side.
+  // Board-scoped reference data (categories live on the board, tags too) reloads on each switch.
+  useEffect(() => {
+    if (!activeBoardId) return;
+    let cancelled = false;
+    Promise.all([fetchCategories(activeBoardId), fetchTags(activeBoardId)])
+      .then(([loadedCategories, loadedTags]) => {
+        if (cancelled) return;
+        setSettings(prev => ({ ...prev, categories: loadedCategories }));
+        setTags(loadedTags);
+      })
+      .catch(e => console.error('Failed to load board reference data', e));
+    return () => { cancelled = true; };
+  }, [activeBoardId]);
+
+  // Tasks reload when the board or the status filter changes. 'plan' reuses the open-tasks fetch
+  // and applies plan-membership client-side. This also clears the initial loading flag.
   const fetchStatus: TaskStatusFilter = filter === 'plan' ? 'todo' : filter;
   useEffect(() => {
-    if (loading || !activeBoardId) return;
-    fetchTasks(activeBoardId, fetchStatus).then(setTasks).catch(e => console.error('Failed to refetch tasks', e));
-  }, [fetchStatus, loading, activeBoardId]);
+    if (!activeBoardId) return;
+    let cancelled = false;
+    fetchTasks(activeBoardId, fetchStatus)
+      .then(loadedTasks => { if (!cancelled) setTasks(loadedTasks); })
+      .catch(e => console.error('Failed to load tasks', e))
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [activeBoardId, fetchStatus]);
 
   const drawerOpen   = selectedId !== null || isCreating;
 
@@ -381,6 +405,41 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
 
   const handleDragCancel = () => setDraggingId(null);
 
+  const activeBoard = boards.find(b => b.id === activeBoardId) ?? null;
+
+  const switchBoard = useCallback((boardId: string) => {
+    if (boardId === activeBoardId) return;
+    localStorage.setItem(ACTIVE_BOARD_KEY, boardId);
+    setSelectedId(null);
+    setIsCreating(false);
+    setFilter('todo');
+    // The archived view is board-specific; drop it so it lazy-loads for the new board on demand.
+    setShowArchived(false);
+    setArchivedTasks([]);
+    setActiveBoardId(boardId);
+  }, [activeBoardId]);
+
+  const handleCreateBoard = useCallback(async (name: string) => {
+    const created = await createBoard(name);
+    setBoards(prev => [...prev, created]);
+    switchBoard(created.id);
+  }, [switchBoard]);
+
+  const handleRenameBoard = useCallback(async (name: string) => {
+    if (!activeBoardId) return;
+    const updated = await renameBoard(activeBoardId, name);
+    setBoards(prev => prev.map(b => b.id === updated.id ? updated : b));
+  }, [activeBoardId]);
+
+  const handleDeleteBoard = useCallback(async () => {
+    if (!activeBoardId) return;
+    const remaining = boards.filter(b => b.id !== activeBoardId);
+    if (remaining.length === 0) return; // backend enforces the same last-board guard
+    await deleteBoard(activeBoardId);
+    setBoards(remaining);
+    switchBoard(remaining[0].id);
+  }, [activeBoardId, boards, switchBoard]);
+
   const defaultCategoryId = settings.categories[0]?.id ?? null;
 
   const handleToggleArchived = () => {
@@ -411,6 +470,14 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
     <>
       <header className="header">
         <span className="logo-tape">Backlog.fyi</span>
+        <BoardSwitcher
+          boards={boards}
+          activeBoardId={activeBoardId}
+          onSwitch={switchBoard}
+          onCreate={() => setBoardDialog({ mode: 'create' })}
+          onRename={() => setBoardDialog({ mode: 'rename' })}
+          onDelete={() => setBoardDeleteConfirm(true)}
+        />
         <BoardFilter
           value={filter}
           onChange={(f) => {
@@ -581,6 +648,25 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
           onClose={() => setScheduleModal(null)}
         />
       )}
+
+      <BoardNameDialog
+        open={boardDialog !== null}
+        title={boardDialog?.mode === 'rename' ? 'Rename board' : 'New board'}
+        confirmLabel={boardDialog?.mode === 'rename' ? 'Save' : 'Create'}
+        initialValue={boardDialog?.mode === 'rename' ? (activeBoard?.name ?? '') : ''}
+        onConfirm={boardDialog?.mode === 'rename' ? handleRenameBoard : handleCreateBoard}
+        onClose={() => setBoardDialog(null)}
+      />
+
+      <ConfirmDialog
+        open={boardDeleteConfirm}
+        title="Delete board"
+        message={`Delete "${activeBoard?.name ?? 'this board'}" and all of its tasks, categories, and tags? This cannot be undone.`}
+        confirmLabel="Delete board"
+        danger
+        onConfirm={() => { void handleDeleteBoard(); }}
+        onClose={() => setBoardDeleteConfirm(false)}
+      />
     </>
   );
 }
