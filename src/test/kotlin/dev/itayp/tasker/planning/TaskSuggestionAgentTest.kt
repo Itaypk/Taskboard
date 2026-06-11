@@ -25,6 +25,7 @@ import java.time.Instant
 import java.time.ZoneOffset
 import java.util.UUID
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 
 class TaskSuggestionAgentTest {
@@ -91,6 +92,39 @@ class TaskSuggestionAgentTest {
         whenever(aiClient.chat(any(), any())).thenReturn(chatResponse("no json here"))
 
         assertNull(agent.suggest(userId, "whatever"))
+    }
+
+    @Test
+    fun `quickAddDraft parses a task draft`() {
+        val categoryId = UUID.randomUUID()
+        whenever(aiClient.chat(any(), any())).thenReturn(
+            chatResponse("""{"title":"Buy milk","category_id":"$categoryId","priority":"low","tags":[]}"""),
+        )
+
+        val outcome = agent.quickAddDraft(userId, "buy milk")
+
+        val draft = assertIs<SuggestionOutcome.Draft>(outcome)
+        assertEquals("Buy milk", draft.draft.title)
+    }
+
+    @Test
+    fun `quickAddDraft parses a clarifying question`() {
+        whenever(aiClient.chat(any(), any())).thenReturn(
+            chatResponse("""{"clarify":{"question":"Which area?","options":[{"id":"a","label":"Home"},{"id":"b","label":"Work"}]}}"""),
+        )
+
+        val outcome = agent.quickAddDraft(userId, "fix it")
+
+        val clarify = assertIs<SuggestionOutcome.Clarify>(outcome)
+        assertEquals("Which area?", clarify.question)
+        assertEquals(listOf("Home", "Work"), clarify.options.map { it.label })
+    }
+
+    @Test
+    fun `quickAddDraft returns Unparseable on garbage`() {
+        whenever(aiClient.chat(any(), any())).thenReturn(chatResponse("not json"))
+
+        assertIs<SuggestionOutcome.Unparseable>(agent.quickAddDraft(userId, "whatever"))
     }
 
     private fun chatResponse(content: String) = ChatResponse(

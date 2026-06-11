@@ -211,9 +211,9 @@ template variable, as in the planning prompts).
 
 ## Phases
 
-- **Phase 1 (this plan):** `/add` end-to-end on Telegram — command, registry + flow state
-  machine, draft card with Save/Adjust/Cancel, free-text adjustments, revise prompt,
-  deterministic save, i18n bundles, tests.
+- **Phase 1 (done):** `/add` end-to-end on Telegram — command, registry + flow state
+  machine, draft card with Save/Adjust/Cancel, free-text adjustments, bounded
+  clarifications, deterministic save, i18n bundles, tests.
 - **Phase 2 (cheap follow-up, a slice of "out of the blue"):** bare free text with no
   active session/flow offers capture instead of the bare help reply — "Want me to add
   that as a task?" [Add it / No]. Reuses the entire phase-1 flow; the *only* new logic is
@@ -240,18 +240,26 @@ template variable, as in the planning prompts).
 
 ## Key files
 
-New:
+New (as built):
+- `capture/QuickAddFlow.kt` + `capture/QuickAddState.kt` (channel-agnostic core; `capture` package)
+- `channel/telegram/QuickAddRegistry.kt` (chat-id keyed storage + idle TTL + `expired` metric)
 - `channel/telegram/commands/AddBotCommand.kt`
-- `channel/telegram/QuickAddRegistry.kt`
-- `capture/QuickAddFlow.kt` (channel-agnostic core; new `capture` package)
-- `resources/prompts/task-suggestion/revise-user.md`
-- `resources/prompts/task-suggestion/system-clarify.md` (quick-add prompt variant
-  allowing the clarification outcome)
+- `resources/prompts/task-suggestion/system-clarify.md` (clarify-capable system prompt)
+- `resources/prompts/task-suggestion/quickadd-user.md` (one user template covering the
+  initial draft, clarification answers, and adjustments via conditional blocks)
 
-Touched:
+Touched (as built):
 - `channel/telegram/TelegramChannel.kt` (routing precedence + fallback copy)
-- `planning/TaskSuggestionAgent.kt` (`revise`, `SuggestionOutcome` contract)
-- `resources/messages*.properties` (all bundles)
+- `planning/TaskSuggestionAgent.kt` (`quickAddDraft` / `quickAddRevise` returning the sealed
+  `SuggestionOutcome`; `ClarifyOption` / `QaPair`)
+- `ai/AssistantJson.kt` (`extractJsonObjectSpan` helper, shared with the new outcome parser)
+- `resources/messages*.properties` (all 13 bundles)
+
+Notes vs. the original plan: drafting and revision share one quick-add user template
+(`quickadd-user.md`) rather than a separate `revise-user.md` — the previous draft and
+adjustment instruction are just additional rendered blocks. The agent keeps a draft-only
+`suggest` for the in-session `suggest_task` tool; the clarify-capable methods are quick-add
+only, as planned.
 
 Reused unchanged: `TaskSuggestionAgent.suggest`, `BacklogTaskService.createTask`,
 `BoardMembershipService.resolveDefaultBoard`, `TagColorOptions`, `BotCommandDispatcher`,
