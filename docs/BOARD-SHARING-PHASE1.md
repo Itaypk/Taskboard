@@ -1,6 +1,6 @@
 # Board sharing — Phase 1 (multi-board, single user)
 
-Status: **Implementation plan — in progress.** Phase 1 of `docs/BOARD-SHARING.md`. Phase 0 (the
+Status: **Implemented (PRs 1–3).** Phase 1 of `docs/BOARD-SHARING.md`. Phase 0 (the
 invisible board ownership model, `docs/BOARD-SHARING-PHASE0.md`) is merged and live in production.
 Phase 1 makes boards *visible*: a user can have several, switch between them, and the planner spans
 all of them. No sharing yet — every board still has exactly one member.
