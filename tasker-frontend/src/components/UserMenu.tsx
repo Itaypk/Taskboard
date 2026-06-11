@@ -11,16 +11,18 @@ interface UserMenuProps {
 }
 
 /** Sliders glyph for the menu trigger — matches the line-art icon style of the header's plan button. */
-function SettingsIcon() {
+function UserProfileIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M3 4h12" />
-      <circle cx="7" cy="4" r="1.5" />
-      <path d="M3 9h12" />
-      <circle cx="11" cy="9" r="1.5" />
-      <path d="M3 14h12" />
-      <circle cx="6" cy="14" r="1.5" />
-    </svg>
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none"
+           stroke="currentColor" stroke-width="1.3"
+           stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="9" cy="6.5" r="2.3"></circle>
+          <path d="M4.2 13.2
+           C4.2 11 6.6 9.8 9 9.8
+           C11.4 9.8 13.8 11 13.8 13.2
+           M4.8 13.2
+           Q9 15.4 13.2 13.2"></path>
+      </svg>
   );
 }
 
@@ -65,7 +67,7 @@ export function UserMenu({ displayName, onOpenStats, onOpenSettings, onSignOut }
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        <SettingsIcon />
+        <UserProfileIcon />
       </button>
 
       {open && (
