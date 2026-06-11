@@ -9,8 +9,11 @@ import dev.itayp.tasker.model.BoardSummary
 import dev.itayp.tasker.repository.BacklogTaskCategoryRepository
 import dev.itayp.tasker.repository.BoardMembershipRepository
 import dev.itayp.tasker.repository.BoardRepository
+import org.springframework.http.HttpStatus
+import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.web.bind.annotation.ResponseStatus
 import java.time.Clock
 import java.time.Instant
 import java.util.UUID
@@ -21,6 +24,8 @@ class BoardService(
     private val boardMembershipRepository: BoardMembershipRepository,
     private val categoryRepository: BacklogTaskCategoryRepository,
     private val boardCrypto: BoardCryptoService,
+    private val boardMembershipService: BoardMembershipService,
+    private val jdbcTemplate: JdbcTemplate,
     private val clock: Clock,
 ) {
 
@@ -61,6 +66,60 @@ class BoardService(
     }
 
     /**
+     * Creates a board owned by [userId] from a user-supplied name (validated/normalized), returning
+     * its summary. The seed path ([createBoardForOwner]) is reused; the only addition is name
+     * hygiene and a summary for the API/frontend.
+     */
+    @Transactional
+    fun createBoard(userId: UUID, name: String): BoardSummary {
+        val normalized = normalizeName(name)
+        val boardId = createBoardForOwner(userId, normalized)
+        val board = boardRepository.findById(boardId).orElseThrow()
+        return BoardSummary(boardId, normalized, BoardRole.OWNER, board.createdAt!!)
+    }
+
+    /** Renames a board the user **owns**. Re-encrypts `board.name` under the board DEK. */
+    @Transactional
+    fun renameBoard(userId: UUID, boardId: UUID, name: String): BoardSummary {
+        val role = boardMembershipService.requireMember(userId, boardId)
+        requireOwner(role)
+        val normalized = normalizeName(name)
+        val board = boardRepository.findById(boardId)
+            .orElseThrow { NoSuchElementException("Board $boardId not found") }
+        board.name = boardCrypto.encrypt(boardId, normalized)
+        boardRepository.save(board)
+        return BoardSummary(boardId, normalized, role, board.createdAt!!)
+    }
+
+    /**
+     * Deletes a board the user **owns**, with all its content. Refuses to delete the user's last
+     * board so the ">= 1 board" invariant holds. Only board-owned rows go; user-scoped audit
+     * (change events, watermark) and the user's plans survive — the deletion mirrors the board
+     * section of [AccountService.deleteUserData], kept in FK order via raw SQL.
+     *
+     * Phase 1 is single-member, so deleting clears the sole (OWNER) membership. Shared boards
+     * (Phase 2) will instead transfer ownership rather than delete when other members remain.
+     */
+    @Transactional
+    fun deleteBoard(userId: UUID, boardId: UUID) {
+        val role = boardMembershipService.requireMember(userId, boardId)
+        requireOwner(role)
+        if (boardMembershipService.listBoardIds(userId).size <= 1) {
+            throw LastBoardException()
+        }
+        jdbcTemplate.update(
+            "DELETE FROM backlog_task_tags WHERE task_id IN (SELECT id FROM backlog_task WHERE board_id = ?)",
+            boardId,
+        )
+        jdbcTemplate.update("DELETE FROM backlog_task WHERE board_id = ?", boardId)
+        jdbcTemplate.update("DELETE FROM backlog_task_tag WHERE board_id = ?", boardId)
+        jdbcTemplate.update("DELETE FROM backlog_task_category WHERE board_id = ?", boardId)
+        jdbcTemplate.update("DELETE FROM board_membership WHERE board_id = ?", boardId)
+        jdbcTemplate.update("DELETE FROM board_data_key WHERE board_id = ?", boardId)
+        jdbcTemplate.update("DELETE FROM board WHERE id = ?", boardId)
+    }
+
+    /**
      * The user's boards, oldest membership first. That ordering is load-bearing: the first entry
      * is the **default board** (where channel-less task writes land — see
      * `docs/BOARD-SHARING-PHASE1.md`), and the frontend picks it as the initially active board.
@@ -81,8 +140,28 @@ class BoardService(
         }
     }
 
+    private fun requireOwner(role: BoardRole) {
+        if (role != BoardRole.OWNER) throw BoardOwnerRequiredException()
+    }
+
+    private fun normalizeName(name: String): String {
+        val trimmed = name.trim()
+        require(trimmed.isNotEmpty()) { "Board name must not be blank" }
+        require(trimmed.length <= MAX_BOARD_NAME_LENGTH) { "Board name must be at most $MAX_BOARD_NAME_LENGTH characters" }
+        return trimmed
+    }
+
     companion object {
         /** Name of the board auto-created for a new account. English-only; not user-facing in Phase 0. */
         const val DEFAULT_BOARD_NAME = "My tasks"
+        const val MAX_BOARD_NAME_LENGTH = 60
     }
 }
+
+/** Thrown when a non-owner attempts an owner-only board action (rename/delete). Maps to HTTP 403. */
+@ResponseStatus(HttpStatus.FORBIDDEN)
+class BoardOwnerRequiredException : RuntimeException("Only the board owner may perform this action")
+
+/** Thrown when deleting a board would leave the user with none. Maps to HTTP 409. */
+@ResponseStatus(HttpStatus.CONFLICT)
+class LastBoardException : RuntimeException("Cannot delete your last board")

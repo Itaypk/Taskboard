@@ -13,8 +13,10 @@ import java.util.UUID
  * model the app used before boards: callers operate by `board_id`, and these methods translate a
  * `user_id` into a board and assert membership.
  *
- * Phase 0 invariant: every user owns exactly one board, so [resolveSoleBoard] is the bridge that
- * lets the existing user-id-keyed controllers keep working without an API change.
+ * [resolveDefaultBoard] is the bridge for code paths that don't (yet) name a board explicitly —
+ * the planning conversation, demo seeding, single-board import — so they keep working as the app
+ * grows from one board per user to several. Web controllers name the board in the request path
+ * and go through [requireMember] directly.
  */
 @Service
 class BoardMembershipService(
@@ -22,19 +24,25 @@ class BoardMembershipService(
 ) {
 
     /**
-     * The board the user belongs to. Phase-0 contract: exactly one. Throws if a user has none
-     * (registration always creates one) or — defensively — more than one (not yet reachable until
-     * multi-board ships in Phase 1).
+     * The user's default board: the oldest membership (`joined_at`, tie-broken by board id) — the
+     * same ordering [BoardService.listBoardsForUser] surfaces first. Used by channel-less task
+     * writes that don't carry a board (the planner's create-task tool, demo seeding). Throws if the
+     * user has no board (registration always creates one).
      */
     @Transactional(readOnly = true)
-    fun resolveSoleBoard(userId: UUID): UUID {
-        val memberships = boardMembershipRepository.findAllByUserId(userId)
-        return when (memberships.size) {
-            1 -> memberships.first().boardId!!
-            0 -> throw IllegalStateException("User $userId has no board")
-            else -> throw IllegalStateException("User $userId belongs to multiple boards; multi-board is not enabled")
-        }
+    fun resolveDefaultBoard(userId: UUID): UUID {
+        return boardMembershipRepository.findAllByUserId(userId)
+            .minWithOrNull(compareBy({ it.joinedAt }, { it.boardId }))
+            ?.boardId
+            ?: throw IllegalStateException("User $userId has no board")
     }
+
+    /** All board ids the user belongs to, default (oldest) first. For read paths that aggregate across boards. */
+    @Transactional(readOnly = true)
+    fun listBoardIds(userId: UUID): List<UUID> =
+        boardMembershipRepository.findAllByUserId(userId)
+            .sortedWith(compareBy({ it.joinedAt }, { it.boardId }))
+            .mapNotNull { it.boardId }
 
     /** Asserts [userId] is a member of [boardId] and returns their role, else throws [BoardAccessDeniedException]. */
     @Transactional(readOnly = true)

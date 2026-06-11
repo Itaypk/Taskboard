@@ -82,28 +82,30 @@ The mechanical request-plumbing change, isolated from any behavior change.
 - `SecurityIntegrationTest` / `PostgresIntegrationTest` path updates; full-round-trip
   register → board listed → CRUD through the scoped paths.
 
-## PR 2 — multi-board for real
+## PR 2 — multi-board for real ✅ implemented
 
-- **Board CRUD**: `POST /api/v1/boards` (create + DEK + OWNER membership + default categories —
-  `BoardService.createBoardForOwner` already does all of it), `PATCH /api/v1/boards/{id}` (rename,
-  re-encrypts `board.name`), `DELETE /api/v1/boards/{id}` (owner-only; refuse deleting the **last**
-  board to preserve the ≥1-board invariant; deletes content + `board_data_key`, reusing the
-  deletion logic shape in `AccountService.deleteUserData`).
-- **Retire `resolveSoleBoard`**: becomes `resolveDefaultBoard` (oldest membership) and each
-  remaining caller is dispositioned:
+- **Board CRUD**: `POST /api/v1/boards` (create + DEK + OWNER membership + default categories — via
+  `BoardService.createBoard` → `createBoardForOwner`), `PATCH /api/v1/boards/{id}` (rename,
+  re-encrypts `board.name`, owner-only), `DELETE /api/v1/boards/{id}` (owner-only; refuses deleting
+  the **last** board — `LastBoardException` → 409 — to preserve the ≥1-board invariant; deletes
+  content + `board_data_key` via raw SQL mirroring the board section of
+  `AccountService.deleteUserData`). Owner-only actions throw `BoardOwnerRequiredException` → 403.
+- **Retired `resolveSoleBoard` → `resolveDefaultBoard`** (oldest membership) plus a new
+  `listBoardIds` for fan-out. Caller dispositions, as built:
 
   | Caller | Disposition |
   |---|---|
-  | `TaskAutoArchiveService` | iterate **all** the user's boards (per-user setting applied to each owned board; revisit at Phase 2 for shared boards) |
-  | `StatsService` | sum task counts/events across **all** memberships; planning counts stay per-user |
-  | `AccountService.exportAccount` | emit **every** board into `boards[]` (format already allows it) |
-  | `AccountService.isEmptyForImport` | "empty" = exactly one board with only the seeded defaults |
-  | `AccountImportService` | first exported board → the existing default board; additional boards → created (forward-compat; exports made before PR 2 only have one) |
-  | `DemoDataSeeder`, `DevPlanningController`, `PlanningSessionService`, `PlannerTaskSelector` | `resolveDefaultBoard` until PR 3 (planner) / stay on default board (demo) |
+  | `TaskAutoArchiveService` | iterates **all** the user's boards; the per-user watermark bumps once after sweeping them |
+  | `StatsService` | sums task counts across **all** memberships (`listBoardIds`); change events + planning sessions stay per-user |
+  | `AccountService.exportAccount` | emits **every** board (`boardService.listBoardsForUser`), each task re-keyed to its board DEK |
+  | `AccountService.isEmptyForImport` | "empty" = exactly one board holding only the seeded defaults |
+  | `AccountImportService` | first exported board → the existing default board; additional boards → created via `boardService.createBoard`; summary aggregates across boards |
+  | `DemoDataSeeder`, `DevPlanningController`, `PlanningSessionService`, `PlannerTaskSelector`, `BacklogTask*` bridges | `resolveDefaultBoard` until PR 3 (planner) |
 
-- **Frontend**: board switcher in the shell (one active board at a time, per the design), create /
-  rename / delete UI, persist last active board in `localStorage` (per-device is fine; server-side
-  persistence only if it proves annoying).
+- **Frontend**: `BoardSwitcher` in the shell (one active board at a time), `BoardNameDialog` for
+  create/rename, `ConfirmDialog` for delete; last active board persisted in `localStorage`
+  (`backlog.activeBoardId`). Board-scoped reference data (categories, tags) reloads on each switch;
+  user-scoped data (settings, current plan) is loaded once.
 
 ## PR 3 — the planner spans boards
 

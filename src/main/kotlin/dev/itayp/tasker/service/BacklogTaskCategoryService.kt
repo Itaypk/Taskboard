@@ -23,7 +23,7 @@ class BacklogTaskCategoryService(
      * board-aware (Phase 1 PR 3, `docs/BOARD-SHARING-PHASE1.md`).
      */
     fun getAllForUser(userId: UUID): List<BacklogTaskCategory> =
-        getCategories(userId, boardMembershipService.resolveSoleBoard(userId))
+        getCategories(userId, boardMembershipService.resolveDefaultBoard(userId))
 
     fun getCategories(userId: UUID, boardId: UUID): List<BacklogTaskCategory> {
         boardMembershipService.requireMember(userId, boardId)

@@ -46,7 +46,7 @@ class DevPlanningController(
 
     @PostMapping("/seed")
     fun seed(@AuthenticationPrincipal principal: TaskerPrincipal): ResponseEntity<Map<String, Any>> {
-        val boardId = boardMembershipService.resolveSoleBoard(principal.userId)
+        val boardId = boardMembershipService.resolveDefaultBoard(principal.userId)
         val existing = taskRepository.findAllByBoardIdOrderBySortKeyAsc(boardId).size
         if (existing > 0) {
             return ResponseEntity.ok(mapOf("seeded" to false, "existingTaskCount" to existing))

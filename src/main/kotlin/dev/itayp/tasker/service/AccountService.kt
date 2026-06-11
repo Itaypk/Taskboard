@@ -32,6 +32,7 @@ class AccountService(
     private val userCrypto: UserCryptoService,
     private val boardCrypto: BoardCryptoService,
     private val boardMembershipService: BoardMembershipService,
+    private val boardService: BoardService,
 ) {
 
     /** Deletes all data for a user then the user row itself. */
@@ -111,7 +112,11 @@ class AccountService(
      */
     @Transactional(readOnly = true)
     fun isEmptyForImport(userId: UUID): Boolean {
-        val boardId = boardMembershipService.resolveSoleBoard(userId)
+        // A freshly-registered account has exactly one board (the seeded default). Any extra board
+        // is work the user did, so import must refuse rather than clobber it.
+        val boardIds = boardMembershipService.listBoardIds(userId)
+        if (boardIds.size != 1) return false
+        val boardId = boardIds.single()
         if (taskRepository.findAllByBoardIdOrderBySortKeyAsc(boardId).isNotEmpty()) return false
         if (tagRepository.findAllByBoardId(boardId).isNotEmpty()) return false
         val expected = UserService.DEFAULT_CATEGORIES.toSet()
@@ -125,14 +130,54 @@ class AccountService(
 
     @Transactional(readOnly = true)
     fun exportAccount(userId: UUID): AccountExportResponse {
-        // Phase 0: a user owns exactly one board, emitted as the single v2 board. Task content is
-        // decrypted with the board DEK; user/settings stay under the user DEK.
-        val boardId = boardMembershipService.resolveSoleBoard(userId)
+        // Every board the user belongs to is emitted (default first). Task content is decrypted with
+        // the owning board's DEK; user/settings stay under the user DEK.
         val user = userRepository.findById(userId).orElseThrow()
         val settings = settingsRepository.findById(userId).orElse(null)
-        val categories = categoryRepository.findAllByBoardId(boardId)
-        val tags = tagRepository.findAllByBoardId(boardId)
-        val tasks = taskRepository.findAllByBoardIdOrderBySortKeyAsc(boardId)
+
+        val boards = boardService.listBoardsForUser(userId).map { board ->
+            val categories = categoryRepository.findAllByBoardId(board.id)
+            val tags = tagRepository.findAllByBoardId(board.id)
+            val tasks = taskRepository.findAllByBoardIdOrderBySortKeyAsc(board.id)
+            BoardExport(
+                name = board.name,
+                role = board.role.name,
+                categories = categories.map {
+                    CategoryExport(
+                        id = it.id.toString(),
+                        label = it.label ?: "",
+                        swatchId = it.swatchId?.name?.lowercase() ?: "",
+                    )
+                },
+                tags = tags.map {
+                    TagExport(
+                        id = it.id.toString(),
+                        label = it.label ?: "",
+                        colorId = it.colorId?.name?.lowercase() ?: "",
+                        description = it.description,
+                    )
+                },
+                tasks = tasks.map { task ->
+                    TaskExport(
+                        id = task.id.toString(),
+                        title = boardCrypto.decrypt(board.id, task.title) ?: "",
+                        description = boardCrypto.decrypt(board.id, task.description),
+                        url = task.url,
+                        priority = task.priority?.name?.lowercase(),
+                        deadline = task.deadline?.toString(),
+                        estimatedMinutes = task.estimatedMinutes,
+                        status = task.status?.name?.lowercase() ?: "",
+                        categoryId = task.category?.id?.toString() ?: "",
+                        tagIds = task.tags.map { it.id.toString() },
+                        sortKey = task.sortKey ?: "",
+                        createdAt = task.createdAt?.toString() ?: "",
+                        updatedAt = task.updatedAt?.toString(),
+                        relevantFrom = task.relevantFrom?.toString(),
+                        assignee = task.assigneeUserId?.toString(),
+                    )
+                },
+            )
+        }
 
         return AccountExportResponse(
             formatVersion = 2,
@@ -158,46 +203,7 @@ class AccountService(
                     autoArchiveDays = it.autoArchiveDays,
                 )
             },
-            boards = listOf(
-                BoardExport(
-                    name = "My tasks",
-                    role = "OWNER",
-                    categories = categories.map {
-                        CategoryExport(
-                            id = it.id.toString(),
-                            label = it.label ?: "",
-                            swatchId = it.swatchId?.name?.lowercase() ?: "",
-                        )
-                    },
-                    tags = tags.map {
-                        TagExport(
-                            id = it.id.toString(),
-                            label = it.label ?: "",
-                            colorId = it.colorId?.name?.lowercase() ?: "",
-                            description = it.description,
-                        )
-                    },
-                    tasks = tasks.map { task ->
-                        TaskExport(
-                            id = task.id.toString(),
-                            title = boardCrypto.decrypt(boardId, task.title) ?: "",
-                            description = boardCrypto.decrypt(boardId, task.description),
-                            url = task.url,
-                            priority = task.priority?.name?.lowercase(),
-                            deadline = task.deadline?.toString(),
-                            estimatedMinutes = task.estimatedMinutes,
-                            status = task.status?.name?.lowercase() ?: "",
-                            categoryId = task.category?.id?.toString() ?: "",
-                            tagIds = task.tags.map { it.id.toString() },
-                            sortKey = task.sortKey ?: "",
-                            createdAt = task.createdAt?.toString() ?: "",
-                            updatedAt = task.updatedAt?.toString(),
-                            relevantFrom = task.relevantFrom?.toString(),
-                            assignee = task.assigneeUserId?.toString(),
-                        )
-                    },
-                )
-            ),
+            boards = boards,
         )
     }
 

@@ -45,7 +45,7 @@ class PlannerTaskSelector(
         urgentSlots: Int = DEFAULT_URGENT_SLOTS,
         staleSlots: Int = DEFAULT_STALE_SLOTS,
     ): PlannerTaskSelection {
-        val boardId = boardMembershipService.resolveSoleBoard(userId)
+        val boardId = boardMembershipService.resolveDefaultBoard(userId)
         val tasks = backlogTaskRepository
             .findAllByBoardIdAndStatus(boardId, TaskStatus.TODO)
             .map { it.toDomain(boardCrypto) }

@@ -33,7 +33,7 @@ class BacklogTaskCategoryServiceTest {
 
     @Test
     fun `getAllForUser bridge resolves the sole board and returns mapped categories`() {
-        whenever(boardMembershipService.resolveSoleBoard(userId)).thenReturn(boardId)
+        whenever(boardMembershipService.resolveDefaultBoard(userId)).thenReturn(boardId)
         whenever(categoryRepository.findAllByBoardId(boardId))
             .thenReturn(listOf(categoryEntity(label = "Work", swatchId = CategoryColor.SUNSHINE)))
 

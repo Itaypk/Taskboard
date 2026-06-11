@@ -7,6 +7,8 @@ import dev.itayp.tasker.jpa.BacklogTaskEntity
 import dev.itayp.tasker.jpa.BacklogTaskTagEntity
 import dev.itayp.tasker.jpa.UserEntity
 import dev.itayp.tasker.jpa.UserSettingsEntity
+import dev.itayp.tasker.model.BoardRole
+import dev.itayp.tasker.model.BoardSummary
 import dev.itayp.tasker.model.CategoryColor
 import dev.itayp.tasker.model.TagColor
 import dev.itayp.tasker.model.TaskPriority
@@ -45,6 +47,7 @@ class AccountServiceTest {
     @Mock private lateinit var userCrypto: UserCryptoService
     @Mock private lateinit var boardCrypto: BoardCryptoService
     @Mock private lateinit var boardMembershipService: BoardMembershipService
+    @Mock private lateinit var boardService: BoardService
 
     @InjectMocks private lateinit var service: AccountService
 
@@ -126,7 +129,9 @@ class AccountServiceTest {
         whenever(boardCrypto.decrypt(boardId, titleBytes)).thenReturn("Buy bread")
         whenever(boardCrypto.decrypt(boardId, descriptionBytes)).thenReturn("From the place on 5th")
 
-        whenever(boardMembershipService.resolveSoleBoard(userId)).thenReturn(boardId)
+        whenever(boardService.listBoardsForUser(userId)).thenReturn(
+            listOf(BoardSummary(boardId, "My tasks", BoardRole.OWNER, Instant.parse("2026-01-01T00:00:00Z")))
+        )
         whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
         whenever(settingsRepository.findById(userId)).thenReturn(Optional.of(settings))
         whenever(categoryRepository.findAllByBoardId(boardId)).thenReturn(listOf(workCategory))
@@ -179,7 +184,9 @@ class AccountServiceTest {
         whenever(userCrypto.decrypt(eq(userId), isNull())).thenReturn(null)
         whenever(boardCrypto.decrypt(eq(boardId), eq(titleBytes))).thenReturn("No date task")
 
-        whenever(boardMembershipService.resolveSoleBoard(userId)).thenReturn(boardId)
+        whenever(boardService.listBoardsForUser(userId)).thenReturn(
+            listOf(BoardSummary(boardId, "My tasks", BoardRole.OWNER, Instant.parse("2026-01-01T00:00:00Z")))
+        )
         whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
         whenever(settingsRepository.findById(userId)).thenReturn(Optional.empty())
         whenever(categoryRepository.findAllByBoardId(boardId)).thenReturn(emptyList())

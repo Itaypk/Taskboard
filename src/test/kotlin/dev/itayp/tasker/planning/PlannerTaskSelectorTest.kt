@@ -50,7 +50,7 @@ class PlannerTaskSelectorTest {
 
     @BeforeEach
     fun stubBoard() {
-        whenever(boardMembershipService.resolveSoleBoard(userId)).thenReturn(boardId)
+        whenever(boardMembershipService.resolveDefaultBoard(userId)).thenReturn(boardId)
     }
 
     private fun select() = selector.select(userId, today, weekStart, zone)

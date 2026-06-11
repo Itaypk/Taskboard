@@ -11,6 +11,7 @@ import dev.itayp.tasker.model.TagColor
 import dev.itayp.tasker.model.TaskPriority
 import dev.itayp.tasker.model.TaskStatus
 import dev.itayp.tasker.model.response.AccountExportResponse
+import dev.itayp.tasker.model.response.BoardExport
 import dev.itayp.tasker.repository.BacklogTaskCategoryRepository
 import dev.itayp.tasker.repository.BacklogTaskRepository
 import dev.itayp.tasker.repository.BacklogTaskTagRepository
@@ -43,6 +44,7 @@ class AccountImportService(
     private val userCrypto: UserCryptoService,
     private val boardCrypto: BoardCryptoService,
     private val boardMembershipService: BoardMembershipService,
+    private val boardService: BoardService,
 ) {
     private val log = LoggerFactory.getLogger(AccountImportService::class.java)
 
@@ -58,79 +60,16 @@ class AccountImportService(
             "Account already has user data; import is only valid on a fresh account"
         }
 
-        // Content is written into the account's sole board (Phase 0). Task title/description are
-        // encrypted under the board DEK; user/settings stay under the user DEK.
-        val boardId = boardMembershipService.resolveSoleBoard(userId)
-        // The export always emits exactly one board; take the first.
-        val board = payload.boards[0]
-
-        // Step 1: wipe the auto-seeded defaults. With isEmptyForImport already verified,
-        // there are no tasks/tags blocking the category delete.
-        categoryRepository.deleteAllByBoardId(boardId)
-
-        // Step 2: categories — keep an old→new UUID map so task FKs can be retargeted.
-        val categoryIdMap = HashMap<String, UUID>(board.categories.size)
-        for (cat in board.categories) {
-            val swatch = runCatching { CategoryColor.valueOf(cat.swatchId.uppercase()) }
-                .getOrElse { throw IllegalArgumentException("Unknown category swatchId: ${cat.swatchId}") }
-            val saved = categoryRepository.save(BacklogTaskCategoryEntity().apply {
-                this.boardId = boardId
-                this.label = cat.label
-                this.swatchId = swatch
-            })
-            categoryIdMap[cat.id] = saved.id!!
-        }
-
-        // Step 3: tags — same id-map pattern. We also keep the entities directly so step 4
-        // can attach them to task.tags without a second `findAll` round-trip.
-        val tagsByOldId = HashMap<String, BacklogTaskTagEntity>(board.tags.size)
-        for (tag in board.tags) {
-            val color = runCatching { TagColor.valueOf(tag.colorId.uppercase()) }
-                .getOrElse { throw IllegalArgumentException("Unknown tag colorId: ${tag.colorId}") }
-            val saved = tagRepository.save(BacklogTaskTagEntity().apply {
-                this.boardId = boardId
-                this.label = tag.label
-                this.colorId = color
-                this.description = tag.description
-            })
-            tagsByOldId[tag.id] = saved
-        }
-
-        // Step 4: tasks. Encrypt sensitive fields, translate FKs, parse dates.
-        // assignee is always null at migration time and is not persisted on this build.
-        for (task in board.tasks) {
-            val newCategoryId = categoryIdMap[task.categoryId]
-                ?: throw IllegalArgumentException("Task ${task.id} references unknown categoryId ${task.categoryId}")
-            val category = categoryRepository.findByIdAndBoardId(newCategoryId, boardId)
-                ?: error("Category $newCategoryId was just persisted but cannot be loaded")
-
-            val tagEntities = task.tagIds.map { oldId ->
-                tagsByOldId[oldId]
-                    ?: throw IllegalArgumentException("Task ${task.id} references unknown tagId $oldId")
-            }
-
-            val status = parseEnum<TaskStatus>("status", task.status)
-            val priority = task.priority?.let { parseEnum<TaskPriority>("priority", it) }
-
-            taskRepository.save(BacklogTaskEntity().apply {
-                this.boardId = boardId
-                this.title = boardCrypto.encrypt(boardId, task.title)
-                this.description = boardCrypto.encrypt(boardId, task.description)
-                this.url = task.url
-                this.priority = priority
-                this.deadline = parseLocalDate("deadline", task.deadline)
-                this.estimatedMinutes = task.estimatedMinutes
-                this.status = status
-                this.category = category
-                this.tags = tagEntities.toMutableSet()
-                this.sortKey = task.sortKey
-                this.createdAt = parseInstant("createdAt", task.createdAt)
-                    ?: throw IllegalArgumentException("Task ${task.id} has invalid createdAt: ${task.createdAt}")
-                this.updatedAt = parseInstant("updatedAt", task.updatedAt)
-                this.rescheduleCount = 0
-                this.lastScheduledInSessionId = null
-                this.relevantFrom = parseLocalDate("relevantFrom", task.relevantFrom)
-            })
+        // The first exported board reuses the account's existing default board (isEmptyForImport
+        // guaranteed it's the lone, freshly-seeded one); any further boards are created fresh. Task
+        // title/description are encrypted under the owning board's DEK; user/settings stay under the
+        // user DEK.
+        val defaultBoardId = boardMembershipService.resolveDefaultBoard(userId)
+        var totals = importBoardContent(defaultBoardId, payload.boards.first())
+        for (board in payload.boards.drop(1)) {
+            val name = board.name.ifBlank { BoardService.DEFAULT_BOARD_NAME }
+            val newBoardId = boardService.createBoard(userId, name).id
+            totals += importBoardContent(newBoardId, board)
         }
 
         // Step 5: user-level fields (firstName, email, emailHash). emailVerifiedAt
@@ -170,13 +109,88 @@ class AccountImportService(
             userSettingsRepository.save(settings)
         }
 
-        val summary = ImportSummary(
+        log.info("Imported account for user {}: {}", userId, totals)
+        return totals
+    }
+
+    /**
+     * Writes one exported board's categories/tags/tasks into [boardId] (which already exists, freshly
+     * seeded). Wipes the seeded categories first, then rebuilds with old→new id remapping. Returns
+     * the per-board counts so the caller can aggregate across all imported boards.
+     */
+    private fun importBoardContent(boardId: UUID, board: BoardExport): ImportSummary {
+        // Wipe the auto-seeded defaults. The account is verified empty, so nothing references them.
+        categoryRepository.deleteAllByBoardId(boardId)
+
+        // Categories — keep an old→new UUID map so task FKs can be retargeted.
+        val categoryIdMap = HashMap<String, UUID>(board.categories.size)
+        for (cat in board.categories) {
+            val swatch = runCatching { CategoryColor.valueOf(cat.swatchId.uppercase()) }
+                .getOrElse { throw IllegalArgumentException("Unknown category swatchId: ${cat.swatchId}") }
+            val saved = categoryRepository.save(BacklogTaskCategoryEntity().apply {
+                this.boardId = boardId
+                this.label = cat.label
+                this.swatchId = swatch
+            })
+            categoryIdMap[cat.id] = saved.id!!
+        }
+
+        // Tags — same id-map pattern; keep the entities so tasks can attach them without a re-read.
+        val tagsByOldId = HashMap<String, BacklogTaskTagEntity>(board.tags.size)
+        for (tag in board.tags) {
+            val color = runCatching { TagColor.valueOf(tag.colorId.uppercase()) }
+                .getOrElse { throw IllegalArgumentException("Unknown tag colorId: ${tag.colorId}") }
+            val saved = tagRepository.save(BacklogTaskTagEntity().apply {
+                this.boardId = boardId
+                this.label = tag.label
+                this.colorId = color
+                this.description = tag.description
+            })
+            tagsByOldId[tag.id] = saved
+        }
+
+        // Tasks. Encrypt sensitive fields under this board's DEK, translate FKs, parse dates.
+        // assignee is always null at migration time and is not persisted on this build.
+        for (task in board.tasks) {
+            val newCategoryId = categoryIdMap[task.categoryId]
+                ?: throw IllegalArgumentException("Task ${task.id} references unknown categoryId ${task.categoryId}")
+            val category = categoryRepository.findByIdAndBoardId(newCategoryId, boardId)
+                ?: error("Category $newCategoryId was just persisted but cannot be loaded")
+
+            val tagEntities = task.tagIds.map { oldId ->
+                tagsByOldId[oldId]
+                    ?: throw IllegalArgumentException("Task ${task.id} references unknown tagId $oldId")
+            }
+
+            val status = parseEnum<TaskStatus>("status", task.status)
+            val priority = task.priority?.let { parseEnum<TaskPriority>("priority", it) }
+
+            taskRepository.save(BacklogTaskEntity().apply {
+                this.boardId = boardId
+                this.title = boardCrypto.encrypt(boardId, task.title)
+                this.description = boardCrypto.encrypt(boardId, task.description)
+                this.url = task.url
+                this.priority = priority
+                this.deadline = parseLocalDate("deadline", task.deadline)
+                this.estimatedMinutes = task.estimatedMinutes
+                this.status = status
+                this.category = category
+                this.tags = tagEntities.toMutableSet()
+                this.sortKey = task.sortKey
+                this.createdAt = parseInstant("createdAt", task.createdAt)
+                    ?: throw IllegalArgumentException("Task ${task.id} has invalid createdAt: ${task.createdAt}")
+                this.updatedAt = parseInstant("updatedAt", task.updatedAt)
+                this.rescheduleCount = 0
+                this.lastScheduledInSessionId = null
+                this.relevantFrom = parseLocalDate("relevantFrom", task.relevantFrom)
+            })
+        }
+
+        return ImportSummary(
             categories = board.categories.size,
             tags = board.tags.size,
             tasks = board.tasks.size,
         )
-        log.info("Imported account for user {}: {}", userId, summary)
-        return summary
     }
 
     private inline fun <reified E : Enum<E>> parseEnum(field: String, raw: String): E =
@@ -204,4 +218,7 @@ data class ImportSummary(
     val categories: Int,
     val tags: Int,
     val tasks: Int,
-)
+) {
+    operator fun plus(other: ImportSummary) =
+        ImportSummary(categories + other.categories, tags + other.tags, tasks + other.tasks)
+}

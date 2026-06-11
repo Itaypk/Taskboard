@@ -60,7 +60,7 @@ class TaskAutoArchiveServiceTest {
         val staleTask = taskEntity(title = "Old task", updatedAt = fixedNow.minus(8, ChronoUnit.DAYS))
         val expectedCutoff = fixedNow.minus(7L, ChronoUnit.DAYS)
         whenever(userSettingsRepository.findAllByAutoArchiveDaysIsNotNull()).thenReturn(listOf(settings))
-        whenever(boardMembershipService.resolveSoleBoard(userId)).thenReturn(boardId)
+        whenever(boardMembershipService.listBoardIds(userId)).thenReturn(listOf(boardId))
         whenever(backlogTaskRepository.findAllByBoardIdAndStatusAndUpdatedAtBeforeOrderBySortKeyAsc(
             boardId, TaskStatus.DONE, expectedCutoff
         )).thenReturn(listOf(staleTask))
@@ -77,7 +77,7 @@ class TaskAutoArchiveServiceTest {
     fun `does not archive tasks when none are stale`() {
         val settings = settingsEntity(autoArchiveDays = 7)
         whenever(userSettingsRepository.findAllByAutoArchiveDaysIsNotNull()).thenReturn(listOf(settings))
-        whenever(boardMembershipService.resolveSoleBoard(userId)).thenReturn(boardId)
+        whenever(boardMembershipService.listBoardIds(userId)).thenReturn(listOf(boardId))
         whenever(backlogTaskRepository.findAllByBoardIdAndStatusAndUpdatedAtBeforeOrderBySortKeyAsc(
             any(), any(), any()
         )).thenReturn(emptyList())
@@ -93,7 +93,7 @@ class TaskAutoArchiveServiceTest {
         val settings = settingsEntity(autoArchiveDays = 30)
         val expectedCutoff = fixedNow.minus(30L, ChronoUnit.DAYS)
         whenever(userSettingsRepository.findAllByAutoArchiveDaysIsNotNull()).thenReturn(listOf(settings))
-        whenever(boardMembershipService.resolveSoleBoard(userId)).thenReturn(boardId)
+        whenever(boardMembershipService.listBoardIds(userId)).thenReturn(listOf(boardId))
         whenever(backlogTaskRepository.findAllByBoardIdAndStatusAndUpdatedAtBeforeOrderBySortKeyAsc(
             boardId, TaskStatus.DONE, expectedCutoff
         )).thenReturn(emptyList())

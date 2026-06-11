@@ -33,26 +33,33 @@ class TaskAutoArchiveService(
 
         for (settings in users) {
             val userId = settings.userId ?: continue
-            // auto_archive_days is a per-user setting that drives the user's own board. (When shared
-            // boards arrive, revisit whether archiving should be board-level — see docs/BOARD-SHARING.md.)
-            val boardId = runCatching { boardMembershipService.resolveSoleBoard(userId) }.getOrNull() ?: continue
+            // auto_archive_days is a per-user setting applied to every board the user belongs to.
+            // (When shared boards arrive, revisit whether archiving should be board-level — see
+            // docs/BOARD-SHARING.md.)
+            val boardIds = runCatching { boardMembershipService.listBoardIds(userId) }.getOrNull() ?: continue
             val cutoff = now.minus(settings.autoArchiveDays!!.toLong(), ChronoUnit.DAYS)
-            val stale = backlogTaskRepository
-                .findAllByBoardIdAndStatusAndUpdatedAtBeforeOrderBySortKeyAsc(boardId, TaskStatus.DONE, cutoff)
+            var userArchived = 0
 
-            for (entity in stale) {
-                entity.status = TaskStatus.ARCHIVED
-                entity.updatedAt = now
-                backlogTaskRepository.save(entity)
-                val plaintextTitle = boardCrypto.decrypt(boardId, entity.title) ?: ""
-                taskChangeService.recordStatusChange(
-                    userId, entity.id!!, plaintextTitle, TaskStatus.DONE, TaskStatus.ARCHIVED
-                )
+            for (boardId in boardIds) {
+                val stale = backlogTaskRepository
+                    .findAllByBoardIdAndStatusAndUpdatedAtBeforeOrderBySortKeyAsc(boardId, TaskStatus.DONE, cutoff)
+                for (entity in stale) {
+                    entity.status = TaskStatus.ARCHIVED
+                    entity.updatedAt = now
+                    backlogTaskRepository.save(entity)
+                    val plaintextTitle = boardCrypto.decrypt(boardId, entity.title) ?: ""
+                    taskChangeService.recordStatusChange(
+                        userId, entity.id!!, plaintextTitle, TaskStatus.DONE, TaskStatus.ARCHIVED
+                    )
+                }
+                userArchived += stale.size
             }
-            if (stale.isNotEmpty()) {
+
+            // The watermark is per-user (Phase-0 deviation), so bump it once after sweeping all boards.
+            if (userArchived > 0) {
                 taskChangeService.bumpWatermark(userId)
             }
-            totalArchived += stale.size
+            totalArchived += userArchived
         }
 
         if (totalArchived > 0) {

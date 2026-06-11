@@ -135,6 +135,15 @@ export interface Board {
 export const fetchBoards = (): Promise<Board[]> =>
     apiRequest('/boards');
 
+export const createBoard = (name: string): Promise<Board> =>
+    apiRequest('/boards', { method: 'POST', ...jsonBody({ name }) });
+
+export const renameBoard = (boardId: string, name: string): Promise<Board> =>
+    apiRequest(`/boards/${boardId}`, { method: 'PATCH', ...jsonBody({ name }) });
+
+export const deleteBoard = (boardId: string): Promise<void> =>
+    apiRequest(`/boards/${boardId}`, { method: 'DELETE' });
+
 // --- Tasks ---
 
 export type TaskStatusFilter = 'todo' | 'done' | 'all' | 'archived';
