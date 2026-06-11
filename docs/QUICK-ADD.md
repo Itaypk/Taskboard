@@ -57,12 +57,37 @@ feeling noisy to a handful of beta users, and its value lands weeks after shippi
 - Any new `/command` while a quick-add flow is pending abandons the flow (same as the plan
   confirmation behavior: latest intent wins).
 
+### Vague inputs: one bounded question, not a conversation
+
+Some inputs can't be drafted without asking — a forwarded message with no context, "the
+thing we discussed", an ambiguous category. Rather than guessing badly, the suggestion
+agent may return a **clarification** instead of a draft:
+
+```
+/add (forwarded) "Saturday 14:00 works for them"
+  → ❓ What is this about — is there a task here you'd like me to capture?
+/add fix the door
+  → ❓ Which category fits best?  [🏠 Home]  [🔧 Maintenance]  [💬 Let me explain]
+```
+
+- A clarification is either **open-ended** (rendered as text) or a **choice** (rendered
+  with inline buttons, always including a "let me explain" escape that accepts free text).
+- The answer is folded into the next suggestion call together with the original
+  description and any prior Q&A; the result is a draft card (or, at most once more, a
+  second question).
+- **Hard cap: 2 clarification rounds per flow.** Past the cap the agent is instructed it
+  must produce a best-guess draft — the adjust loop catches anything still off. This keeps
+  the flow a flow, not a conversation.
+- Ambiguous *adjustment* instructions go through the same mechanism.
+
 ### Deliberate design choice: a bounded conversation, not an agent
 
 `IDEAS.md` notes the adjustment loop "will be a conversation". From the user's point of
 view it is one — free text is accepted at every step. But the *orchestration* is a
 deterministic state machine; the only model involvement is single-turn draft/revise calls
-to `TaskSuggestionAgent`. No `say`/`ask_choice` toolset, no model-driven turn-taking, no
+to `TaskSuggestionAgent`, which may at most surface a capped number of clarifying
+questions as structured data the flow renders. No `say`/`ask_choice` toolset, no
+model-driven turn-taking, no
 new conversation transcript. If the loop turns out to be too rigid in practice, the inner
 step can later be swapped for a mini `AiConversationManager` conversation with the existing
 planning tool kinds — the seam (flow state keyed by chat) stays the same.
@@ -90,15 +115,24 @@ mirroring `PlanConfirmationRegistry`):
 
 ```
 AWAITING_DESCRIPTION                  (/add with no args)
-  └─ text → draft → AWAITING_CONFIRMATION
+  └─ text → suggest → ①
 AWAITING_CONFIRMATION(draft)
   ├─ Save   → persist → confirm → cleared
   ├─ Cancel → cleared
   ├─ Adjust → AWAITING_ADJUSTMENT(draft)
-  └─ free text → revise(draft, text) → AWAITING_CONFIRMATION(new draft)
+  └─ free text → revise(draft, text) → ①
 AWAITING_ADJUSTMENT(draft)
-  └─ text → revise(draft, text) → AWAITING_CONFIRMATION(new draft)
+  └─ text → revise(draft, text) → ①
+AWAITING_CLARIFICATION(question, exchange so far)
+  └─ answer (text or selection) → suggest/revise with accumulated Q&A → ①
+
+① every suggest/revise call resolves to either a draft → AWAITING_CONFIRMATION,
+  or (while under the 2-round cap) a clarification → AWAITING_CLARIFICATION.
 ```
+
+The flow enforces the clarification cap, not just the prompt: once the budget is spent,
+the call is made in "must draft" mode, and a stray clarification coming back anyway is
+treated like an unparseable response (graceful "let's try rephrasing" message).
 
 - Entries carry a `createdAt` and are dropped when stale (~15 min TTL, checked on access)
   so an abandoned card doesn't swallow an unrelated message days later.
@@ -139,14 +173,28 @@ Mirrors `CreateTaskTool.execute` but without the model in the loop:
   Default board only in v1 — consistent with the planner's temporary userId-only bridge
   (`BOARD-SHARING-PHASE1.md`); board pickers can come with planner board-awareness.
 
-### `TaskSuggestionAgent.revise` (the one new LLM behavior)
+### `TaskSuggestionAgent` extensions (the new LLM behavior)
 
-A sibling of `suggest`: same system prompt, new `prompts/task-suggestion/revise-user.md`
-template carrying the previous draft (as JSON) plus the user's adjustment instruction,
-same `TaskDraft` JSON output contract. Separate template rather than conditionals because
-`PromptTemplate` deliberately throws on missing variables. Temperature 0.3, same
-`AiConversationType.TASK_SUGGESTION` call context (a dedicated `TASK_REVISION` type is
-optional if we want separate usage tracking).
+Two additions, both single-turn calls with the same focused shape as today's `suggest`:
+
+- **`revise(userId, previousDraft, instruction, …)`** — same system prompt family, new
+  `prompts/task-suggestion/revise-user.md` template carrying the previous draft (as JSON)
+  plus the user's adjustment instruction. Separate template rather than conditionals
+  because `PromptTemplate` deliberately throws on missing variables.
+- **Outcome contract: draft *or* clarification.** When invoked from the quick-add flow,
+  the system prompt (a quick-add variant, e.g. `prompts/task-suggestion/system-clarify.md`)
+  permits an alternative JSON output:
+  `{"clarify": {"question": "…", "options": [{"id","label"}]?}}`. The Kotlin return type
+  becomes a sealed `SuggestionOutcome` (`Draft(TaskDraft)` / `Clarify(question, options)`),
+  and calls carry the accumulated Q&A exchange plus a `must draft` flag once the
+  2-round budget is spent. The planning-session `suggest_task` tool keeps the current
+  draft-only prompt and behavior in v1 — the planning assistant already handles vagueness
+  conversationally on its own; unifying the two can come later if it earns its keep.
+
+Temperature 0.3, same `AiConversationType.TASK_SUGGESTION` call context (a dedicated
+`TASK_REVISION` type is optional if we want separate usage tracking). Clarification
+questions are authored by the model in the user's preferred language (passed as a
+template variable, as in the planning prompts).
 
 ### Localization & privacy
 
@@ -156,8 +204,10 @@ optional if we want separate usage tracking).
   bundles (Telegram stays fully localized). The draft *content* is in the user's own
   words/language by construction.
 - No task titles or descriptions in logs; log flow transitions with userId only (MDC
-  covers most of it). Optional: a `tasker.quickadd.outcome{result=saved|cancelled|expired}`
-  counter, matching the existing Prometheus counter pattern.
+  covers most of it).
+- **Metrics (in scope):** a `tasker.quickadd.outcome{result=saved|cancelled|expired}`
+  counter, matching the existing Prometheus counter pattern (`tasker.email.sent`). Cheap
+  to add now, useful later; no Grafana board changes in this scope.
 
 ## Phases
 
@@ -177,7 +227,9 @@ optional if we want separate usage tracking).
 
 - `QuickAddFlow` unit tests with mocked `TaskSuggestionAgent` + `BacklogTaskService`
   (MockitoExtension + mockito-kotlin, like `BacklogTaskServiceTest`): every transition,
-  TTL expiry, invalid-draft fallbacks, save mapping.
+  TTL expiry, invalid-draft fallbacks, save mapping, clarification round-trips (choice
+  answer, free-text answer, escape option), cap enforcement (3rd clarification →
+  graceful failure).
 - `AddBotCommand` test: args vs. no-args, refusal during an active session.
 - `TaskSuggestionAgent.revise` test with mocked `AiClient`: template assembly and
   `TaskDraft` parsing (happy path + unparseable output → null → graceful "didn't catch
@@ -193,21 +245,26 @@ New:
 - `channel/telegram/QuickAddRegistry.kt`
 - `capture/QuickAddFlow.kt` (channel-agnostic core; new `capture` package)
 - `resources/prompts/task-suggestion/revise-user.md`
+- `resources/prompts/task-suggestion/system-clarify.md` (quick-add prompt variant
+  allowing the clarification outcome)
 
 Touched:
 - `channel/telegram/TelegramChannel.kt` (routing precedence + fallback copy)
-- `planning/TaskSuggestionAgent.kt` (`revise`)
+- `planning/TaskSuggestionAgent.kt` (`revise`, `SuggestionOutcome` contract)
 - `resources/messages*.properties` (all bundles)
 
 Reused unchanged: `TaskSuggestionAgent.suggest`, `BacklogTaskService.createTask`,
 `BoardMembershipService.resolveDefaultBoard`, `TagColorOptions`, `BotCommandDispatcher`,
 `TelegramConversationChannel`.
 
-## Open questions
+## Resolved decisions
 
-- **Mid-planning `/add`:** v1 refuses and redirects into the session. Alternative —
-  silently run the flow in parallel — adds state-interleaving complexity for little gain.
-- **One-tap save with a guessed category:** v1 saves whatever the card shows (the adjust
-  loop fixes mistakes). If category guesses prove unreliable, a category `ask_choice`
-  before saving is a small addition.
-- **Outcome metrics:** worth the counter from day one, or wait until we wonder?
+- **Mid-planning `/add`:** refuse and redirect into the session. The planning toolset
+  already exposes the same capability (`suggest_task`/`create_task`), so there is no need
+  to complicate routing just to allow it through `/add`.
+- **One-tap save with a guessed category:** yes — save whatever the card shows; the
+  adjust loop fixes mistakes. When the agent genuinely can't pick a category, that's
+  exactly what the clarification mechanism is for (a category choice question), rather
+  than a mandatory confirm step on every add.
+- **Outcome metrics:** in scope. The counter is cheap to add now and useful later;
+  dashboard updates are explicitly *not* part of this scope.
