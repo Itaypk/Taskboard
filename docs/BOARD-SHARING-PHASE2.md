@@ -221,10 +221,12 @@ board does. `DemoCleanupService` inherits all of this for free.
   - **Authenticated** → "Join *Home* — invited by Dana. You're signed in as &lt;identity&gt;." +
     accept button (the consent counterpart: your name becomes visible to members) → POST accept →
     switch `activeBoardId` to the new board.
-  - **Unauthenticated** → same preview + the login options (reuse `LoginPage` pieces). **Pitfall:**
-    the email magic-link callback redirects to `/`; it needs an optional, whitelisted-relative
-    `next` parameter threaded through send→callback so the user lands back on `/invite?token=…`.
-    Same for the Telegram widget flow (client-side `next` in state/localStorage is enough there).
+  - **Unauthenticated** → same preview + the login options (reuse `LoginPage` pieces). The
+    magic-link leg needs a whitelisted-relative `next` parameter so the user lands back on
+    `/invite?token=…` — provided by the email-link confirmation work
+    (`docs/EMAIL-LINK-CONFIRMATION.md`), which should land **before** this PR; it also makes the
+    login leg safe against email link-protection scanners. The Telegram widget flow handles `next`
+    client-side (state/localStorage).
 - `api.ts`: `fetchMembers`, `inviteToBoard`, `revokeInvitation`, `removeMember`, `leaveBoard`,
   `setMemberRole`, `fetchInvitationPreview`, `acceptInvitation`.
 - `BoardSwitcher`: small member-count badge on shared boards (cheap "this one is shared" signal).
