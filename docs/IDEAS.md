@@ -32,7 +32,7 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - The sliders icon semantically leans "settings," but the menu also holds Stats and Sign out. Still needs improvement 
 
 ## Assistant - Mid-week response
-- Re-use the existing "suggest_task" tool for a standalone /add command (would need more development for conversational adjustments - this will be a conversation). 
+- Re-use the existing "suggest_task" tool for a standalone /add command (would need more development for conversational adjustments - this will be a conversation). **Planned — see `docs/QUICK-ADD.md`.**
 - When texting the assistant out of the blue, respond with the correct context.
 
 ## Following up
