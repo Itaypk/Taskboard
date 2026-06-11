@@ -107,16 +107,25 @@ The mechanical request-plumbing change, isolated from any behavior change.
   (`backlog.activeBoardId`). Board-scoped reference data (categories, tags) reloads on each switch;
   user-scoped data (settings, current plan) is loaded once.
 
-## PR 3 — the planner spans boards
+## PR 3 — the planner spans boards ✅ implemented
 
-- `PlannerTaskSelector.select` unions TODO tasks across all memberships; each candidate carries its
-  board id + name. Selection slots stay global (urgency competes across boards); per-board caps are
-  a Phase-2 tuning item per `BOARD-SHARING.md`.
-- `WeeklyPlanningPromptAssembler` annotates candidates with the board name when the user has >1
-  board (single-board users see no change in their prompt).
-- `CreateTaskTool` / `UpdateTaskTool` / `BacklogTaskSearchAgent`: operate across the user's boards;
-  creation defaults to the default board with an optional model-provided board (decision 3 above).
-- `BacklogTaskService` planner-facing methods take explicit board ids; `resolveSoleBoard` is gone.
+- `PlannerTaskSelector.select` unions TODO tasks across all memberships
+  (`findAllByBoardIdInAndStatusOrderBySortKeyAsc`) and returns a `boardId → name` map. Selection
+  slots stay global (urgency competes across boards); per-board caps are a Phase-2 tuning item per
+  `BOARD-SHARING.md`.
+- `WeeklyPlanningPromptAssembler` annotates each candidate with `board=<name>` only when the user
+  has >1 board (single-board prompt is byte-identical to before), and groups the categories/tags
+  lists per board (with each board's `board_id`) so `create_task` can target a specific board.
+- `BacklogTaskService` is board-aware end to end: the default-board *bridges*
+  (`getTasksForUser`/`getTaskById`/single-arg `createTask`/`updateTask`) are gone; new cross-board
+  methods `getTasksAcrossBoards`, `findTask` (resolves a task on any of the user's boards), and
+  cross-board `stampPlanningSession`/`clearPlanningSessionStamp`/`getTasksScheduledInSession`.
+  `resolveDefaultBoard` survives only as the genuine *default-board* resolver (create_task fallback,
+  demo seed, import, dev planning, suggestion categories).
+- Tools: `CreateTaskTool` takes an optional `board_id` (default = default board); `UpdateTaskTool`
+  resolves the task's board via `findTask`; `BacklogTaskSearchAgent` + `TaskSuggestionAgent` sample
+  across boards; the web "add to plan" path (`PlanningSessionController`) uses `findTask`.
+  Carry-over reschedule bumping (`PlanningSessionService`) runs across every board.
 - Change summaries (`summarizeSince`) stay per-user — correct while boards are single-member;
   Phase 2 moves them to the board.
 

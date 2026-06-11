@@ -102,7 +102,9 @@ class UpdateTaskTool(
 
         val userId = toolContext.requireUserId()
 
-        val current = backlogTaskService.getTaskById(userId, taskId)
+        // The task may live on any of the user's boards; findTask carries its boardId so the update
+        // is applied to the right one.
+        val current = backlogTaskService.findTask(userId, taskId)
             ?: return errorJson("Task $taskId not found")
 
         // Seed a complete request from the current task, overlaying only the keys the model sent.
@@ -120,7 +122,7 @@ class UpdateTaskTool(
         )
 
         return runCatching {
-            val updated = backlogTaskService.updateTask(userId, taskId, request)
+            val updated = backlogTaskService.updateTask(userId, current.boardId, taskId, request)
             log.debug("update_task updated backlog task {}", updated.id)
             objectMapper.writeValueAsString(
                 mapOf(

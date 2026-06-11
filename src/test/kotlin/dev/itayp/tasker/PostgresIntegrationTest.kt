@@ -386,9 +386,9 @@ class PostgresIntegrationTest(
         })
 
         // Simulates being called from a Telegram bot handler (no HTTP request, so open-in-view
-        // is inactive). Before @Transactional(readOnly=true) was added to getTasksForUser this
+        // is inactive). Before @Transactional(readOnly=true) was added to the read path this
         // threw LazyInitializationException on category and tags.
-        val tasks = backlogTaskService.getTasksForUser(userId, null)
+        val tasks = backlogTaskService.getTasksAcrossBoards(userId, null)
 
         assertThat(tasks).filteredOn { it.title == "Lazy-load regression task" }.singleElement().satisfies({ t ->
             assertThat(t.category.label).isEqualTo("Work")

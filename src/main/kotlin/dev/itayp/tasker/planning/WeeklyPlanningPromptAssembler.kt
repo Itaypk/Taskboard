@@ -5,9 +5,11 @@ import dev.itayp.tasker.channel.MessageFormatter
 import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.BacklogTaskTag
+import dev.itayp.tasker.model.BoardSummary
 import dev.itayp.tasker.planning.dto.AgreedPlanTask
 import dev.itayp.tasker.service.BacklogTaskCategoryService
 import dev.itayp.tasker.service.BacklogTaskTagService
+import dev.itayp.tasker.service.BoardService
 import dev.itayp.tasker.service.UserSettingsService
 import org.springframework.stereotype.Service
 import java.time.Clock
@@ -31,6 +33,7 @@ class WeeklyPlanningPromptAssembler(
     private val calendarWindowProvider: CalendarWindowProvider,
     private val categoryService: BacklogTaskCategoryService,
     private val tagService: BacklogTaskTagService,
+    private val boardService: BoardService,
     private val inviteDeliveryResolver: InviteDeliveryResolver,
     private val clock: Clock,
 ) {
@@ -47,6 +50,7 @@ class WeeklyPlanningPromptAssembler(
 
         val today = LocalDate.ofInstant(clock.instant(), zone)
         val selection = plannerTaskSelector.select(userId, today, weekStart, zone)
+        val boards = boardService.listBoardsForUser(userId)
         val previousSummary = planningSessionService.findPreviousSummarizableSession(userId, weekStart)
             ?.summary?.takeIf { it.isNotBlank() }
         val diff = planningSessionService.diffSincePreviousSession(userId, weekStart)
@@ -63,10 +67,10 @@ class WeeklyPlanningPromptAssembler(
                 ?: "No personal context shared yet."),
             "previous_session_summary" to (previousSummary ?: "No previous session on record."),
             "task_change_summary" to renderDiff(diff),
-            "urgent_tasks" to renderTaskList(selection.urgent, selection.alreadyPlanned, selection.alreadyScheduled),
-            "stale_tasks" to renderTaskList(selection.stale, selection.alreadyPlanned, selection.alreadyScheduled),
-            "categories" to renderCategories(categoryService.getAllForUser(userId)),
-            "tags" to renderTags(tagService.getAllForUser(userId)),
+            "urgent_tasks" to renderTaskList(selection.urgent, selection.alreadyPlanned, selection.alreadyScheduled, selection.boardNames),
+            "stale_tasks" to renderTaskList(selection.stale, selection.alreadyPlanned, selection.alreadyScheduled, selection.boardNames),
+            "categories" to renderCategoriesForBoards(userId, boards),
+            "tags" to renderTagsForBoards(userId, boards),
             "calendar_window" to calendar,
             "delivery_methods" to inviteDeliveryResolver.describeDeliveryMethods(userId),
             "capacity_hint" to capacityHint.ifBlank { "Not stated." },
@@ -114,6 +118,7 @@ class WeeklyPlanningPromptAssembler(
 
         val plannedAt = session.endedAt ?: session.startedAt
         val daysSinceCompleted = Duration.between(plannedAt, clock.instant()).toDays()
+        val boards = boardService.listBoardsForUser(userId)
 
         return templateLoader.load("weekly-planning/revise-system.md").render(mapOf(
             "display_name" to displayName,
@@ -122,8 +127,8 @@ class WeeklyPlanningPromptAssembler(
                 ?: "No personal context shared yet."),
             "previous_plan_summary" to (previousSummary ?: "_(no summary recorded)_"),
             "current_plan" to renderCurrentPlan(currentPlanTasks),
-            "categories" to renderCategories(categoryService.getAllForUser(userId)),
-            "tags" to renderTags(tagService.getAllForUser(userId)),
+            "categories" to renderCategoriesForBoards(userId, boards),
+            "tags" to renderTagsForBoards(userId, boards),
             "plan_finalized_at" to plannedAt.toString(),
             "days_since_finalized" to daysSinceCompleted.toString(),
             "task_change_summary" to renderDiff(diff),
@@ -168,14 +173,40 @@ class WeeklyPlanningPromptAssembler(
     private fun renderStayingOnTask(): String =
         templateLoader.load("weekly-planning/staying-on-task.md").render(emptyMap())
 
-    private fun renderCategories(categories: List<BacklogTaskCategory>): String {
+    private fun renderCategoryLines(categories: List<BacklogTaskCategory>): String {
         if (categories.isEmpty()) return "_(none)_"
         return categories.joinToString("\n") { "- [${it.id}] ${it.label}" }
     }
 
-    private fun renderTags(tags: List<BacklogTaskTag>): String {
+    private fun renderTagLines(tags: List<BacklogTaskTag>): String {
         if (tags.isEmpty()) return "_(none yet)_"
         return tags.joinToString("\n") { "- [${it.id}] ${it.label} (${it.colorId.name.lowercase()})" }
+    }
+
+    /**
+     * Categories for `create_task`. With a single board, a flat list as before. With several, the
+     * list is grouped under a board header carrying the `board_id` so the model can target a board
+     * via `create_task(board_id=…)`; the first board is the default (used when `board_id` is omitted).
+     */
+    private fun renderCategoriesForBoards(userId: UUID, boards: List<BoardSummary>): String {
+        if (boards.size <= 1) {
+            val boardId = boards.firstOrNull()?.id ?: return "_(none)_"
+            return renderCategoryLines(categoryService.getCategories(userId, boardId))
+        }
+        return boards.withIndex().joinToString("\n\n") { (i, board) ->
+            val header = "Board \"${board.name}\" (board_id: ${board.id})${if (i == 0) " — default" else ""}"
+            "$header\n" + renderCategoryLines(categoryService.getCategories(userId, board.id))
+        }
+    }
+
+    private fun renderTagsForBoards(userId: UUID, boards: List<BoardSummary>): String {
+        if (boards.size <= 1) {
+            val boardId = boards.firstOrNull()?.id ?: return "_(none yet)_"
+            return renderTagLines(tagService.getTags(userId, boardId))
+        }
+        return boards.joinToString("\n\n") { board ->
+            "Board \"${board.name}\" (board_id: ${board.id})\n" + renderTagLines(tagService.getTags(userId, board.id))
+        }
     }
 
     private fun genderInstruction(gender: String?): String = when (gender) {
@@ -188,11 +219,15 @@ class WeeklyPlanningPromptAssembler(
         tasks: List<BacklogTask>,
         alreadyPlanned: Map<UUID, LocalDate>,
         alreadyScheduled: Map<UUID, LocalDate>,
+        boardNames: Map<UUID, String>,
     ): String {
         if (tasks.isEmpty()) return "_(none)_"
+        // Only label boards when the user has more than one — a single-board user sees no change.
+        val showBoard = boardNames.size > 1
         return tasks.joinToString("\n") { task ->
             buildString {
                 append("- [").append(task.id).append("] ").append(task.title)
+                if (showBoard) boardNames[task.boardId]?.let { append(" · board=").append(it) }
                 task.priority?.let { append(" · priority=").append(it.name.lowercase()) }
                 task.deadline?.let { append(" · deadline=").append(it) }
                 task.estimatedMinutes?.let { append(" · est=").append(it).append("m") }

@@ -34,7 +34,7 @@ class BacklogTaskSearchAgent(
     private val log = LoggerFactory.getLogger(BacklogTaskSearchAgent::class.java)
 
     fun search(userId: UUID, query: String): List<TaskMatch> {
-        val tasks = backlogTaskService.getTasksForUser(userId, null)
+        val tasks = backlogTaskService.getTasksAcrossBoards(userId, null)
         if (tasks.isEmpty()) return emptyList()
 
         val systemPrompt = promptTemplateLoader.load("task-search/system.md").render(emptyMap())

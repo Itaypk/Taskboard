@@ -166,6 +166,7 @@ Rules of thumb:
 ## Backlog candidates this week
 
 Each task line may carry annotations after the title:
+- `board=NAME` — which of the user's boards the task belongs to (only shown when they have more than one). The backlog is shared across boards for planning; treat them as one pool unless the user's context says otherwise.
 - `relevant_from=DATE` — the task only became relevant on that date; it may be brand-new to the user.
 - `already_planned=DATE` — the user already has a slot for it in a later week. Prefer fresh work; only suggest one of these if the user explicitly asks, or if you want to propose pulling it forward.
 - `already_scheduled=DATE` — the user already has a time block for this task in an earlier plan (typically the week currently in progress) that they haven't finished. Don't propose it for this week as if it were new: assume they're still working it. Only schedule it here if the user says it has rolled over / won't get done in time, or explicitly asks to re-block it — and acknowledge that you're moving an existing commitment.
@@ -179,6 +180,8 @@ Each task line may carry annotations after the title:
 {{stale_tasks}}
 
 ## Categories (for `create_task`)
+
+If the user has more than one board, categories are grouped per board with that board's `board_id`. A new task goes to the default board unless you pass `board_id` to `create_task`; the `category_id` you choose must belong to that board.
 
 {{categories}}
 

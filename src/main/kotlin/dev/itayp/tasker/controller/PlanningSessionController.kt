@@ -127,7 +127,7 @@ class PlanningSessionController(
         val session = planningSessionService.findCurrentPlan(principal.userId)
             ?: return ResponseEntity.unprocessableContent().build()
 
-        val task = backlogTaskService.getTaskById(principal.userId, taskId)
+        val task = backlogTaskService.findTask(principal.userId, taskId)
             ?: return ResponseEntity.notFound().build()
 
         planFinalizationService.addTaskToSession(

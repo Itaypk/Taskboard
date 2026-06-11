@@ -33,7 +33,7 @@ class BacklogTaskSearchAgentTest {
     @Test
     fun `returns empty and skips the model when the backlog is empty`() {
         val userId = UUID.randomUUID()
-        whenever(backlogTaskService.getTasksForUser(userId, null)).thenReturn(emptyList())
+        whenever(backlogTaskService.getTasksAcrossBoards(userId, null)).thenReturn(emptyList())
 
         assertTrue(agent.search(userId, "anything").isEmpty())
         verifyNoInteractions(aiClient)
@@ -43,7 +43,7 @@ class BacklogTaskSearchAgentTest {
     fun `parses matches from the sub-agent output`() {
         val userId = UUID.randomUUID()
         val taskId = UUID.randomUUID()
-        whenever(backlogTaskService.getTasksForUser(userId, null))
+        whenever(backlogTaskService.getTasksAcrossBoards(userId, null))
             .thenReturn(listOf(backlogTask(taskId, "Do taxes")))
         whenever(aiClient.chat(any(), any())).thenReturn(
             chatResponse("""{"matches":[{"task_id":"$taskId","title":"Do taxes","confidence":"high"}]}"""),
@@ -59,7 +59,7 @@ class BacklogTaskSearchAgentTest {
     @Test
     fun `tolerates non-JSON output and returns no matches`() {
         val userId = UUID.randomUUID()
-        whenever(backlogTaskService.getTasksForUser(userId, null))
+        whenever(backlogTaskService.getTasksAcrossBoards(userId, null))
             .thenReturn(listOf(backlogTask(UUID.randomUUID(), "Do taxes")))
         whenever(aiClient.chat(any(), any())).thenReturn(chatResponse("sorry, no idea"))
 
