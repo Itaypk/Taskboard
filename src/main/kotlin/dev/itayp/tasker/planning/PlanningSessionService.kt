@@ -72,8 +72,10 @@ class PlanningSessionService(
                 userId, PlanningSessionStatus.COMPLETED, finalizingWeek,
             )
         if (previous?.id != null) {
-            val boardId = boardMembershipService.resolveDefaultBoard(userId)
-            backlogTaskRepository.incrementRescheduleCountForUnfinishedTasks(boardId, previous.id!!)
+            // Carry-over tasks can live on any of the user's boards (the plan spans them all).
+            for (boardId in boardMembershipService.listBoardIds(userId)) {
+                backlogTaskRepository.incrementRescheduleCountForUnfinishedTasks(boardId, previous.id!!)
+            }
         }
     }
 

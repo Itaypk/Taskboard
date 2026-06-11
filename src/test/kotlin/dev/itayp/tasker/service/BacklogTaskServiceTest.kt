@@ -80,14 +80,32 @@ class BacklogTaskServiceTest {
     }
 
     @Test
-    fun `getTasksForUser bridge resolves the sole board and delegates`() {
-        whenever(boardMembershipService.resolveDefaultBoard(userId)).thenReturn(boardId)
-        whenever(backlogTaskRepository.findAllByBoardIdAndStatusNotOrderBySortKeyAsc(boardId, TaskStatus.ARCHIVED))
-            .thenReturn(listOf(taskEntity(categoryEntity(), title = "Bridged")))
+    fun `getTasksAcrossBoards unions tasks over every board the user belongs to`() {
+        val otherBoardId = UUID.fromString("00000000-0000-0000-0000-0000000000b1")
+        whenever(boardMembershipService.listBoardIds(userId)).thenReturn(listOf(boardId, otherBoardId))
+        whenever(backlogTaskRepository.findAllByBoardIdInAndStatusNotOrderBySortKeyAsc(
+            listOf(boardId, otherBoardId), TaskStatus.ARCHIVED,
+        )).thenReturn(listOf(
+            taskEntity(categoryEntity(), title = "On default"),
+            taskEntity(categoryEntity(), title = "On other"),
+        ))
 
-        val result = service.getTasksForUser(userId, null)
+        val result = service.getTasksAcrossBoards(userId, null)
 
-        assertEquals(listOf("Bridged"), result.map { it.title })
+        assertEquals(listOf("On default", "On other"), result.map { it.title })
+    }
+
+    @Test
+    fun `findTask resolves a task on any of the user's boards`() {
+        val taskId = UUID.randomUUID()
+        whenever(boardMembershipService.listBoardIds(userId)).thenReturn(listOf(boardId))
+        whenever(backlogTaskRepository.findByIdAndBoardIdIn(taskId, listOf(boardId)))
+            .thenReturn(taskEntity(categoryEntity(), id = taskId, title = "Found"))
+
+        val result = service.findTask(userId, taskId)
+
+        assertEquals("Found", result?.title)
+        assertEquals(boardId, result?.boardId)
     }
 
     // --- createTask ---

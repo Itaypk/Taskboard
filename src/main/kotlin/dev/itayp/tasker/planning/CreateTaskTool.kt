@@ -6,9 +6,11 @@ import dev.itayp.tasker.ai.tool.ToolKind
 import dev.itayp.tasker.model.request.CreateBacklogTaskRequest
 import dev.itayp.tasker.model.request.TagInput
 import dev.itayp.tasker.service.BacklogTaskService
+import dev.itayp.tasker.service.BoardMembershipService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
+import java.util.UUID
 
 /**
  * Persists a backlog task the user has approved (typically after a `suggest_task` draft) and returns
@@ -19,6 +21,7 @@ import tools.jackson.databind.ObjectMapper
 @Component
 class CreateTaskTool(
     private val backlogTaskService: BacklogTaskService,
+    private val boardMembershipService: BoardMembershipService,
     private val toolContext: PlanningToolContext,
     private val objectMapper: ObjectMapper,
 ) : AiTool {
@@ -38,7 +41,8 @@ class CreateTaskTool(
         "type" to "object",
         "properties" to mapOf(
             "title" to mapOf("type" to "string", "description" to "Short, actionable task title."),
-            "category_id" to mapOf("type" to "string", "description" to "UUID of an existing category (see the categories list)."),
+            "category_id" to mapOf("type" to "string", "description" to "UUID of an existing category (see the categories list). It must belong to the target board."),
+            "board_id" to mapOf("type" to "string", "description" to "Optional UUID of the board to add the task to (from the categories list headers). Omit to use your default board."),
             "description" to mapOf("type" to "string", "description" to "Optional longer description / notes."),
             "priority" to mapOf("type" to "string", "enum" to listOf("low", "medium", "high"), "description" to "Optional priority."),
             "deadline" to mapOf("type" to "string", "description" to "Optional deadline, YYYY-MM-DD."),
@@ -72,6 +76,14 @@ class CreateTaskTool(
             }
         val userId = toolContext.requireUserId()
 
+        // The model may target a specific board; otherwise new tasks land on the user's default board.
+        // A malformed or non-member board id surfaces as a structured error (createTask asserts membership).
+        val boardId = args.boardId?.takeIf { it.isNotBlank() }?.let {
+            runCatching { UUID.fromString(it) }.getOrElse {
+                return """{"error":"board_id is not a valid id"}"""
+            }
+        } ?: boardMembershipService.resolveDefaultBoard(userId)
+
         val request = CreateBacklogTaskRequest(
             title = args.title,
             description = args.description,
@@ -83,7 +95,7 @@ class CreateTaskTool(
         )
 
         return runCatching {
-            val created = backlogTaskService.createTask(userId, request)
+            val created = backlogTaskService.createTask(userId, boardId, request)
             log.debug("create_task created backlog task {}", created.id)
             objectMapper.writeValueAsString(mapOf("task_id" to created.id.toString(), "title" to created.title))
         }.getOrElse { e ->
@@ -96,6 +108,7 @@ class CreateTaskTool(
     private data class CreateTaskArgs(
         val title: String,
         @JsonProperty("category_id") val categoryId: String,
+        @JsonProperty("board_id") val boardId: String? = null,
         val description: String? = null,
         val priority: String? = null,
         val deadline: String? = null,
