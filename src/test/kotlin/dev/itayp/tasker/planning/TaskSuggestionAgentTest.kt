@@ -50,7 +50,7 @@ class TaskSuggestionAgentTest {
             listOf(BacklogTaskCategory(UUID.randomUUID(), userId, "Health", CategoryColor.PEACH)),
         )
         whenever(tagService.getAllForUser(userId)).thenReturn(emptyList())
-        whenever(backlogTaskService.getTasksForUser(userId, null)).thenReturn(emptyList())
+        whenever(backlogTaskService.getTasksAcrossBoards(userId, null)).thenReturn(emptyList())
     }
 
     private fun userSettings() = UserSettings(
@@ -83,7 +83,7 @@ class TaskSuggestionAgentTest {
         assertEquals(categoryId.toString(), draft?.categoryId)
         assertEquals("rose", draft?.tags?.first()?.colorId)
         // Drafting must never write to the backlog.
-        verify(backlogTaskService, never()).createTask(any(), any())
+        verify(backlogTaskService, never()).createTask(any(), any(), any())
     }
 
     @Test

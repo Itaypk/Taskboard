@@ -55,7 +55,7 @@ class TaskSuggestionAgent(
 
         val categories = categoryService.getAllForUser(userId)
         val tags = tagService.getAllForUser(userId)
-        val sample = backlogTaskService.getTasksForUser(userId, null).take(SAMPLE_SIZE)
+        val sample = backlogTaskService.getTasksAcrossBoards(userId, null).take(SAMPLE_SIZE)
 
         val systemPrompt = promptTemplateLoader.load("task-suggestion/system.md").render(emptyMap())
         val userMessage = promptTemplateLoader.load("task-suggestion/user.md").render(mapOf(

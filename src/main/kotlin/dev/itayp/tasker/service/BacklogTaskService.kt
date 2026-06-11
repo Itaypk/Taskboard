@@ -38,14 +38,6 @@ class BacklogTaskService(
     private val clock: Clock,
 ) {
 
-    /**
-     * Planner-facing bridge: resolves the user's sole board. Goes away when the planner becomes
-     * board-aware (Phase 1 PR 3, `docs/BOARD-SHARING-PHASE1.md`).
-     */
-    @Transactional(readOnly = true)
-    fun getTasksForUser(userId: UUID, status: TaskStatus?): List<BacklogTask> =
-        getTasks(userId, boardMembershipService.resolveDefaultBoard(userId), status)
-
     @Transactional(readOnly = true)
     fun getTasks(userId: UUID, boardId: UUID, status: TaskStatus?): List<BacklogTask> {
         boardMembershipService.requireMember(userId, boardId)
@@ -55,18 +47,25 @@ class BacklogTaskService(
         }
         val tasks = entities.map { it.toDomain(boardCrypto) }
         // Hide future-dated tasks from the To Do view; all other statuses show them regardless.
-        return if (status == TaskStatus.TODO) {
-            val zone = runCatching { ZoneId.of(userSettingsService.getOrCreate(userId).timeZone) }
-                .getOrDefault(ZoneId.of("UTC"))
-            val today = LocalDate.ofInstant(clock.instant(), zone)
-            tasks.filter { it.relevantFrom == null || !it.relevantFrom.isAfter(today) }
-        } else tasks
+        return if (status == TaskStatus.TODO) filterOutFutureDated(userId, tasks) else tasks
     }
 
-    /** Planner-facing bridge — see [getTasksForUser]. */
+    /**
+     * Tasks across **every** board the user belongs to — the planner's view (`find_task`,
+     * suggestion sampling). `status == null` means everything except archived. The future-dated
+     * filter applies to the TODO view exactly as in [getTasks].
+     */
     @Transactional(readOnly = true)
-    fun getTaskById(userId: UUID, id: UUID): BacklogTask? =
-        getTaskById(userId, boardMembershipService.resolveDefaultBoard(userId), id)
+    fun getTasksAcrossBoards(userId: UUID, status: TaskStatus?): List<BacklogTask> {
+        val boardIds = boardMembershipService.listBoardIds(userId)
+        if (boardIds.isEmpty()) return emptyList()
+        val entities = when (status) {
+            null -> backlogTaskRepository.findAllByBoardIdInAndStatusNotOrderBySortKeyAsc(boardIds, TaskStatus.ARCHIVED)
+            else -> backlogTaskRepository.findAllByBoardIdInAndStatusOrderBySortKeyAsc(boardIds, status)
+        }
+        val tasks = entities.map { it.toDomain(boardCrypto) }
+        return if (status == TaskStatus.TODO) filterOutFutureDated(userId, tasks) else tasks
+    }
 
     @Transactional(readOnly = true)
     fun getTaskById(userId: UUID, boardId: UUID, id: UUID): BacklogTask? {
@@ -74,18 +73,32 @@ class BacklogTaskService(
         return backlogTaskRepository.findByIdAndBoardId(id, boardId)?.toDomain(boardCrypto)
     }
 
+    /**
+     * Finds a task by id on **any** board the user belongs to (the carried [BacklogTask.boardId]
+     * tells the caller which one). Used by planner/web flows that reference a task by id without
+     * knowing its board (`update_task`, "add to plan").
+     */
+    @Transactional(readOnly = true)
+    fun findTask(userId: UUID, id: UUID): BacklogTask? {
+        val boardIds = boardMembershipService.listBoardIds(userId)
+        if (boardIds.isEmpty()) return null
+        return backlogTaskRepository.findByIdAndBoardIdIn(id, boardIds)?.toDomain(boardCrypto)
+    }
+
     @Transactional(readOnly = true)
     fun getTasksScheduledInSession(userId: UUID, sessionId: UUID): List<BacklogTask> {
-        val boardId = boardMembershipService.resolveDefaultBoard(userId)
+        val boardIds = boardMembershipService.listBoardIds(userId)
+        if (boardIds.isEmpty()) return emptyList()
         return backlogTaskRepository
-            .findAllByBoardIdAndLastScheduledInSessionIdOrderBySortKeyAsc(boardId, sessionId)
+            .findAllByBoardIdInAndLastScheduledInSessionIdOrderBySortKeyAsc(boardIds, sessionId)
             .map { it.toDomain(boardCrypto) }
     }
 
     @Transactional
     fun stampPlanningSession(userId: UUID, taskIds: List<UUID>, sessionId: UUID) {
-        val boardId = boardMembershipService.resolveDefaultBoard(userId)
-        val entities = backlogTaskRepository.findAllByBoardIdAndIdIn(boardId, taskIds)
+        val boardIds = boardMembershipService.listBoardIds(userId)
+        if (boardIds.isEmpty() || taskIds.isEmpty()) return
+        val entities = backlogTaskRepository.findAllByBoardIdInAndIdIn(boardIds, taskIds)
         for (entity in entities) {
             entity.lastScheduledInSessionId = sessionId
         }
@@ -93,10 +106,12 @@ class BacklogTaskService(
         taskChangeService.bumpWatermark(userId)
     }
 
-    /** Planner-facing bridge — see [getTasksForUser]. */
-    @Transactional
-    fun createTask(userId: UUID, request: CreateBacklogTaskRequest): BacklogTask =
-        createTask(userId, boardMembershipService.resolveDefaultBoard(userId), request)
+    private fun filterOutFutureDated(userId: UUID, tasks: List<BacklogTask>): List<BacklogTask> {
+        val zone = runCatching { ZoneId.of(userSettingsService.getOrCreate(userId).timeZone) }
+            .getOrDefault(ZoneId.of("UTC"))
+        val today = LocalDate.ofInstant(clock.instant(), zone)
+        return tasks.filter { it.relevantFrom == null || !it.relevantFrom.isAfter(today) }
+    }
 
     @Transactional
     fun createTask(userId: UUID, boardId: UUID, request: CreateBacklogTaskRequest): BacklogTask {
@@ -129,11 +144,6 @@ class BacklogTaskService(
         taskChangeService.bumpWatermark(userId)
         return saved.toDomain(boardCrypto)
     }
-
-    /** Planner-facing bridge — see [getTasksForUser]. */
-    @Transactional
-    fun updateTask(userId: UUID, id: UUID, request: UpdateBacklogTaskRequest): BacklogTask =
-        updateTask(userId, boardMembershipService.resolveDefaultBoard(userId), id, request)
 
     @Transactional
     fun updateTask(userId: UUID, boardId: UUID, id: UUID, request: UpdateBacklogTaskRequest): BacklogTask {
@@ -213,8 +223,9 @@ class BacklogTaskService(
 
     @Transactional
     fun clearPlanningSessionStamp(userId: UUID, taskIds: List<UUID>) {
-        val boardId = boardMembershipService.resolveDefaultBoard(userId)
-        val entities = backlogTaskRepository.findAllByBoardIdAndIdIn(boardId, taskIds)
+        val boardIds = boardMembershipService.listBoardIds(userId)
+        if (boardIds.isEmpty() || taskIds.isEmpty()) return
+        val entities = backlogTaskRepository.findAllByBoardIdInAndIdIn(boardIds, taskIds)
         for (entity in entities) {
             entity.lastScheduledInSessionId = null
             entity.updatedAt = Instant.now()

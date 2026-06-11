@@ -40,6 +40,27 @@ interface BacklogTaskRepository : JpaRepository<BacklogTaskEntity, UUID> {
 
     fun findByIdAndBoardId(id: UUID, boardId: UUID): BacklogTaskEntity?
 
+    // --- Cross-board lookups (the planner spans every board the user belongs to) ---
+
+    fun findByIdAndBoardIdIn(id: UUID, boardIds: Collection<UUID>): BacklogTaskEntity?
+
+    fun findAllByBoardIdInAndIdIn(boardIds: Collection<UUID>, ids: Collection<UUID>): List<BacklogTaskEntity>
+
+    fun findAllByBoardIdInAndStatusOrderBySortKeyAsc(
+        boardIds: Collection<UUID>,
+        status: TaskStatus,
+    ): List<BacklogTaskEntity>
+
+    fun findAllByBoardIdInAndStatusNotOrderBySortKeyAsc(
+        boardIds: Collection<UUID>,
+        status: TaskStatus,
+    ): List<BacklogTaskEntity>
+
+    fun findAllByBoardIdInAndLastScheduledInSessionIdOrderBySortKeyAsc(
+        boardIds: Collection<UUID>,
+        lastScheduledInSessionId: UUID,
+    ): List<BacklogTaskEntity>
+
     fun existsByCategoryIdAndBoardId(categoryId: UUID, boardId: UUID): Boolean
 
     fun deleteAllByBoardId(boardId: UUID)

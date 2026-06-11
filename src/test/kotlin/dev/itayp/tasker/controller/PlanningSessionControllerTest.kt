@@ -223,7 +223,7 @@ class PlanningSessionControllerTest(@Autowired val mockMvc: MockMvc) {
     @Test
     fun `POST add task to plan returns 204 and delegates to planFinalizationService`() {
         whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(aSession())
-        whenever(backlogTaskService.getTaskById(userId, taskId)).thenReturn(aTask())
+        whenever(backlogTaskService.findTask(userId, taskId)).thenReturn(aTask())
 
         mockMvc.perform(
             post("/api/v1/plans/current/tasks/$taskId")
@@ -256,7 +256,7 @@ class PlanningSessionControllerTest(@Autowired val mockMvc: MockMvc) {
     @Test
     fun `POST add task to plan returns 404 when task does not belong to user`() {
         whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(aSession())
-        whenever(backlogTaskService.getTaskById(userId, taskId)).thenReturn(null)
+        whenever(backlogTaskService.findTask(userId, taskId)).thenReturn(null)
 
         mockMvc.perform(
             post("/api/v1/plans/current/tasks/$taskId")

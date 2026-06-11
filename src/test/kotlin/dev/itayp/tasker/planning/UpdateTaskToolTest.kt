@@ -33,6 +33,7 @@ class UpdateTaskToolTest {
     private val tool = UpdateTaskTool(backlogTaskService, context, objectMapper)
 
     private val userId = UUID.randomUUID()
+    private val boardId = UUID.randomUUID()
     private val taskId = UUID.randomUUID()
     private val categoryId = UUID.randomUUID()
     private val tagId = UUID.randomUUID()
@@ -65,7 +66,7 @@ class UpdateTaskToolTest {
     @Test
     fun `archives the task`() {
         stubCurrentTask()
-        whenever(backlogTaskService.updateTask(eq(userId), eq(taskId), any()))
+        whenever(backlogTaskService.updateTask(eq(userId), eq(boardId), eq(taskId), any()))
             .thenReturn(currentTask().copy(status = TaskStatus.ARCHIVED))
 
         context.begin(userId, ZoneOffset.UTC)
@@ -73,7 +74,7 @@ class UpdateTaskToolTest {
         context.clear()
 
         val captor = argumentCaptor<UpdateBacklogTaskRequest>()
-        verify(backlogTaskService).updateTask(eq(userId), eq(taskId), captor.capture())
+        verify(backlogTaskService).updateTask(eq(userId), eq(boardId), eq(taskId), captor.capture())
         assertEquals("archived", captor.firstValue.status)
         assertTrue(result.contains("archived"))
     }
@@ -110,14 +111,14 @@ class UpdateTaskToolTest {
 
     @Test
     fun `returns a structured error and does not update when the task is missing`() {
-        whenever(backlogTaskService.getTaskById(eq(userId), eq(taskId))).thenReturn(null)
+        whenever(backlogTaskService.findTask(userId, taskId)).thenReturn(null)
 
         context.begin(userId, ZoneOffset.UTC)
         val result = tool.execute("""{"task_id":"$taskId","title":"x"}""")
         context.clear()
 
         assertTrue(result.contains("\"error\""))
-        verify(backlogTaskService, never()).updateTask(any(), any(), any())
+        verify(backlogTaskService, never()).updateTask(any(), any(), any(), any())
     }
 
     @Test
@@ -127,13 +128,13 @@ class UpdateTaskToolTest {
         context.clear()
 
         assertTrue(result.contains("\"error\""))
-        verify(backlogTaskService, never()).getTaskById(any(), any())
+        verify(backlogTaskService, never()).findTask(any(), any())
     }
 
     @Test
     fun `returns a structured error when the service rejects the update`() {
         stubCurrentTask()
-        whenever(backlogTaskService.updateTask(eq(userId), eq(taskId), any()))
+        whenever(backlogTaskService.updateTask(eq(userId), eq(boardId), eq(taskId), any()))
             .thenThrow(NoSuchElementException("Category not found"))
 
         context.begin(userId, ZoneOffset.UTC)
@@ -147,7 +148,7 @@ class UpdateTaskToolTest {
 
     /** Executes the tool inside a context scope and returns the captured request. */
     private fun executeAndCapture(args: String): UpdateBacklogTaskRequest {
-        whenever(backlogTaskService.updateTask(eq(userId), eq(taskId), any()))
+        whenever(backlogTaskService.updateTask(eq(userId), eq(boardId), eq(taskId), any()))
             .thenReturn(currentTask())
 
         context.begin(userId, ZoneOffset.UTC)
@@ -155,17 +156,17 @@ class UpdateTaskToolTest {
         context.clear()
 
         val captor = argumentCaptor<UpdateBacklogTaskRequest>()
-        verify(backlogTaskService).updateTask(eq(userId), eq(taskId), captor.capture())
+        verify(backlogTaskService).updateTask(eq(userId), eq(boardId), eq(taskId), captor.capture())
         return captor.firstValue
     }
 
     private fun stubCurrentTask() {
-        whenever(backlogTaskService.getTaskById(eq(userId), eq(taskId))).thenReturn(currentTask())
+        whenever(backlogTaskService.findTask(userId, taskId)).thenReturn(currentTask())
     }
 
     private fun currentTask() = BacklogTask(
         id = taskId,
-        boardId = userId,
+        boardId = boardId,
         assigneeUserId = null,
         title = "Old title",
         description = "notes",

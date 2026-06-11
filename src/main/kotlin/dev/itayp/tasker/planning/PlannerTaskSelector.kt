@@ -7,6 +7,7 @@ import dev.itayp.tasker.model.TaskPriority
 import dev.itayp.tasker.model.TaskStatus
 import dev.itayp.tasker.repository.BacklogTaskRepository
 import dev.itayp.tasker.service.BoardMembershipService
+import dev.itayp.tasker.service.BoardService
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
@@ -33,6 +34,7 @@ class PlannerTaskSelector(
     private val plannedTaskSlotRepository: PlannedTaskSlotRepository,
     private val boardCrypto: BoardCryptoService,
     private val boardMembershipService: BoardMembershipService,
+    private val boardService: BoardService,
     private val clock: Clock,
 ) {
 
@@ -45,9 +47,13 @@ class PlannerTaskSelector(
         urgentSlots: Int = DEFAULT_URGENT_SLOTS,
         staleSlots: Int = DEFAULT_STALE_SLOTS,
     ): PlannerTaskSelection {
-        val boardId = boardMembershipService.resolveDefaultBoard(userId)
-        val tasks = backlogTaskRepository
-            .findAllByBoardIdAndStatus(boardId, TaskStatus.TODO)
+        // Candidates span every board the user belongs to; each task carries its boardId, and
+        // boardNames lets the prompt label them (only meaningfully when the user has >1 board).
+        val boards = boardService.listBoardsForUser(userId)
+        val boardNames = boards.associate { it.id to it.name }
+        val boardIds = boards.map { it.id }
+        val tasks = if (boardIds.isEmpty()) emptyList() else backlogTaskRepository
+            .findAllByBoardIdInAndStatusOrderBySortKeyAsc(boardIds, TaskStatus.TODO)
             .map { it.toDomain(boardCrypto) }
             .filter { it.relevantFrom == null || !it.relevantFrom.isAfter(today) }
 
@@ -80,6 +86,7 @@ class PlannerTaskSelector(
             stale = stale,
             alreadyPlanned = plannedElsewhere.future,
             alreadyScheduled = plannedElsewhere.earlier,
+            boardNames = boardNames,
         )
     }
 
@@ -154,6 +161,8 @@ data class PlannerTaskSelection(
     val alreadyPlanned: Map<UUID, LocalDate> = emptyMap(),
     /** Candidates already scheduled in an *earlier* (e.g. the current) plan, mapped to the latest such slot date. */
     val alreadyScheduled: Map<UUID, LocalDate> = emptyMap(),
+    /** boardId → board name for every board the candidates can come from; drives the prompt's board labels. */
+    val boardNames: Map<UUID, String> = emptyMap(),
 )
 
 internal fun urgencyScore(task: BacklogTask, today: LocalDate): Double =
