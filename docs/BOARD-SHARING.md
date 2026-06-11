@@ -1,6 +1,6 @@
 # Multi-board & sharing — plan
 
-Status: **Phase 0 shipped to production; Phase 1 in progress (`docs/BOARD-SHARING-PHASE1.md`).**
+Status: **Phase 0 shipped to production; Phase 1 in progress (`docs/BOARD-SHARING-PHASE1.md`); Phase 2 planned (`docs/BOARD-SHARING-PHASE2.md`).**
 This is the source of truth for the design and the phased work. It supersedes the
 "Multi-board and sharing support" line in `docs/IDEAS.md` and
 extends the non-goal "Shared tasks or collaboration features" in `docs/SPEC.md` (that non-goal is
@@ -319,6 +319,7 @@ is incremental.
    **Concrete implementation plan (three PRs): `docs/BOARD-SHARING-PHASE1.md`.**
 3. **Phase 2 — sharing.** Invitations + consent dialog (§8), `MEMBER`/`OWNER` enforcement,
    claim/assignee UI (§5), Members panel, ownership-transfer-on-delete (§6). Delivers need 1.
+   **Concrete implementation plan (three PRs): `docs/BOARD-SHARING-PHASE2.md`.**
 
 ## Open questions / risks
 
