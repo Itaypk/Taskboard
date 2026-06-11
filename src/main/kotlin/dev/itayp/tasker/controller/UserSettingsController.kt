@@ -1,6 +1,7 @@
 package dev.itayp.tasker.controller
 
 import dev.itayp.tasker.crypto.UserCryptoService
+import dev.itayp.tasker.model.request.TokenRequest
 import dev.itayp.tasker.model.request.UpdateEmailRequest
 import dev.itayp.tasker.model.request.UpdateUserSettingsRequest
 import dev.itayp.tasker.model.response.SettingsOptionsResponse
@@ -73,11 +74,25 @@ class UserSettingsController(
         return ResponseEntity.noContent().build()
     }
 
-    @GetMapping("/email/verify")
-    fun verifyEmail(@RequestParam token: String): ResponseEntity<Unit> {
-        emailVerificationService.confirmVerification(token)
-        return ResponseEntity.status(302).location(URI.create("/?emailVerified=true")).build()
+    /**
+     * Consumes an email-verification token. Unauthenticated — the token is the credential; the
+     * user may open this link on a different device from the one they're logged in on.
+     */
+    @PostMapping("/email/verify")
+    fun verifyEmail(@Valid @RequestBody body: TokenRequest): ResponseEntity<Map<String, Boolean>> {
+        val success = emailVerificationService.confirmVerification(body.token)
+        return ResponseEntity.ok(mapOf("success" to success))
     }
+
+    /**
+     * Backward-compat shim for verification links sent before the confirm-page migration.
+     * Redirects to the confirm page without consuming the token.
+     */
+    @GetMapping("/email/verify")
+    fun verifyEmailShim(@RequestParam token: String): ResponseEntity<Unit> =
+        ResponseEntity.status(302)
+            .location(URI.create("/email-verify?token=$token"))
+            .build()
 
     @ExceptionHandler(EmailAlreadyLinkedException::class)
     fun handleEmailAlreadyLinked(ex: EmailAlreadyLinkedException): ResponseEntity<Map<String, String>> =

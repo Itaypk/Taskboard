@@ -37,11 +37,33 @@ export const demoLogin = (): Promise<AuthUser> =>
 
 // Passwordless email login: sends a magic link. Always resolves (the backend never
 // reveals whether the address maps to an account). The link itself logs the user in.
-export const requestEmailLogin = (email: string): Promise<void> =>
+// next: optional same-origin path to navigate to after successful login.
+export const requestEmailLogin = (email: string, next?: string): Promise<void> =>
     request<void>('/api/auth/email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, next }),
+    });
+
+// Side-effect-free check: returns true if the token is still valid (not consumed, not expired).
+export const precheckEmailLogin = (token: string): Promise<{ valid: boolean }> =>
+    request<{ valid: boolean }>(`/api/auth/email/precheck?token=${encodeURIComponent(token)}`);
+
+// Consume a magic-link token and establish a session.
+export type EmailCallbackOutcome = 'success' | 'invalid' | 'unverified';
+export const completeEmailLogin = (token: string): Promise<{ outcome: EmailCallbackOutcome }> =>
+    request<{ outcome: EmailCallbackOutcome }>('/api/auth/email/callback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+    });
+
+// Consume an email-verification token (unauthenticated — token is the credential).
+export const confirmEmailVerification = (token: string): Promise<{ success: boolean }> =>
+    request<{ success: boolean }>('/api/v1/settings/email/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
     });
 
 export const logout = (): Promise<void> =>

@@ -16,27 +16,9 @@ declare global {
 
 export function LoginPage() {
     const { setUser } = useAuth();
-    // Surfaced when the email magic-link callback bounces back (?emailLogin=...).
-    const [notice] = useState<string | null>(() => {
-        const reason = new URLSearchParams(window.location.search).get('emailLogin');
-        if (reason === 'unverified') {
-            return 'That email is already linked to an account that hasn’t verified it. ' +
-                'Sign in with Telegram, then verify your email under Settings. ' +
-                'Not sure which account this is? Contact support@backlog.fyi.';
-        }
-        if (reason === 'invalid') {
-            return 'That sign-in link is invalid or has expired. Request a new one below.';
-        }
-        return null;
-    });
     const [modalOpen, setModalOpen] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
-
-    // Strip the ?emailLogin marker from the URL so a refresh doesn't re-show the notice.
-    useEffect(() => {
-        if (notice) window.history.replaceState({}, '', window.location.pathname);
-    }, [notice]);
 
     useEffect(() => {
         window[TELEGRAM_CALLBACK] = async (payload) => {
@@ -95,7 +77,6 @@ export function LoginPage() {
 
     return (
         <div className={styles.page}>
-            {notice && <div className={styles.notice} role="status">{notice}</div>}
             <header className={styles.nav}>
                 <div className={styles.brand}>
                     <span className={styles.logoWrap}>

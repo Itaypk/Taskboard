@@ -113,6 +113,7 @@ class SecurityConfiguration(
                 authorize("/api/auth/dev-login", permitAll)
                 authorize("/api/auth/demo-login", permitAll)
                 authorize("/api/auth/email", permitAll)
+                authorize("/api/auth/email/precheck", permitAll)
                 authorize("/api/auth/email/callback", permitAll)
                 authorize("/api/auth/logout", permitAll)
                 authorize("/api/v1/settings/email/verify", permitAll)
@@ -157,7 +158,14 @@ class SecurityConfiguration(
             csrf {
                 csrfTokenRepository = CookieCsrfTokenRepository.withHttpOnlyFalse()
                 csrfTokenRequestHandler = SpaCsrfTokenRequestHandler()
-                ignoringRequestMatchers("/api/auth/telegram", "/api/auth/dev-login", "/api/auth/demo-login", "/api/auth/email", "/api/dev/**")
+                // These endpoints carry their credential in the request body (not in a session-derived
+                // cookie), so CSRF protection adds nothing and would break cross-device flows.
+                ignoringRequestMatchers(
+                    "/api/auth/telegram", "/api/auth/dev-login", "/api/auth/demo-login",
+                    "/api/auth/email", "/api/auth/email/callback",
+                    "/api/v1/settings/email/verify",
+                    "/api/dev/**",
+                )
             }
             sessionManagement {
                 sessionFixation { newSession() }

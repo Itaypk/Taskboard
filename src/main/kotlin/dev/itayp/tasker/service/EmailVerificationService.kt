@@ -53,7 +53,8 @@ class EmailVerificationService(
         user.emailVerificationTokenExpiresAt = clock.instant().plus(Duration.ofHours(24))
         userRepository.save(user)
 
-        val verifyUrl = "${appProperties.baseUrl}/api/v1/settings/email/verify?token=$token"
+        // Link opens a side-effect-free SPA confirm page; the actual verification happens on POST.
+        val verifyUrl = "${appProperties.baseUrl}/email-verify?token=$token"
         
         val locale = userSettingsService.getLocale(userId)
         val htmlBody = emailTemplateEngine.render(

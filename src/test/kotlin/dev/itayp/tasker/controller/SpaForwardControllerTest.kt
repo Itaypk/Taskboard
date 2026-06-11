@@ -27,4 +27,18 @@ class SpaForwardControllerTest(@Autowired val mockMvc: MockMvc) {
             .andExpect(status().isOk)
             .andExpect(forwardedUrl("/index.html"))
     }
+
+    @Test
+    fun `email-login route is forwarded to index html`() {
+        mockMvc.perform(get("/email-login"))
+            .andExpect(status().isOk)
+            .andExpect(forwardedUrl("/index.html"))
+    }
+
+    @Test
+    fun `email-verify route is forwarded to index html`() {
+        mockMvc.perform(get("/email-verify"))
+            .andExpect(status().isOk)
+            .andExpect(forwardedUrl("/index.html"))
+    }
 }

@@ -1,0 +1,240 @@
+/* ─── Email login confirm page ────────────────────────────
+   Matches the LoginPage corkboard aesthetic: warm paper,
+   Fraunces serif, ink tones. The card mimics a pinned note.
+*/
+.page {
+    --cb-ink:      #2a1f14;
+    --cb-ink-soft: #5a4a36;
+    --cb-ink-mute: #8a7a5d;
+    --cb-paper:    #fbf6e3;
+    --cb-rule:     #d6cbb0;
+
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
+    width: 100%;
+    flex: 0 0 auto;
+    overflow: hidden;
+    color: var(--cb-ink);
+    font-family: var(--font-serif);
+    background: var(--cb-paper);
+}
+
+/* ─── Nav ─────────────────────────────────────────────── */
+.nav {
+    position: relative;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 40px 14px;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.logoWrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.beta {
+    position: absolute;
+    top: -8px;
+    right: -28px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--cb-ink-mute);
+    text-transform: uppercase;
+}
+
+.copyright {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--cb-ink-mute);
+}
+
+/* ─── Stage ───────────────────────────────────────────── */
+.stage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 64px);
+    padding: 32px 16px 64px;
+}
+
+/* ─── Card ────────────────────────────────────────────── */
+.card {
+    background: #fff;
+    border: 1px solid var(--cb-rule);
+    border-radius: 4px;
+    box-shadow:
+        0 2px 8px rgba(42, 31, 20, 0.08),
+        0 0 0 1px rgba(214, 203, 176, 0.4);
+    padding: 40px 44px 36px;
+    width: 100%;
+    max-width: 440px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    position: relative;
+}
+
+/* Tape strip at top */
+.card::before {
+    content: '';
+    position: absolute;
+    top: -11px;
+    left: 50%;
+    transform: translateX(-50%) rotate(-1deg);
+    width: 80px;
+    height: 22px;
+    background: rgba(214, 203, 176, 0.55);
+    border-radius: 2px;
+    backdrop-filter: blur(2px);
+}
+
+.cardTag {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--cb-ink-mute);
+    margin-bottom: 10px;
+}
+
+.cardH {
+    font-family: var(--font-serif);
+    font-size: 1.7rem;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--cb-ink);
+    margin: 0 0 14px;
+}
+
+.cardBody {
+    font-family: var(--font-serif);
+    font-size: 0.95rem;
+    line-height: 1.65;
+    color: var(--cb-ink-soft);
+    margin: 0 0 28px;
+}
+
+/* ─── Sign-in button ──────────────────────────────────── */
+.signInBtn {
+    width: 100%;
+    padding: 13px 20px;
+    background: var(--cb-ink);
+    color: var(--cb-paper);
+    border: none;
+    border-radius: 6px;
+    font-family: var(--font-serif);
+    font-size: 0.97rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: background 0.15s, transform 0.1s;
+    min-height: 48px;
+    margin-bottom: 16px;
+}
+
+.signInBtn:hover:not(:disabled) {
+    background: #3d2d1e;
+    transform: translateY(-1px);
+}
+
+.signInBtn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.signInBtn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+/* ─── Spinner ─────────────────────────────────────────── */
+.spinner {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(251, 246, 227, 0.4);
+    border-top-color: var(--cb-paper);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ─── Loading dots ────────────────────────────────────── */
+.dots {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 24px 0;
+}
+
+.dots span {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--cb-rule);
+    animation: pulse 1.2s ease-in-out infinite;
+}
+
+.dots span:nth-child(2) { animation-delay: 0.2s; }
+.dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes pulse {
+    0%, 80%, 100% { opacity: 0.3; transform: scale(0.85); }
+    40%           { opacity: 1;   transform: scale(1); }
+}
+
+/* ─── Error ───────────────────────────────────────────── */
+.errorMsg {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: #a33;
+    background: #fff5f5;
+    border: 1px solid #f5c6c6;
+    border-radius: 4px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+}
+
+/* ─── Back link ───────────────────────────────────────── */
+.backLink {
+    display: block;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--cb-ink-mute);
+    text-decoration: none;
+    margin-top: 4px;
+    transition: color 0.12s;
+}
+
+.backLink:hover {
+    color: var(--cb-ink-soft);
+}
+
+@media (max-width: 520px) {
+    .nav { padding: 14px 20px 10px; }
+    .card { padding: 32px 24px 28px; }
+    .cardH { font-size: 1.45rem; }
+}

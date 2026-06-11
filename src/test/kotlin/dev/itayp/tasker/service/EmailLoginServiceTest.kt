@@ -37,9 +37,10 @@ class EmailLoginServiceTest {
     )
 
     @Test
-    fun `requestLogin stores an encrypted token and sends a login email`() {
+    fun `requestLogin stores an encrypted token and sends a login email with confirm-page URL`() {
         whenever(tokenRepository.countByEmailHashAndCreatedAtAfter(any(), any())).thenReturn(0)
-        whenever(templateEngine.render(any(), any(), any())).thenReturn("<html>")
+        val templateVars = argumentCaptor<Map<String, Any>>()
+        whenever(templateEngine.render(any(), templateVars.capture(), any())).thenReturn("<html>")
         whenever(messageSource.getMessage(eq("email.login.subject"), anyOrNull(), any())).thenReturn("Sign in")
         whenever(messageSource.getMessage(eq("email.login.textBody"), any(), any())).thenReturn("text")
 
@@ -53,9 +54,40 @@ class EmailLoginServiceTest {
         assertThat(saved.expiresAt).isEqualTo(fixedNow.plusSeconds(1800))
         assertThat(saved.consumedAt).isNull()
 
+        val loginUrl = templateVars.firstValue["login_url"] as String
+        assertThat(loginUrl).startsWith("https://backlog.fyi/email-login?token=")
+        assertThat(loginUrl).doesNotContain("/api/auth/email/callback")
+
         val msgCaptor = argumentCaptor<EmailMessage>()
         verify(outboundChannel).send(msgCaptor.capture())
         assertThat(msgCaptor.firstValue.to).containsExactly("user@example.com")
+    }
+
+    @Test
+    fun `requestLogin threads a valid next path into the login URL`() {
+        whenever(tokenRepository.countByEmailHashAndCreatedAtAfter(any(), any())).thenReturn(0)
+        val templateVars = argumentCaptor<Map<String, Any>>()
+        whenever(templateEngine.render(any(), templateVars.capture(), any())).thenReturn("<html>")
+        whenever(messageSource.getMessage(any(), anyOrNull(), any())).thenReturn("text")
+
+        service.requestLogin("user@example.com", next = "/invite?token=abc")
+
+        val loginUrl = templateVars.firstValue["login_url"] as String
+        // next= should be URL-encoded in the link; /invite?token=abc → %2Finvite%3Ftoken%3Dabc
+        assertThat(loginUrl).contains("next=%2Finvite")
+    }
+
+    @Test
+    fun `requestLogin rejects an absolute next URL and omits it from the login link`() {
+        whenever(tokenRepository.countByEmailHashAndCreatedAtAfter(any(), any())).thenReturn(0)
+        val templateVars = argumentCaptor<Map<String, Any>>()
+        whenever(templateEngine.render(any(), templateVars.capture(), any())).thenReturn("<html>")
+        whenever(messageSource.getMessage(any(), anyOrNull(), any())).thenReturn("text")
+
+        service.requestLogin("user@example.com", next = "https://evil.example.com/steal")
+
+        val loginUrl = templateVars.firstValue["login_url"] as String
+        assertThat(loginUrl).doesNotContain("next=")
     }
 
     @Test
@@ -79,6 +111,32 @@ class EmailLoginServiceTest {
         createdAt = fixedNow
         this.expiresAt = expiresAt
         consumedAt = consumed
+    }
+
+    @Test
+    fun `precheckToken returns true for a valid unconsumed token`() {
+        whenever(tokenRepository.findById("tok")).thenReturn(Optional.of(tokenRow("user@example.com")))
+        assertThat(service.precheckToken("tok")).isTrue()
+    }
+
+    @Test
+    fun `precheckToken returns false for an unknown token`() {
+        whenever(tokenRepository.findById("nope")).thenReturn(Optional.empty())
+        assertThat(service.precheckToken("nope")).isFalse()
+    }
+
+    @Test
+    fun `precheckToken returns false for a consumed token`() {
+        whenever(tokenRepository.findById("tok"))
+            .thenReturn(Optional.of(tokenRow("user@example.com", consumed = fixedNow.minusSeconds(1))))
+        assertThat(service.precheckToken("tok")).isFalse()
+    }
+
+    @Test
+    fun `precheckToken returns false for an expired token`() {
+        whenever(tokenRepository.findById("tok"))
+            .thenReturn(Optional.of(tokenRow("user@example.com", expiresAt = fixedNow.minusSeconds(1))))
+        assertThat(service.precheckToken("tok")).isFalse()
     }
 
     @Test

@@ -35,6 +35,8 @@ import { Routes, Route } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
 import { LoginPage } from './auth/LoginPage';
 import { TermsPage, PrivacyPage } from './auth/PolicyPage';
+import { EmailLoginConfirmPage } from './auth/EmailLoginConfirmPage';
+import { EmailVerifyConfirmPage } from './auth/EmailVerifyConfirmPage';
 import { NotFoundPage } from './NotFoundPage';
 import pineappleUrl from './assets/pineapple.png';
 import './App.css';
@@ -64,6 +66,8 @@ export default function App() {
     <Routes>
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/email-login" element={<EmailLoginConfirmPage />} />
+      <Route path="/email-verify" element={<EmailVerifyConfirmPage />} />
       <Route path="/" element={<AuthShell />} />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
@@ -101,13 +105,10 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState<string | null>(null);
   const [draggingId, setDraggingId]   = useState<string | null>(null);
-  const [emailVerifiedBanner, setEmailVerifiedBanner] = useState(
-    () => new URLSearchParams(window.location.search).get('emailVerified') === 'true'
-  );
   const [filter, setFilter]           = useState<TaskFilter>('todo');
   const [showArchived, setShowArchived] = useState(false);
   const [archivedTasks, setArchivedTasks] = useState<Task[]>([]);
-  const [currentPlan, setCurrentPlan] = useState<CurrentPlan | null>(null);
+  const [currentPlan, setCurrentPlan]  = useState<CurrentPlan | null>(null);
   const [planDrawerOpen, setPlanDrawerOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; taskId: string; inPlan: boolean } | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ taskId: string; title: string } | null>(null);
@@ -120,13 +121,6 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
     useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
   );
-
-  useEffect(() => {
-    if (!emailVerifiedBanner) return;
-    window.history.replaceState({}, '', window.location.pathname);
-    const timer = setTimeout(() => setEmailVerifiedBanner(false), 5000);
-    return () => clearTimeout(timer);
-  }, [emailVerifiedBanner]);
 
   // User-scoped bootstrap: the board list plus settings and the (per-user) current plan. Picks the
   // active board from the last-used one in localStorage, falling back to the default board.
@@ -561,12 +555,6 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
       )}
 
       <img className="pineapple-pet" src={pineappleUrl} alt="" aria-hidden="true" />
-
-      {emailVerifiedBanner && (
-        <div className="email-verified-banner" role="status">
-          Email verified successfully
-        </div>
-      )}
 
       <TaskDrawer
         task={selectedTask}
