@@ -4,10 +4,11 @@ import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ChoiceOption
 import dev.itayp.tasker.channel.ConversationChannel
+import dev.itayp.tasker.model.TaskPriority
 import dev.itayp.tasker.model.request.CreateBacklogTaskRequest
 import dev.itayp.tasker.model.request.TagInput
 import dev.itayp.tasker.planning.ClarifyOption
-import dev.itayp.tasker.planning.QaPair
+import dev.itayp.tasker.planning.ClarificationExchange
 import dev.itayp.tasker.planning.SuggestionOutcome
 import dev.itayp.tasker.planning.TagColorOptions
 import dev.itayp.tasker.planning.TaskDraft
@@ -103,14 +104,14 @@ class QuickAddFlow(
                 }
                 OPTION_ADJUST -> {
                     channel.send(ChannelMessage.Text(msg(userId, "quickadd.adjust.prompt")))
-                    QuickAddState.AwaitingAdjustment(state.draft, state.originalRequest, state.qa, now())
+                    QuickAddState.AwaitingAdjustment(state.draft, state.originalRequest, state.clarifications, now())
                 }
                 else -> { reRenderCard(userId, channel, state.draft); state }
             }
         }
         val text = (inbound as? ChannelInbound.Text)?.text?.trim().orEmpty()
         if (text.isBlank()) return state
-        return applyAdjustment(userId, channel, state.draft, state.originalRequest, state.qa, text)
+        return applyAdjustment(userId, channel, state.draft, state.originalRequest, state.clarifications, text)
     }
 
     private fun onAdjustment(
@@ -124,7 +125,7 @@ class QuickAddFlow(
             channel.send(ChannelMessage.Text(msg(userId, "quickadd.adjust.prompt")))
             return state
         }
-        return applyAdjustment(userId, channel, state.draft, state.originalRequest, state.qa, text)
+        return applyAdjustment(userId, channel, state.draft, state.originalRequest, state.clarifications, text)
     }
 
     private fun onClarification(
@@ -145,17 +146,17 @@ class QuickAddFlow(
         }
         if (answer.isBlank()) return state
 
-        val newQa = state.op.qa + QaPair(state.question, answer)
+        val newClarifications = state.op.clarifications + ClarificationExchange(state.question, answer)
         val mustDraft = state.rounds >= MAX_CLARIFY_ROUNDS
         channel.indicateTyping()
         val (newOp, outcome) = when (val op = state.op) {
             is PendingOp.Draft -> {
-                val o = PendingOp.Draft(op.originalRequest, newQa)
-                o to suggestionAgent.quickAddDraft(userId, op.originalRequest, newQa, mustDraft)
+                val o = PendingOp.Draft(op.originalRequest, newClarifications)
+                o to suggestionAgent.quickAddDraft(userId, op.originalRequest, newClarifications, mustDraft)
             }
             is PendingOp.Revise -> {
-                val o = PendingOp.Revise(op.originalRequest, op.draft, op.instruction, newQa)
-                o to suggestionAgent.quickAddRevise(userId, op.originalRequest, op.draft, op.instruction, newQa, mustDraft)
+                val o = PendingOp.Revise(op.originalRequest, op.draft, op.instruction, newClarifications)
+                o to suggestionAgent.quickAddRevise(userId, op.originalRequest, op.draft, op.instruction, newClarifications, mustDraft)
             }
         }
         return renderOutcome(userId, channel, newOp, outcome, clarifyRound = state.rounds + 1)
@@ -166,12 +167,12 @@ class QuickAddFlow(
         channel: ConversationChannel,
         draft: TaskDraft,
         originalRequest: String,
-        qa: List<QaPair>,
+        clarifications: List<ClarificationExchange>,
         instruction: String,
     ): QuickAddState? {
         channel.indicateTyping()
-        val op = PendingOp.Revise(originalRequest, draft, instruction, qa)
-        val outcome = suggestionAgent.quickAddRevise(userId, originalRequest, draft, instruction, qa, mustDraft = false)
+        val op = PendingOp.Revise(originalRequest, draft, instruction, clarifications)
+        val outcome = suggestionAgent.quickAddRevise(userId, originalRequest, draft, instruction, clarifications, mustDraft = false)
         return renderOutcome(userId, channel, op, outcome, clarifyRound = 1)
     }
 
@@ -185,7 +186,7 @@ class QuickAddFlow(
         is SuggestionOutcome.Draft -> {
             val validated = validate(userId, outcome.draft)
             renderCard(userId, channel, validated)
-            QuickAddState.AwaitingConfirmation(validated, op.originalRequest, op.qa, now())
+            QuickAddState.AwaitingConfirmation(validated, op.originalRequest, op.clarifications, now())
         }
         is SuggestionOutcome.Clarify -> {
             if (clarifyRound > MAX_CLARIFY_ROUNDS) {
@@ -241,7 +242,7 @@ class QuickAddFlow(
         val resolvedCategory = draft.categoryId
             ?.let { id -> categories.firstOrNull { it.id.toString() == id } }
             ?: categories.firstOrNull()
-        val priority = draft.priority?.lowercase()?.takeIf { it in ALLOWED_PRIORITIES }
+        val priority = draft.priority?.lowercase()?.takeIf { it in TaskPriority.allowedValues }
         val deadline = draft.deadline?.takeIf { DEADLINE_REGEX.matches(it) }
         val estimate = draft.estimatedMinutes?.takeIf { it > 0 }
         return draft.copy(
@@ -326,12 +327,11 @@ class QuickAddFlow(
         /** Maximum clarifying questions the agent may ask before it must produce a best-guess draft. */
         const val MAX_CLARIFY_ROUNDS = 2
 
-        const val OPTION_SAVE = "qa_save"
-        const val OPTION_ADJUST = "qa_adjust"
-        const val OPTION_CANCEL = "qa_cancel"
-        const val OPTION_EXPLAIN = "qa_explain"
+        const val OPTION_SAVE = "quickadd_save"
+        const val OPTION_ADJUST = "quickadd_adjust"
+        const val OPTION_CANCEL = "quickadd_cancel"
+        const val OPTION_EXPLAIN = "quickadd_explain"
 
-        private val ALLOWED_PRIORITIES = setOf("low", "medium", "high")
         private val DEADLINE_REGEX = Regex("""^\d{4}-\d{2}-\d{2}$""")
         private const val DESCRIPTION_PREVIEW = 200
     }

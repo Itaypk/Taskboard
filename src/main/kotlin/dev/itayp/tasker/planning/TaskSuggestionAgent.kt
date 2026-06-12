@@ -99,14 +99,14 @@ class TaskSuggestionAgent(
     fun quickAddDraft(
         userId: UUID,
         request: String,
-        qa: List<QaPair> = emptyList(),
+        clarifications: List<ClarificationExchange> = emptyList(),
         mustDraft: Boolean = false,
     ): SuggestionOutcome = runQuickAdd(
         userId = userId,
         request = request,
         adjustment = null,
         previousDraft = null,
-        qa = qa,
+        clarifications = clarifications,
         mustDraft = mustDraft,
     )
 
@@ -120,14 +120,14 @@ class TaskSuggestionAgent(
         request: String,
         previousDraft: TaskDraft,
         instruction: String,
-        qa: List<QaPair> = emptyList(),
+        clarifications: List<ClarificationExchange> = emptyList(),
         mustDraft: Boolean = false,
     ): SuggestionOutcome = runQuickAdd(
         userId = userId,
         request = request,
         adjustment = instruction,
         previousDraft = previousDraft,
-        qa = qa,
+        clarifications = clarifications,
         mustDraft = mustDraft,
     )
 
@@ -136,7 +136,7 @@ class TaskSuggestionAgent(
         request: String,
         adjustment: String?,
         previousDraft: TaskDraft?,
-        qa: List<QaPair>,
+        clarifications: List<ClarificationExchange>,
         mustDraft: Boolean,
     ): SuggestionOutcome {
         val settings = userSettingsService.getOrCreate(userId)
@@ -159,7 +159,7 @@ class TaskSuggestionAgent(
             "previous_draft_block" to (previousDraft?.let {
                 "\nThe current draft to revise (JSON):\n${objectMapper.writeValueAsString(it)}\n"
             } ?: ""),
-            "prior_qa_block" to renderQa(qa),
+            "prior_qa_block" to renderClarifications(clarifications),
             "today" to today.format(DateTimeFormatter.ISO_LOCAL_DATE),
             "timezone" to zone.id,
             "user_context" to (contextBlock ?: "(no personal context shared)"),
@@ -216,9 +216,9 @@ class TaskSuggestionAgent(
         SuggestionOutcome.Unparseable
     }
 
-    private fun renderQa(qa: List<QaPair>): String {
-        if (qa.isEmpty()) return ""
-        val lines = qa.joinToString("\n") { "Q: ${it.question}\nA: ${it.answer}" }
+    private fun renderClarifications(clarifications: List<ClarificationExchange>): String {
+        if (clarifications.isEmpty()) return ""
+        val lines = clarifications.joinToString("\n") { "Q: ${it.question}\nA: ${it.answer}" }
         return "\nEarlier clarifications in this capture:\n$lines\n"
     }
 
@@ -275,8 +275,8 @@ sealed interface SuggestionOutcome {
 
 data class ClarifyOption(val id: String, val label: String)
 
-/** One round of clarification carried forward into the next drafting call. */
-data class QaPair(val question: String, val answer: String)
+/** One round of clarification (question asked, answer given) carried forward into the next drafting call. */
+data class ClarificationExchange(val question: String, val answer: String)
 
 /**
  * Loose binding of the quick-add sub-agent's two possible JSON shapes (a task draft or a

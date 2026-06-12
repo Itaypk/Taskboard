@@ -1,7 +1,7 @@
 package dev.itayp.tasker.capture
 
 import dev.itayp.tasker.planning.ClarifyOption
-import dev.itayp.tasker.planning.QaPair
+import dev.itayp.tasker.planning.ClarificationExchange
 import dev.itayp.tasker.planning.TaskDraft
 import java.time.Instant
 
@@ -10,8 +10,9 @@ import java.time.Instant
  * registry (e.g. the Telegram registry keyed by chat id) and advanced by [QuickAddFlow]. The flow
  * is otherwise stateless; all continuity lives here. [createdAt] backs the registry's idle TTL.
  *
- * `originalRequest` and `qa` are threaded through every state so a later free-text adjustment can be
- * re-drafted with the full context of what the user originally asked for and any clarifications.
+ * `originalRequest` and `clarifications` are threaded through every state so a later free-text
+ * adjustment can be re-drafted with the full context of what the user originally asked for and any
+ * clarifying answers they already gave.
  */
 sealed interface QuickAddState {
     val createdAt: Instant
@@ -25,7 +26,7 @@ sealed interface QuickAddState {
     data class AwaitingConfirmation(
         val draft: TaskDraft,
         val originalRequest: String,
-        val qa: List<QaPair>,
+        val clarifications: List<ClarificationExchange>,
         override val createdAt: Instant,
     ) : QuickAddState
 
@@ -33,7 +34,7 @@ sealed interface QuickAddState {
     data class AwaitingAdjustment(
         val draft: TaskDraft,
         val originalRequest: String,
-        val qa: List<QaPair>,
+        val clarifications: List<ClarificationExchange>,
         override val createdAt: Instant,
     ) : QuickAddState
 
@@ -54,17 +55,17 @@ sealed interface QuickAddState {
 /** The drafting operation a clarification belongs to, so its answer re-runs the same call. */
 sealed interface PendingOp {
     val originalRequest: String
-    val qa: List<QaPair>
+    val clarifications: List<ClarificationExchange>
 
     data class Draft(
         override val originalRequest: String,
-        override val qa: List<QaPair>,
+        override val clarifications: List<ClarificationExchange>,
     ) : PendingOp
 
     data class Revise(
         override val originalRequest: String,
         val draft: TaskDraft,
         val instruction: String,
-        override val qa: List<QaPair>,
+        override val clarifications: List<ClarificationExchange>,
     ) : PendingOp
 }

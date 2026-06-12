@@ -3,6 +3,7 @@ package dev.itayp.tasker.planning
 import com.fasterxml.jackson.annotation.JsonProperty
 import dev.itayp.tasker.ai.tool.AiTool
 import dev.itayp.tasker.ai.tool.ToolKind
+import dev.itayp.tasker.model.TaskPriority
 import dev.itayp.tasker.model.request.CreateBacklogTaskRequest
 import dev.itayp.tasker.model.request.TagInput
 import dev.itayp.tasker.service.BacklogTaskService
@@ -44,7 +45,7 @@ class CreateTaskTool(
             "category_id" to mapOf("type" to "string", "description" to "UUID of an existing category (see the categories list). It must belong to the target board."),
             "board_id" to mapOf("type" to "string", "description" to "Optional UUID of the board to add the task to (from the categories list headers). Omit to use your default board."),
             "description" to mapOf("type" to "string", "description" to "Optional longer description / notes."),
-            "priority" to mapOf("type" to "string", "enum" to listOf("low", "medium", "high"), "description" to "Optional priority."),
+            "priority" to mapOf("type" to "string", "enum" to TaskPriority.allowedValues.toList(), "description" to "Optional priority."),
             "deadline" to mapOf("type" to "string", "description" to "Optional deadline, YYYY-MM-DD."),
             "estimated_minutes" to mapOf("type" to "integer", "description" to "Optional time estimate in minutes."),
             "tags" to mapOf(

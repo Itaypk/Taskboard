@@ -7,7 +7,7 @@ import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.CategoryColor
 import dev.itayp.tasker.planning.ClarifyOption
-import dev.itayp.tasker.planning.QaPair
+import dev.itayp.tasker.planning.ClarificationExchange
 import dev.itayp.tasker.planning.SuggestionOutcome
 import dev.itayp.tasker.planning.TaskDraft
 import dev.itayp.tasker.planning.TaskSuggestionAgent
@@ -167,9 +167,9 @@ class QuickAddFlowTest {
         val answered = flow.handleInbound(userId, channel(), state, ChannelInbound.Selection("o0"))
 
         assertIs<QuickAddState.AwaitingConfirmation>(answered)
-        val qaCaptor = argumentCaptor<List<QaPair>>()
-        verify(suggestionAgent, times(2)).quickAddDraft(eq(userId), eq("fix it"), qaCaptor.capture(), eq(false))
-        assertEquals(QaPair("Which area?", "Home"), qaCaptor.lastValue.single())
+        val clarificationsCaptor = argumentCaptor<List<ClarificationExchange>>()
+        verify(suggestionAgent, times(2)).quickAddDraft(eq(userId), eq("fix it"), clarificationsCaptor.capture(), eq(false))
+        assertEquals(ClarificationExchange("Which area?", "Home"), clarificationsCaptor.lastValue.single())
     }
 
     @Test
