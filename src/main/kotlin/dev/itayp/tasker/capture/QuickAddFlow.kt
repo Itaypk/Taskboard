@@ -5,14 +5,12 @@ import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ChoiceOption
 import dev.itayp.tasker.channel.ConversationChannel
 import dev.itayp.tasker.model.TaskPriority
-import dev.itayp.tasker.model.request.CreateBacklogTaskRequest
-import dev.itayp.tasker.model.request.TagInput
 import dev.itayp.tasker.planning.ClarifyOption
 import dev.itayp.tasker.planning.ClarificationExchange
 import dev.itayp.tasker.planning.SuggestionOutcome
-import dev.itayp.tasker.planning.TagColorOptions
 import dev.itayp.tasker.planning.TaskDraft
 import dev.itayp.tasker.planning.TaskSuggestionAgent
+import dev.itayp.tasker.planning.toCreateBacklogTaskRequest
 import dev.itayp.tasker.service.BacklogTaskCategoryService
 import dev.itayp.tasker.service.BacklogTaskService
 import dev.itayp.tasker.service.BoardMembershipService
@@ -208,24 +206,14 @@ class QuickAddFlow(
     }
 
     private fun save(userId: UUID, channel: ConversationChannel, draft: TaskDraft) {
-        val categoryId = draft.categoryId
-        if (categoryId.isNullOrBlank()) {
+        if (draft.categoryId.isNullOrBlank()) {
             log.warn("quick-add save aborted: draft had no category")
             channel.send(ChannelMessage.Text(msg(userId, "quickadd.failed")))
             return
         }
-        val request = CreateBacklogTaskRequest(
-            title = draft.title,
-            description = draft.description,
-            priority = draft.priority,
-            deadline = draft.deadline,
-            estimatedMinutes = draft.estimatedMinutes,
-            categoryId = categoryId,
-            tags = draft.tags.map { TagInput(id = it.id, label = it.label, colorId = TagColorOptions.resolve(it.colorId)) },
-        )
         runCatching {
             val boardId = boardMembershipService.resolveDefaultBoard(userId)
-            backlogTaskService.createTask(userId, boardId, request)
+            backlogTaskService.createTask(userId, boardId, draft.toCreateBacklogTaskRequest())
         }.onSuccess { created ->
             count("saved")
             log.debug("quick-add created backlog task {}", created.id)

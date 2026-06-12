@@ -257,13 +257,7 @@ data class TaskDraft(
     val priority: String? = null,
     val deadline: String? = null,
     @JsonProperty("estimated_minutes") val estimatedMinutes: Int? = null,
-    val tags: List<TagDraft> = emptyList(),
-)
-
-data class TagDraft(
-    val id: String? = null,
-    val label: String,
-    @JsonProperty("color_id") val colorId: String,
+    val tags: List<TagArg> = emptyList(),
 )
 
 /** The result of a quick-add drafting/revision call: a draft, a clarifying question, or a parse failure. */
@@ -292,7 +286,7 @@ private data class QuickAddRaw(
     val priority: String? = null,
     val deadline: String? = null,
     @JsonProperty("estimated_minutes") val estimatedMinutes: Int? = null,
-    val tags: List<TagDraft> = emptyList(),
+    val tags: List<TagArg> = emptyList(),
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)

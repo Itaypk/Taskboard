@@ -173,6 +173,30 @@ Mirrors `CreateTaskTool.execute` but without the model in the loop:
   Default board only in v1 — consistent with the planner's temporary userId-only bridge
   (`BOARD-SHARING-PHASE1.md`); board pickers can come with planner board-awareness.
 
+### Why a structured-output sub-agent, not tools
+
+The planning conversation uses **tools**: the model emits `tool_calls` (`say`, `ask_choice`,
+`create_task`, …) that `WeeklyPlanningOrchestrator` dispatches. Quick-add does **not**, and
+that's deliberate. There are two LLM layers in this codebase:
+
+- the **orchestrator layer** (`WeeklyPlanningOrchestrator` + `AiConversationManager` +
+  `ToolRegistry`) — a multi-turn, tool-calling conversation; and
+- the **sub-agent layer** (`TaskSuggestionAgent`, `BacklogTaskSearchAgent`) — single-shot
+  calls that pass **no** tools and ask the model for one structured JSON object, parsed in
+  Kotlin. Their prompts reference no tools (`task-suggestion/system.md`,
+  `task-search/system.md`).
+
+Quick-add's drafting *is* a sub-agent — the same `TaskSuggestionAgent` the in-session
+`suggest_task` tool already wraps — so it belongs in the second layer. The `clarify` outcome
+is therefore **a second variant of the sub-agent's structured response** (a discriminated
+union `draft | clarify`), not a tool; and the turn-taking that would otherwise be a tool loop
+is the deterministic `QuickAddFlow` state machine. This keeps the mistake surface small for a
+cheap model (the whole point) and avoids dragging in conversation persistence and the
+interactive-queue machinery for a 1–3 turn capture. The only thing tools would add here is
+provider-side argument validation, which the deterministic save path (`toCreateBacklogTaskRequest`
++ field validation in `QuickAddFlow.validate`) covers. Converging onto real tools stays an
+option (see "bounded conversation, not an agent" above) if that calculus changes.
+
 ### `TaskSuggestionAgent` extensions (the new LLM behavior)
 
 Two additions, both single-turn calls with the same focused shape as today's `suggest`:

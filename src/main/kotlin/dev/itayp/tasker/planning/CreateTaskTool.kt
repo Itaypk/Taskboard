@@ -4,8 +4,6 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import dev.itayp.tasker.ai.tool.AiTool
 import dev.itayp.tasker.ai.tool.ToolKind
 import dev.itayp.tasker.model.TaskPriority
-import dev.itayp.tasker.model.request.CreateBacklogTaskRequest
-import dev.itayp.tasker.model.request.TagInput
 import dev.itayp.tasker.service.BacklogTaskService
 import dev.itayp.tasker.service.BoardMembershipService
 import org.slf4j.LoggerFactory
@@ -85,15 +83,15 @@ class CreateTaskTool(
             }
         } ?: boardMembershipService.resolveDefaultBoard(userId)
 
-        val request = CreateBacklogTaskRequest(
+        val request = TaskDraft(
             title = args.title,
             description = args.description,
+            categoryId = args.categoryId,
             priority = args.priority,
             deadline = args.deadline,
             estimatedMinutes = args.estimatedMinutes,
-            categoryId = args.categoryId,
-            tags = args.tags.map { TagInput(id = it.id, label = it.label, colorId = TagColorOptions.resolve(it.colorId)) },
-        )
+            tags = args.tags,
+        ).toCreateBacklogTaskRequest()
 
         return runCatching {
             val created = backlogTaskService.createTask(userId, boardId, request)

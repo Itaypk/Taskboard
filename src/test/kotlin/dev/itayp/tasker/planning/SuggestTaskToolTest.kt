@@ -23,7 +23,7 @@ class SuggestTaskToolTest {
             title = "Call the dentist",
             categoryId = UUID.randomUUID().toString(),
             priority = "medium",
-            tags = listOf(TagDraft(label = "health", colorId = "rose")),
+            tags = listOf(TagArg(label = "health", colorId = "rose")),
         )
         whenever(suggestionAgent.suggest(userId, "book a dentist appointment")).thenReturn(draft)
 
