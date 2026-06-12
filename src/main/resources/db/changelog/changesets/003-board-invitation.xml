@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Board sharing — Phase 2, PR 2: board invitations.
+
+        A pending invitation is an email capability token (mirrors email_login_token): single-use,
+        TTL'd, rate-limited, and storing only the email hash — never the plaintext address (the owner
+        typed it). Status is derived, not stored: pending = not consumed, not revoked, not expired.
+        invited_by_user_id / accepted_by_user_id are nullable so an invitation survives its sender's
+        account deletion (nulled, not cascaded) and starts life unaccepted.
+    -->
+    <changeSet id="003-1-board-invitation" author="tasker">
+        <createTable tableName="board_invitation">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="board_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_board_invitation_board" references="board(id)"/>
+            </column>
+            <!-- SHA-256 of the normalized address; no plaintext stored. -->
+            <column name="email_hash" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="token" type="VARCHAR(64)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uq_board_invitation_token"/>
+            </column>
+            <column name="invited_by_user_id" type="UUID">
+                <constraints nullable="true" foreignKeyName="fk_board_invitation_inviter" references="users(id)"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="expires_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="consumed_at" type="TIMESTAMP">
+                <constraints nullable="true"/>
+            </column>
+            <column name="revoked_at" type="TIMESTAMP">
+                <constraints nullable="true"/>
+            </column>
+            <column name="accepted_by_user_id" type="UUID">
+                <constraints nullable="true" foreignKeyName="fk_board_invitation_acceptor" references="users(id)"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="board_invitation" indexName="idx_board_invitation_board">
+            <column name="board_id"/>
+        </createIndex>
+        <!-- Backs both "pending for this (board, email)" lookups and the per-board rate limit. -->
+        <createIndex tableName="board_invitation" indexName="idx_board_invitation_board_email">
+            <column name="board_id"/>
+            <column name="email_hash"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

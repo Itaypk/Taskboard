@@ -60,6 +60,55 @@ fun BoardSummary.toResponse() = BoardResponse(
     createdAt = createdAt.toString(),
 )
 
+data class BoardMemberResponse(
+    val userId: String,
+    val role: String,
+    val joinedAt: String,
+    val displayName: String,
+)
+
+fun dev.itayp.tasker.model.BoardMember.toResponse() = BoardMemberResponse(
+    userId = userId.toString(),
+    role = role.name,
+    joinedAt = joinedAt.toString(),
+    displayName = displayName,
+)
+
+/** Address-free pending invitation (we never store the recipient's plaintext email). */
+data class PendingInvitationResponse(
+    val id: String,
+    val createdAt: String,
+    val expiresAt: String,
+)
+
+fun dev.itayp.tasker.model.PendingInvitation.toResponse() = PendingInvitationResponse(
+    id = id.toString(),
+    createdAt = createdAt.toString(),
+    expiresAt = expiresAt.toString(),
+)
+
+data class InvitationPreviewResponse(
+    val boardName: String,
+    val inviterName: String,
+    val expiresAt: String,
+)
+
+fun dev.itayp.tasker.model.InvitationPreview.toResponse() = InvitationPreviewResponse(
+    boardName = boardName,
+    inviterName = inviterName,
+    expiresAt = expiresAt.toString(),
+)
+
+data class AcceptInvitationResponse(
+    val boardId: String,
+    val boardName: String,
+)
+
+fun dev.itayp.tasker.model.AcceptedInvitation.toResponse() = AcceptInvitationResponse(
+    boardId = boardId.toString(),
+    boardName = boardName,
+)
+
 data class TagResponseItem(val label: String, val colorId: String)
 
 data class TaskResponse(

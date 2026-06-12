@@ -13,4 +13,7 @@ interface AuthIdentityRepository : JpaRepository<AuthIdentityEntity, UUID> {
 
     /** All identities attached to a user — used by account-linking and profile screens. */
     fun findAllByUserId(userId: UUID): List<AuthIdentityEntity>
+
+    /** Whether a user has any login method — demo users deliberately have none. */
+    fun existsByUserId(userId: UUID): Boolean
 }

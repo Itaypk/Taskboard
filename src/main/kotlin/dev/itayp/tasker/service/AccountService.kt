@@ -53,37 +53,27 @@ class AccountService(
         // Sessions: SPRING_SESSION_ATTRIBUTES cascades from SPRING_SESSION
         jdbcTemplate.update("DELETE FROM SPRING_SESSION WHERE PRINCIPAL_NAME = ?", userId.toString())
 
-        // Boards owned by this user (Phase 0: sole owner of each). Board-owned content
-        // (tasks/categories/tags) is deleted here; the board rows themselves go at the very end,
-        // once nothing references them. Shared-board ownership transfer arrives in a later phase.
+        // §6 of docs/BOARD-SHARING.md: a board the user is the *sole* member of is deleted with its
+        // content; a *shared* board survives their departure. Raw SQL (not JPA repo deletes) so each
+        // statement executes immediately and in FK order — a deferred Hibernate flush would let a
+        // `DELETE FROM board` run while board-owned rows still reference it (a Postgres FK violation).
         val boardIds: List<UUID> = jdbcTemplate.queryForList(
             "SELECT board_id FROM board_membership WHERE user_id = ?", UUID::class.java, userId,
         ).filterNotNull()
+        val soleBoards = mutableListOf<UUID>()
         for (boardId in boardIds) {
-            // Raw SQL (not JPA repo deletes) so each statement executes immediately and in FK order.
-            // A deferred Hibernate flush would otherwise let the `DELETE FROM board` below run while
-            // board-owned rows still reference it — a Postgres FK violation. The task join table has
-            // no ON DELETE CASCADE, so its rows go before the tasks.
-            jdbcTemplate.update(
-                "DELETE FROM backlog_task_tags WHERE task_id IN (SELECT id FROM backlog_task WHERE board_id = ?)",
-                boardId,
-            )
-            jdbcTemplate.update("DELETE FROM backlog_task WHERE board_id = ?", boardId)
-            jdbcTemplate.update("DELETE FROM backlog_task_tag WHERE board_id = ?", boardId)
-            jdbcTemplate.update("DELETE FROM backlog_task_category WHERE board_id = ?", boardId)
-            // The change feed and watermark are board-keyed (Phase 2). Phase 1 boards are
-            // single-member, so every board here is deleted outright — change events go before the
-            // board row (FK) and before planning_session (the event's session FK). Ownership
-            // transfer (nulling actor on surviving boards) arrives with multi-member boards.
-            jdbcTemplate.update("DELETE FROM backlog_task_change_event WHERE board_id = ?", boardId)
-            jdbcTemplate.update("DELETE FROM backlog_task_watermark WHERE board_id = ?", boardId)
+            val memberCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM board_membership WHERE board_id = ?", Int::class.java, boardId,
+            ) ?: 0
+            if (memberCount <= 1) soleBoards += boardId else departSharedBoard(userId, boardId)
         }
+        soleBoards.forEach { deleteBoardContent(it) }
 
         settingsRepository.deleteById(userId)
 
         // User-owned audit rows. ai_usage_event FKs users(id) with no cascade, so it must be
         // cleared before the user row is deleted. (The change feed and watermark are board-keyed
-        // now and were deleted in the per-board loop above.)
+        // now: sole boards' rows were deleted above; shared boards keep them with a nulled actor.)
         jdbcTemplate.update("DELETE FROM ai_usage_event WHERE user_id = ?", userId)
         // planned_task_slot → planned_task → planning_session; no user_id on slot, so use a subquery
         jdbcTemplate.update(
@@ -95,17 +85,78 @@ class AccountService(
         jdbcTemplate.update("DELETE FROM planning_session WHERE user_id = ?", userId)
         // ai_message cascades automatically from ai_conversation (ON DELETE CASCADE in schema)
         jdbcTemplate.update("DELETE FROM ai_conversation WHERE user_id = ?", userId)
+
+        // Invitations on surviving boards outlive their sender/acceptor (like the board itself), so
+        // null the FK rather than delete the row. Sole-board invitations were already dropped above.
+        jdbcTemplate.update("UPDATE board_invitation SET invited_by_user_id = NULL WHERE invited_by_user_id = ?", userId)
+        jdbcTemplate.update("UPDATE board_invitation SET accepted_by_user_id = NULL WHERE accepted_by_user_id = ?", userId)
+
         // auth_identities and user_data_key both FK to users; remove last so the user row delete can proceed.
         jdbcTemplate.update("DELETE FROM auth_identities WHERE user_id = ?", userId)
         jdbcTemplate.update("DELETE FROM user_data_key WHERE user_id = ?", userId)
 
-        // Board rows last: board-owned content above is gone, and board_membership FKs users, so it
-        // must be cleared before the user row delete can proceed.
-        for (boardId in boardIds) {
+        // Sole-board rows last: their content is gone and board_membership FKs users, so they must be
+        // cleared before the user row delete can proceed.
+        for (boardId in soleBoards) {
             jdbcTemplate.update("DELETE FROM board_membership WHERE board_id = ?", boardId)
             jdbcTemplate.update("DELETE FROM board_data_key WHERE board_id = ?", boardId)
             jdbcTemplate.update("DELETE FROM board WHERE id = ?", boardId)
         }
+    }
+
+    /**
+     * The user leaves a board that other members keep. If they were its only OWNER, the
+     * longest-tenured remaining member is auto-promoted first (§6). The board's history survives:
+     * the user's claims are cleared and their change-event actor is nulled (not deleted).
+     */
+    private fun departSharedBoard(userId: UUID, boardId: UUID) {
+        val isOwner = (jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM board_membership WHERE board_id = ? AND user_id = ? AND role = 'OWNER'",
+            Int::class.java, boardId, userId,
+        ) ?: 0) > 0
+        if (isOwner) {
+            val otherOwners = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM board_membership WHERE board_id = ? AND role = 'OWNER' AND user_id <> ?",
+                Int::class.java, boardId, userId,
+            ) ?: 0
+            if (otherOwners == 0) {
+                val nextOwner = jdbcTemplate.queryForList(
+                    "SELECT user_id FROM board_membership WHERE board_id = ? AND user_id <> ? " +
+                        "ORDER BY joined_at ASC, user_id ASC",
+                    UUID::class.java, boardId, userId,
+                ).firstOrNull()
+                if (nextOwner != null) {
+                    jdbcTemplate.update(
+                        "UPDATE board_membership SET role = 'OWNER' WHERE board_id = ? AND user_id = ?",
+                        boardId, nextOwner,
+                    )
+                }
+            }
+        }
+        jdbcTemplate.update("DELETE FROM board_membership WHERE board_id = ? AND user_id = ?", boardId, userId)
+        jdbcTemplate.update(
+            "UPDATE backlog_task SET assignee_user_id = NULL WHERE board_id = ? AND assignee_user_id = ?",
+            boardId, userId,
+        )
+        jdbcTemplate.update(
+            "UPDATE backlog_task_change_event SET actor_user_id = NULL WHERE board_id = ? AND actor_user_id = ?",
+            boardId, userId,
+        )
+    }
+
+    /** Deletes every board-owned row for a board (used when the departing user was its sole member). */
+    private fun deleteBoardContent(boardId: UUID) {
+        // The task join table has no ON DELETE CASCADE, so its rows go before the tasks.
+        jdbcTemplate.update(
+            "DELETE FROM backlog_task_tags WHERE task_id IN (SELECT id FROM backlog_task WHERE board_id = ?)",
+            boardId,
+        )
+        jdbcTemplate.update("DELETE FROM backlog_task WHERE board_id = ?", boardId)
+        jdbcTemplate.update("DELETE FROM backlog_task_tag WHERE board_id = ?", boardId)
+        jdbcTemplate.update("DELETE FROM backlog_task_category WHERE board_id = ?", boardId)
+        jdbcTemplate.update("DELETE FROM backlog_task_change_event WHERE board_id = ?", boardId)
+        jdbcTemplate.update("DELETE FROM backlog_task_watermark WHERE board_id = ?", boardId)
+        jdbcTemplate.update("DELETE FROM board_invitation WHERE board_id = ?", boardId)
     }
 
     /**

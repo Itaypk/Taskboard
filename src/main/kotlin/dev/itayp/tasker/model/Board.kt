@@ -10,3 +10,11 @@ data class BoardSummary(
     val role: BoardRole,
     val createdAt: Instant,
 )
+
+/** One member of a board, with a server-resolved display name (see [dev.itayp.tasker.service.MemberDisplayNameResolver]). */
+data class BoardMember(
+    val userId: UUID,
+    val role: BoardRole,
+    val joinedAt: Instant,
+    val displayName: String,
+)

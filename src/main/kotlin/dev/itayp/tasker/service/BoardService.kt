@@ -117,6 +117,7 @@ class BoardService(
         // Change feed + watermark are board-keyed (Phase 2); they FK the board, so clear before it.
         jdbcTemplate.update("DELETE FROM backlog_task_change_event WHERE board_id = ?", boardId)
         jdbcTemplate.update("DELETE FROM backlog_task_watermark WHERE board_id = ?", boardId)
+        jdbcTemplate.update("DELETE FROM board_invitation WHERE board_id = ?", boardId)
         jdbcTemplate.update("DELETE FROM board_membership WHERE board_id = ?", boardId)
         jdbcTemplate.update("DELETE FROM board_data_key WHERE board_id = ?", boardId)
         jdbcTemplate.update("DELETE FROM board WHERE id = ?", boardId)

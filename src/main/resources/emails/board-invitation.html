@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="{{lang}}" dir="{{dir}}">
+<head><meta charset="UTF-8"></head>
+<body style="font-family: sans-serif; color: #1a1a1a; max-width: 600px; margin: 0 auto; padding: 24px;">
+  <h2 style="margin-top: 0;">{{message "email.boardInvite.heading"}}</h2>
+  <p>{{message "email.boardInvite.body1" inviter_name board_name}}</p>
+  <p>{{message "email.boardInvite.body2"}}</p>
+  <p style="margin: 32px 0;">
+    <a href="{{accept_url}}"
+       style="background: #1a1a1a; color: #fff; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-size: 0.95em; display: inline-block;">
+      {{message "email.boardInvite.button"}}
+    </a>
+  </p>
+  <p style="font-size: 0.85em; color: #666;">
+    {{message "email.boardInvite.ignore"}}
+  </p>
+  <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 24px 0;">
+  <p style="font-size: 0.85em; color: #666;">
+    {{{message "email.footer.sent_by"}}}
+  </p>
+</body>
+</html>

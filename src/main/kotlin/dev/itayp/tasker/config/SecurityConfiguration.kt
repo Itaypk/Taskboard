@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Profile
 import org.springframework.core.annotation.Order
 import org.springframework.core.env.Environment
 import org.springframework.core.env.Profiles
+import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
@@ -117,6 +118,10 @@ class SecurityConfiguration(
                 authorize("/api/auth/email/callback", permitAll)
                 authorize("/api/auth/logout", permitAll)
                 authorize("/api/v1/settings/email/verify", permitAll)
+                // Invitation preview is the side-effect-free accept-screen read; the token is the
+                // authorization, so it's reachable unauthenticated. Accept (POST .../accept) is not
+                // matched here and falls through to authenticated.
+                authorize(HttpMethod.GET, "/api/v1/invitations/*", permitAll)
                 authorize("/api/**", authenticated)
                 authorize("/actuator/health", permitAll)
                 authorize("/actuator/health/**", permitAll)

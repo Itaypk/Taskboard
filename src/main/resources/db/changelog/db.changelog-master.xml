@@ -6,5 +6,6 @@
 
     <include file="db/changelog/changesets/001-schema.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changesets/002-board-change-feed.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changesets/003-board-invitation.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

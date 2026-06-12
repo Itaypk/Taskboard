@@ -79,4 +79,9 @@ interface BacklogTaskRepository : JpaRepository<BacklogTaskEntity, UUID> {
         """
     )
     fun incrementRescheduleCountForUnfinishedTasks(boardId: UUID, sessionId: UUID): Int
+
+    /** Clears claims a departing member holds on a board's tasks — no ghost assignees behind them. */
+    @Modifying
+    @Query("UPDATE BacklogTaskEntity t SET t.assigneeUserId = NULL WHERE t.boardId = :boardId AND t.assigneeUserId = :userId")
+    fun clearAssigneeOnBoardForUser(boardId: UUID, userId: UUID): Int
 }
