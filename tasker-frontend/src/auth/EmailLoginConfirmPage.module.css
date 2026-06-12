@@ -2,13 +2,15 @@
    Layout (page, nav, brand, stage) comes from LoginPage.module.css. */
 
 .card {
-    background: #fff;
-    border: 1px solid var(--cb-rule);
-    border-radius: 4px;
+    --fill: #fceeb5;
+    --edge: #e0cc60;
+    background: var(--fill);
+    border-radius: 2px 2px 12px 2px;
     box-shadow:
-        0 2px 8px rgba(42, 31, 20, 0.08),
-        0 0 0 1px rgba(214, 203, 176, 0.4);
-    padding: 40px 44px 36px;
+        0 1px 1px rgba(70, 50, 20, 0.06),
+        0 6px 16px rgba(70, 50, 20, 0.12),
+        0 24px 48px -12px rgba(70, 50, 20, 0.22);
+    padding: 40px 44px 44px;
     width: 100%;
     max-width: 440px;
     display: flex;
@@ -16,6 +18,7 @@
     position: relative;
 }
 
+/* Tape strip at top */
 .card::before {
     content: '';
     position: absolute;
@@ -26,6 +29,20 @@
     height: 22px;
     background: rgba(214, 203, 176, 0.55);
     border-radius: 2px;
+}
+
+/* Peeled corner — matches .sat::after in LoginPage.module.css */
+.card::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 22px;
+    height: 22px;
+    border-radius: 0 0 12px 0;
+    background:
+        linear-gradient(135deg, transparent 49%, rgba(0, 0, 0, 0.16) 50%, rgba(0, 0, 0, 0.05) 60%, transparent 72%),
+        linear-gradient(315deg, var(--edge) 50%, transparent 50%);
 }
 
 .cardTag {
@@ -132,9 +149,9 @@
     font-family: var(--font-mono);
     font-size: 0.8rem;
     line-height: 1.5;
-    color: #a33;
-    background: #fff5f5;
-    border: 1px solid #f5c6c6;
+    color: #8b2020;
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid rgba(180, 80, 80, 0.3);
     border-radius: 4px;
     padding: 10px 14px;
     margin-bottom: 16px;
