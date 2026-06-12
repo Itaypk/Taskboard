@@ -8,12 +8,14 @@ import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.jpa.EmailLoginTokenEntity
 import dev.itayp.tasker.jpa.UserEntity
 import dev.itayp.tasker.repository.EmailLoginTokenRepository
+import dev.itayp.tasker.util.localRedirect
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.context.MessageSource
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.net.URLEncoder
 import java.time.Clock
 import java.time.Duration
 import java.util.Locale
@@ -45,9 +47,13 @@ class EmailLoginService(
     /**
      * Sends a login link for [email], unless the address has hit its recent-send rate limit.
      * Returns nothing and never reveals whether the address maps to an account (no enumeration).
+     *
+     * [next] is an optional same-origin path to navigate to after login (e.g. a board invitation
+     * accept page). It is validated and threaded through the confirm-page URL so the SPA can
+     * redirect there on success.
      */
     @Transactional
-    fun requestLogin(email: String) {
+    fun requestLogin(email: String, next: String? = null) {
         val normalised = email.trim().lowercase()
         val emailHash = EmailHasher.hash(normalised)
         val now = clock.instant()
@@ -67,7 +73,14 @@ class EmailLoginService(
             this.expiresAt = now.plus(TOKEN_TTL)
         })
 
-        val loginUrl = "${appProperties.baseUrl}/api/auth/email/callback?token=$token"
+        // The link opens a side-effect-free SPA confirm page; the actual session is created on POST.
+        val safeNext = localRedirect(next).takeIf { it != "/" || next == "/" }
+        val loginUrl = buildString {
+            append("${appProperties.baseUrl}/email-login?token=$token")
+            if (safeNext != null && safeNext != "/") {
+                append("&next=${URLEncoder.encode(safeNext, Charsets.UTF_8)}")
+            }
+        }
         // Recipient locale is unknown before they have an account, so login emails default to English.
         val locale = Locale.ENGLISH
         val htmlBody = emailTemplateEngine.render(
@@ -82,6 +95,17 @@ class EmailLoginService(
             EmailMessage(to = listOf(normalised), subject = subject, htmlBody = htmlBody, textBody = textBody),
         )
         log.info("Email login link sent for emailHash={}", emailHash)
+    }
+
+    /**
+     * Side-effect-free validity check so the confirm page can show an early error before the user
+     * clicks. Does not consume or modify the token in any way — safe for scanner prefetches.
+     */
+    @Transactional(readOnly = true)
+    fun precheckToken(token: String): Boolean {
+        val row = tokenRepository.findById(token).orElse(null) ?: return false
+        val expiry = row.expiresAt ?: return false
+        return row.consumedAt == null && !clock.instant().isAfter(expiry)
     }
 
     /**
