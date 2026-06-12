@@ -1,0 +1,151 @@
+/* BrandBoard — fused brand + board switcher.
+   Relies on the same design tokens the rest of the app uses
+   (--paper-surface, --paper-border, --paper-border-2, --ink,
+   --ink-ghost, --r, --t, --shadow-note, --accent-edge). */
+
+/* Brand unit: tape and board tag side by side, single row. */
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 28px;                   /* roughly lines the switcher up with the grid's left edge */
+  flex: none;
+}
+
+/* Positioning context for the dropdown, anchored to the tag (not the tape) so
+   the menu still drops under the trigger once the tape is hidden on mobile. */
+.switcher {
+  position: relative;
+  display: inline-flex;
+}
+
+/* The board tag = the switcher trigger. A clean paper control beside the tape.
+   Fixed width so a longer board name ellipsizes rather than widening the brand
+   unit (which would shift the centered filter row). */
+.label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: 200px;
+  padding: 6px 13px 7px;
+  background: var(--paper-surface);
+  border: 1px solid var(--paper-border);
+  border-radius: 7px;
+  box-shadow: 0 4px 10px -6px rgba(40, 28, 10, 0.32);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background var(--t), box-shadow var(--t);
+}
+
+.label:hover {
+  background: #fff;
+  box-shadow: var(--shadow-note);
+}
+
+.label:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--paper-border-2), 0 4px 10px -6px rgba(40, 28, 10, 0.32);
+}
+
+.labelName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chev {
+  flex: none;
+  color: var(--ink-ghost);
+  transition: transform 180ms;
+}
+.label[aria-expanded='true'] .chev { transform: rotate(180deg); }
+
+/* Mobile: drop the wordmark, keep the switcher as a standalone flat pill so it
+   shares the top row with the action buttons. */
+@media (max-width: 600px) {
+  .tape { display: none; }
+  .label { width: auto; max-width: 48vw; }
+}
+
+/* ── Dropdown (unchanged from the original BoardSwitcher) ───────── */
+.menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  background: var(--paper-surface);
+  border: 1px solid var(--paper-border);
+  border-radius: calc(var(--r) + 2px);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.12),
+    0 1px 3px rgba(0, 0, 0, 0.08);
+  min-width: 220px;
+  max-width: 320px;
+  max-height: 60vh;
+  overflow-y: auto;
+  z-index: 9999;
+}
+
+.divider {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--paper-border);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 16px;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--ink);
+  transition: background var(--t), color var(--t);
+  white-space: nowrap;
+}
+
+.item:hover,
+.item:focus-visible {
+  background: rgba(90, 70, 30, 0.07);
+  outline: none;
+}
+
+.itemActive { font-weight: 600; }
+
+/* Filled dot marks the active board; others get a hollow ring. */
+.itemDot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid var(--paper-border-2);
+}
+.itemActive .itemDot {
+  background: var(--accent-edge, var(--ink));
+  border-color: var(--accent-edge, var(--ink));
+}
+
+.itemName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.itemDanger { color: #b91c1c; }
+.itemDanger:hover,
+.itemDanger:focus-visible {
+  background: rgba(185, 28, 28, 0.07);
+  color: #b91c1c;
+}

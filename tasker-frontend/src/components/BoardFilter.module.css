@@ -2,8 +2,10 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  /* Inline with the header on wide screens. */
+  /* Inline with the header on wide screens, centered between the brand and the
+     action buttons (the auto margins are inert once the row wraps full-width). */
   flex: 0 1 auto;
+  margin-inline: auto;
 }
 
 .chip {

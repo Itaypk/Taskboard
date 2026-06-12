@@ -133,8 +133,12 @@ input[type="number"] { -moz-appearance: textfield; }
   -webkit-backdrop-filter: blur(2px);
   flex-shrink: 0;
 }
-/* Push button cluster to the far right whether or not the filter row wraps. */
+/* Keep the button cluster on the far right once the filter row wraps to its
+   own line; on wide screens the filter row's auto margins center it instead. */
 .header > .header-right { margin-left: auto; }
+@media (min-width: 821px) {
+  .header > .header-right { margin-left: 0; }
+}
 
 /* Dymo-style label strip — logo sits inside embossed dark tape */
 .logo-tape {

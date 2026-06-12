@@ -18,7 +18,7 @@ import { PostItNote } from './components/PostItNote';
 import { TaskDrawer } from './components/TaskDrawer';
 import { SettingsModal } from './components/SettingsModal';
 import { BoardFilter } from './components/BoardFilter';
-import { BoardSwitcher } from './components/BoardSwitcher';
+import { BrandBoard } from './components/BrandBoard';
 import { BoardNameDialog } from './components/BoardNameDialog';
 import { WeeklyPlanDrawer } from './components/WeeklyPlanDrawer';
 import { ContextMenu, type ContextMenuAction } from './components/ContextMenu';
@@ -463,8 +463,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   return (
     <>
       <header className="header">
-        <span className="logo-tape">Backlog.fyi</span>
-        <BoardSwitcher
+        <BrandBoard
           boards={boards}
           activeBoardId={activeBoardId}
           onSwitch={switchBoard}
