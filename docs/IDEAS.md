@@ -29,10 +29,8 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Edit existing tags; add "description" to a tag (consider if needed)
 - Task list Markdown (subtasks) checkboxes - makes it possible to check directly from the main screen
 - Filter chips can still wrap on very small screens even after the "Week" shortening. If it keeps bugging us, consider a segmented control or horizontally-scrollable chip row on mobile.
-- The sliders icon semantically leans "settings," but the menu also holds Stats and Sign out. Still needs improvement 
 
 ## Assistant - Mid-week response
-- Re-use the existing "suggest_task" tool for a standalone /add command (would need more development for conversational adjustments - this will be a conversation). **Planned — see `docs/QUICK-ADD.md`.**
 - When texting the assistant out of the blue, respond with the correct context.
 
 ## Following up
