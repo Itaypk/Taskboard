@@ -190,9 +190,10 @@ class PlanningSessionService(
     @Transactional(readOnly = true)
     fun diffSincePreviousSession(userId: UUID, beforeWeek: LocalDate): TaskChangeSummary {
         val previous = findPreviousSummarizableSession(userId, beforeWeek)
-            ?: return TaskChangeSummary(emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), 0)
+            ?: return BacklogTaskChangeService.EMPTY_SUMMARY
         val since = previous.endedAt ?: previous.startedAt
-        return backlogTaskChangeService.summarizeSince(userId, since)
+        // The change feed is board-keyed; aggregate across every board the user belongs to.
+        return backlogTaskChangeService.summarizeSince(boardMembershipService.listBoardIds(userId), since)
     }
 }
 

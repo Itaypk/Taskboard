@@ -49,16 +49,16 @@ class TaskAutoArchiveService(
                     backlogTaskRepository.save(entity)
                     val plaintextTitle = boardCrypto.decrypt(boardId, entity.title) ?: ""
                     taskChangeService.recordStatusChange(
-                        userId, entity.id!!, plaintextTitle, TaskStatus.DONE, TaskStatus.ARCHIVED
+                        boardId, userId, entity.id!!, plaintextTitle, TaskStatus.DONE, TaskStatus.ARCHIVED
                     )
+                }
+                // The watermark is board-keyed, so bump each board we actually swept.
+                if (stale.isNotEmpty()) {
+                    taskChangeService.bumpWatermark(boardId)
                 }
                 userArchived += stale.size
             }
 
-            // The watermark is per-user (Phase-0 deviation), so bump it once after sweeping all boards.
-            if (userArchived > 0) {
-                taskChangeService.bumpWatermark(userId)
-            }
             totalArchived += userArchived
         }
 

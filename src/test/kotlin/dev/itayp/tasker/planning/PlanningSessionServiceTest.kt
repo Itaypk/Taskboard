@@ -312,8 +312,9 @@ class PlanningSessionServiceTest {
         }
         whenever(planningSessionRepository.findFirstByUserIdAndStatusAndWeekStartLessThanOrderByWeekStartDesc(
             userId, PlanningSessionStatus.COMPLETED, weekStart)).thenReturn(previous)
+        whenever(boardMembershipService.listBoardIds(userId)).thenReturn(listOf(boardId))
         val expected = TaskChangeSummary(emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), 7)
-        whenever(backlogTaskChangeService.summarizeSince(userId, previous.endedAt!!)).thenReturn(expected)
+        whenever(backlogTaskChangeService.summarizeSince(listOf(boardId), previous.endedAt!!)).thenReturn(expected)
 
         val result = service.diffSincePreviousSession(userId, weekStart)
 

@@ -8,16 +8,12 @@ import java.util.UUID
 @Repository
 interface BacklogTaskChangeEventRepository : JpaRepository<BacklogTaskChangeEventEntity, UUID> {
 
-    fun findAllByUserIdAndOccurredAtGreaterThanEqualOrderByOccurredAtAsc(
-        userId: UUID,
+    /** The planner's cross-board "since last session" diff: events on any of the user's boards. */
+    fun findAllByBoardIdInAndOccurredAtGreaterThanEqualOrderByOccurredAtAsc(
+        boardIds: Collection<UUID>,
         occurredAt: Instant,
     ): List<BacklogTaskChangeEventEntity>
 
-    fun findAllByUserIdOrderByOccurredAtAsc(userId: UUID): List<BacklogTaskChangeEventEntity>
-
-    fun findAllByUserIdAndOccurredAtBetweenOrderByOccurredAtAsc(
-        userId: UUID,
-        from: Instant,
-        to: Instant,
-    ): List<BacklogTaskChangeEventEntity>
+    /** Personal stats: everything this user did, across boards (scoping is by actor, not board). */
+    fun findAllByActorUserIdOrderByOccurredAtAsc(actorUserId: UUID): List<BacklogTaskChangeEventEntity>
 }

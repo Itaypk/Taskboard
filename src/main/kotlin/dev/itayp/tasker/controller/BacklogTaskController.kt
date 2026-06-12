@@ -40,9 +40,9 @@ class BacklogTaskController(
 ) {
 
     /**
-     * The watermark behind this is still per-user (Phase-0 deviation), so a change on another of
-     * the user's boards may over-trigger a refresh here; becomes exactly board-scoped when Phase 2
-     * re-keys the watermark.
+     * Board-scoped staleness check: the watermark is keyed by board, so this reflects exactly this
+     * board's changes — including edits made by other members — and nothing from the user's other
+     * boards.
      */
     @GetMapping("/has-changes")
     fun hasTaskChanges(
@@ -55,7 +55,7 @@ class BacklogTaskController(
             return ResponseEntity.badRequest().build()
         }
         val checkedAt = clock.instant()
-        val hasChanges = backlogTaskChangeService.changedSince(principal.userId, sinceInstant)
+        val hasChanges = backlogTaskChangeService.changedSince(boardId, sinceInstant)
         return ResponseEntity.ok(HasChangesResponse(hasChanges = hasChanges, checkedAt = checkedAt.toString()))
     }
 

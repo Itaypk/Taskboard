@@ -47,7 +47,7 @@ class StatsServiceTest {
     fun `empty user yields an empty snapshot`() {
         stubUser(joinedAt = now)
         stubCounts(open = 0, completed = 0, sessions = 0)
-        whenever(changeEventRepository.findAllByUserIdOrderByOccurredAtAsc(userId)).thenReturn(emptyList())
+        whenever(changeEventRepository.findAllByActorUserIdOrderByOccurredAtAsc(userId)).thenReturn(emptyList())
 
         val stats = service.computeStats(userId)
 
@@ -72,7 +72,7 @@ class StatsServiceTest {
             // taskB completed four days after creation
             statusChange(taskB, start.plus(Duration.ofDays(5)), TaskStatus.TODO, TaskStatus.DONE),
         )
-        whenever(changeEventRepository.findAllByUserIdOrderByOccurredAtAsc(userId)).thenReturn(events)
+        whenever(changeEventRepository.findAllByActorUserIdOrderByOccurredAtAsc(userId)).thenReturn(events)
 
         val stats = service.computeStats(userId)
 
@@ -99,7 +99,7 @@ class StatsServiceTest {
             statusChange(task, start.plus(Duration.ofDays(2)), TaskStatus.DONE, TaskStatus.TODO),
             statusChange(task, start.plus(Duration.ofDays(3)), TaskStatus.TODO, TaskStatus.DONE),
         )
-        whenever(changeEventRepository.findAllByUserIdOrderByOccurredAtAsc(userId)).thenReturn(events)
+        whenever(changeEventRepository.findAllByActorUserIdOrderByOccurredAtAsc(userId)).thenReturn(events)
 
         val stats = service.computeStats(userId)
 
@@ -126,7 +126,7 @@ class StatsServiceTest {
     }
 
     private fun created(taskId: UUID, at: Instant) = BacklogTaskChangeEventEntity().apply {
-        this.userId = this@StatsServiceTest.userId
+        this.actorUserId = this@StatsServiceTest.userId
         this.taskId = taskId
         this.changeType = BacklogTaskChangeType.CREATED
         this.newStatus = TaskStatus.TODO
@@ -135,7 +135,7 @@ class StatsServiceTest {
 
     private fun statusChange(taskId: UUID, at: Instant, from: TaskStatus, to: TaskStatus) =
         BacklogTaskChangeEventEntity().apply {
-            this.userId = this@StatsServiceTest.userId
+            this.actorUserId = this@StatsServiceTest.userId
             this.taskId = taskId
             this.changeType = BacklogTaskChangeType.STATUS_CHANGED
             this.previousStatus = from

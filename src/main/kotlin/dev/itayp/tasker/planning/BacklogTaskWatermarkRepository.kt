@@ -8,5 +8,5 @@ import java.util.UUID
 @Repository
 interface BacklogTaskWatermarkRepository : JpaRepository<BacklogTaskWatermarkEntity, UUID> {
 
-    fun existsByUserIdAndTasksChangedAtGreaterThanEqual(userId: UUID, tasksChangedAt: Instant): Boolean
+    fun existsByBoardIdAndTasksChangedAtGreaterThanEqual(boardId: UUID, tasksChangedAt: Instant): Boolean
 }

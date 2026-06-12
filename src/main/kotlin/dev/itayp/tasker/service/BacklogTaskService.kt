@@ -103,7 +103,7 @@ class BacklogTaskService(
             entity.lastScheduledInSessionId = sessionId
         }
         backlogTaskRepository.saveAll(entities)
-        taskChangeService.bumpWatermark(userId)
+        entities.mapNotNull { it.boardId }.distinct().forEach { taskChangeService.bumpWatermark(it) }
     }
 
     private fun filterOutFutureDated(userId: UUID, tasks: List<BacklogTask>): List<BacklogTask> {
@@ -140,8 +140,8 @@ class BacklogTaskService(
         }
 
         val saved = backlogTaskRepository.save(entity)
-        taskChangeService.recordCreated(userId, saved.id!!, request.title, saved.status!!)
-        taskChangeService.bumpWatermark(userId)
+        taskChangeService.recordCreated(boardId, userId, saved.id!!, request.title, saved.status!!)
+        taskChangeService.bumpWatermark(boardId)
         return saved.toDomain(boardCrypto)
     }
 
@@ -173,8 +173,8 @@ class BacklogTaskService(
         val saved = backlogTaskRepository.save(entity)
         // recordStatusChange is a no-op when the status is unchanged; the watermark must still
         // bump so field edits (title/description/tags/…) surface to a polling board tab.
-        taskChangeService.recordStatusChange(userId, saved.id!!, request.title, previousStatus, newStatus)
-        taskChangeService.bumpWatermark(userId)
+        taskChangeService.recordStatusChange(boardId, userId, saved.id!!, request.title, previousStatus, newStatus)
+        taskChangeService.bumpWatermark(boardId)
         return saved.toDomain(boardCrypto)
     }
 
@@ -207,7 +207,7 @@ class BacklogTaskService(
         entity.sortKey = newSortKey
 
         val saved = backlogTaskRepository.save(entity)
-        taskChangeService.bumpWatermark(userId)
+        taskChangeService.bumpWatermark(boardId)
 
         // Rebalance lazily if any key in this board's list has grown too long.
         if (newSortKey.length > REBALANCE_KEY_LENGTH_THRESHOLD ||
@@ -231,7 +231,7 @@ class BacklogTaskService(
             entity.updatedAt = Instant.now()
         }
         backlogTaskRepository.saveAll(entities)
-        taskChangeService.bumpWatermark(userId)
+        entities.mapNotNull { it.boardId }.distinct().forEach { taskChangeService.bumpWatermark(it) }
     }
 
     @Transactional
@@ -242,7 +242,7 @@ class BacklogTaskService(
         entity.lastScheduledInSessionId = null
         entity.updatedAt = Instant.now()
         backlogTaskRepository.save(entity)
-        taskChangeService.bumpWatermark(userId)
+        taskChangeService.bumpWatermark(boardId)
     }
 
     @Transactional
@@ -253,8 +253,8 @@ class BacklogTaskService(
         val title = boardCrypto.decrypt(boardId, entity.title) ?: ""
         val status = entity.status!!
         backlogTaskRepository.delete(entity)
-        taskChangeService.recordDeleted(userId, id, title, status)
-        taskChangeService.bumpWatermark(userId)
+        taskChangeService.recordDeleted(boardId, userId, id, title, status)
+        taskChangeService.bumpWatermark(boardId)
     }
 
     // -------------------------------------------------------------------------

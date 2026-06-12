@@ -92,10 +92,10 @@ class BoardService(
     }
 
     /**
-     * Deletes a board the user **owns**, with all its content. Refuses to delete the user's last
-     * board so the ">= 1 board" invariant holds. Only board-owned rows go; user-scoped audit
-     * (change events, watermark) and the user's plans survive — the deletion mirrors the board
-     * section of [AccountService.deleteUserData], kept in FK order via raw SQL.
+     * Deletes a board the user **owns**, with all its content (including the board's change feed and
+     * watermark, which are board-keyed as of Phase 2). Refuses to delete the user's last board so
+     * the ">= 1 board" invariant holds. The user's personal plans survive — the deletion mirrors the
+     * board section of [AccountService.deleteUserData], kept in FK order via raw SQL.
      *
      * Phase 1 is single-member, so deleting clears the sole (OWNER) membership. Shared boards
      * (Phase 2) will instead transfer ownership rather than delete when other members remain.
@@ -114,6 +114,9 @@ class BoardService(
         jdbcTemplate.update("DELETE FROM backlog_task WHERE board_id = ?", boardId)
         jdbcTemplate.update("DELETE FROM backlog_task_tag WHERE board_id = ?", boardId)
         jdbcTemplate.update("DELETE FROM backlog_task_category WHERE board_id = ?", boardId)
+        // Change feed + watermark are board-keyed (Phase 2); they FK the board, so clear before it.
+        jdbcTemplate.update("DELETE FROM backlog_task_change_event WHERE board_id = ?", boardId)
+        jdbcTemplate.update("DELETE FROM backlog_task_watermark WHERE board_id = ?", boardId)
         jdbcTemplate.update("DELETE FROM board_membership WHERE board_id = ?", boardId)
         jdbcTemplate.update("DELETE FROM board_data_key WHERE board_id = ?", boardId)
         jdbcTemplate.update("DELETE FROM board WHERE id = ?", boardId)
