@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { confirmEmailVerification } from './authApi';
+import layout from './LoginPage.module.css';
 import styles from './EmailLoginConfirmPage.module.css';
 
 type PageState =
@@ -33,18 +34,18 @@ export function EmailVerifyConfirmPage() {
     };
 
     return (
-        <div className={styles.page}>
-            <header className={styles.nav}>
-                <div className={styles.brand}>
-                    <span className={styles.logoWrap}>
+        <div className={layout.page}>
+            <header className={layout.nav}>
+                <div className={layout.brand}>
+                    <span className={layout.logoWrap}>
                         <span className="logo-tape">Backlog.fyi</span>
-                        <span className={styles.beta}>beta</span>
+                        <span className={layout.beta}>beta</span>
                     </span>
-                    <span className={styles.copyright}>© 2026</span>
+                    <span className={layout.copyright}>© 2026</span>
                 </div>
             </header>
 
-            <div className={styles.stage}>
+            <div className={layout.stage}>
                 {state.phase === 'success' ? (
                     <div className={styles.card} aria-live="polite">
                         <div className={styles.cardTag}>All done</div>
@@ -53,7 +54,7 @@ export function EmailVerifyConfirmPage() {
                             Your email address has been confirmed. You can now use it to sign in
                             with a magic link.
                         </p>
-                        <Link to="/" className={styles.signInBtn} style={{ textDecoration: 'none', textAlign: 'center' }}>
+                        <Link to="/" className={styles.actionBtn}>
                             Go to my board →
                         </Link>
                     </div>
@@ -68,7 +69,7 @@ export function EmailVerifyConfirmPage() {
 
                         <button
                             type="button"
-                            className={styles.signInBtn}
+                            className={styles.actionBtn}
                             onClick={handleVerify}
                             disabled={state.phase === 'confirming' || state.phase === 'error'}
                         >

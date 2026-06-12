@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { precheckEmailLogin, completeEmailLogin } from './authApi';
+import layout from './LoginPage.module.css';
 import styles from './EmailLoginConfirmPage.module.css';
 
 type PageState =
@@ -56,18 +57,18 @@ export function EmailLoginConfirmPage() {
     };
 
     return (
-        <div className={styles.page}>
-            <header className={styles.nav}>
-                <div className={styles.brand}>
-                    <span className={styles.logoWrap}>
+        <div className={layout.page}>
+            <header className={layout.nav}>
+                <div className={layout.brand}>
+                    <span className={layout.logoWrap}>
                         <span className="logo-tape">Backlog.fyi</span>
-                        <span className={styles.beta}>beta</span>
+                        <span className={layout.beta}>beta</span>
                     </span>
-                    <span className={styles.copyright}>© 2026</span>
+                    <span className={layout.copyright}>© 2026</span>
                 </div>
             </header>
 
-            <div className={styles.stage}>
+            <div className={layout.stage}>
                 {state.phase === 'loading' && (
                     <div className={styles.card} aria-live="polite">
                         <div className={styles.dots} aria-label="Loading…">
@@ -101,7 +102,7 @@ export function EmailLoginConfirmPage() {
 
                         <button
                             type="button"
-                            className={styles.signInBtn}
+                            className={styles.actionBtn}
                             onClick={handleSignIn}
                             disabled={state.phase === 'confirming'}
                         >
