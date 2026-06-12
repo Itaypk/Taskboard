@@ -1,5 +1,6 @@
 package dev.itayp.tasker.planning
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
 import dev.itayp.tasker.ai.client.AiCallContext
 import dev.itayp.tasker.ai.client.AiConversationType
@@ -24,6 +25,7 @@ import java.time.Clock
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import java.util.UUID
 
 /**
@@ -89,6 +91,137 @@ class TaskSuggestionAgent(
         return draft
     }
 
+    /**
+     * Quick-add drafting from a free-text request, with optional prior clarification Q&A. Unlike
+     * [suggest] (used by the in-session `suggest_task` tool, which always drafts), this may return a
+     * single clarifying question when the request is too vague — unless [mustDraft] forces a draft.
+     */
+    fun quickAddDraft(
+        userId: UUID,
+        request: String,
+        clarifications: List<ClarificationExchange> = emptyList(),
+        mustDraft: Boolean = false,
+    ): SuggestionOutcome = runQuickAdd(
+        userId = userId,
+        request = request,
+        adjustment = null,
+        previousDraft = null,
+        clarifications = clarifications,
+        mustDraft = mustDraft,
+    )
+
+    /**
+     * Quick-add revision: re-draft [previousDraft] given a free-text [instruction] (and any prior
+     * clarification Q&A). May itself ask a clarifying question when the instruction is ambiguous,
+     * unless [mustDraft] forces a draft.
+     */
+    fun quickAddRevise(
+        userId: UUID,
+        request: String,
+        previousDraft: TaskDraft,
+        instruction: String,
+        clarifications: List<ClarificationExchange> = emptyList(),
+        mustDraft: Boolean = false,
+    ): SuggestionOutcome = runQuickAdd(
+        userId = userId,
+        request = request,
+        adjustment = instruction,
+        previousDraft = previousDraft,
+        clarifications = clarifications,
+        mustDraft = mustDraft,
+    )
+
+    private fun runQuickAdd(
+        userId: UUID,
+        request: String,
+        adjustment: String?,
+        previousDraft: TaskDraft?,
+        clarifications: List<ClarificationExchange>,
+        mustDraft: Boolean,
+    ): SuggestionOutcome {
+        val settings = userSettingsService.getOrCreate(userId)
+        val zone = runCatching { ZoneId.of(settings.timeZone) }.getOrDefault(ZoneId.of("UTC"))
+        val today = LocalDate.ofInstant(clock.instant(), zone)
+        val contextBlock = settings.contextBlock?.takeIf { it.isNotBlank() }
+        val languageName = runCatching {
+            Locale.forLanguageTag(settings.preferredLanguage).getDisplayLanguage(Locale.ENGLISH)
+        }.getOrNull()?.takeIf { it.isNotBlank() } ?: "English"
+
+        val categories = categoryService.getAllForUser(userId)
+        val tags = tagService.getAllForUser(userId)
+        val sample = backlogTaskService.getTasksAcrossBoards(userId, null).take(SAMPLE_SIZE)
+
+        val systemPrompt = promptTemplateLoader.load("task-suggestion/system-clarify.md")
+            .render(mapOf("language" to languageName))
+        val userMessage = promptTemplateLoader.load("task-suggestion/quickadd-user.md").render(mapOf(
+            "request" to request,
+            "adjustment_block" to (adjustment?.let { "\nThe user then asked to adjust the draft: $it\n" } ?: ""),
+            "previous_draft_block" to (previousDraft?.let {
+                "\nThe current draft to revise (JSON):\n${objectMapper.writeValueAsString(it)}\n"
+            } ?: ""),
+            "prior_qa_block" to renderClarifications(clarifications),
+            "today" to today.format(DateTimeFormatter.ISO_LOCAL_DATE),
+            "timezone" to zone.id,
+            "user_context" to (contextBlock ?: "(no personal context shared)"),
+            "categories" to renderCategories(categories),
+            "tags" to renderTags(tags),
+            "tag_colors" to TagColor.entries.joinToString(", ") { it.name.lowercase() },
+            "task_sample" to renderSample(sample),
+            "must_draft_block" to if (mustDraft) {
+                "\nYou MUST return a task draft now (shape 1) — do not ask another question."
+            } else "",
+        ))
+        val chatRequest = ChatRequest(
+            model = model,
+            messages = listOf(
+                ChatMessage(role = "system", content = systemPrompt),
+                ChatMessage(role = "user", content = userMessage),
+            ),
+            temperature = 0.3,
+            maxTokens = 800,
+        )
+
+        val context = AiCallContext(userId = userId, conversationType = AiConversationType.TASK_SUGGESTION)
+        val raw = aiClient.chat(chatRequest, context).choices.firstOrNull()?.message?.content.orEmpty()
+        return parseOutcome(raw)
+    }
+
+    private fun parseOutcome(raw: String): SuggestionOutcome = runCatching {
+        val parsed = parseAssistantJsonResponse(objectMapper, raw, QuickAddRaw::class.java)
+        val question = parsed.clarify?.question?.takeIf { it.isNotBlank() }
+        if (question != null) {
+            val options = parsed.clarify.options.mapNotNull { opt ->
+                val label = opt.label?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                ClarifyOption(id = opt.id?.takeIf { it.isNotBlank() } ?: label, label = label)
+            }
+            SuggestionOutcome.Clarify(question = question, options = options)
+        } else if (!parsed.title.isNullOrBlank()) {
+            SuggestionOutcome.Draft(
+                TaskDraft(
+                    title = parsed.title,
+                    description = parsed.description,
+                    categoryId = parsed.categoryId,
+                    priority = parsed.priority,
+                    deadline = parsed.deadline,
+                    estimatedMinutes = parsed.estimatedMinutes,
+                    tags = parsed.tags,
+                )
+            )
+        } else {
+            log.warn("quick-add output had neither a clarify question nor a task title")
+            SuggestionOutcome.Unparseable
+        }
+    }.getOrElse {
+        log.warn("quick-add could not parse sub-agent output: {}", it.message)
+        SuggestionOutcome.Unparseable
+    }
+
+    private fun renderClarifications(clarifications: List<ClarificationExchange>): String {
+        if (clarifications.isEmpty()) return ""
+        val lines = clarifications.joinToString("\n") { "Q: ${it.question}\nA: ${it.answer}" }
+        return "\nEarlier clarifications in this capture:\n$lines\n"
+    }
+
     private fun renderCategories(categories: List<BacklogTaskCategory>): String {
         if (categories.isEmpty()) return "(none)"
         return categories.joinToString("\n") { "- [${it.id}] ${it.label}" }
@@ -124,11 +257,46 @@ data class TaskDraft(
     val priority: String? = null,
     val deadline: String? = null,
     @JsonProperty("estimated_minutes") val estimatedMinutes: Int? = null,
-    val tags: List<TagDraft> = emptyList(),
+    val tags: List<TagArg> = emptyList(),
 )
 
-data class TagDraft(
+/** The result of a quick-add drafting/revision call: a draft, a clarifying question, or a parse failure. */
+sealed interface SuggestionOutcome {
+    data class Draft(val draft: TaskDraft) : SuggestionOutcome
+    data class Clarify(val question: String, val options: List<ClarifyOption>) : SuggestionOutcome
+    data object Unparseable : SuggestionOutcome
+}
+
+data class ClarifyOption(val id: String, val label: String)
+
+/** One round of clarification (question asked, answer given) carried forward into the next drafting call. */
+data class ClarificationExchange(val question: String, val answer: String)
+
+/**
+ * Loose binding of the quick-add sub-agent's two possible JSON shapes (a task draft or a
+ * `clarify` object). All fields are optional so a response of either shape deserializes; the
+ * agent then decides which shape it actually was.
+ */
+@JsonIgnoreProperties(ignoreUnknown = true)
+private data class QuickAddRaw(
+    val clarify: ClarifyRaw? = null,
+    val title: String? = null,
+    val description: String? = null,
+    @JsonProperty("category_id") val categoryId: String? = null,
+    val priority: String? = null,
+    val deadline: String? = null,
+    @JsonProperty("estimated_minutes") val estimatedMinutes: Int? = null,
+    val tags: List<TagArg> = emptyList(),
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+private data class ClarifyRaw(
+    val question: String? = null,
+    val options: List<ClarifyOptionRaw> = emptyList(),
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+private data class ClarifyOptionRaw(
     val id: String? = null,
-    val label: String,
-    @JsonProperty("color_id") val colorId: String,
+    val label: String? = null,
 )

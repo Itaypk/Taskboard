@@ -3,6 +3,7 @@ package dev.itayp.tasker.planning
 import dev.itayp.tasker.ai.tool.AiTool
 import dev.itayp.tasker.ai.tool.ToolKind
 import dev.itayp.tasker.model.BacklogTaskTag
+import dev.itayp.tasker.model.TaskPriority
 import dev.itayp.tasker.model.request.TagInput
 import dev.itayp.tasker.model.request.UpdateBacklogTaskRequest
 import dev.itayp.tasker.service.BacklogTaskService
@@ -54,7 +55,7 @@ class UpdateTaskTool(
             "category_id" to mapOf("type" to "string", "description" to "UUID of a category to move the task to. Omit to keep current."),
             "description" to mapOf("type" to "string", "description" to "New description / notes. Omit to keep; pass an empty string to clear."),
             "url" to mapOf("type" to "string", "description" to "New URL. Omit to keep; empty string to clear."),
-            "priority" to mapOf("type" to "string", "enum" to listOf("low", "medium", "high"), "description" to "New priority. Omit to keep current."),
+            "priority" to mapOf("type" to "string", "enum" to TaskPriority.allowedValues.toList(), "description" to "New priority. Omit to keep current."),
             "deadline" to mapOf("type" to "string", "description" to "New deadline, YYYY-MM-DD. Omit to keep; empty string to clear."),
             "estimated_minutes" to mapOf("type" to "integer", "description" to "New time estimate in minutes. Omit to keep current."),
             "status" to mapOf(

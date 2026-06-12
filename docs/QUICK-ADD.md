@@ -173,6 +173,30 @@ Mirrors `CreateTaskTool.execute` but without the model in the loop:
   Default board only in v1 — consistent with the planner's temporary userId-only bridge
   (`BOARD-SHARING-PHASE1.md`); board pickers can come with planner board-awareness.
 
+### Why a structured-output sub-agent, not tools
+
+The planning conversation uses **tools**: the model emits `tool_calls` (`say`, `ask_choice`,
+`create_task`, …) that `WeeklyPlanningOrchestrator` dispatches. Quick-add does **not**, and
+that's deliberate. There are two LLM layers in this codebase:
+
+- the **orchestrator layer** (`WeeklyPlanningOrchestrator` + `AiConversationManager` +
+  `ToolRegistry`) — a multi-turn, tool-calling conversation; and
+- the **sub-agent layer** (`TaskSuggestionAgent`, `BacklogTaskSearchAgent`) — single-shot
+  calls that pass **no** tools and ask the model for one structured JSON object, parsed in
+  Kotlin. Their prompts reference no tools (`task-suggestion/system.md`,
+  `task-search/system.md`).
+
+Quick-add's drafting *is* a sub-agent — the same `TaskSuggestionAgent` the in-session
+`suggest_task` tool already wraps — so it belongs in the second layer. The `clarify` outcome
+is therefore **a second variant of the sub-agent's structured response** (a discriminated
+union `draft | clarify`), not a tool; and the turn-taking that would otherwise be a tool loop
+is the deterministic `QuickAddFlow` state machine. This keeps the mistake surface small for a
+cheap model (the whole point) and avoids dragging in conversation persistence and the
+interactive-queue machinery for a 1–3 turn capture. The only thing tools would add here is
+provider-side argument validation, which the deterministic save path (`toCreateBacklogTaskRequest`
++ field validation in `QuickAddFlow.validate`) covers. Converging onto real tools stays an
+option (see "bounded conversation, not an agent" above) if that calculus changes.
+
 ### `TaskSuggestionAgent` extensions (the new LLM behavior)
 
 Two additions, both single-turn calls with the same focused shape as today's `suggest`:
@@ -211,9 +235,9 @@ template variable, as in the planning prompts).
 
 ## Phases
 
-- **Phase 1 (this plan):** `/add` end-to-end on Telegram — command, registry + flow state
-  machine, draft card with Save/Adjust/Cancel, free-text adjustments, revise prompt,
-  deterministic save, i18n bundles, tests.
+- **Phase 1 (done):** `/add` end-to-end on Telegram — command, registry + flow state
+  machine, draft card with Save/Adjust/Cancel, free-text adjustments, bounded
+  clarifications, deterministic save, i18n bundles, tests.
 - **Phase 2 (cheap follow-up, a slice of "out of the blue"):** bare free text with no
   active session/flow offers capture instead of the bare help reply — "Want me to add
   that as a task?" [Add it / No]. Reuses the entire phase-1 flow; the *only* new logic is
@@ -240,18 +264,26 @@ template variable, as in the planning prompts).
 
 ## Key files
 
-New:
+New (as built):
+- `capture/QuickAddFlow.kt` + `capture/QuickAddState.kt` (channel-agnostic core; `capture` package)
+- `channel/telegram/QuickAddRegistry.kt` (chat-id keyed storage + idle TTL + `expired` metric)
 - `channel/telegram/commands/AddBotCommand.kt`
-- `channel/telegram/QuickAddRegistry.kt`
-- `capture/QuickAddFlow.kt` (channel-agnostic core; new `capture` package)
-- `resources/prompts/task-suggestion/revise-user.md`
-- `resources/prompts/task-suggestion/system-clarify.md` (quick-add prompt variant
-  allowing the clarification outcome)
+- `resources/prompts/task-suggestion/system-clarify.md` (clarify-capable system prompt)
+- `resources/prompts/task-suggestion/quickadd-user.md` (one user template covering the
+  initial draft, clarification answers, and adjustments via conditional blocks)
 
-Touched:
+Touched (as built):
 - `channel/telegram/TelegramChannel.kt` (routing precedence + fallback copy)
-- `planning/TaskSuggestionAgent.kt` (`revise`, `SuggestionOutcome` contract)
-- `resources/messages*.properties` (all bundles)
+- `planning/TaskSuggestionAgent.kt` (`quickAddDraft` / `quickAddRevise` returning the sealed
+  `SuggestionOutcome`; `ClarifyOption` / `QaPair`)
+- `ai/AssistantJson.kt` (`extractJsonObjectSpan` helper, shared with the new outcome parser)
+- `resources/messages*.properties` (all 13 bundles)
+
+Notes vs. the original plan: drafting and revision share one quick-add user template
+(`quickadd-user.md`) rather than a separate `revise-user.md` — the previous draft and
+adjustment instruction are just additional rendered blocks. The agent keeps a draft-only
+`suggest` for the in-session `suggest_task` tool; the clarify-capable methods are quick-add
+only, as planned.
 
 Reused unchanged: `TaskSuggestionAgent.suggest`, `BacklogTaskService.createTask`,
 `BoardMembershipService.resolveDefaultBoard`, `TagColorOptions`, `BotCommandDispatcher`,

@@ -13,8 +13,17 @@ import tools.jackson.databind.ObjectMapper
  * object but can't fully rely on it omitting fences/prose.
  */
 fun <T : Any> parseAssistantJsonResponse(objectMapper: ObjectMapper, raw: String, type: Class<T>): T {
+    return objectMapper.readValue(extractJsonObjectSpan(raw), type)
+}
+
+/**
+ * Returns the `{ ... }` span from an LLM response, tolerating surrounding prose or code fences.
+ * Throws if no balanced-looking object span is present. Useful when the caller wants to inspect
+ * the parsed tree before binding it to a type (e.g. branching on which of two shapes came back).
+ */
+fun extractJsonObjectSpan(raw: String): String {
     val start = raw.indexOf('{')
     val end = raw.lastIndexOf('}')
     require(start in 0 until end) { "No JSON object found in assistant response" }
-    return objectMapper.readValue(raw.substring(start, end + 1), type)
+    return raw.substring(start, end + 1)
 }

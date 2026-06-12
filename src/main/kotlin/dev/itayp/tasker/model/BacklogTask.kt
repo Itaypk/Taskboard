@@ -5,7 +5,15 @@ import java.time.LocalDate
 import java.util.UUID
 
 enum class TaskPriority {
-    LOW, MEDIUM, HIGH
+    LOW, MEDIUM, HIGH;
+
+    companion object {
+        /**
+         * The lowercase value set accepted wherever a priority travels as a string (API requests,
+         * AI tool schemas/validation), kept in declaration order.
+         */
+        val allowedValues: Set<String> = entries.mapTo(LinkedHashSet()) { it.name.lowercase() }
+    }
 }
 
 enum class TaskStatus {

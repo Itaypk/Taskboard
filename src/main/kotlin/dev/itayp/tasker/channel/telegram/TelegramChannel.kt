@@ -1,5 +1,6 @@
 package dev.itayp.tasker.channel.telegram
 
+import dev.itayp.tasker.capture.QuickAddFlow
 import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.telegram.commands.BotCommandContext
@@ -49,6 +50,8 @@ class TelegramChannel(
     private val commandDispatcher: BotCommandDispatcher,
     private val commandHandlers: List<BotCommandHandler>,
     private val planConfirmationRegistry: PlanConfirmationRegistry,
+    private val quickAddRegistry: QuickAddRegistry,
+    private val quickAddFlow: QuickAddFlow,
     private val userSettingsService: UserSettingsService,
     private val messageSource: MessageSource,
     private val telegramClient: TelegramClient,
@@ -125,6 +128,8 @@ class TelegramChannel(
         val channel = TelegramConversationChannel(chatId, telegramClient)
 
         if (inbound is ChannelInbound.Text && inbound.text.startsWith("/")) {
+            // A new command always supersedes an in-progress quick-add capture (latest intent wins).
+            quickAddRegistry.remove(chatId)
             val context = BotCommandContext(userId, chatId, "", channel, sessionRegistry)
             val handled = commandDispatcher.dispatch(inbound.text, context)
             if (!handled) {
@@ -172,10 +177,22 @@ class TelegramChannel(
             return
         }
 
+        // Drive an in-progress quick-add ("/add") capture, if any.
+        val quickAddState = quickAddRegistry.get(chatId)
+        if (quickAddState != null) {
+            val next = quickAddFlow.handleInbound(userId, channel, quickAddState, inbound)
+            if (next != null) {
+                quickAddRegistry.set(chatId, next)
+            } else {
+                quickAddRegistry.remove(chatId)
+            }
+            return
+        }
+
         val sessionId = sessionRegistry.get(chatId)
         if (sessionId == null || orchestrator.phase(sessionId) == null) {
             sessionRegistry.remove(chatId)
-            channel.send(ChannelMessage.Text("Send /help to see what I can do."))
+            channel.send(ChannelMessage.Text("Send /add to capture a task, or /help to see what I can do."))
             return
         }
 
