@@ -29,6 +29,9 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Edit existing tags; add "description" to a tag (consider if needed)
 - Task list Markdown (subtasks) checkboxes - makes it possible to check directly from the main screen
 - Filter chips can still wrap on very small screens even after the "Week" shortening. If it keeps bugging us, consider a segmented control or horizontally-scrollable chip row on mobile.
+- Right-click menu: duplicate task; move task to another board
+- Board management: consider streamlining things. For now, we have "Rename board", and "Members", as extra rows in the dropdown. Should it be a "settings" icon next to the board? Just one "Edit..." row?
+- Board management: custom board color pin marker?
 
 ## Assistant - Mid-week response
 - When texting the assistant out of the blue, respond with the correct context.
@@ -45,6 +48,5 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Open source the application under AGPL.
 - Following up on the multi-identity migration - re-consider demo mode: do we still need the "demo" concept, or would it be a regular account without communication channels? Do we want a promotion flow from demo to a real user? Either way, the option of getting started with a single click is still useful.
 - WhatsApp as a communication channel support.
-- Multi-board and sharing support.
 - Complete i18n support, including the web UI, welcome page, etc. Consider trimming the list of supported languages.
 - Multi-modal support: the assistant can process images and voice messages. 
