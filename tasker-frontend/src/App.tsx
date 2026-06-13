@@ -26,6 +26,7 @@ import { ConfirmDialog } from './components/ConfirmDialog';
 import { ScheduleTaskModal } from './components/ScheduleTaskModal';
 import { UserMenu } from './components/UserMenu';
 import { StatsModal } from './components/StatsModal';
+import { BoardMembersModal } from './components/BoardMembersModal';
 import { DEFAULT_SETTINGS } from './data';
 import { fetchBoards, createBoard, renameBoard, deleteBoard, fetchTasks, fetchCategories, fetchUserSettings, fetchTags, fetchCurrentPlan, checkTaskChanges, createTask, updateTask, deleteTask, reorderTask, removeTaskFromPlan, addTaskToPlan, type TaskStatusFilter, type Board } from './api';
 import type { Task, UserSettings, Tag, CurrentPlan, TaskFilter } from './types';
@@ -37,6 +38,7 @@ import { LoginPage } from './auth/LoginPage';
 import { TermsPage, PrivacyPage } from './auth/PolicyPage';
 import { EmailLoginConfirmPage } from './auth/EmailLoginConfirmPage';
 import { EmailVerifyConfirmPage } from './auth/EmailVerifyConfirmPage';
+import { InvitePage } from './auth/InvitePage';
 import { NotFoundPage } from './NotFoundPage';
 import pineappleUrl from './assets/pineapple.png';
 import './App.css';
@@ -68,6 +70,7 @@ export default function App() {
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/email-login" element={<EmailLoginConfirmPage />} />
       <Route path="/email-verify" element={<EmailVerifyConfirmPage />} />
+      <Route path="/invite" element={<InvitePage />} />
       <Route path="/" element={<AuthShell />} />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
@@ -89,6 +92,8 @@ function AuthShell() {
 }
 
 function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
+  const { state: authState } = useAuth();
+  const currentUserId = authState.status === 'authenticated' ? authState.user.id : null;
   // One active board at a time; every account has at least one (the backend lists them default-first).
   const [boards, setBoards]           = useState<Board[]>([]);
   const [activeBoardId, setActiveBoardId] = useState<string | null>(null);
@@ -101,6 +106,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const [isCreating, setIsCreating]   = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
+  const [membersOpen, setMembersOpen] = useState(false);
   const [leavingId, setLeavingId]     = useState<string | null>(null);
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState<string | null>(null);
@@ -434,6 +440,20 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
     switchBoard(remaining[0].id);
   }, [activeBoardId, boards, switchBoard]);
 
+  // Re-sync the board list (e.g. after a membership change updates a board's member count).
+  const refreshBoards = useCallback(() => {
+    fetchBoards().then(setBoards).catch(e => console.error('Failed to refresh boards', e));
+  }, []);
+
+  // The user left the active (shared) board: drop it locally and switch to another of theirs.
+  const handleLeftBoard = useCallback(async () => {
+    setMembersOpen(false);
+    const fresh = await fetchBoards().catch(() => null);
+    if (!fresh || fresh.length === 0) { onSignOut(); return; }
+    setBoards(fresh);
+    switchBoard(fresh[0].id);
+  }, [onSignOut, switchBoard]);
+
   const defaultCategoryId = settings.categories[0]?.id ?? null;
 
   const handleToggleArchived = () => {
@@ -470,6 +490,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
           onCreate={() => setBoardDialog({ mode: 'create' })}
           onRename={() => setBoardDialog({ mode: 'rename' })}
           onDelete={() => setBoardDeleteConfirm(true)}
+          onManageMembers={() => setMembersOpen(true)}
         />
         <BoardFilter
           value={filter}
@@ -601,6 +622,15 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
       />
 
       <StatsModal open={statsOpen} onClose={() => setStatsOpen(false)} />
+
+      <BoardMembersModal
+        open={membersOpen}
+        board={activeBoard}
+        currentUserId={currentUserId}
+        onClose={() => setMembersOpen(false)}
+        onMembershipChanged={refreshBoards}
+        onLeft={handleLeftBoard}
+      />
 
       {contextMenu && (
         <ContextMenu

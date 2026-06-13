@@ -149,3 +149,21 @@
   background: rgba(185, 28, 28, 0.07);
   color: #b91c1c;
 }
+
+/* "Shared board" cue: a small member count next to the board name. */
+.sharedBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  margin-left: 2px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--paper-surface);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  flex-shrink: 0;
+}

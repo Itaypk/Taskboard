@@ -75,7 +75,7 @@ class BoardService(
         val normalized = normalizeName(name)
         val boardId = createBoardForOwner(userId, normalized)
         val board = boardRepository.findById(boardId).orElseThrow()
-        return BoardSummary(boardId, normalized, BoardRole.OWNER, board.createdAt!!)
+        return BoardSummary(boardId, normalized, BoardRole.OWNER, board.createdAt!!, memberCount = 1)
     }
 
     /** Renames a board the user **owns**. Re-encrypts `board.name` under the board DEK. */
@@ -88,7 +88,10 @@ class BoardService(
             .orElseThrow { NoSuchElementException("Board $boardId not found") }
         board.name = boardCrypto.encrypt(boardId, normalized)
         boardRepository.save(board)
-        return BoardSummary(boardId, normalized, role, board.createdAt!!)
+        return BoardSummary(
+            boardId, normalized, role, board.createdAt!!,
+            memberCount = boardMembershipRepository.countByBoardId(boardId).toInt(),
+        )
     }
 
     /**
@@ -117,6 +120,7 @@ class BoardService(
         // Change feed + watermark are board-keyed (Phase 2); they FK the board, so clear before it.
         jdbcTemplate.update("DELETE FROM backlog_task_change_event WHERE board_id = ?", boardId)
         jdbcTemplate.update("DELETE FROM backlog_task_watermark WHERE board_id = ?", boardId)
+        jdbcTemplate.update("DELETE FROM board_invitation WHERE board_id = ?", boardId)
         jdbcTemplate.update("DELETE FROM board_membership WHERE board_id = ?", boardId)
         jdbcTemplate.update("DELETE FROM board_data_key WHERE board_id = ?", boardId)
         jdbcTemplate.update("DELETE FROM board WHERE id = ?", boardId)
@@ -139,6 +143,7 @@ class BoardService(
                 name = boardCrypto.decrypt(board.id!!, board.name) ?: "",
                 role = membership.role!!,
                 createdAt = board.createdAt!!,
+                memberCount = boardMembershipRepository.countByBoardId(board.id!!).toInt(),
             )
         }
     }

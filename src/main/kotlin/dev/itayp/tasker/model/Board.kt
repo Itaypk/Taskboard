@@ -9,4 +9,14 @@ data class BoardSummary(
     val name: String,
     val role: BoardRole,
     val createdAt: Instant,
+    /** How many members the board has; > 1 means it's shared (drives the switcher badge). */
+    val memberCount: Int = 1,
+)
+
+/** One member of a board, with a server-resolved display name (see [dev.itayp.tasker.service.MemberDisplayNameResolver]). */
+data class BoardMember(
+    val userId: UUID,
+    val role: BoardRole,
+    val joinedAt: Instant,
+    val displayName: String,
 )

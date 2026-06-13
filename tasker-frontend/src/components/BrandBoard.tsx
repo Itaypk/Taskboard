@@ -9,8 +9,15 @@ interface BrandBoardProps {
   onCreate: () => void;
   onRename: () => void;
   onDelete: () => void;
+  onManageMembers: () => void;
   /** Brand wordmark shown on the Dymo tape. */
   brandName?: string;
+}
+
+/** Small "shared" cue: a member count shown when a board has more than one member. */
+function SharedBadge({ count }: { count: number }) {
+  if (count <= 1) return null;
+  return <span className={styles.sharedBadge} title={`${count} members`} aria-label={`${count} members`}>{count}</span>;
 }
 
 function ChevronIcon() {
@@ -42,6 +49,7 @@ export function BrandBoard({
   onCreate,
   onRename,
   onDelete,
+  onManageMembers,
   brandName = 'Backlog.fyi',
 }: BrandBoardProps) {
   const [open, setOpen] = useState(false);
@@ -78,6 +86,7 @@ export function BrandBoard({
           title={activeBoard?.name ?? 'Switch board'}
         >
           <span className={styles.labelName}>{activeBoard?.name ?? 'Board'}</span>
+          {activeBoard && <SharedBadge count={activeBoard.memberCount} />}
           <ChevronIcon />
         </button>
 
@@ -95,6 +104,7 @@ export function BrandBoard({
                 >
                   <span className={styles.itemDot} aria-hidden />
                   <span className={styles.itemName}>{board.name}</span>
+                  <SharedBadge count={board.memberCount} />
                 </button>
               </li>
             ))}
@@ -104,6 +114,9 @@ export function BrandBoard({
             </li>
             <li role="none">
               <button type="button" role="menuitem" className={styles.item} onClick={() => run(onRename)}>Rename board</button>
+            </li>
+            <li role="none">
+              <button type="button" role="menuitem" className={styles.item} onClick={() => run(onManageMembers)}>Members…</button>
             </li>
             {boards.length > 1 && (
               <li role="none">

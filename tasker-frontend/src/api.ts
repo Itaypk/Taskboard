@@ -129,6 +129,8 @@ export interface Board {
     name: string;
     role: 'OWNER' | 'MEMBER';
     createdAt: string;
+    /** Members on the board; > 1 means it's shared. */
+    memberCount: number;
 }
 
 /** The user's boards, default board first (the backend orders by membership age). */
@@ -143,6 +145,59 @@ export const renameBoard = (boardId: string, name: string): Promise<Board> =>
 
 export const deleteBoard = (boardId: string): Promise<void> =>
     apiRequest(`/boards/${boardId}`, { method: 'DELETE' });
+
+// --- Members & invitations ---
+
+export interface BoardMember {
+    userId: string;
+    role: 'OWNER' | 'MEMBER';
+    joinedAt: string;
+    displayName: string;
+}
+
+export interface PendingInvitation {
+    id: string;
+    createdAt: string;
+    expiresAt: string;
+}
+
+export interface InvitationPreview {
+    boardName: string;
+    inviterName: string;
+    expiresAt: string;
+}
+
+export interface AcceptedInvitation {
+    boardId: string;
+    boardName: string;
+}
+
+export const fetchMembers = (boardId: string): Promise<BoardMember[]> =>
+    apiRequest(`/boards/${boardId}/members`);
+
+export const setMemberRole = (boardId: string, userId: string, role: 'OWNER' | 'MEMBER'): Promise<void> =>
+    apiRequest(`/boards/${boardId}/members/${userId}`, { method: 'PATCH', ...jsonBody({ role }) });
+
+export const removeMember = (boardId: string, userId: string): Promise<void> =>
+    apiRequest(`/boards/${boardId}/members/${userId}`, { method: 'DELETE' });
+
+export const leaveBoard = (boardId: string): Promise<void> =>
+    apiRequest(`/boards/${boardId}/members/leave`, { method: 'POST' });
+
+export const fetchInvitations = (boardId: string): Promise<PendingInvitation[]> =>
+    apiRequest(`/boards/${boardId}/invitations`);
+
+export const inviteToBoard = (boardId: string, email: string): Promise<PendingInvitation> =>
+    apiRequest(`/boards/${boardId}/invitations`, { method: 'POST', ...jsonBody({ email }) });
+
+export const revokeInvitation = (boardId: string, invitationId: string): Promise<void> =>
+    apiRequest(`/boards/${boardId}/invitations/${invitationId}`, { method: 'DELETE' });
+
+export const fetchInvitationPreview = (token: string): Promise<InvitationPreview> =>
+    apiRequest(`/invitations/${token}`);
+
+export const acceptInvitation = (token: string): Promise<AcceptedInvitation> =>
+    apiRequest(`/invitations/${token}/accept`, { method: 'POST' });
 
 // --- Tasks ---
 
