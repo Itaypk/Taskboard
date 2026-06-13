@@ -23,15 +23,13 @@ export function InvitePage() {
     const { state: auth } = useAuth();
     const token = new URLSearchParams(window.location.search).get('token');
 
-    const [preview, setPreview] = useState<PreviewState>({ phase: 'loading' });
+    // Derive the no-token case at init so the effect only ever sets state from the async preview.
+    const [preview, setPreview] = useState<PreviewState>(() => (token ? { phase: 'loading' } : { phase: 'invalid' }));
     const [accepting, setAccepting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (!token) {
-            setPreview({ phase: 'invalid' });
-            return;
-        }
+        if (!token) return;
         fetchInvitationPreview(token)
             .then(p => setPreview({ phase: 'ready', preview: p }))
             .catch(() => setPreview({ phase: 'invalid' }));

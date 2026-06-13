@@ -115,7 +115,8 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
-  const [members, setMembers]         = useState<BoardMember[]>([]);
+  // Keyed to its board so a stale fetch from a previous board is ignored without a synchronous reset.
+  const [memberData, setMemberData]   = useState<{ boardId: string; members: BoardMember[] } | null>(null);
   const [leavingId, setLeavingId]     = useState<string | null>(null);
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState<string | null>(null);
@@ -179,13 +180,14 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
 
   // Members back the assignee chips/picker and claim actions; only fetched for shared boards
   // (>1 member) so single-member boards make no extra request and look exactly like before.
+  // The solo-board case sets no state — `members` derives to empty below.
   useEffect(() => {
     if (!activeBoardId) return;
     const board = boards.find(b => b.id === activeBoardId);
-    if (!board || board.memberCount <= 1) { setMembers([]); return; }
+    if (!board || board.memberCount <= 1) return;
     let cancelled = false;
     fetchMembers(activeBoardId)
-      .then(m => { if (!cancelled) setMembers(m); })
+      .then(m => { if (!cancelled) setMemberData({ boardId: activeBoardId, members: m }); })
       .catch(e => console.error('Failed to load members', e));
     return () => { cancelled = true; };
   }, [activeBoardId, boards]);
@@ -359,6 +361,11 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
     setDeleteConfirm({ taskId: id, title: task.title });
   }, [tasks, archivedTasks]);
 
+  // Empty unless the keyed fetch matches the active board (ignores a stale prior-board fetch).
+  const members = useMemo(
+    () => (memberData?.boardId === activeBoardId ? memberData.members : []),
+    [memberData, activeBoardId],
+  );
   const membersById = useMemo(() => new Map(members.map(m => [m.userId, m])), [members]);
   const sharedBoard = members.length > 1;
 
