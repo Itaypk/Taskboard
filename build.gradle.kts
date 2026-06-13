@@ -41,6 +41,9 @@ dependencies {
 	implementation("org.telegram:telegrambots-client:10.0.0")
 	runtimeOnly("com.h2database:h2")
 	runtimeOnly("org.postgresql:postgresql")
+	// Required for the Telegram library
+	compileOnly("org.projectlombok:lombok:1.18.46")
+	//annotationProcessor("org.projectlombok:lombok:1.18.46")
 	testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-security-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
@@ -60,7 +63,7 @@ dependencyManagement {
 
 kotlin {
 	compilerOptions {
-		freeCompilerArgs.addAll("-Xjsr305=strict", "-Xannotation-default-target=param-property")
+		freeCompilerArgs.addAll("-Xjsr305=strict")
 	}
 }
 
