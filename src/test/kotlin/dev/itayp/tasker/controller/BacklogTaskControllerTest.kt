@@ -7,6 +7,7 @@ import dev.itayp.tasker.model.CategoryColor
 import dev.itayp.tasker.model.TaskStatus
 import dev.itayp.tasker.planning.BacklogTaskChangeService
 import dev.itayp.tasker.security.TaskerPrincipal
+import dev.itayp.tasker.service.AssigneeNotMemberException
 import dev.itayp.tasker.service.BacklogTaskService
 import dev.itayp.tasker.service.BoardAccessDeniedException
 import dev.itayp.tasker.service.BoardMembershipService
@@ -195,6 +196,82 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
                 .content("""{"title":"X","status":"todo","categoryId":"$categoryId","tags":[]}""")
         )
             .andExpect(status().isNotFound)
+    }
+
+    @Test
+    fun `PUT assignee returns 200 with the updated task`() {
+        val assignee = UUID.fromString("00000000-0000-0000-0000-0000000000aa")
+        whenever(backlogTaskService.setAssignee(userId, boardId, taskId, assignee))
+            .thenReturn(aTask().copy(assigneeUserId = assignee))
+
+        mockMvc.perform(
+            put("$basePath/$taskId/assignee")
+                .with(authentication(auth))
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"userId":"$assignee"}""")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.assigneeUserId").value(assignee.toString()))
+    }
+
+    @Test
+    fun `PUT assignee with null clears the assignee`() {
+        whenever(backlogTaskService.setAssignee(userId, boardId, taskId, null)).thenReturn(aTask())
+
+        mockMvc.perform(
+            put("$basePath/$taskId/assignee")
+                .with(authentication(auth))
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"userId":null}""")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.assigneeUserId").doesNotExist())
+    }
+
+    @Test
+    fun `PUT assignee with a malformed userId returns 400`() {
+        mockMvc.perform(
+            put("$basePath/$taskId/assignee")
+                .with(authentication(auth))
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"userId":"not-a-uuid"}""")
+        )
+            .andExpect(status().isBadRequest)
+    }
+
+    @Test
+    fun `PUT assignee with a non-member target returns 400`() {
+        val stranger = UUID.fromString("00000000-0000-0000-0000-0000000000bb")
+        whenever(backlogTaskService.setAssignee(userId, boardId, taskId, stranger))
+            .thenThrow(AssigneeNotMemberException(stranger, boardId))
+
+        mockMvc.perform(
+            put("$basePath/$taskId/assignee")
+                .with(authentication(auth))
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"userId":"$stranger"}""")
+        )
+            .andExpect(status().isBadRequest)
+    }
+
+    @Test
+    fun `PUT assignee on a board the user is not a member of returns 403`() {
+        val target = UUID.fromString("00000000-0000-0000-0000-0000000000cc")
+        whenever(backlogTaskService.setAssignee(userId, boardId, taskId, target))
+            .thenThrow(BoardAccessDeniedException(userId, boardId))
+
+        mockMvc.perform(
+            put("$basePath/$taskId/assignee")
+                .with(authentication(auth))
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"userId":"$target"}""")
+        )
+            .andExpect(status().isForbidden)
     }
 
     @Test

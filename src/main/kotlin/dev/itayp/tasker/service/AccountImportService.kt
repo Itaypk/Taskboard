@@ -150,7 +150,9 @@ class AccountImportService(
         }
 
         // Tasks. Encrypt sensitive fields under this board's DEK, translate FKs, parse dates.
-        // assignee is always null at migration time and is not persisted on this build.
+        // The exported `assignee` (a cross-account user id) is deliberately dropped on import: it's
+        // meaningless in the importing account's board, which is created fresh with the importer as
+        // sole OWNER (see docs/export-format-v2.md). Tasks come in unassigned.
         for (task in board.tasks) {
             val newCategoryId = categoryIdMap[task.categoryId]
                 ?: throw IllegalArgumentException("Task ${task.id} references unknown categoryId ${task.categoryId}")

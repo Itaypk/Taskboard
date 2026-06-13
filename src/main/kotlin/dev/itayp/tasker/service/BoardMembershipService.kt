@@ -44,6 +44,21 @@ class BoardMembershipService(
             .sortedWith(compareBy({ it.joinedAt }, { it.boardId }))
             .mapNotNull { it.boardId }
 
+    /**
+     * Board ids the user OWNs. Backs owner-scoped policies (auto-archive — Decision 10), so a member
+     * can't apply their settings to a board they don't own.
+     */
+    @Transactional(readOnly = true)
+    fun listOwnedBoardIds(userId: UUID): List<UUID> =
+        boardMembershipRepository.findAllByUserId(userId)
+            .filter { it.role == BoardRole.OWNER }
+            .mapNotNull { it.boardId }
+
+    /** Whether [userId] is a member of [boardId], without throwing. For validating assignee targets. */
+    @Transactional(readOnly = true)
+    fun isMember(userId: UUID, boardId: UUID): Boolean =
+        boardMembershipRepository.findByUserIdAndBoardId(userId, boardId) != null
+
     /** Asserts [userId] is a member of [boardId] and returns their role, else throws [BoardAccessDeniedException]. */
     @Transactional(readOnly = true)
     fun requireMember(userId: UUID, boardId: UUID): BoardRole {

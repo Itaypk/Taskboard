@@ -33,10 +33,10 @@ class TaskAutoArchiveService(
 
         for (settings in users) {
             val userId = settings.userId ?: continue
-            // auto_archive_days is a per-user setting applied to every board the user belongs to.
-            // (When shared boards arrive, revisit whether archiving should be board-level — see
-            // docs/BOARD-SHARING.md.)
-            val boardIds = runCatching { boardMembershipService.listBoardIds(userId) }.getOrNull() ?: continue
+            // Decision 10: auto-archive applies only to boards the user OWNs, so the most aggressive
+            // member of a shared board can't archive everyone's DONE tasks. Identical to today for
+            // single-owner boards.
+            val boardIds = runCatching { boardMembershipService.listOwnedBoardIds(userId) }.getOrNull() ?: continue
             val cutoff = now.minus(settings.autoArchiveDays!!.toLong(), ChronoUnit.DAYS)
             var userArchived = 0
 

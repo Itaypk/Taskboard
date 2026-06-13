@@ -227,6 +227,22 @@ class PlannerTaskSelectorTest {
     }
 
     @Test
+    fun `excludes tasks claimed by another member, keeps unassigned and mine`() {
+        val otherUser = UUID.fromString("00000000-0000-0000-0000-0000000000ff")
+        val unassigned = task(title = "unassigned", priority = TaskPriority.HIGH, assignee = null)
+        val mine = task(title = "mine", priority = TaskPriority.HIGH, assignee = userId)
+        val theirs = task(title = "theirs", priority = TaskPriority.HIGH, assignee = otherUser)
+        whenever(backlogTaskRepository.findAllByBoardIdInAndStatusOrderBySortKeyAsc(listOf(boardId), TaskStatus.TODO))
+            .thenReturn(listOf(unassigned, mine, theirs))
+        whenever(plannedTaskRepository.findAllByUserIdAndBacklogTaskIdIn(any(), any())).thenReturn(emptyList())
+
+        val result = select()
+
+        val titles = (result.urgent + result.stale).map { it.title }.toSet()
+        assertEquals(setOf("unassigned", "mine"), titles)
+    }
+
+    @Test
     fun `relevantFrom filter uses the caller-provided today, not UTC clock`() {
         // Simulate a user in UTC+12 where local "today" is 2026-05-02 while UTC clock reads 2026-05-01.
         val localToday = LocalDate.parse("2026-05-02")
@@ -328,6 +344,7 @@ class PlannerTaskSelectorTest {
         createdAt: Instant = now.minus(1, java.time.temporal.ChronoUnit.DAYS),
         updatedAt: Instant? = null,
         relevantFrom: LocalDate? = null,
+        assignee: UUID? = null,
     ): BacklogTaskEntity = BacklogTaskEntity().apply {
         this.id = UUID.randomUUID()
         this.boardId = this@PlannerTaskSelectorTest.boardId
@@ -342,6 +359,7 @@ class PlannerTaskSelectorTest {
         this.updatedAt = updatedAt
         this.rescheduleCount = rescheduleCount
         this.relevantFrom = relevantFrom
+        this.assigneeUserId = assignee
     }
 
     private fun plannedTask(backlogTaskId: UUID): PlannedTaskEntity = PlannedTaskEntity().apply {

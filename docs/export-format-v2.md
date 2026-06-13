@@ -95,10 +95,11 @@ anything that isn't `2`.
 
 | Field | Type | Source | Notes |
 |---|---|---|---|
-| `assignee` | String? (UUID) | n/a on pre-board build → always `null`/absent | claim/assignee doesn't exist pre-migration; reserved so the format is stable into Phase 2 |
+| `assignee` | String? (UUID) | `backlog_task.assignee_user_id` | As of Phase 2 PR 3, export emits the **real** claimer's user id on shared boards (null when unassigned). |
 
-Export MAY omit `assignee`; import treats absent as `null`. At migration time it is always `null`
-(single-member board, no claims).
+Export MAY omit `assignee`; import treats absent as `null`. **Import always drops it** — a
+cross-account user id is meaningless in the importing account, whose board is recreated fresh with
+the importer as sole OWNER. So a round-trip through export/import unassigns every task by design.
 
 ## Export-side behavior (pre-board build)
 

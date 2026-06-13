@@ -405,6 +405,82 @@ class BacklogTaskServiceTest {
         }
     }
 
+    // --- setAssignee / claim ---
+
+    @Test
+    fun `setAssignee sets the assignee, bumps the watermark, and records no change event`() {
+        val taskId = UUID.randomUUID()
+        val entity = taskEntity(categoryEntity(), id = taskId)
+        val assignee = UUID.randomUUID()
+        whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(entity)
+        whenever(boardMembershipService.isMember(assignee, boardId)).thenReturn(true)
+        stubSaveTask()
+
+        val result = service.setAssignee(userId, boardId, taskId, assignee)
+
+        assertEquals(assignee, result.assigneeUserId)
+        assertEquals(assignee, entity.assigneeUserId)
+        verify(taskChangeService).bumpWatermark(boardId)
+        verify(taskChangeService, never()).recordStatusChange(any(), any(), any(), any(), any(), any())
+        verify(taskChangeService, never()).recordCreated(any(), any(), any(), any(), any())
+    }
+
+    @Test
+    fun `setAssignee clears the assignee when target is null`() {
+        val taskId = UUID.randomUUID()
+        val entity = taskEntity(categoryEntity(), id = taskId).apply { assigneeUserId = UUID.randomUUID() }
+        whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(entity)
+        stubSaveTask()
+
+        val result = service.setAssignee(userId, boardId, taskId, null)
+
+        assertNull(result.assigneeUserId)
+        verify(boardMembershipService, never()).isMember(any(), any())
+    }
+
+    @Test
+    fun `setAssignee rejects a target who is not a member of the board`() {
+        val taskId = UUID.randomUUID()
+        val entity = taskEntity(categoryEntity(), id = taskId)
+        val stranger = UUID.randomUUID()
+        whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(entity)
+        whenever(boardMembershipService.isMember(stranger, boardId)).thenReturn(false)
+
+        assertFailsWith<AssigneeNotMemberException> {
+            service.setAssignee(userId, boardId, taskId, stranger)
+        }
+        verify(taskChangeService, never()).bumpWatermark(any())
+    }
+
+    @Test
+    fun `setAssignee throws when the task is not found`() {
+        val taskId = UUID.randomUUID()
+        whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(null)
+
+        assertFailsWith<NoSuchElementException> {
+            service.setAssignee(userId, boardId, taskId, null)
+        }
+    }
+
+    @Test
+    fun `stampPlanningSession claims unassigned tasks for the scheduling user but preserves existing claims`() {
+        val sessionId = UUID.randomUUID()
+        val unassigned = taskEntity(categoryEntity(), id = UUID.randomUUID())
+        val other = UUID.randomUUID()
+        val claimed = taskEntity(categoryEntity(), id = UUID.randomUUID()).apply { assigneeUserId = other }
+        whenever(boardMembershipService.listBoardIds(userId)).thenReturn(listOf(boardId))
+        whenever(backlogTaskRepository.findAllByBoardIdInAndIdIn(listOf(boardId), listOf(unassigned.id!!, claimed.id!!)))
+            .thenReturn(listOf(unassigned, claimed))
+
+        service.stampPlanningSession(userId, listOf(unassigned.id!!, claimed.id!!), sessionId)
+
+        assertEquals(userId, unassigned.assigneeUserId)
+        assertEquals(other, claimed.assigneeUserId)
+        assertEquals(sessionId, unassigned.lastScheduledInSessionId)
+        assertEquals(sessionId, claimed.lastScheduledInSessionId)
+        verify(taskChangeService).bumpWatermark(boardId)
+    }
+
     // --- helpers ---
 
     private fun stubSaveTask(existing: BacklogTaskEntity? = null) {
