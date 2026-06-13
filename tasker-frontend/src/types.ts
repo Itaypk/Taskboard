@@ -57,6 +57,7 @@ export interface Task {
   updatedAt?: string;
   lastScheduledInSessionId?: string | null;
   relevantFrom?: string; // YYYY-MM-DD
+  assigneeUserId?: string | null;
 }
 
 export interface TimeSlot {

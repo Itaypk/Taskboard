@@ -14,7 +14,7 @@ import {
   arrayMove,
   rectSortingStrategy,
 } from '@dnd-kit/sortable';
-import { PostItNote } from './components/PostItNote';
+import { PostItNote, type AssigneeChipInfo } from './components/PostItNote';
 import { TaskDrawer } from './components/TaskDrawer';
 import { SettingsModal } from './components/SettingsModal';
 import { BoardFilter } from './components/BoardFilter';
@@ -28,7 +28,7 @@ import { UserMenu } from './components/UserMenu';
 import { StatsModal } from './components/StatsModal';
 import { BoardMembersModal } from './components/BoardMembersModal';
 import { DEFAULT_SETTINGS } from './data';
-import { fetchBoards, createBoard, renameBoard, deleteBoard, fetchTasks, fetchCategories, fetchUserSettings, fetchTags, fetchCurrentPlan, checkTaskChanges, createTask, updateTask, deleteTask, reorderTask, removeTaskFromPlan, addTaskToPlan, type TaskStatusFilter, type Board } from './api';
+import { fetchBoards, createBoard, renameBoard, deleteBoard, fetchTasks, fetchCategories, fetchUserSettings, fetchTags, fetchCurrentPlan, checkTaskChanges, createTask, updateTask, deleteTask, reorderTask, removeTaskFromPlan, addTaskToPlan, fetchMembers, setTaskAssignee, type TaskStatusFilter, type Board, type BoardMember } from './api';
 import type { Task, UserSettings, Tag, CurrentPlan, TaskFilter } from './types';
 
 const ACTIVE_BOARD_KEY = 'backlog.activeBoardId';
@@ -42,6 +42,14 @@ import { InvitePage } from './auth/InvitePage';
 import { NotFoundPage } from './NotFoundPage';
 import pineappleUrl from './assets/pineapple.png';
 import './App.css';
+
+/** Up to two initials from a display name (e.g. "Dana Scully" → "DS", "it***@gmail.com" → "IT"). */
+function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
 
 function emptyMessageFor(filter: TaskFilter): string {
   switch (filter) {
@@ -107,6 +115,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
+  const [members, setMembers]         = useState<BoardMember[]>([]);
   const [leavingId, setLeavingId]     = useState<string | null>(null);
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState<string | null>(null);
@@ -167,6 +176,19 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
       .catch(e => console.error('Failed to load board reference data', e));
     return () => { cancelled = true; };
   }, [activeBoardId]);
+
+  // Members back the assignee chips/picker and claim actions; only fetched for shared boards
+  // (>1 member) so single-member boards make no extra request and look exactly like before.
+  useEffect(() => {
+    if (!activeBoardId) return;
+    const board = boards.find(b => b.id === activeBoardId);
+    if (!board || board.memberCount <= 1) { setMembers([]); return; }
+    let cancelled = false;
+    fetchMembers(activeBoardId)
+      .then(m => { if (!cancelled) setMembers(m); })
+      .catch(e => console.error('Failed to load members', e));
+    return () => { cancelled = true; };
+  }, [activeBoardId, boards]);
 
   // Tasks reload when the board or the status filter changes. 'plan' reuses the open-tasks fetch
   // and applies plan-membership client-side. This also clears the initial loading flag.
@@ -337,6 +359,28 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
     setDeleteConfirm({ taskId: id, title: task.title });
   }, [tasks, archivedTasks]);
 
+  const membersById = useMemo(() => new Map(members.map(m => [m.userId, m])), [members]);
+  const sharedBoard = members.length > 1;
+
+  // Resolved chip info for a task's assignee on shared boards; null when unassigned or solo board.
+  const resolveAssignee = useCallback((task: Task): AssigneeChipInfo | null => {
+    if (!sharedBoard || !task.assigneeUserId) return null;
+    const member = membersById.get(task.assigneeUserId);
+    const name = member?.displayName ?? 'Member';
+    return { initials: initialsOf(name), name, isMe: task.assigneeUserId === currentUserId };
+  }, [sharedBoard, membersById, currentUserId]);
+
+  const handleSetAssignee = useCallback(async (taskId: string, userId: string | null) => {
+    if (!activeBoardId) return;
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, assigneeUserId: userId } : t));
+    try {
+      await setTaskAssignee(activeBoardId, taskId, userId);
+    } catch (e) {
+      console.error('Failed to set assignee', e);
+      fetchTasks(activeBoardId, fetchStatus).then(setTasks).catch(() => {});
+    }
+  }, [activeBoardId, fetchStatus]);
+
   const buildContextMenuActions = useCallback((taskId: string, inPlan: boolean): ContextMenuAction[] => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return [];
@@ -347,6 +391,13 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
       actions.push({ label: 'Mark done', onClick: () => { handleMarkDone(taskId); } });
     }
     actions.push({ label: 'Edit', onClick: () => { setIsCreating(false); setSelectedId(taskId); } });
+    if (sharedBoard) {
+      if (task.assigneeUserId === currentUserId) {
+        actions.push({ label: 'Unclaim', onClick: () => { void handleSetAssignee(taskId, null); } });
+      } else {
+        actions.push({ label: 'Claim', onClick: () => { void handleSetAssignee(taskId, currentUserId); } });
+      }
+    }
     if (!inPlan && currentPlan !== null) {
       actions.push({ label: "Add to this week's plan", onClick: () => {
         setScheduleModal({ taskId, title: task.title });
@@ -357,7 +408,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
     }
     actions.push({ label: 'Delete', danger: true, onClick: () => { requestDelete(taskId); } });
     return actions;
-  }, [tasks, currentPlan, handleMarkDone, handleMarkTodo, handleRemoveFromPlan, requestDelete]);
+  }, [tasks, currentPlan, sharedBoard, currentUserId, handleSetAssignee, handleMarkDone, handleMarkTodo, handleRemoveFromPlan, requestDelete]);
 
   const handleDragStart = (event: DragStartEvent) => {
     setDraggingId(String(event.active.id));
@@ -556,6 +607,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
                     category={categoryById.get(task.categoryId)}
                     leaving={leavingId === task.id}
                     inCurrentPlan={planId !== null && task.lastScheduledInSessionId === planId}
+                    assignee={resolveAssignee(task)}
                     onClick={() => { setIsCreating(false); setSelectedId(task.id); }}
                     onContextMenu={e => setContextMenu({ x: e.clientX, y: e.clientY, taskId: task.id, inPlan: planId !== null && task.lastScheduledInSessionId === planId })}
                   />
@@ -583,11 +635,14 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
         categories={settings.categories}
         availableTags={tags}
         defaultCategoryId={defaultCategoryId}
+        members={members}
+        currentUserId={currentUserId}
         onClose={closeDrawer}
         onSave={handleSave}
         onDelete={requestDelete}
         onMarkDone={handleMarkDone}
         onMarkTodo={handleMarkTodo}
+        onSetAssignee={handleSetAssignee}
       />
 
       <WeeklyPlanDrawer
