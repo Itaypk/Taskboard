@@ -14,7 +14,7 @@ declare global {
     }
 }
 
-export function LoginPage() {
+export function LoginPage({ next }: { next?: string } = {}) {
     const { setUser } = useAuth();
     const [modalOpen, setModalOpen] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -164,6 +164,7 @@ export function LoginPage() {
                 <LoginModal
                     busy={busy}
                     error={error}
+                    next={next}
                     onSandbox={handleDemoLogin}
                     onDevLogin={handleDevLogin}
                     onClose={() => setModalOpen(false)}
@@ -176,12 +177,14 @@ export function LoginPage() {
 function LoginModal({
     busy,
     error,
+    next,
     onSandbox,
     onDevLogin,
     onClose,
 }: {
     busy: boolean;
     error: string | null;
+    next?: string;
     onSandbox: () => void;
     onDevLogin: () => void;
     onClose: () => void;
@@ -200,7 +203,7 @@ function LoginModal({
         setEmailBusy(true);
         setEmailErr(null);
         try {
-            await requestEmailLogin(trimmed);
+            await requestEmailLogin(trimmed, next);
             setEmailSent(true);
         } catch (err) {
             console.error('Email login request failed', err);

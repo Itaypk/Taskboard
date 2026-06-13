@@ -1,0 +1,136 @@
+.muted {
+  color: var(--ink-soft);
+  font-size: 14px;
+  margin: 0;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 2px;
+  border-bottom: 1px solid var(--paper-border);
+}
+
+.who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.name {
+  font-size: 14px;
+  color: var(--ink);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.youTag {
+  color: var(--ink-soft);
+  font-weight: 400;
+}
+
+.meta {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.roleChip {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  border: 1px solid var(--paper-border);
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+.roleOwner {
+  color: var(--ink);
+  border-color: var(--ink);
+  font-weight: 600;
+}
+
+.rowActions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.linkBtn {
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--ink-soft);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.linkBtn:hover:not(:disabled) {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+.linkBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.danger {
+  color: #b3261e;
+}
+
+.danger:hover:not(:disabled) {
+  color: #8c1d18;
+}
+
+.inviteRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.inviteInput {
+  flex: 1;
+  font: inherit;
+  font-size: 14px;
+  padding: 8px 10px;
+  border: 1px solid var(--paper-border);
+  border-radius: var(--r);
+  background: var(--paper-surface);
+  color: var(--ink);
+}
+
+.pending {
+  margin-top: 16px;
+}
+
+.pendingHead {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+}
+
+.pendingRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 2px;
+}

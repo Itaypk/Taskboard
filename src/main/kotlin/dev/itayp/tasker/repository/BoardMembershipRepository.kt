@@ -18,5 +18,8 @@ interface BoardMembershipRepository : JpaRepository<BoardMembershipEntity, UUID>
     /** Owner count for a board — backs the "≥ 1 OWNER" invariant guards. */
     fun countByBoardIdAndRole(boardId: UUID, role: BoardRole): Long
 
+    /** Total member count for a board — backs the "shared" badge in the switcher. */
+    fun countByBoardId(boardId: UUID): Long
+
     fun deleteAllByBoardId(boardId: UUID)
 }
