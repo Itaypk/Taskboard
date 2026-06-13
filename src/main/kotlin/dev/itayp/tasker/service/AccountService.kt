@@ -71,16 +71,20 @@ class AccountService(
             jdbcTemplate.update("DELETE FROM backlog_task WHERE board_id = ?", boardId)
             jdbcTemplate.update("DELETE FROM backlog_task_tag WHERE board_id = ?", boardId)
             jdbcTemplate.update("DELETE FROM backlog_task_category WHERE board_id = ?", boardId)
+            // The change feed and watermark are board-keyed (Phase 2). Phase 1 boards are
+            // single-member, so every board here is deleted outright — change events go before the
+            // board row (FK) and before planning_session (the event's session FK). Ownership
+            // transfer (nulling actor on surviving boards) arrives with multi-member boards.
+            jdbcTemplate.update("DELETE FROM backlog_task_change_event WHERE board_id = ?", boardId)
+            jdbcTemplate.update("DELETE FROM backlog_task_watermark WHERE board_id = ?", boardId)
         }
 
         settingsRepository.deleteById(userId)
 
-        // User-owned planner/audit rows. watermark + ai_usage_event both FK users(id) with no
-        // cascade, so they must be cleared before the user row is deleted.
-        jdbcTemplate.update("DELETE FROM backlog_task_watermark WHERE user_id = ?", userId)
+        // User-owned audit rows. ai_usage_event FKs users(id) with no cascade, so it must be
+        // cleared before the user row is deleted. (The change feed and watermark are board-keyed
+        // now and were deleted in the per-board loop above.)
         jdbcTemplate.update("DELETE FROM ai_usage_event WHERE user_id = ?", userId)
-        // backlog_task_change_event has FKs to both users and planning_session, so it goes first
-        jdbcTemplate.update("DELETE FROM backlog_task_change_event WHERE user_id = ?", userId)
         // planned_task_slot → planned_task → planning_session; no user_id on slot, so use a subquery
         jdbcTemplate.update(
             "DELETE FROM planned_task_slot WHERE planned_task_id IN (SELECT id FROM planned_task WHERE user_id = ?)",

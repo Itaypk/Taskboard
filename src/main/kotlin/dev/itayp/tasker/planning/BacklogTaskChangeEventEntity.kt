@@ -19,8 +19,15 @@ open class BacklogTaskChangeEventEntity {
     @GeneratedValue(strategy = GenerationType.UUID)
     var id: UUID? = null
 
-    @Column(name = "user_id", nullable = false)
-    var userId: UUID? = null
+    @Column(name = "board_id", nullable = false)
+    var boardId: UUID? = null
+
+    /**
+     * Who performed the change. Scoping is by [boardId]; this is "who did it" on a shared board.
+     * Nullable because the actor's account may be deleted while the board (and its history) survives.
+     */
+    @Column(name = "actor_user_id")
+    var actorUserId: UUID? = null
 
     @Column(name = "task_id", nullable = false)
     var taskId: UUID? = null

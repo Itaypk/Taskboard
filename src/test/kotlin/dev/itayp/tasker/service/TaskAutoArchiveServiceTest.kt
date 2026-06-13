@@ -70,7 +70,9 @@ class TaskAutoArchiveServiceTest {
 
         assertEquals(TaskStatus.ARCHIVED, staleTask.status)
         assertEquals(fixedNow, staleTask.updatedAt)
-        verify(taskChangeService).recordStatusChange(userId, taskId, "Old task", TaskStatus.DONE, TaskStatus.ARCHIVED)
+        verify(taskChangeService)
+            .recordStatusChange(boardId, userId, taskId, "Old task", TaskStatus.DONE, TaskStatus.ARCHIVED)
+        verify(taskChangeService).bumpWatermark(boardId)
     }
 
     @Test
@@ -85,7 +87,8 @@ class TaskAutoArchiveServiceTest {
         service.archiveStaleDoneTasks()
 
         verify(backlogTaskRepository, never()).save(any())
-        verify(taskChangeService, never()).recordStatusChange(any(), any(), any(), any(), any())
+        verify(taskChangeService, never()).recordStatusChange(any(), any(), any(), any(), any(), any())
+        verify(taskChangeService, never()).bumpWatermark(any())
     }
 
     @Test

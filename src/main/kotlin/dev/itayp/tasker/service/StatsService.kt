@@ -42,7 +42,8 @@ class StatsService(
         val completedTasks = boardIds.sumOf { taskRepository.countByBoardIdAndStatus(it, TaskStatus.DONE) }
         val planningSessions = sessionRepository.countByUserIdAndStatus(userId, PlanningSessionStatus.COMPLETED)
 
-        val events = changeEventRepository.findAllByUserIdOrderByOccurredAtAsc(userId)
+        // Personal stats = what this user did, across all their boards — query by actor, not board.
+        val events = changeEventRepository.findAllByActorUserIdOrderByOccurredAtAsc(userId)
 
         val createdCount = events.count { it.changeType == BacklogTaskChangeType.CREATED }
         val createdAtByTask = firstOccurrenceByTask(events) { it.changeType == BacklogTaskChangeType.CREATED }

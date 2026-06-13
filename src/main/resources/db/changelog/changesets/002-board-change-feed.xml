@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Board sharing — Phase 2, PR 1: re-key the backlog change feed from the user to the board.
+
+        The change events and the "tasks changed" watermark were keyed per-user (the deliberate
+        Phase-0/1 deviation). Sharing needs them keyed per-board so a member's edit surfaces to other
+        members and a feed entry survives its author leaving the board.
+
+        Snapshots (task_title_snapshot) were encrypted under the user DEK, so the existing rows are
+        useless once re-keyed to the board — a code-level re-encryption migration is not worth
+        writing for ephemeral signal data (see docs/BOARD-SHARING-PHASE2.md). We drop the rows: the
+        watermark rebuilds on the next edit, and the planner's "since last session" diff degrades to
+        empty exactly once (same as a first session).
+    -->
+
+    <changeSet id="002-1-clear-change-feed" author="tasker">
+        <comment>One-time drop of pre-Phase-2 change events (snapshots are under the now-orphaned user DEK).</comment>
+        <delete tableName="backlog_task_change_event"/>
+    </changeSet>
+
+    <changeSet id="002-2-change-event-board-key" author="tasker">
+        <comment>Re-scope change events to the board; user_id becomes a nullable actor.</comment>
+        <addColumn tableName="backlog_task_change_event">
+            <column name="board_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_backlog_task_change_board" references="board(id)"/>
+            </column>
+        </addColumn>
+        <!--
+            Scoping moves to board_id; "who did it" stays as actor_user_id. Nullable because the
+            actor's account may be deleted while the board (and its history) survives.
+        -->
+        <renameColumn tableName="backlog_task_change_event"
+                      oldColumnName="user_id" newColumnName="actor_user_id" columnDataType="UUID"/>
+        <dropNotNullConstraint tableName="backlog_task_change_event"
+                               columnName="actor_user_id" columnDataType="UUID"/>
+        <createIndex tableName="backlog_task_change_event" indexName="idx_backlog_task_change_board_occurred">
+            <column name="board_id"/>
+            <column name="occurred_at"/>
+        </createIndex>
+        <!--
+            idx_backlog_task_change_user_occurred (now over actor_user_id, occurred_at) already backs
+            the personal-stats query (events by actor); kept as-is, only its leading column was renamed.
+        -->
+    </changeSet>
+
+    <changeSet id="002-3-watermark-board-key" author="tasker">
+        <comment>Re-key the watermark to the board (one row per board). Drop+recreate is simpler than altering the PK.</comment>
+        <dropTable tableName="backlog_task_watermark"/>
+        <createTable tableName="backlog_task_watermark">
+            <column name="board_id" type="UUID">
+                <constraints primaryKey="true" nullable="false"
+                             foreignKeyName="fk_backlog_task_watermark_board" references="board(id)"/>
+            </column>
+            <column name="tasks_changed_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+</databaseChangeLog>
