@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { Task, Tag, TagColorId, Category } from '../types';
 import { TAG_PALETTE, PAPER_SWATCHES } from '../types';
+import type { BoardMember } from '../api';
 import { WashiTape } from './WashiTape';
 import { Autocomplete } from './Autocomplete';
 import { generateId, formatRelative } from '../utils';
@@ -12,11 +13,15 @@ interface TaskDrawerProps {
   categories: Category[];
   availableTags: Tag[];
   defaultCategoryId: string | null;
+  /** Board members for the assignee picker; only non-empty on shared (>1 member) boards. */
+  members: BoardMember[];
+  currentUserId: string | null;
   onClose: () => void;
   onSave: (task: Omit<Task, 'sortKey'>) => void;
   onDelete: (id: string) => void;
   onMarkDone: (id: string) => void;
   onMarkTodo: (id: string) => void;
+  onSetAssignee: (id: string, userId: string | null) => void;
 }
 
 type FormState = Omit<Task, 'id' | 'createdAt' | 'sortKey'>;
@@ -37,8 +42,8 @@ function makeEmpty(defaultCategoryId: string | null): FormState {
 }
 
 export function TaskDrawer({
-  task, isNew, open, categories, availableTags, defaultCategoryId,
-  onClose, onSave, onDelete, onMarkDone, onMarkTodo,
+  task, isNew, open, categories, availableTags, defaultCategoryId, members, currentUserId,
+  onClose, onSave, onDelete, onMarkDone, onMarkTodo, onSetAssignee,
 }: TaskDrawerProps) {
   const [form, setForm] = useState<FormState>(makeEmpty(defaultCategoryId));
   const [showTagForm, setShowTagForm] = useState(false);
@@ -186,6 +191,24 @@ export function TaskDrawer({
               <option value="low">Low</option>
             </select>
           </div>
+
+          {!isNew && task && members.length > 1 && (
+            <div className="field">
+              <label className="field__label">Assignee</label>
+              <select
+                className="field__select"
+                value={task.assigneeUserId ?? ''}
+                onChange={e => onSetAssignee(task.id, e.target.value || null)}
+              >
+                <option value="">Unassigned</option>
+                {members.map(m => (
+                  <option key={m.userId} value={m.userId}>
+                    {m.userId === currentUserId ? `${m.displayName} (you)` : m.displayName}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="field">
             <label className="field__label">Description</label>

@@ -129,6 +129,8 @@ data class TaskResponse(
     val updatedAt: String?,
     val lastScheduledInSessionId: String?,
     val relevantFrom: String?,
+    /** Member who has claimed/been assigned this task; null = unassigned. Names resolved client-side via the members endpoint. */
+    val assigneeUserId: String?,
 )
 
 data class TimeSlotResponse(
@@ -163,6 +165,7 @@ fun BacklogTask.toResponse() = TaskResponse(
     updatedAt = updatedAt?.toString(),
     lastScheduledInSessionId = lastScheduledInSessionId?.toString(),
     relevantFrom = relevantFrom?.toString(),
+    assigneeUserId = assigneeUserId?.toString(),
 )
 
 fun BacklogTaskCategory.toResponse() = CategoryResponse(

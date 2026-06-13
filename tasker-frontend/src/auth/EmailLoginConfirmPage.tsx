@@ -23,13 +23,11 @@ export function EmailLoginConfirmPage() {
     const token = params.get('token');
     const next = params.get('next');
 
-    const [state, setState] = useState<PageState>({ phase: 'loading' });
+    // Derive the no-token case at init so the effect only ever sets state from the async precheck.
+    const [state, setState] = useState<PageState>(() => (token ? { phase: 'loading' } : { phase: 'invalid' }));
 
     useEffect(() => {
-        if (!token) {
-            setState({ phase: 'invalid' });
-            return;
-        }
+        if (!token) return;
         precheckEmailLogin(token)
             .then(({ valid }) => setState(valid ? { phase: 'ready' } : { phase: 'invalid' }))
             .catch(() => setState({ phase: 'invalid' }));

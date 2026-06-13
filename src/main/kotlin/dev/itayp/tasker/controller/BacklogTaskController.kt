@@ -3,6 +3,7 @@ package dev.itayp.tasker.controller
 import dev.itayp.tasker.model.TaskStatus
 import dev.itayp.tasker.model.request.CreateBacklogTaskRequest
 import dev.itayp.tasker.model.request.ReorderTaskRequest
+import dev.itayp.tasker.model.request.SetAssigneeRequest
 import dev.itayp.tasker.model.request.UpdateBacklogTaskRequest
 import dev.itayp.tasker.model.response.HasChangesResponse
 import dev.itayp.tasker.model.response.TaskResponse
@@ -134,6 +135,25 @@ class BacklogTaskController(
         return try {
             backlogTaskService.unscheduleTask(principal.userId, boardId, id)
             ResponseEntity.noContent().build()
+        } catch (_: NoSuchElementException) {
+            ResponseEntity.notFound().build()
+        }
+    }
+
+    /**
+     * Sets or clears a task's assignee (claim/unclaim and "assign to…"). Any member may set any
+     * member or null (Decision 7); a non-member target is rejected 400. Returns the updated task.
+     */
+    @PutMapping("/{id}/assignee")
+    fun setAssignee(
+        @AuthenticationPrincipal principal: TaskerPrincipal,
+        @PathVariable boardId: UUID,
+        @PathVariable id: UUID,
+        @Valid @RequestBody request: SetAssigneeRequest,
+    ): ResponseEntity<TaskResponse> {
+        val assignee = request.userId?.let { runCatching { UUID.fromString(it) }.getOrNull() ?: return ResponseEntity.badRequest().build() }
+        return try {
+            ResponseEntity.ok(backlogTaskService.setAssignee(principal.userId, boardId, id, assignee).toResponse())
         } catch (_: NoSuchElementException) {
             ResponseEntity.notFound().build()
         }

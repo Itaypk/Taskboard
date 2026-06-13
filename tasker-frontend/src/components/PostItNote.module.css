@@ -49,6 +49,30 @@
   }
 }
 
+/* Assignee chip: small initials badge in the meta row, only on shared boards. */
+.assignee {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  margin-left: auto;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  color: var(--paper-ink, currentColor);
+  background: rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.assigneeMe {
+  background: rgba(208, 138, 30, 0.22);
+  border-color: rgba(208, 138, 30, 0.55);
+}
+
 /* Screen-reader-only label so the badge meaning isn't lost without the pin. */
 .planSrLabel {
   position: absolute;

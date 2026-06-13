@@ -47,7 +47,14 @@ export function ConnectedAccounts() {
         }
     }, []);
 
-    useEffect(() => { void refresh(); }, [refresh]);
+    // Load once on mount; setState lives in the async continuation, not the effect body.
+    useEffect(() => {
+        let cancelled = false;
+        fetchIdentities()
+            .then(ids => { if (!cancelled) setIdentities(ids); })
+            .catch(e => console.error('Failed to load connected accounts', e));
+        return () => { cancelled = true; };
+    }, []);
 
     const hasTelegram = identities?.some(i => i.provider === 'telegram') ?? false;
 

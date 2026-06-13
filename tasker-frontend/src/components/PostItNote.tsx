@@ -6,11 +6,19 @@ import { WashiTape } from './WashiTape';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import styles from './PostItNote.module.css';
 
+/** Resolved claimer for the assignee chip; only supplied on shared boards. */
+export interface AssigneeChipInfo {
+  initials: string;
+  name: string;
+  isMe: boolean;
+}
+
 interface PostItNoteProps {
   task: Task;
   category: Category | undefined;
   leaving?: boolean;
   inCurrentPlan?: boolean;
+  assignee?: AssigneeChipInfo | null;
   onClick: () => void;
   onContextMenu?: (e: React.MouseEvent) => void;
 }
@@ -22,6 +30,7 @@ export function PostItNote({
   category,
   leaving = false,
   inCurrentPlan = false,
+  assignee = null,
   onClick,
   onContextMenu,
 }: PostItNoteProps) {
@@ -110,6 +119,15 @@ export function PostItNote({
         {task.estimatedMinutes != null && (
           <span className="note__meta-item">
             <Icon name="clock" /> {formatDuration(task.estimatedMinutes)}
+          </span>
+        )}
+        {assignee && (
+          <span
+            className={`${styles.assignee} ${assignee.isMe ? styles.assigneeMe : ''}`}
+            title={assignee.isMe ? `Claimed by you (${assignee.name})` : `Assigned to ${assignee.name}`}
+            aria-label={assignee.isMe ? `Claimed by you` : `Assigned to ${assignee.name}`}
+          >
+            {assignee.initials}
           </span>
         )}
       </div>

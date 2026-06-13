@@ -36,16 +36,18 @@ export function BoardMembersModal({
 }: BoardMembersModalProps) {
     const [members, setMembers] = useState<BoardMember[]>([]);
     const [invitations, setInvitations] = useState<PendingInvitation[]>([]);
-    const [loading, setLoading] = useState(false);
+    const [loadedBoardId, setLoadedBoardId] = useState<string | null>(null);
     const [email, setEmail] = useState('');
     const [busy, setBusy] = useState(false);
     const [confirm, setConfirm] = useState<Confirm | null>(null);
 
     const isOwner = board?.role === 'OWNER';
+    // Derived (not a setState) so switching boards shows the spinner without a synchronous
+    // setState-in-effect, and never flashes the previous board's members.
+    const loading = !!board && loadedBoardId !== board.id;
 
     const reload = useCallback(async () => {
         if (!board) return;
-        setLoading(true);
         try {
             const [m, inv] = await Promise.all([
                 fetchMembers(board.id),
@@ -53,16 +55,29 @@ export function BoardMembersModal({
             ]);
             setMembers(m);
             setInvitations(inv);
+            setLoadedBoardId(board.id);
         } catch (e) {
             console.error('Failed to load members', e);
-        } finally {
-            setLoading(false);
         }
     }, [board, isOwner]);
 
+    // Load on open / board change; setState lives in the async continuation, not the effect body.
     useEffect(() => {
-        if (open && board) void reload();
-    }, [open, board, reload]);
+        if (!open || !board) return;
+        let cancelled = false;
+        Promise.all([
+            fetchMembers(board.id),
+            isOwner ? fetchInvitations(board.id) : Promise.resolve([] as PendingInvitation[]),
+        ])
+            .then(([m, inv]) => {
+                if (cancelled) return;
+                setMembers(m);
+                setInvitations(inv);
+                setLoadedBoardId(board.id);
+            })
+            .catch(e => console.error('Failed to load members', e));
+        return () => { cancelled = true; };
+    }, [open, board, isOwner]);
 
     useEffect(() => {
         if (!open) return;

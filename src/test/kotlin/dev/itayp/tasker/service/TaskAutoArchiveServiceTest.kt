@@ -60,7 +60,7 @@ class TaskAutoArchiveServiceTest {
         val staleTask = taskEntity(title = "Old task", updatedAt = fixedNow.minus(8, ChronoUnit.DAYS))
         val expectedCutoff = fixedNow.minus(7L, ChronoUnit.DAYS)
         whenever(userSettingsRepository.findAllByAutoArchiveDaysIsNotNull()).thenReturn(listOf(settings))
-        whenever(boardMembershipService.listBoardIds(userId)).thenReturn(listOf(boardId))
+        whenever(boardMembershipService.listOwnedBoardIds(userId)).thenReturn(listOf(boardId))
         whenever(backlogTaskRepository.findAllByBoardIdAndStatusAndUpdatedAtBeforeOrderBySortKeyAsc(
             boardId, TaskStatus.DONE, expectedCutoff
         )).thenReturn(listOf(staleTask))
@@ -79,7 +79,7 @@ class TaskAutoArchiveServiceTest {
     fun `does not archive tasks when none are stale`() {
         val settings = settingsEntity(autoArchiveDays = 7)
         whenever(userSettingsRepository.findAllByAutoArchiveDaysIsNotNull()).thenReturn(listOf(settings))
-        whenever(boardMembershipService.listBoardIds(userId)).thenReturn(listOf(boardId))
+        whenever(boardMembershipService.listOwnedBoardIds(userId)).thenReturn(listOf(boardId))
         whenever(backlogTaskRepository.findAllByBoardIdAndStatusAndUpdatedAtBeforeOrderBySortKeyAsc(
             any(), any(), any()
         )).thenReturn(emptyList())
@@ -96,7 +96,7 @@ class TaskAutoArchiveServiceTest {
         val settings = settingsEntity(autoArchiveDays = 30)
         val expectedCutoff = fixedNow.minus(30L, ChronoUnit.DAYS)
         whenever(userSettingsRepository.findAllByAutoArchiveDaysIsNotNull()).thenReturn(listOf(settings))
-        whenever(boardMembershipService.listBoardIds(userId)).thenReturn(listOf(boardId))
+        whenever(boardMembershipService.listOwnedBoardIds(userId)).thenReturn(listOf(boardId))
         whenever(backlogTaskRepository.findAllByBoardIdAndStatusAndUpdatedAtBeforeOrderBySortKeyAsc(
             boardId, TaskStatus.DONE, expectedCutoff
         )).thenReturn(emptyList())
@@ -106,6 +106,20 @@ class TaskAutoArchiveServiceTest {
         verify(backlogTaskRepository).findAllByBoardIdAndStatusAndUpdatedAtBeforeOrderBySortKeyAsc(
             boardId, TaskStatus.DONE, expectedCutoff
         )
+    }
+
+    @Test
+    fun `does not archive boards the user only belongs to as a member`() {
+        // Decision 10: a member (non-owner) of a shared board owns no boards, so their auto-archive
+        // setting sweeps nothing — it can't archive the owner's DONE tasks.
+        val settings = settingsEntity(autoArchiveDays = 7)
+        whenever(userSettingsRepository.findAllByAutoArchiveDaysIsNotNull()).thenReturn(listOf(settings))
+        whenever(boardMembershipService.listOwnedBoardIds(userId)).thenReturn(emptyList())
+
+        service.archiveStaleDoneTasks()
+
+        verify(backlogTaskRepository, never()).findAllByBoardIdAndStatusAndUpdatedAtBeforeOrderBySortKeyAsc(any(), any(), any())
+        verify(backlogTaskRepository, never()).save(any())
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────

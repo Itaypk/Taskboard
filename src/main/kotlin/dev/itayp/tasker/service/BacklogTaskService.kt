@@ -16,8 +16,10 @@ import dev.itayp.tasker.planning.BacklogTaskChangeService
 import dev.itayp.tasker.repository.BacklogTaskCategoryRepository
 import dev.itayp.tasker.repository.BacklogTaskRepository
 import dev.itayp.tasker.repository.BacklogTaskTagRepository
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.web.bind.annotation.ResponseStatus
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
@@ -101,9 +103,32 @@ class BacklogTaskService(
         val entities = backlogTaskRepository.findAllByBoardIdInAndIdIn(boardIds, taskIds)
         for (entity in entities) {
             entity.lastScheduledInSessionId = sessionId
+            // Decision 8: scheduling a shared task into your week claims it, but only if unclaimed —
+            // a carry-over re-stamp never steals an existing claim.
+            if (entity.assigneeUserId == null) entity.assigneeUserId = userId
         }
         backlogTaskRepository.saveAll(entities)
         entities.mapNotNull { it.boardId }.distinct().forEach { taskChangeService.bumpWatermark(it) }
+    }
+
+    /**
+     * Sets or clears a task's assignee (Decision 7 — open coordination, not an ACL: any member may
+     * assign any member or unassign). Bumps the board watermark so the claim propagates to other
+     * members' open tabs, but records **no** change event — claim churn would drown the planner's
+     * weekly diff (Decision 8 / PR 3).
+     */
+    @Transactional
+    fun setAssignee(userId: UUID, boardId: UUID, taskId: UUID, assigneeUserId: UUID?): BacklogTask {
+        boardMembershipService.requireMember(userId, boardId)
+        val entity = backlogTaskRepository.findByIdAndBoardId(taskId, boardId)
+            ?: throw NoSuchElementException("Task $taskId not found")
+        if (assigneeUserId != null && !boardMembershipService.isMember(assigneeUserId, boardId)) {
+            throw AssigneeNotMemberException(assigneeUserId, boardId)
+        }
+        entity.assigneeUserId = assigneeUserId
+        val saved = backlogTaskRepository.save(entity)
+        taskChangeService.bumpWatermark(boardId)
+        return saved.toDomain(boardCrypto)
     }
 
     private fun filterOutFutureDated(userId: UUID, tasks: List<BacklogTask>): List<BacklogTask> {
@@ -305,3 +330,8 @@ class BacklogTaskService(
         }.toMutableSet()
     }
 }
+
+/** Raised when an assignee target is not a member of the board. Maps to HTTP 400. */
+@ResponseStatus(HttpStatus.BAD_REQUEST)
+class AssigneeNotMemberException(userId: UUID, boardId: UUID) :
+    RuntimeException("User $userId is not a member of board $boardId and cannot be assigned")

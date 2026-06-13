@@ -272,6 +272,10 @@ export const deleteTask = (boardId: string, id: string): Promise<void> =>
 export const removeTaskFromPlan = (boardId: string, id: string): Promise<void> =>
     apiRequest(`/boards/${boardId}/tasks/${id}/plan-schedule`, { method: 'DELETE' });
 
+/** Claim/unclaim or assign a task. `userId` null clears the assignee. */
+export const setTaskAssignee = (boardId: string, id: string, userId: string | null): Promise<Task> =>
+    apiRequest(`/boards/${boardId}/tasks/${id}/assignee`, { method: 'PUT', ...jsonBody({ userId }) });
+
 export const addTaskToPlan = (taskId: string, startIso: string, endIso: string): Promise<void> =>
     apiRequest(`/plans/current/tasks/${taskId}`, { method: 'POST', ...jsonBody({ startIso, endIso }) });
 
