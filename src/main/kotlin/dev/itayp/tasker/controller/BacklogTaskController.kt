@@ -126,6 +126,16 @@ class BacklogTaskController(
         }
     }
 
+    /** Clears the seeded tutorial backlog (tutorial tasks only) for this board. */
+    @DeleteMapping("/tutorial")
+    fun clearTutorialTasks(
+        @AuthenticationPrincipal principal: TaskerPrincipal,
+        @PathVariable boardId: UUID,
+    ): ResponseEntity<Void> {
+        backlogTaskService.clearTutorialTasks(principal.userId, boardId)
+        return ResponseEntity.noContent().build()
+    }
+
     @DeleteMapping("/{id}/plan-schedule")
     fun unscheduleTask(
         @AuthenticationPrincipal principal: TaskerPrincipal,

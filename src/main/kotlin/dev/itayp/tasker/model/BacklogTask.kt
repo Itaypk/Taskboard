@@ -61,5 +61,6 @@ data class BacklogTask(
     val updatedAt: Instant?,
     val rescheduleCount: Int,
     val lastScheduledInSessionId: UUID?,
-    val relevantFrom: LocalDate?
+    val relevantFrom: LocalDate?,
+    val tutorial: Boolean = false
 )

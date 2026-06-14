@@ -21,15 +21,19 @@ class DemoAuthController(
     private val userCrypto: UserCryptoService,
 ) {
 
+    /**
+     * Zero-registration start. Creates a real but unclaimed account (no login identity yet) and signs
+     * the user in with a normal 30-day rolling session — no longer a throwaway 24 h demo. The user is
+     * nudged in the UI to add an email or Telegram to keep their data; until then the account is
+     * eligible for inactivity-based cleanup. See docs/DEMO-ACCOUNT-UNIFICATION.md.
+     */
     @PostMapping("/demo-login")
     fun demoLogin(
         request: HttpServletRequest,
         response: HttpServletResponse,
     ): ResponseEntity<MeResponse> {
-        val user = userAuthService.createDemoUser()
+        val user = userAuthService.createUnclaimedUser()
         sessionAuthenticator.authenticate(TaskerPrincipal(user.id!!), request, response)
-        // Limit the session lifetime to match the demo data TTL (24 h)
-        request.getSession(false)?.maxInactiveInterval = 24 * 60 * 60
         return ResponseEntity.ok(user.toMeResponse(userCrypto))
     }
 }

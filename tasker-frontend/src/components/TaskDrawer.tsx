@@ -80,6 +80,10 @@ export function TaskDrawer({
     return () => window.removeEventListener('keydown', handler);
   }, [open, onClose]);
 
+  // Tutorial tasks are immutable — a UX guardrail (not a server-side rule). You can still complete
+  // or delete them; only field editing is locked.
+  const readOnly = !isNew && !!task?.tutorial;
+
   const selectedCategory = categories.find(c => c.id === form.categoryId);
   const selectedSwatch = selectedCategory
     ? PAPER_SWATCHES.find(s => s.id === selectedCategory.swatchId)
@@ -144,6 +148,10 @@ export function TaskDrawer({
         </div>
 
         <div className="drawer__body">
+          {readOnly && (
+            <p className="drawer__readonly-hint">This is a tutorial task. Mark it done or clear the tutorial when you’re ready.</p>
+          )}
+          <fieldset className="drawer__fieldset" disabled={readOnly}>
           <input
             className="field__title-input"
             value={form.title}
@@ -368,6 +376,7 @@ export function TaskDrawer({
               })()}
             </div>
           </div>
+          </fieldset>
         </div>
 
         {!isNew && task && (
@@ -417,15 +426,17 @@ export function TaskDrawer({
             )}
           </div>
           <div className="drawer__footer-right">
-            <button type="button" className="btn btn--ghost" onClick={onClose}>Cancel</button>
-            <button
-              type="button"
-              className="btn btn--primary"
-              onClick={handleSave}
-              disabled={!form.title.trim() || !form.categoryId}
-            >
-              {isNew ? 'Pin it up' : 'Save'}
-            </button>
+            <button type="button" className="btn btn--ghost" onClick={onClose}>{readOnly ? 'Close' : 'Cancel'}</button>
+            {!readOnly && (
+              <button
+                type="button"
+                className="btn btn--primary"
+                onClick={handleSave}
+                disabled={!form.title.trim() || !form.categoryId}
+              >
+                {isNew ? 'Pin it up' : 'Save'}
+              </button>
+            )}
           </div>
         </div>
       </aside>

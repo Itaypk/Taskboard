@@ -16,6 +16,7 @@ import dev.itayp.tasker.planning.BacklogTaskChangeService
 import dev.itayp.tasker.repository.BacklogTaskCategoryRepository
 import dev.itayp.tasker.repository.BacklogTaskRepository
 import dev.itayp.tasker.repository.BacklogTaskTagRepository
+import dev.itayp.tasker.repository.UserRepository
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
@@ -43,6 +44,7 @@ class BacklogTaskServiceTest {
     @Mock private lateinit var taskChangeService: BacklogTaskChangeService
     @Mock private lateinit var userSettingsService: UserSettingsService
     @Mock private lateinit var boardMembershipService: BoardMembershipService
+    @Mock private lateinit var userRepository: UserRepository
     @Mock private lateinit var clock: Clock
 
     private val boardCrypto = noopBoardCryptoService()
@@ -56,6 +58,7 @@ class BacklogTaskServiceTest {
             userSettingsService,
             boardMembershipService,
             boardCrypto,
+            userRepository,
             clock,
         )
     }

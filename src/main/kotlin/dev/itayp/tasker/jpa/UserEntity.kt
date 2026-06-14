@@ -46,6 +46,18 @@ class UserEntity {
     @Column(name = "demo_expires_at")
     var demoExpiresAt: Instant? = null
 
+    /** One-way latch: true once a login identity or verified email is attached. The hard guard that keeps cleanup off real accounts. */
+    @Column(name = "claimed", nullable = false)
+    var claimed: Boolean = false
+
+    /** One-way: stamped on the first genuine (non-tutorial) write. Promotes an unclaimed account to the longer inactivity TTL. */
+    @Column(name = "engaged_at")
+    var engagedAt: Instant? = null
+
+    /** Rolling activity marker, refreshed (throttled) on authenticated API requests; drives inactivity-based cleanup. */
+    @Column(name = "last_active_at")
+    var lastActiveAt: Instant? = null
+
     @Column(name = "created_at")
     var createdAt: Instant? = null
 

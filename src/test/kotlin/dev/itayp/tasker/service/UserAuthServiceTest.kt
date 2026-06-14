@@ -23,14 +23,14 @@ class UserAuthServiceTest {
     @Mock lateinit var userRepository: UserRepository
     @Mock lateinit var authIdentityRepository: AuthIdentityRepository
     @Mock lateinit var userService: UserService
-    @Mock lateinit var demoDataSeeder: DemoDataSeeder
+    @Mock lateinit var tutorialSeeder: TutorialSeeder
 
     private val fixedNow = Instant.parse("2026-04-21T12:00:00Z")
     private val clock = Clock.fixed(fixedNow, ZoneOffset.UTC)
     private val crypto = newTestUserCryptoService()
 
     private val service: UserAuthService by lazy {
-        UserAuthService(userRepository, authIdentityRepository, userService, demoDataSeeder, crypto, clock)
+        UserAuthService(userRepository, authIdentityRepository, userService, tutorialSeeder, crypto, clock)
     }
 
     private fun authData(telegramId: Long = 42L) = TelegramAuthData(
@@ -208,14 +208,15 @@ class UserAuthServiceTest {
     }
 
     @Test
-    fun `createDemoUser provisions a channel-less user with no auth identity`() {
+    fun `createUnclaimedUser provisions a channel-less, unclaimed user seeded with the tutorial`() {
         whenever(userRepository.save(any<UserEntity>())).thenAnswer { it.arguments[0] as UserEntity }
 
-        val result = service.createDemoUser()
+        val result = service.createUnclaimedUser()
 
-        assertThat(result.isDemo).isTrue()
+        assertThat(result.claimed).isFalse()
+        assertThat(result.lastActiveAt).isEqualTo(fixedNow)
         verify(userService).initializeNewUser(eq(result.id!!))
-        verify(demoDataSeeder).seed(eq(result.id!!))
+        verify(tutorialSeeder).seed(eq(result.id!!))
         verify(authIdentityRepository, never()).save(any<AuthIdentityEntity>())
     }
 }

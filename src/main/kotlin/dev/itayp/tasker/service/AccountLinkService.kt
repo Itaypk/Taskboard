@@ -50,6 +50,8 @@ class AccountLinkService(
         user.telegramUsername = data.username
         user.telegramPhotoUrl = data.photoUrl
         user.telegramFirstName = userCrypto.encrypt(userId, data.firstName)
+        // Linking a login method claims the account (one-way latch), exempting it from cleanup.
+        user.claimed = true
         userRepository.save(user)
         authIdentityRepository.save(AuthIdentityEntity().apply {
             id = UUID.randomUUID()

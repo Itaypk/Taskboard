@@ -58,6 +58,8 @@ export interface Task {
   lastScheduledInSessionId?: string | null;
   relevantFrom?: string; // YYYY-MM-DD
   assigneeUserId?: string | null;
+  /** True for seeded tutorial tasks: editing is hidden client-side and a "clear tutorial" action is offered. */
+  tutorial?: boolean;
 }
 
 export interface TimeSlot {

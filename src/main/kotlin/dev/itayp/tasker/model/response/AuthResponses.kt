@@ -10,6 +10,8 @@ data class MeResponse(
     val telegramFirstName: String?,
     val telegramPhotoUrl: String?,
     val email: String?,
+    /** False while the account has no login identity yet — the SPA shows a "save your account" nudge. */
+    val claimed: Boolean,
 )
 
 /** One linked login method for the "connected accounts" settings screen. Provider-agnostic. */
@@ -28,5 +30,6 @@ fun UserEntity.toMeResponse(crypto: UserCryptoService): MeResponse {
         telegramFirstName = crypto.decrypt(ownerId, telegramFirstName),
         telegramPhotoUrl = telegramPhotoUrl,
         email = crypto.decrypt(ownerId, email),
+        claimed = claimed,
     )
 }

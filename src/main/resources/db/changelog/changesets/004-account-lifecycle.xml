@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Demo-account unification (docs/DEMO-ACCOUNT-UNIFICATION.md).
+
+        A zero-registration start now creates a *real* account that simply has no login identity yet.
+        Three lifecycle signals drive automatic reclamation of never-claimed, inactive accounts:
+          - claimed       : one-way latch, true once any login identity / verified email is attached.
+                            The HARD safety guard — cleanup can only ever touch claimed = false rows.
+          - engaged_at    : one-way, stamped on the first genuine (non-tutorial) write; selects the
+                            longer inactivity TTL.
+          - last_active_at: rolling, refreshed (throttled) on authenticated API activity.
+        backlog_task.tutorial marks the seeded tutorial backlog (immutable client-side, one-click clear,
+        excluded from the engagement signal).
+
+        is_demo / demo_expires_at are intentionally NOT dropped here (additive-only rule); they simply
+        stop being written. Retire them later alongside the other deferred column retirements in
+        docs/AUTH-DECOUPLING.md.
+    -->
+    <changeSet id="004-1-account-lifecycle-columns" author="tasker">
+        <addColumn tableName="users">
+            <column name="claimed" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="engaged_at" type="TIMESTAMP"/>
+            <column name="last_active_at" type="TIMESTAMP"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="004-2-backlog-task-tutorial" author="tasker">
+        <addColumn tableName="backlog_task">
+            <column name="tutorial" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <!--
+        Backfill existing accounts as claimed: anyone with a login identity OR a verified email is a
+        real, retained account. Demo survivors (no identity, no verified email) stay claimed = false
+        and are swept by the new cleanup job on the short inactivity TTL. last_active_at is seeded from
+        the best timestamp we have so the inactivity window starts from a sane baseline rather than null.
+    -->
+    <changeSet id="004-3-backfill-claimed" author="tasker">
+        <update tableName="users">
+            <column name="claimed" valueBoolean="true"/>
+            <where>email_verified_at IS NOT NULL OR id IN (SELECT user_id FROM auth_identities)</where>
+        </update>
+    </changeSet>
+
+    <changeSet id="004-4-backfill-last-active" author="tasker">
+        <update tableName="users">
+            <column name="last_active_at" valueComputed="COALESCE(last_login_at, created_at)"/>
+            <where>last_active_at IS NULL</where>
+        </update>
+    </changeSet>
+
+</databaseChangeLog>

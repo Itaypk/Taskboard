@@ -1,11 +1,14 @@
 package dev.itayp.tasker.config
 
+import dev.itayp.tasker.interceptor.ActivityTrackingInterceptor
 import dev.itayp.tasker.interceptor.MdcUserInterceptor
 import dev.itayp.tasker.interceptor.RateLimitInterceptor
 import dev.itayp.tasker.ratelimit.InMemoryRateLimiter
 import dev.itayp.tasker.ratelimit.RateLimiter
 import dev.itayp.tasker.security.AbsoluteSessionLifetimeFilter
+import dev.itayp.tasker.service.ActivityTracker
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.web.servlet.FilterRegistrationBean
@@ -18,7 +21,11 @@ import java.time.Clock
 
 @Configuration
 @EnableConfigurationProperties(RateLimitProperties::class)
-class WebConfiguration(private val rateLimitProperties: RateLimitProperties) : WebMvcConfigurer {
+class WebConfiguration(
+    private val rateLimitProperties: RateLimitProperties,
+    // ObjectProvider so @WebMvcTest slices (which don't load service beans) still construct this config.
+    private val activityTrackerProvider: ObjectProvider<ActivityTracker>,
+) : WebMvcConfigurer {
 
     @Bean
     fun etagFilter(): FilterRegistrationBean<ShallowEtagHeaderFilter> {
@@ -61,6 +68,9 @@ class WebConfiguration(private val rateLimitProperties: RateLimitProperties) : W
         registry.addInterceptor(
             RateLimitInterceptor(apiRateLimiter(), demoLoginRateLimiter(), telegramLoginRateLimiter()),
         )
+        activityTrackerProvider.ifAvailable { tracker ->
+            registry.addInterceptor(ActivityTrackingInterceptor(tracker))
+        }
     }
 
     companion object {

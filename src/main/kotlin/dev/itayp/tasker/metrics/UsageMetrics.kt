@@ -33,7 +33,8 @@ class UsageMetrics(
     private val log = LoggerFactory.getLogger(UsageMetrics::class.java)
 
     private val totalUsers = AtomicLong(0)
-    private val demoUsers = AtomicLong(0)
+    private val unclaimedUsers = AtomicLong(0)
+    private val engagedUnclaimedUsers = AtomicLong(0)
     private val tasksByStatus = TaskStatus.entries.associateWith { AtomicLong(0) }
     private val sessionsByStatus = PlanningSessionStatus.entries.associateWith { AtomicLong(0) }
     private val activeConversations = AtomicLong(0)
@@ -43,8 +44,11 @@ class UsageMetrics(
         Gauge.builder("tasker.users.total", totalUsers) { it.get().toDouble() }
             .description("Total registered users")
             .register(meterRegistry)
-        Gauge.builder("tasker.users.demo", demoUsers) { it.get().toDouble() }
-            .description("Users currently flagged as demo accounts")
+        Gauge.builder("tasker.users.unclaimed", unclaimedUsers) { it.get().toDouble() }
+            .description("Accounts with no login identity yet (not claimed)")
+            .register(meterRegistry)
+        Gauge.builder("tasker.users.engaged_unclaimed", engagedUnclaimedUsers) { it.get().toDouble() }
+            .description("Unclaimed accounts that did real work (anonymous -> engaged -> claimed funnel)")
             .register(meterRegistry)
         tasksByStatus.forEach { (status, holder) ->
             Gauge.builder("tasker.tasks.total", holder) { it.get().toDouble() }
@@ -70,7 +74,8 @@ class UsageMetrics(
     fun refresh() {
         try {
             totalUsers.set(userRepository.count())
-            demoUsers.set(userRepository.countByIsDemo(true))
+            unclaimedUsers.set(userRepository.countByClaimed(false))
+            engagedUnclaimedUsers.set(userRepository.countByClaimedAndEngagedAtNotNull(false))
             tasksByStatus.forEach { (status, holder) -> holder.set(backlogTaskRepository.countByStatus(status)) }
             sessionsByStatus.forEach { (status, holder) -> holder.set(planningSessionRepository.countByStatus(status)) }
             activeConversations.set(conversationRepository.countByStatus(ConversationStatus.ACTIVE))

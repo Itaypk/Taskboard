@@ -7,6 +7,8 @@ export interface AuthUser {
     telegramFirstName: string | null;
     telegramPhotoUrl: string | null;
     email: string | null;
+    /** False while the account has no login identity yet — drives the "save your account" nudge. */
+    claimed: boolean;
 }
 
 export interface TelegramWidgetPayload {

@@ -87,6 +87,8 @@ class EmailVerificationService(
         user.emailVerifiedAt = now
         user.emailVerificationToken = null
         user.emailVerificationTokenExpiresAt = null
+        // A verified email is a login method, so it claims the account (one-way latch).
+        user.claimed = true
         userRepository.save(user)
 
         // A verified email is also a login method: attach an email identity so the address can be

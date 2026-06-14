@@ -54,8 +54,8 @@ export function LoginPage({ next }: { next?: string } = {}) {
             const user = await demoLogin();
             setUser(user);
         } catch (e) {
-            console.error('Demo login failed', e);
-            setError('Demo mode is currently unavailable. Please try again.');
+            console.error('Start-now login failed', e);
+            setError("Couldn't start a new account. Please try again.");
         } finally {
             setBusy(false);
         }
@@ -125,7 +125,7 @@ export function LoginPage({ next }: { next?: string } = {}) {
                                 onClick={handleDemoLogin}
                                 disabled={busy}
                             >
-                                or play in a sandbox →
+                                or start now, no sign-up →
                             </button>
                         </div>
                     </div>
@@ -298,8 +298,8 @@ function LoginModal({
                 </div>
 
                 <button type="button" className={styles.sandboxCard} onClick={onSandbox} disabled={busy}>
-                    Open a sandbox account →
-                    <span className={styles.sandboxSub}>A fully-featured demo board. No sign-up.</span>
+                    Start now — no sign-up →
+                    <span className={styles.sandboxSub}>Get a real board instantly. Add an email or Telegram later to keep it.</span>
                 </button>
 
                 <p className={styles.fine}>
