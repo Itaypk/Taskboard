@@ -20,21 +20,28 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Persisted calendar invite SEQUENCE counter. Plan-revise updates re-send same-time slot edits (label/title/notes) with a fixed `SEQUENCE:1`. A second same-slot edit in a later session sends `SEQUENCE:1` again, which strict calendar clients may not re-apply. Persisting a per-slot revision counter (incremented on each update) would make repeated updates robust. Low priority: time moves go through cancel + fresh invite, which is unaffected.
 - Switch over to UUID v7 (better DB performance for indexes).
 - Currently, a single task is tied to a single time-block; would we like to change that, so that a single task might have mutiple (or zero) time blocks attached?
-- Add a search functionality in the "All" tasks tab. 
+- Add a search functionality in the "All" tasks tab.
+- Favicon - we are using a default one.
+- Stats should show all times total number of tasks and completed tasks.
 
 ## UI - Tasks
 - Work on tagline and satellite notes in the welcome page with better texts. See if we need to move a few things around 
 - Better - more satisfying - "mark as done"
 - Drawer improvements (buttons are too dense, for example)
 - Edit existing tags; add "description" to a tag (consider if needed)
+- Settings dialog - each tab has a different height; switching tabs move the modal. Also, consider moving some fields from the "General" area to somewhere more relevant.
 - Task list Markdown (subtasks) checkboxes - makes it possible to check directly from the main screen
 - Filter chips can still wrap on very small screens even after the "Week" shortening. If it keeps bugging us, consider a segmented control or horizontally-scrollable chip row on mobile.
 - Right-click menu: duplicate task; move task to another board
 - Board management: consider streamlining things. For now, we have "Rename board", and "Members", as extra rows in the dropdown. Should it be a "settings" icon next to the board? Just one "Edit..." row?
-- Board management: custom board color pin marker?
+- Board management: custom board color pin marker (the member count pin)?
+- When adding a new task, some validation errors (like an invalid link) are causing an unexplained error. Solutions to consider (not exclusive or): client side validation in line with server side definitions; error details that include the offending field and reason that would be displayed properly.
+
+## General features (medium sized)
+- Add "feedback" option.
 
 ## Assistant - Mid-week response
-- When texting the assistant out of the blue, respond with the correct context.
+- When texting the assistant out of the blue, respond with the correct context. 
 
 ## Following up
 - The assistant could follow up on tasks that were scheduled but not marked done after their scheduled time. 
