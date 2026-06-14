@@ -37,6 +37,7 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Board management: consider streamlining things. For now, we have "Rename board", and "Members", as extra rows in the dropdown. Should it be a "settings" icon next to the board? Just one "Edit..." row?
 - Board management: custom board color pin marker (the member count pin)?
 - When adding a new task, some validation errors (like an invalid link) are causing an unexplained error. Solutions to consider (not exclusive or): client side validation in line with server side definitions; error details that include the offending field and reason that would be displayed properly.
+- Per-board mascots: add a few new mascots (in addition to the pineapple pet), customizable by board. 
 
 ## General features (medium sized)
 - Add "feedback" option.
@@ -52,9 +53,12 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - We'll recognize tasks that are repeatedly rescheduled or not marked done, and proactively suggest help.
 - Possible help ideas include breaking them down to multiple tasks, finding time for them, or even just reminding us about them.
 
-## Larger changes - consideration required
+## Ideas that require more consideration
 - Open source the application under AGPL.
-- Following up on the multi-identity migration - re-consider demo mode: do we still need the "demo" concept, or would it be a regular account without communication channels? Do we want a promotion flow from demo to a real user? Either way, the option of getting started with a single click is still useful.
+- Unlock more mascots for users over use time or patterns.
+- Additional themes.
+
+## Large projects
 - WhatsApp as a communication channel support.
 - Complete i18n support, including the web UI, welcome page, etc. Consider trimming the list of supported languages.
 - Multi-modal support: the assistant can process images and voice messages. 
