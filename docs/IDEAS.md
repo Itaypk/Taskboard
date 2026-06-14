@@ -23,6 +23,7 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Add a search functionality in the "All" tasks tab.
 - Favicon - we are using a default one.
 - Stats should show all times total number of tasks and completed tasks.
+- Tutorial tasks - update the "welcome" cards to provide better experience.
 
 ## UI - Tasks
 - Work on tagline and satellite notes in the welcome page with better texts. See if we need to move a few things around 
