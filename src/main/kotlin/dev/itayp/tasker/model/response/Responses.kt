@@ -131,6 +131,8 @@ data class TaskResponse(
     val relevantFrom: String?,
     /** Member who has claimed/been assigned this task; null = unassigned. Names resolved client-side via the members endpoint. */
     val assigneeUserId: String?,
+    /** True for seeded tutorial tasks: the client hides edit affordances and offers a one-click "clear tutorial". */
+    val tutorial: Boolean,
 )
 
 data class TimeSlotResponse(
@@ -166,6 +168,7 @@ fun BacklogTask.toResponse() = TaskResponse(
     lastScheduledInSessionId = lastScheduledInSessionId?.toString(),
     relevantFrom = relevantFrom?.toString(),
     assigneeUserId = assigneeUserId?.toString(),
+    tutorial = tutorial,
 )
 
 fun BacklogTaskCategory.toResponse() = CategoryResponse(

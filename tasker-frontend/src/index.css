@@ -620,6 +620,81 @@ input[type="number"] { -moz-appearance: textfield; }
   gap: 20px;
 }
 
+/* Zero-registration "save your account" nudge and the tutorial-clear strip sit between the
+   header and the board, sharing a light paper band so they don't compete with the notes. */
+.account-nudge,
+.tutorial-strip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  background: var(--paper-surface);
+  border-bottom: 1px solid var(--paper-border);
+}
+
+.account-nudge__text,
+.tutorial-strip__text {
+  color: var(--ink-soft);
+}
+
+.tutorial-strip__text {
+  flex: 1;
+}
+
+.account-nudge__cta {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  color: var(--stamp);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.account-nudge__cta:hover { text-decoration: underline; }
+
+.account-nudge__dismiss {
+  margin-left: auto;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: var(--ink-ghost);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.tutorial-strip__clear {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  color: var(--ink-soft);
+  background: none;
+  border: 1px solid var(--paper-border);
+  border-radius: var(--r-sm);
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.tutorial-strip__clear:hover { color: var(--ink); border-color: var(--ink-ghost); }
+
+/* Wraps the editable fields so `disabled` (tutorial tasks) cascades natively; `display: contents`
+   keeps the children in the body's flex flow so the field spacing is unchanged. */
+.drawer__fieldset {
+  display: contents;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.drawer__readonly-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  font-style: italic;
+  color: var(--ink-soft, #8a7f73);
+}
+
 .drawer__timestamps {
   padding: 0 24px 10px 60px;
   font-family: var(--font-mono);

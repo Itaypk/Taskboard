@@ -16,6 +16,7 @@ import dev.itayp.tasker.planning.BacklogTaskChangeService
 import dev.itayp.tasker.repository.BacklogTaskCategoryRepository
 import dev.itayp.tasker.repository.BacklogTaskRepository
 import dev.itayp.tasker.repository.BacklogTaskTagRepository
+import dev.itayp.tasker.repository.UserRepository
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -37,6 +38,7 @@ class BacklogTaskService(
     private val userSettingsService: UserSettingsService,
     private val boardMembershipService: BoardMembershipService,
     private val boardCrypto: BoardCryptoService,
+    private val userRepository: UserRepository,
     private val clock: Clock,
 ) {
 
@@ -167,6 +169,9 @@ class BacklogTaskService(
         val saved = backlogTaskRepository.save(entity)
         taskChangeService.recordCreated(boardId, userId, saved.id!!, request.title, saved.status!!)
         taskChangeService.bumpWatermark(boardId)
+        // Creating a real (non-tutorial) task is the genuine-engagement signal — stamp it once. This
+        // is the API create path, which never produces tutorial tasks (those are seeded directly).
+        userRepository.stampEngagedAt(userId, Instant.now())
         return saved.toDomain(boardCrypto)
     }
 
@@ -267,6 +272,20 @@ class BacklogTaskService(
         entity.lastScheduledInSessionId = null
         entity.updatedAt = Instant.now()
         backlogTaskRepository.save(entity)
+        taskChangeService.bumpWatermark(boardId)
+    }
+
+    /**
+     * Deletes the seeded tutorial backlog in one go (the "clear tutorial" affordance). Tutorial tasks
+     * are excluded from the planner and carry no real history, so we just drop them and bump the
+     * watermark — no per-task change events.
+     */
+    @Transactional
+    fun clearTutorialTasks(userId: UUID, boardId: UUID) {
+        boardMembershipService.requireMember(userId, boardId)
+        val tutorialTasks = backlogTaskRepository.findAllByBoardIdAndTutorialTrue(boardId)
+        if (tutorialTasks.isEmpty()) return
+        backlogTaskRepository.deleteAll(tutorialTasks)
         taskChangeService.bumpWatermark(boardId)
     }
 

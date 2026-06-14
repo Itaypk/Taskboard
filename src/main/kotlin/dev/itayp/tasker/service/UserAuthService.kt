@@ -10,7 +10,6 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
-import java.time.Duration
 import java.time.Instant
 import java.util.UUID
 
@@ -19,7 +18,7 @@ class UserAuthService(
     private val userRepository: UserRepository,
     private val authIdentityRepository: AuthIdentityRepository,
     private val userService: UserService,
-    private val demoDataSeeder: DemoDataSeeder,
+    private val tutorialSeeder: TutorialSeeder,
     private val userCrypto: UserCryptoService,
     private val clock: Clock,
 ) {
@@ -62,6 +61,9 @@ class UserAuthService(
             id = newId
             createdAt = now
             lastLoginAt = now
+            lastActiveAt = now
+            // Registering through an external identity means the account is claimed from birth.
+            claimed = true
         }
         userRepository.save(draft)
         userCrypto.ensureUserKey(newId)
@@ -112,6 +114,7 @@ class UserAuthService(
             // Verified owner: ensure the email identity exists (e.g. legacy rows), then log in.
             val now = clock.instant()
             attachIdentityIfMissing(existing.id!!, AuthProvider.EMAIL, emailHash, verified = true, now = now)
+            existing.claimed = true
             existing.lastLoginAt = now
             logger.debug("Logged in existing user {} via email", existing.id)
             return EmailLoginOutcome.Success(userRepository.save(existing))
@@ -148,6 +151,8 @@ class UserAuthService(
             this.telegramId = telegramId
             this.createdAt = now
             this.lastLoginAt = now
+            this.lastActiveAt = now
+            this.claimed = true
         }
         userRepository.save(draft)
         userCrypto.ensureUserKey(userId)
@@ -161,23 +166,29 @@ class UserAuthService(
         return saved
     }
 
+    /**
+     * Zero-registration start: a **real but unclaimed** account (no login identity yet). It behaves
+     * like any account except that it's eligible for inactivity-based reclamation until the user
+     * claims it by linking an identity / verifying an email. Seeded with a tutorial backlog rather
+     * than throwaway sample data. See docs/DEMO-ACCOUNT-UNIFICATION.md.
+     */
     @Transactional
-    fun createDemoUser(ttlHours: Long = 24): UserEntity {
+    fun createUnclaimedUser(): UserEntity {
         val now = clock.instant()
         val newId = UUID.randomUUID()
         val draft = UserEntity().apply {
             id = newId
-            isDemo = true
-            demoExpiresAt = now.plus(Duration.ofHours(ttlHours))
+            claimed = false
             createdAt = now
             lastLoginAt = now
+            lastActiveAt = now
         }
         userRepository.save(draft)
         userCrypto.ensureUserKey(newId)
         userService.initializeNewUser(newId)
-        demoDataSeeder.seed(newId)
-        // Demo users are deliberately channel-less: no auth identity, no login method.
-        logger.info("Created demo user $newId, expires at ${draft.demoExpiresAt}")
+        tutorialSeeder.seed(newId)
+        // No auth identity yet: the account is unclaimed until the user links a login method.
+        logger.info("Created unclaimed user $newId")
         return draft
     }
 

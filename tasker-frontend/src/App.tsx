@@ -28,7 +28,7 @@ import { UserMenu } from './components/UserMenu';
 import { StatsModal } from './components/StatsModal';
 import { BoardMembersModal } from './components/BoardMembersModal';
 import { DEFAULT_SETTINGS } from './data';
-import { fetchBoards, createBoard, renameBoard, deleteBoard, fetchTasks, fetchCategories, fetchUserSettings, fetchTags, fetchCurrentPlan, checkTaskChanges, createTask, updateTask, deleteTask, reorderTask, removeTaskFromPlan, addTaskToPlan, fetchMembers, setTaskAssignee, type TaskStatusFilter, type Board, type BoardMember } from './api';
+import { fetchBoards, createBoard, renameBoard, deleteBoard, fetchTasks, fetchCategories, fetchUserSettings, fetchTags, fetchCurrentPlan, checkTaskChanges, createTask, updateTask, deleteTask, reorderTask, removeTaskFromPlan, clearTutorialTasks, addTaskToPlan, fetchMembers, setTaskAssignee, type TaskStatusFilter, type Board, type BoardMember } from './api';
 import type { Task, UserSettings, Tag, CurrentPlan, TaskFilter } from './types';
 
 const ACTIVE_BOARD_KEY = 'backlog.activeBoardId';
@@ -102,6 +102,9 @@ function AuthShell() {
 function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const { state: authState } = useAuth();
   const currentUserId = authState.status === 'authenticated' ? authState.user.id : null;
+  // Unclaimed = zero-registration account with no login identity yet; nudge them to save it.
+  const claimed = authState.status === 'authenticated' ? authState.user.claimed : true;
+  const [nudgeDismissed, setNudgeDismissed] = useState(() => localStorage.getItem('saveAccountNudgeDismissed') === '1');
   // One active board at a time; every account has at least one (the backend lists them default-first).
   const [boards, setBoards]           = useState<Board[]>([]);
   const [activeBoardId, setActiveBoardId] = useState<string | null>(null);
@@ -261,6 +264,8 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
 
   const visibleIds = useMemo(() => visibleTasks.map(t => t.id), [visibleTasks]);
 
+  const hasTutorialTasks = useMemo(() => tasks.some(t => t.tutorial), [tasks]);
+
   const categoryById = useMemo(
     () => new Map(settings.categories.map(c => [c.id, c])),
     [settings.categories],
@@ -296,6 +301,16 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
       setTasks(prev => prev.filter(t => t.id !== id));
     } catch (e) {
       console.error('Failed to delete task', e);
+    }
+  }, [activeBoardId]);
+
+  const handleClearTutorial = useCallback(async () => {
+    if (!activeBoardId) return;
+    try {
+      await clearTutorialTasks(activeBoardId);
+      setTasks(prev => prev.filter(t => !t.tutorial));
+    } catch (e) {
+      console.error('Failed to clear tutorial tasks', e);
     }
   }, [activeBoardId]);
 
@@ -588,6 +603,36 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
           />
         </div>
       </header>
+
+      {!claimed && !nudgeDismissed && (
+        <div className="account-nudge" role="status">
+          <span className="account-nudge__text">Add an email or Telegram to keep your tasks safe.</span>
+          <button
+            type="button"
+            className="account-nudge__cta"
+            onClick={() => setSettingsOpen(true)}
+          >
+            Save my account
+          </button>
+          <button
+            type="button"
+            className="account-nudge__dismiss"
+            aria-label="Dismiss"
+            onClick={() => { localStorage.setItem('saveAccountNudgeDismissed', '1'); setNudgeDismissed(true); }}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {hasTutorialTasks && (
+        <div className="tutorial-strip">
+          <span className="tutorial-strip__text">These tutorial tasks are here to help you get started.</span>
+          <button type="button" className="tutorial-strip__clear" onClick={() => { void handleClearTutorial(); }}>
+            Clear tutorial
+          </button>
+        </div>
+      )}
 
       <main className="board-wrap">
         {visibleTasks.length === 0 ? (

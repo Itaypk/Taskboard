@@ -40,6 +40,8 @@ interface BacklogTaskRepository : JpaRepository<BacklogTaskEntity, UUID> {
 
     fun findByIdAndBoardId(id: UUID, boardId: UUID): BacklogTaskEntity?
 
+    fun findAllByBoardIdAndTutorialTrue(boardId: UUID): List<BacklogTaskEntity>
+
     // --- Cross-board lookups (the planner spans every board the user belongs to) ---
 
     fun findByIdAndBoardIdIn(id: UUID, boardIds: Collection<UUID>): BacklogTaskEntity?

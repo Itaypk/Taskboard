@@ -85,4 +85,8 @@ open class BacklogTaskEntity {
 
     @Column(name = "relevant_from")
     var relevantFrom: LocalDate? = null
+
+    /** Part of the seeded tutorial backlog: immutable (client-side), one-click clearable, excluded from the engagement signal. */
+    @Column(name = "tutorial", nullable = false)
+    var tutorial: Boolean = false
 }
