@@ -293,6 +293,8 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
       closeDrawer();
     } catch (e) {
       console.error('Failed to save task', e);
+      // Re-throw so the drawer can surface field-level validation errors inline (and stay open).
+      throw e;
     }
   };
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { Task, Tag, TagColorId, Category } from '../types';
 import { TAG_PALETTE, PAPER_SWATCHES } from '../types';
-import type { BoardMember } from '../api';
+import { ApiError, type BoardMember } from '../api';
 import { WashiTape } from './WashiTape';
 import { Autocomplete } from './Autocomplete';
 import { generateId, formatRelative } from '../utils';
@@ -17,7 +17,7 @@ interface TaskDrawerProps {
   members: BoardMember[];
   currentUserId: string | null;
   onClose: () => void;
-  onSave: (task: Omit<Task, 'sortKey'>) => void;
+  onSave: (task: Omit<Task, 'sortKey'>) => void | Promise<void>;
   onDelete: (id: string) => void;
   onMarkDone: (id: string) => void;
   onMarkTodo: (id: string) => void;
@@ -45,6 +45,20 @@ function validate(form: FormState): FieldErrors {
     else if (url.length > 2000) errors.url = 'Link must be at most 2000 characters.';
   }
   return errors;
+}
+
+// Map a failed save's server-side field errors onto the inline slots we render. The server field
+// names (from the request DTO) match our keys; fields without an inline slot fall through to the
+// global error toast that api.ts already raised.
+function serverFieldErrors(e: unknown): FieldErrors | null {
+  if (!(e instanceof ApiError) || !e.fieldErrors?.length) return null;
+  const known: (keyof FieldErrors)[] = ['title', 'url', 'description'];
+  const mapped: FieldErrors = {};
+  for (const fe of e.fieldErrors) {
+    const key = known.find(k => k === fe.field);
+    if (key && !mapped[key]) mapped[key] = fe.message;
+  }
+  return Object.keys(mapped).length > 0 ? mapped : null;
 }
 
 function makeEmpty(defaultCategoryId: string | null): FormState {
@@ -115,7 +129,7 @@ export function TaskDrawer({
   const clearError = (field: keyof FieldErrors) =>
     setErrors(e => (e[field] ? { ...e, [field]: undefined } : e));
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.categoryId) return;
     const found = validate(form);
     if (found.title || found.url || found.description) {
@@ -123,17 +137,23 @@ export function TaskDrawer({
       return;
     }
     const now = new Date().toISOString();
-    onSave({
-      id: task?.id ?? generateId(),
-      createdAt: task?.createdAt ?? now,
-      ...form,
-      title: form.title.trim(),
-      description: form.description?.trim() || undefined,
-      url: form.url?.trim() || undefined,
-      deadline: form.deadline || undefined,
-      relevantFrom: form.relevantFrom || undefined,
-      estimatedMinutes: form.estimatedMinutes || undefined,
-    });
+    try {
+      await onSave({
+        id: task?.id ?? generateId(),
+        createdAt: task?.createdAt ?? now,
+        ...form,
+        title: form.title.trim(),
+        description: form.description?.trim() || undefined,
+        url: form.url?.trim() || undefined,
+        deadline: form.deadline || undefined,
+        relevantFrom: form.relevantFrom || undefined,
+        estimatedMinutes: form.estimatedMinutes || undefined,
+      });
+    } catch (e) {
+      // Surface any server-side field reasons inline; the drawer stays open so the user can fix them.
+      const mapped = serverFieldErrors(e);
+      if (mapped) setErrors(mapped);
+    }
   };
 
   const commitTag = () => {

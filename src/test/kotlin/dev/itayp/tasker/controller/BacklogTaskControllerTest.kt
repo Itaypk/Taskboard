@@ -169,7 +169,7 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
     }
 
     @Test
-    fun `POST tasks with an invalid link returns 400 with a field-specific message`() {
+    fun `POST tasks with an invalid link returns a 400 problem detail with field errors`() {
         mockMvc.perform(
             post(basePath)
                 .with(authentication(auth))
@@ -178,8 +178,9 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
                 .content("""{"title":"New Task","status":"todo","categoryId":"$categoryId","url":"example.com","tags":[]}""")
         )
             .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.message").value("Link must start with http:// or https://"))
-            .andExpect(jsonPath("$.fields[0].field").value("url"))
+            .andExpect(jsonPath("$.detail").value("Link must start with http:// or https://"))
+            .andExpect(jsonPath("$.errors[0].field").value("url"))
+            .andExpect(jsonPath("$.errors[0].message").value("Link must start with http:// or https://"))
     }
 
     @Test

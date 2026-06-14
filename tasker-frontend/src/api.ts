@@ -11,19 +11,28 @@ export interface ApiErrorDetail {
     path: string;
 }
 
+/** A single field-level validation failure, from a ProblemDetail's `errors` extension property. */
+export interface ApiFieldError {
+    field: string;
+    message: string;
+}
+
 export class ApiError extends Error {
     readonly status: number;
     readonly statusText: string;
     readonly path: string;
     readonly userMessage: string;
+    /** Per-field reasons for a 400 validation failure, when the server sent a ProblemDetail with `errors`. */
+    readonly fieldErrors?: ApiFieldError[];
 
-    constructor(opts: { status: number; statusText: string; path: string; userMessage: string }) {
+    constructor(opts: { status: number; statusText: string; path: string; userMessage: string; fieldErrors?: ApiFieldError[] }) {
         super(`HTTP ${opts.status} ${opts.statusText}: ${opts.path}`);
         this.name = 'ApiError';
         this.status = opts.status;
         this.statusText = opts.statusText;
         this.path = opts.path;
         this.userMessage = opts.userMessage;
+        this.fieldErrors = opts.fieldErrors;
     }
 }
 
@@ -56,6 +65,24 @@ async function extractMessage(res: Response, fallback: string): Promise<string> 
         /* fall through */
     }
     return fallback;
+}
+
+// RFC 7807 ProblemDetail carries our per-field validation reasons in the `errors` extension property.
+async function extractFieldErrors(res: Response): Promise<ApiFieldError[] | undefined> {
+    const ct = res.headers.get('Content-Type') ?? '';
+    if (!ct.includes('json')) return undefined;
+    try {
+        const body = await res.clone().json() as { errors?: unknown };
+        if (!Array.isArray(body.errors)) return undefined;
+        const parsed = body.errors.filter((e): e is ApiFieldError =>
+            typeof e === 'object' && e !== null &&
+            typeof (e as ApiFieldError).field === 'string' &&
+            typeof (e as ApiFieldError).message === 'string',
+        );
+        return parsed.length > 0 ? parsed : undefined;
+    } catch {
+        return undefined;
+    }
 }
 
 function getCookie(name: string): string | undefined {
@@ -98,8 +125,9 @@ async function handle<T>(res: Response, path: string, opts: { jsonOnEmpty?: T } 
     if (!res.ok) {
         const fallback = defaultMessageFor(res.status, res.statusText);
         const message = await extractMessage(res, fallback);
+        const fieldErrors = await extractFieldErrors(res);
         emitError({ message, status: res.status, path });
-        throw new ApiError({ status: res.status, statusText: res.statusText, path, userMessage: message });
+        throw new ApiError({ status: res.status, statusText: res.statusText, path, userMessage: message, fieldErrors });
     }
     if (res.status === 204) return (opts.jsonOnEmpty as T) ?? (undefined as T);
     return res.json() as Promise<T>;
