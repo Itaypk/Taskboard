@@ -203,14 +203,15 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
     @Test
     fun `POST move returns 200 with the moved task`() {
         val targetBoardId = UUID.fromString("00000000-0000-0000-0000-0000000000c0")
-        whenever(backlogTaskService.moveTask(userId, boardId, taskId, targetBoardId)).thenReturn(aTask())
+        val targetCategoryId = UUID.fromString("00000000-0000-0000-0000-0000000000c1")
+        whenever(backlogTaskService.moveTask(userId, boardId, taskId, targetBoardId, targetCategoryId)).thenReturn(aTask())
 
         mockMvc.perform(
             post("$basePath/$taskId/move")
                 .with(authentication(auth))
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("""{"targetBoardId":"$targetBoardId"}""")
+                .content("""{"targetBoardId":"$targetBoardId","categoryId":"$targetCategoryId"}""")
         )
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.id").value(taskId.toString()))
@@ -218,7 +219,7 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @Test
     fun `POST move to the same board returns 400`() {
-        whenever(backlogTaskService.moveTask(eq(userId), eq(boardId), eq(taskId), any()))
+        whenever(backlogTaskService.moveTask(eq(userId), eq(boardId), eq(taskId), any(), any()))
             .thenThrow(SameBoardMoveException())
 
         mockMvc.perform(
@@ -226,7 +227,7 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
                 .with(authentication(auth))
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("""{"targetBoardId":"$boardId"}""")
+                .content("""{"targetBoardId":"$boardId","categoryId":"$categoryId"}""")
         )
             .andExpect(status().isBadRequest)
     }

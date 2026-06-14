@@ -138,8 +138,12 @@ class BacklogTaskController(
     ): ResponseEntity<TaskResponse> {
         val targetBoardId = runCatching { UUID.fromString(request.targetBoardId) }.getOrNull()
             ?: return ResponseEntity.badRequest().build()
+        val targetCategoryId = runCatching { UUID.fromString(request.categoryId) }.getOrNull()
+            ?: return ResponseEntity.badRequest().build()
         return try {
-            ResponseEntity.ok(backlogTaskService.moveTask(principal.userId, boardId, id, targetBoardId).toResponse())
+            ResponseEntity.ok(
+                backlogTaskService.moveTask(principal.userId, boardId, id, targetBoardId, targetCategoryId).toResponse()
+            )
         } catch (_: NoSuchElementException) {
             ResponseEntity.notFound().build()
         }

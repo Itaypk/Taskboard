@@ -273,9 +273,9 @@ export const deleteTask = (boardId: string, id: string): Promise<void> =>
 export const duplicateTask = (boardId: string, id: string): Promise<Task> =>
     apiRequest(`/boards/${boardId}/tasks/${id}/duplicate`, { method: 'POST' });
 
-/** Moves a task to another board the user belongs to; returns the moved task (now on the target board). */
-export const moveTaskToBoard = (boardId: string, id: string, targetBoardId: string): Promise<Task> =>
-    apiRequest(`/boards/${boardId}/tasks/${id}/move`, { method: 'POST', ...jsonBody({ targetBoardId }) });
+/** Moves a task to another board the user belongs to, into the given category; returns the moved task. */
+export const moveTaskToBoard = (boardId: string, id: string, targetBoardId: string, categoryId: string): Promise<Task> =>
+    apiRequest(`/boards/${boardId}/tasks/${id}/move`, { method: 'POST', ...jsonBody({ targetBoardId, categoryId }) });
 
 export const removeTaskFromPlan = (boardId: string, id: string): Promise<void> =>
     apiRequest(`/boards/${boardId}/tasks/${id}/plan-schedule`, { method: 'DELETE' });

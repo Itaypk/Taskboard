@@ -340,33 +340,28 @@ class BacklogTaskService(
     }
 
     /**
-     * Moves a task to another board the user belongs to. The task keeps its id (and thus its change
-     * history); only its board context is rewritten. Board-owned content is re-encrypted under the
-     * destination board's DEK, the category is re-mapped by label (falling back to the destination's
-     * first category), and tags are re-resolved by label/colour. The claim and plan stamp are cleared
-     * because they belong to the origin board/session. No CREATED/DELETED change events are recorded —
-     * the task is the same one, so double-recording would inflate stats and the planner's weekly diff;
-     * both boards' watermarks are bumped so open tabs refresh.
+     * Moves a task to another board the user belongs to, into the caller-chosen [targetCategoryId]
+     * (categories are board-scoped, so the destination category is picked explicitly in the UI). The
+     * task keeps its id (and thus its change history); only its board context is rewritten. Board-owned
+     * content is re-encrypted under the destination board's DEK and tags are re-resolved by
+     * label/colour. The claim and plan stamp are cleared because they belong to the origin
+     * board/session. No CREATED/DELETED change events are recorded — the task is the same one, so
+     * double-recording would inflate stats and the planner's weekly diff; both boards' watermarks are
+     * bumped so open tabs refresh.
      */
     @Transactional
-    fun moveTask(userId: UUID, boardId: UUID, taskId: UUID, targetBoardId: UUID): BacklogTask {
+    fun moveTask(userId: UUID, boardId: UUID, taskId: UUID, targetBoardId: UUID, targetCategoryId: UUID): BacklogTask {
         if (boardId == targetBoardId) throw SameBoardMoveException()
         boardMembershipService.requireMember(userId, boardId)
         boardMembershipService.requireMember(userId, targetBoardId)
 
         val entity = backlogTaskRepository.findByIdAndBoardId(taskId, boardId)
             ?: throw NoSuchElementException("Task $taskId not found")
+        val targetCategory = categoryRepository.findByIdAndBoardId(targetCategoryId, targetBoardId)
+            ?: throw NoSuchElementException("Category $targetCategoryId not found on board $targetBoardId")
 
         val title = boardCrypto.decrypt(boardId, entity.title) ?: ""
         val description = boardCrypto.decrypt(boardId, entity.description)
-
-        val targetCategories = categoryRepository.findAllByBoardId(targetBoardId)
-        if (targetCategories.isEmpty()) {
-            throw IllegalStateException("Destination board $targetBoardId has no categories")
-        }
-        val sourceLabel = entity.category?.label
-        val targetCategory = targetCategories.find { it.label?.equals(sourceLabel, ignoreCase = true) == true }
-            ?: targetCategories.first()
         val tagInputs = entity.tags.map { TagInput(label = it.label!!, colorId = it.colorId!!.name) }
 
         entity.boardId = targetBoardId

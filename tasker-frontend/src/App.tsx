@@ -133,7 +133,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; taskId: string; inPlan: boolean } | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ taskId: string; title: string } | null>(null);
   const [scheduleModal, setScheduleModal] = useState<{ taskId: string; title: string } | null>(null);
-  const [moveModal, setMoveModal] = useState<{ taskId: string; title: string } | null>(null);
+  const [moveModal, setMoveModal] = useState<{ taskId: string; title: string; categoryLabel: string | null } | null>(null);
   const lastSyncedAt = useRef(new Date().toISOString());
 
   // Mouse: start drag after 5px to keep clicks alive.
@@ -316,10 +316,10 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
     }
   }, [activeBoardId]);
 
-  const handleMoveToBoard = useCallback(async (id: string, targetBoardId: string) => {
+  const handleMoveToBoard = useCallback(async (id: string, targetBoardId: string, categoryId: string) => {
     if (!activeBoardId) return;
     try {
-      await moveTaskToBoard(activeBoardId, id, targetBoardId);
+      await moveTaskToBoard(activeBoardId, id, targetBoardId, categoryId);
       // The task now lives on another board — drop it from the current board's view and any plan.
       setTasks(prev => prev.filter(t => t.id !== id));
       setCurrentPlan(prev => prev ? { ...prev, tasks: prev.tasks.filter(t => t.id !== id) } : prev);
@@ -454,11 +454,13 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
     }
     actions.push({ label: 'Duplicate', onClick: () => { void handleDuplicate(taskId); } });
     if (boards.length > 1) {
-      actions.push({ label: 'Move to board…', onClick: () => { setMoveModal({ taskId, title: task.title }); } });
+      actions.push({ label: 'Move to board…', onClick: () => {
+        setMoveModal({ taskId, title: task.title, categoryLabel: categoryById.get(task.categoryId)?.label ?? null });
+      }});
     }
     actions.push({ label: 'Delete', danger: true, onClick: () => { requestDelete(taskId); } });
     return actions;
-  }, [tasks, boards, currentPlan, sharedBoard, currentUserId, handleSetAssignee, handleMarkDone, handleMarkTodo, handleRemoveFromPlan, handleDuplicate, requestDelete]);
+  }, [tasks, boards, categoryById, currentPlan, sharedBoard, currentUserId, handleSetAssignee, handleMarkDone, handleMarkTodo, handleRemoveFromPlan, handleDuplicate, requestDelete]);
 
   const handleDragStart = (event: DragStartEvent) => {
     setDraggingId(String(event.active.id));
@@ -806,9 +808,10 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
           key={moveModal.taskId}
           open={moveModal !== null}
           taskTitle={moveModal.title}
+          currentCategoryLabel={moveModal.categoryLabel}
           boards={boards.filter(b => b.id !== activeBoardId)}
-          onConfirm={(targetBoardId) => {
-            void handleMoveToBoard(moveModal.taskId, targetBoardId);
+          onConfirm={(targetBoardId, categoryId) => {
+            void handleMoveToBoard(moveModal.taskId, targetBoardId, categoryId);
             setMoveModal(null);
           }}
           onClose={() => setMoveModal(null)}

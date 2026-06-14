@@ -451,29 +451,31 @@ class BacklogTaskServiceTest {
     // --- moveTask ---
 
     private val targetBoardId: UUID = UUID.fromString("00000000-0000-0000-0000-0000000000c0")
+    private val targetCategoryId: UUID = UUID.fromString("00000000-0000-0000-0000-0000000000c1")
 
-    private fun targetCategoryEntity(label: String) = BacklogTaskCategoryEntity().apply {
-        this.id = UUID.randomUUID()
-        this.boardId = targetBoardId
-        this.label = label
-        this.swatchId = CategoryColor.SUNSHINE
-    }
+    private fun targetCategoryEntity(id: UUID = targetCategoryId, label: String = "Work") =
+        BacklogTaskCategoryEntity().apply {
+            this.id = id
+            this.boardId = targetBoardId
+            this.label = label
+            this.swatchId = CategoryColor.SUNSHINE
+        }
 
     @Test
-    fun `moveTask re-homes the task, remaps the category by label, and clears claim and plan stamp`() {
+    fun `moveTask re-homes the task into the chosen category and clears claim and plan stamp`() {
         val taskId = UUID.randomUUID()
         val source = taskEntity(categoryEntity(label = "Work"), id = taskId, title = "Ship it").apply {
             assigneeUserId = UUID.randomUUID()
             lastScheduledInSessionId = UUID.randomUUID()
         }
-        val targetCat = targetCategoryEntity("Work")
+        val targetCat = targetCategoryEntity()
         whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(source)
-        whenever(categoryRepository.findAllByBoardId(targetBoardId)).thenReturn(listOf(targetCategoryEntity("Home"), targetCat))
+        whenever(categoryRepository.findByIdAndBoardId(targetCategoryId, targetBoardId)).thenReturn(targetCat)
         whenever(tagRepository.findAllByBoardId(targetBoardId)).thenReturn(emptyList())
         whenever(backlogTaskRepository.findMaxSortKeyByBoardId(targetBoardId)).thenReturn(null)
         stubSaveTask()
 
-        val result = service.moveTask(userId, boardId, taskId, targetBoardId)
+        val result = service.moveTask(userId, boardId, taskId, targetBoardId, targetCategoryId)
 
         assertEquals(targetBoardId, source.boardId)
         assertEquals(targetCat, source.category)
@@ -486,25 +488,21 @@ class BacklogTaskServiceTest {
     }
 
     @Test
-    fun `moveTask falls back to the destination's first category when no label matches`() {
+    fun `moveTask throws when the chosen category is not on the destination board`() {
         val taskId = UUID.randomUUID()
-        val source = taskEntity(categoryEntity(label = "Errands"), id = taskId, title = "Ship it")
-        val first = targetCategoryEntity("Home")
+        val source = taskEntity(categoryEntity(label = "Work"), id = taskId, title = "Ship it")
         whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(source)
-        whenever(categoryRepository.findAllByBoardId(targetBoardId)).thenReturn(listOf(first, targetCategoryEntity("Work")))
-        whenever(tagRepository.findAllByBoardId(targetBoardId)).thenReturn(emptyList())
-        whenever(backlogTaskRepository.findMaxSortKeyByBoardId(targetBoardId)).thenReturn(null)
-        stubSaveTask()
+        whenever(categoryRepository.findByIdAndBoardId(targetCategoryId, targetBoardId)).thenReturn(null)
 
-        service.moveTask(userId, boardId, taskId, targetBoardId)
-
-        assertEquals(first, source.category)
+        assertFailsWith<NoSuchElementException> {
+            service.moveTask(userId, boardId, taskId, targetBoardId, targetCategoryId)
+        }
     }
 
     @Test
     fun `moveTask rejects a move to the same board`() {
         assertFailsWith<SameBoardMoveException> {
-            service.moveTask(userId, boardId, UUID.randomUUID(), boardId)
+            service.moveTask(userId, boardId, UUID.randomUUID(), boardId, targetCategoryId)
         }
     }
 
@@ -514,7 +512,7 @@ class BacklogTaskServiceTest {
         whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(null)
 
         assertFailsWith<NoSuchElementException> {
-            service.moveTask(userId, boardId, taskId, targetBoardId)
+            service.moveTask(userId, boardId, taskId, targetBoardId, targetCategoryId)
         }
     }
 
