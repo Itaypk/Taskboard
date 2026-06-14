@@ -279,11 +279,13 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
     if (!activeBoardId) return;
     try {
       const { id: _id, createdAt: _ca, ...payload } = updated;
+      // The drawer surfaces save failures itself (inline field errors + a form-level banner),
+      // so opt out of the global toast to avoid double-reporting.
       if (isCreating) {
-        const created = await createTask(activeBoardId, payload);
+        const created = await createTask(activeBoardId, payload, { emitErrors: false });
         setTasks(prev => [...prev, created]);
       } else {
-        const saved = await updateTask(activeBoardId, updated.id, payload);
+        const saved = await updateTask(activeBoardId, updated.id, payload, { emitErrors: false });
         setTasks(prev => prev.map(t => t.id === saved.id ? saved : t));
       }
 

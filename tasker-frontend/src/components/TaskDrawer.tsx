@@ -87,11 +87,13 @@ export function TaskDrawer({
   const [tagId, setTagId] = useState<string | null>(null);
   const [formKey, setFormKey] = useState<string | null>(null);
   const [errors, setErrors] = useState<FieldErrors>({});
+  const [formError, setFormError] = useState<string | null>(null);
 
   const targetKey = open ? (task?.id ?? '__new__') : null;
   if (targetKey !== formKey) {
     setFormKey(targetKey);
     setErrors({});
+    setFormError(null);
     if (targetKey !== null) {
       setForm(task ? {
         title: task.title,
@@ -131,6 +133,7 @@ export function TaskDrawer({
 
   const handleSave = async () => {
     if (!form.categoryId) return;
+    setFormError(null);
     const found = validate(form);
     if (found.title || found.url || found.description) {
       setErrors(found);
@@ -150,9 +153,14 @@ export function TaskDrawer({
         estimatedMinutes: form.estimatedMinutes || undefined,
       });
     } catch (e) {
-      // Surface any server-side field reasons inline; the drawer stays open so the user can fix them.
+      // The drawer owns error display here (the save call opts out of the global toast). Server-side
+      // field reasons go inline; anything else shows as a form-level banner. The drawer stays open.
       const mapped = serverFieldErrors(e);
-      if (mapped) setErrors(mapped);
+      if (mapped) {
+        setErrors(mapped);
+      } else {
+        setFormError(e instanceof ApiError ? e.userMessage : 'Something went wrong. Please try again.');
+      }
     }
   };
 
@@ -199,6 +207,9 @@ export function TaskDrawer({
         </div>
 
         <div className="drawer__body">
+          {formError && (
+            <div className="drawer__error" role="alert">{formError}</div>
+          )}
           {readOnly && (
             <p className="drawer__readonly-hint">This is a tutorial task. Mark it done or clear the tutorial when you’re ready.</p>
           )}

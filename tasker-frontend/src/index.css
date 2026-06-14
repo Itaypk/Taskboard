@@ -801,6 +801,16 @@ input[type="number"] { -moz-appearance: textfield; }
   font-weight: 500;
   color: #b91c1c;
 }
+.drawer__error {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid #f0c2c2;
+  border-radius: var(--r-sm);
+  background: #fbeaea;
+  color: #b91c1c;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
 .field__input::placeholder,
 .field__textarea::placeholder {
   color: var(--ink-ghost);

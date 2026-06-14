@@ -11,6 +11,16 @@ export interface ApiErrorDetail {
     path: string;
 }
 
+/** Per-call client behaviour, separate from fetch's `RequestInit`. */
+export interface RequestConfig {
+    /**
+     * When false, suppress the global error toast/event on failure — the caller takes full
+     * responsibility for surfacing the error itself (the rejected `ApiError` still propagates).
+     * Defaults to true.
+     */
+    emitErrors?: boolean;
+}
+
 /** A single field-level validation failure, from a ProblemDetail's `errors` extension property. */
 export interface ApiFieldError {
     field: string;
@@ -94,7 +104,7 @@ function emitError(detail: ApiErrorDetail): void {
     window.dispatchEvent(new CustomEvent<ApiErrorDetail>(API_ERROR_EVENT, { detail }));
 }
 
-async function rawFetch(path: string, options: RequestInit = {}): Promise<Response> {
+async function rawFetch(path: string, options: RequestInit = {}, emitErrors = true): Promise<Response> {
     const headers = new Headers(options.headers);
     const method = (options.method ?? 'GET').toUpperCase();
     if (method !== 'GET' && method !== 'HEAD') {
@@ -106,12 +116,13 @@ async function rawFetch(path: string, options: RequestInit = {}): Promise<Respon
     } catch {
         // Network failure (offline, DNS, CORS preflight blocked, etc.)
         const message = defaultMessageFor(0, 'Network error');
-        emitError({ message, status: 0, path });
+        if (emitErrors) emitError({ message, status: 0, path });
         throw new ApiError({ status: 0, statusText: 'Network error', path, userMessage: message });
     }
 }
 
-async function handle<T>(res: Response, path: string, opts: { jsonOnEmpty?: T } = {}): Promise<T> {
+async function handle<T>(res: Response, path: string, opts: { jsonOnEmpty?: T; emitErrors?: boolean } = {}): Promise<T> {
+    const emitErrors = opts.emitErrors ?? true;
     if (res.status === 401) {
         window.dispatchEvent(new Event(UNAUTHENTICATED_EVENT));
         // Don't toast — the app flips to the login page, which is the user-visible signal.
@@ -126,21 +137,22 @@ async function handle<T>(res: Response, path: string, opts: { jsonOnEmpty?: T } 
         const fallback = defaultMessageFor(res.status, res.statusText);
         const message = await extractMessage(res, fallback);
         const fieldErrors = await extractFieldErrors(res);
-        emitError({ message, status: res.status, path });
+        if (emitErrors) emitError({ message, status: res.status, path });
         throw new ApiError({ status: res.status, statusText: res.statusText, path, userMessage: message, fieldErrors });
     }
     if (res.status === 204) return (opts.jsonOnEmpty as T) ?? (undefined as T);
     return res.json() as Promise<T>;
 }
 
-export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+export async function request<T>(path: string, options: RequestInit = {}, config: RequestConfig = {}): Promise<T> {
     const url = path.startsWith('/') ? path : `${BASE}${path}`;
-    const res = await rawFetch(url, options);
-    return handle<T>(res, url);
+    const emitErrors = config.emitErrors ?? true;
+    const res = await rawFetch(url, options, emitErrors);
+    return handle<T>(res, url, { emitErrors });
 }
 
-function apiRequest<T>(path: string, options?: RequestInit): Promise<T> {
-    return request<T>(`${BASE}${path}`, options);
+function apiRequest<T>(path: string, options?: RequestInit, config?: RequestConfig): Promise<T> {
+    return request<T>(`${BASE}${path}`, options, config);
 }
 
 function jsonBody(body: unknown): RequestInit {
@@ -285,11 +297,11 @@ export interface PlanSummary {
 export const fetchPlans = (): Promise<PlanSummary[]> =>
     apiRequest('/plans');
 
-export const createTask = (boardId: string, payload: Omit<Task, 'id' | 'createdAt' | 'sortKey'>): Promise<Task> =>
-    apiRequest(`/boards/${boardId}/tasks`, { method: 'POST', ...jsonBody(payload) });
+export const createTask = (boardId: string, payload: Omit<Task, 'id' | 'createdAt' | 'sortKey'>, config?: RequestConfig): Promise<Task> =>
+    apiRequest(`/boards/${boardId}/tasks`, { method: 'POST', ...jsonBody(payload) }, config);
 
-export const updateTask = (boardId: string, id: string, payload: Omit<Task, 'id' | 'createdAt' | 'sortKey'>): Promise<Task> =>
-    apiRequest(`/boards/${boardId}/tasks/${id}`, { method: 'PUT', ...jsonBody(payload) });
+export const updateTask = (boardId: string, id: string, payload: Omit<Task, 'id' | 'createdAt' | 'sortKey'>, config?: RequestConfig): Promise<Task> =>
+    apiRequest(`/boards/${boardId}/tasks/${id}`, { method: 'PUT', ...jsonBody(payload) }, config);
 
 export const reorderTask = (boardId: string, id: string, afterId: string | null, beforeId: string | null): Promise<Task> =>
     apiRequest(`/boards/${boardId}/tasks/${id}/reorder`, { method: 'PATCH', ...jsonBody({ afterId, beforeId }) });
