@@ -18,6 +18,13 @@ data class UserStats(
     val avgTasksCompletedPerWeek: Double,
     /** Mean time from task creation to its first completion. Null when nothing has been completed. */
     val avgCompletion: Duration?,
+    /**
+     * Lifetime totals reconstructed from the change-event log, so they survive task deletion (unlike
+     * [openTasks]/[completedTasks], which are current-snapshot row counts). [totalTasksCreated] counts
+     * every task the user ever created; [totalTasksCompleted] counts distinct tasks ever marked done.
+     */
+    val totalTasksCreated: Long = 0,
+    val totalTasksCompleted: Long = 0,
 ) {
     /** True for a brand-new user with no tasks and no recorded activity — render an encouraging empty state instead. */
     val isEmpty: Boolean

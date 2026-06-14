@@ -269,6 +269,14 @@ export const reorderTask = (boardId: string, id: string, afterId: string | null,
 export const deleteTask = (boardId: string, id: string): Promise<void> =>
     apiRequest(`/boards/${boardId}/tasks/${id}`, { method: 'DELETE' });
 
+/** Copies a task on the same board; the copy is a fresh TODO task with a " (copy)" title suffix. */
+export const duplicateTask = (boardId: string, id: string): Promise<Task> =>
+    apiRequest(`/boards/${boardId}/tasks/${id}/duplicate`, { method: 'POST' });
+
+/** Moves a task to another board the user belongs to; returns the moved task (now on the target board). */
+export const moveTaskToBoard = (boardId: string, id: string, targetBoardId: string): Promise<Task> =>
+    apiRequest(`/boards/${boardId}/tasks/${id}/move`, { method: 'POST', ...jsonBody({ targetBoardId }) });
+
 export const removeTaskFromPlan = (boardId: string, id: string): Promise<void> =>
     apiRequest(`/boards/${boardId}/tasks/${id}/plan-schedule`, { method: 'DELETE' });
 

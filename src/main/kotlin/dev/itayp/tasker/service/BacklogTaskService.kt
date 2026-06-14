@@ -301,6 +301,90 @@ class BacklogTaskService(
         taskChangeService.bumpWatermark(boardId)
     }
 
+    /**
+     * Creates a copy of a task on the **same** board: a fresh id and sort key (appended last), a
+     * " (copy)" title suffix, and `status = TODO` so the duplicate is immediately actionable. The
+     * claim and any plan stamp are deliberately not carried over. Category and tags are shared with
+     * the original (same board), so no re-resolution is needed.
+     */
+    @Transactional
+    fun duplicateTask(userId: UUID, boardId: UUID, taskId: UUID): BacklogTask {
+        boardMembershipService.requireMember(userId, boardId)
+        val source = backlogTaskRepository.findByIdAndBoardId(taskId, boardId)
+            ?: throw NoSuchElementException("Task $taskId not found")
+
+        val copyTitle = (boardCrypto.decrypt(boardId, source.title) ?: "") + " (copy)"
+
+        val entity = BacklogTaskEntity().apply {
+            this.boardId = boardId
+            this.title = boardCrypto.encrypt(boardId, copyTitle)
+            this.description = boardCrypto.encrypt(boardId, boardCrypto.decrypt(boardId, source.description))
+            this.url = source.url
+            this.priority = source.priority
+            this.deadline = source.deadline
+            this.estimatedMinutes = source.estimatedMinutes
+            this.status = TaskStatus.TODO
+            this.category = source.category
+            this.tags = source.tags.toMutableSet()
+            this.sortKey = computeAppendKey(boardId)
+            this.createdAt = Instant.now()
+            this.updatedAt = null
+            this.relevantFrom = source.relevantFrom
+        }
+
+        val saved = backlogTaskRepository.save(entity)
+        taskChangeService.recordCreated(boardId, userId, saved.id!!, copyTitle, saved.status!!)
+        taskChangeService.bumpWatermark(boardId)
+        userRepository.stampEngagedAt(userId, Instant.now())
+        return saved.toDomain(boardCrypto)
+    }
+
+    /**
+     * Moves a task to another board the user belongs to. The task keeps its id (and thus its change
+     * history); only its board context is rewritten. Board-owned content is re-encrypted under the
+     * destination board's DEK, the category is re-mapped by label (falling back to the destination's
+     * first category), and tags are re-resolved by label/colour. The claim and plan stamp are cleared
+     * because they belong to the origin board/session. No CREATED/DELETED change events are recorded —
+     * the task is the same one, so double-recording would inflate stats and the planner's weekly diff;
+     * both boards' watermarks are bumped so open tabs refresh.
+     */
+    @Transactional
+    fun moveTask(userId: UUID, boardId: UUID, taskId: UUID, targetBoardId: UUID): BacklogTask {
+        if (boardId == targetBoardId) throw SameBoardMoveException()
+        boardMembershipService.requireMember(userId, boardId)
+        boardMembershipService.requireMember(userId, targetBoardId)
+
+        val entity = backlogTaskRepository.findByIdAndBoardId(taskId, boardId)
+            ?: throw NoSuchElementException("Task $taskId not found")
+
+        val title = boardCrypto.decrypt(boardId, entity.title) ?: ""
+        val description = boardCrypto.decrypt(boardId, entity.description)
+
+        val targetCategories = categoryRepository.findAllByBoardId(targetBoardId)
+        if (targetCategories.isEmpty()) {
+            throw IllegalStateException("Destination board $targetBoardId has no categories")
+        }
+        val sourceLabel = entity.category?.label
+        val targetCategory = targetCategories.find { it.label?.equals(sourceLabel, ignoreCase = true) == true }
+            ?: targetCategories.first()
+        val tagInputs = entity.tags.map { TagInput(label = it.label!!, colorId = it.colorId!!.name) }
+
+        entity.boardId = targetBoardId
+        entity.title = boardCrypto.encrypt(targetBoardId, title)
+        entity.description = boardCrypto.encrypt(targetBoardId, description)
+        entity.category = targetCategory
+        entity.tags = resolveOrCreateTags(targetBoardId, tagInputs)
+        entity.assigneeUserId = null
+        entity.lastScheduledInSessionId = null
+        entity.sortKey = computeAppendKey(targetBoardId)
+        entity.updatedAt = Instant.now()
+
+        val saved = backlogTaskRepository.save(entity)
+        taskChangeService.bumpWatermark(boardId)
+        taskChangeService.bumpWatermark(targetBoardId)
+        return saved.toDomain(boardCrypto)
+    }
+
     // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
@@ -354,3 +438,7 @@ class BacklogTaskService(
 @ResponseStatus(HttpStatus.BAD_REQUEST)
 class AssigneeNotMemberException(userId: UUID, boardId: UUID) :
     RuntimeException("User $userId is not a member of board $boardId and cannot be assigned")
+
+/** Raised when a move targets the board the task already lives on. Maps to HTTP 400. */
+@ResponseStatus(HttpStatus.BAD_REQUEST)
+class SameBoardMoveException : RuntimeException("Task is already on that board")

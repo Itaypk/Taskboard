@@ -92,6 +92,14 @@ export function StatsModal({ open, onClose }: StatsModalProps) {
                     </div>
                   )}
                   <div className={styles.row}>
+                    <dt className={styles.rowLabel}>Tasks created (all time)</dt>
+                    <dd className={styles.rowValue}>{stats.totalTasksCreated}</dd>
+                  </div>
+                  <div className={styles.row}>
+                    <dt className={styles.rowLabel}>Tasks completed (all time)</dt>
+                    <dd className={styles.rowValue}>{stats.totalTasksCompleted}</dd>
+                  </div>
+                  <div className={styles.row}>
                     <dt className={styles.rowLabel}>New tasks / week</dt>
                     <dd className={styles.rowValue}>{formatAvg(stats.avgTasksCreatedPerWeek)}</dd>
                   </div>

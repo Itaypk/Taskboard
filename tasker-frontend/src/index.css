@@ -795,6 +795,12 @@ input[type="number"] { -moz-appearance: textfield; }
 .field__input--error {
   border-color: #b91c1c !important;
 }
+.field__error {
+  margin: 4px 0 0;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #b91c1c;
+}
 .field__input::placeholder,
 .field__textarea::placeholder {
   color: var(--ink-ghost);

@@ -15,6 +15,8 @@ data class StatsResponse(
     val avgTasksCreatedPerWeek: Double,
     val avgTasksCompletedPerWeek: Double,
     val avgCompletionSeconds: Long?,
+    val totalTasksCreated: Long,
+    val totalTasksCompleted: Long,
 )
 
 fun UserStats.toResponse() = StatsResponse(
@@ -25,4 +27,6 @@ fun UserStats.toResponse() = StatsResponse(
     avgTasksCreatedPerWeek = avgTasksCreatedPerWeek,
     avgTasksCompletedPerWeek = avgTasksCompletedPerWeek,
     avgCompletionSeconds = avgCompletion?.seconds,
+    totalTasksCreated = totalTasksCreated,
+    totalTasksCompleted = totalTasksCompleted,
 )

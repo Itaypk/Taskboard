@@ -24,11 +24,12 @@ import { WeeklyPlanDrawer } from './components/WeeklyPlanDrawer';
 import { ContextMenu, type ContextMenuAction } from './components/ContextMenu';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { ScheduleTaskModal } from './components/ScheduleTaskModal';
+import { MoveTaskModal } from './components/MoveTaskModal';
 import { UserMenu } from './components/UserMenu';
 import { StatsModal } from './components/StatsModal';
 import { BoardMembersModal } from './components/BoardMembersModal';
 import { DEFAULT_SETTINGS } from './data';
-import { fetchBoards, createBoard, renameBoard, deleteBoard, fetchTasks, fetchCategories, fetchUserSettings, fetchTags, fetchCurrentPlan, checkTaskChanges, createTask, updateTask, deleteTask, reorderTask, removeTaskFromPlan, clearTutorialTasks, addTaskToPlan, fetchMembers, setTaskAssignee, type TaskStatusFilter, type Board, type BoardMember } from './api';
+import { fetchBoards, createBoard, renameBoard, deleteBoard, fetchTasks, fetchCategories, fetchUserSettings, fetchTags, fetchCurrentPlan, checkTaskChanges, createTask, updateTask, deleteTask, duplicateTask, moveTaskToBoard, reorderTask, removeTaskFromPlan, clearTutorialTasks, addTaskToPlan, fetchMembers, setTaskAssignee, type TaskStatusFilter, type Board, type BoardMember } from './api';
 import type { Task, UserSettings, Tag, CurrentPlan, TaskFilter } from './types';
 
 const ACTIVE_BOARD_KEY = 'backlog.activeBoardId';
@@ -132,6 +133,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; taskId: string; inPlan: boolean } | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ taskId: string; title: string } | null>(null);
   const [scheduleModal, setScheduleModal] = useState<{ taskId: string; title: string } | null>(null);
+  const [moveModal, setMoveModal] = useState<{ taskId: string; title: string } | null>(null);
   const lastSyncedAt = useRef(new Date().toISOString());
 
   // Mouse: start drag after 5px to keep clicks alive.
@@ -304,6 +306,28 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
     }
   }, [activeBoardId]);
 
+  const handleDuplicate = useCallback(async (id: string) => {
+    if (!activeBoardId) return;
+    try {
+      const copy = await duplicateTask(activeBoardId, id);
+      setTasks(prev => [...prev, copy]);
+    } catch (e) {
+      console.error('Failed to duplicate task', e);
+    }
+  }, [activeBoardId]);
+
+  const handleMoveToBoard = useCallback(async (id: string, targetBoardId: string) => {
+    if (!activeBoardId) return;
+    try {
+      await moveTaskToBoard(activeBoardId, id, targetBoardId);
+      // The task now lives on another board — drop it from the current board's view and any plan.
+      setTasks(prev => prev.filter(t => t.id !== id));
+      setCurrentPlan(prev => prev ? { ...prev, tasks: prev.tasks.filter(t => t.id !== id) } : prev);
+    } catch (e) {
+      console.error('Failed to move task', e);
+    }
+  }, [activeBoardId]);
+
   const handleClearTutorial = useCallback(async () => {
     if (!activeBoardId) return;
     try {
@@ -428,9 +452,13 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
     if (inPlan) {
       actions.push({ label: "Remove from this week's plan", onClick: () => { void handleRemoveFromPlan(taskId); } });
     }
+    actions.push({ label: 'Duplicate', onClick: () => { void handleDuplicate(taskId); } });
+    if (boards.length > 1) {
+      actions.push({ label: 'Move to board…', onClick: () => { setMoveModal({ taskId, title: task.title }); } });
+    }
     actions.push({ label: 'Delete', danger: true, onClick: () => { requestDelete(taskId); } });
     return actions;
-  }, [tasks, currentPlan, sharedBoard, currentUserId, handleSetAssignee, handleMarkDone, handleMarkTodo, handleRemoveFromPlan, requestDelete]);
+  }, [tasks, boards, currentPlan, sharedBoard, currentUserId, handleSetAssignee, handleMarkDone, handleMarkTodo, handleRemoveFromPlan, handleDuplicate, requestDelete]);
 
   const handleDragStart = (event: DragStartEvent) => {
     setDraggingId(String(event.active.id));
@@ -770,6 +798,20 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
             setScheduleModal(null);
           }}
           onClose={() => setScheduleModal(null)}
+        />
+      )}
+
+      {moveModal && (
+        <MoveTaskModal
+          key={moveModal.taskId}
+          open={moveModal !== null}
+          taskTitle={moveModal.title}
+          boards={boards.filter(b => b.id !== activeBoardId)}
+          onConfirm={(targetBoardId) => {
+            void handleMoveToBoard(moveModal.taskId, targetBoardId);
+            setMoveModal(null);
+          }}
+          onClose={() => setMoveModal(null)}
         />
       )}
 

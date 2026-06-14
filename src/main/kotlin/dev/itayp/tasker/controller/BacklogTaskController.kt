@@ -2,6 +2,7 @@ package dev.itayp.tasker.controller
 
 import dev.itayp.tasker.model.TaskStatus
 import dev.itayp.tasker.model.request.CreateBacklogTaskRequest
+import dev.itayp.tasker.model.request.MoveTaskRequest
 import dev.itayp.tasker.model.request.ReorderTaskRequest
 import dev.itayp.tasker.model.request.SetAssigneeRequest
 import dev.itayp.tasker.model.request.UpdateBacklogTaskRequest
@@ -107,6 +108,38 @@ class BacklogTaskController(
     ): ResponseEntity<TaskResponse> {
         return try {
             ResponseEntity.ok(backlogTaskService.updateTask(principal.userId, boardId, id, request).toResponse())
+        } catch (_: NoSuchElementException) {
+            ResponseEntity.notFound().build()
+        }
+    }
+
+    /** Copies a task on the same board; returns the new task (201). */
+    @PostMapping("/{id}/duplicate")
+    fun duplicateBacklogTask(
+        @AuthenticationPrincipal principal: TaskerPrincipal,
+        @PathVariable boardId: UUID,
+        @PathVariable id: UUID,
+    ): ResponseEntity<TaskResponse> {
+        return try {
+            val task = backlogTaskService.duplicateTask(principal.userId, boardId, id)
+            ResponseEntity.status(HttpStatus.CREATED).body(task.toResponse())
+        } catch (_: NoSuchElementException) {
+            ResponseEntity.notFound().build()
+        }
+    }
+
+    /** Moves a task to another board the user belongs to; returns the moved task. */
+    @PostMapping("/{id}/move")
+    fun moveBacklogTask(
+        @AuthenticationPrincipal principal: TaskerPrincipal,
+        @PathVariable boardId: UUID,
+        @PathVariable id: UUID,
+        @Valid @RequestBody request: MoveTaskRequest,
+    ): ResponseEntity<TaskResponse> {
+        val targetBoardId = runCatching { UUID.fromString(request.targetBoardId) }.getOrNull()
+            ?: return ResponseEntity.badRequest().build()
+        return try {
+            ResponseEntity.ok(backlogTaskService.moveTask(principal.userId, boardId, id, targetBoardId).toResponse())
         } catch (_: NoSuchElementException) {
             ResponseEntity.notFound().build()
         }

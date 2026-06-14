@@ -128,4 +128,7 @@ export interface Stats {
   avgTasksCreatedPerWeek: number;
   avgTasksCompletedPerWeek: number;
   avgCompletionSeconds: number | null;
+  /** Lifetime totals from the change log (survive deletion), unlike the current-snapshot counts above. */
+  totalTasksCreated: number;
+  totalTasksCompleted: number;
 }
