@@ -11,6 +11,7 @@ import dev.itayp.tasker.service.AssigneeNotMemberException
 import dev.itayp.tasker.service.BacklogTaskService
 import dev.itayp.tasker.service.BoardAccessDeniedException
 import dev.itayp.tasker.service.BoardMembershipService
+import dev.itayp.tasker.service.SameBoardMoveException
 import dev.itayp.tasker.service.SortKeyGenerator
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
@@ -165,6 +166,71 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
             .andExpect(status().isCreated)
             .andExpect(jsonPath("$.title").value("New Task"))
             .andExpect(jsonPath("$.id").exists())
+    }
+
+    @Test
+    fun `POST tasks with an invalid link returns a 400 problem detail with field errors`() {
+        mockMvc.perform(
+            post(basePath)
+                .with(authentication(auth))
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"title":"New Task","status":"todo","categoryId":"$categoryId","url":"example.com","tags":[]}""")
+        )
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.detail").value("Link must start with http:// or https://"))
+            .andExpect(jsonPath("$.errors[0].field").value("url"))
+            .andExpect(jsonPath("$.errors[0].message").value("Link must start with http:// or https://"))
+    }
+
+    @Test
+    fun `POST duplicate returns 201 with the copy`() {
+        whenever(backlogTaskService.duplicateTask(userId, boardId, taskId)).thenReturn(aTask(title = "Test Task (copy)"))
+
+        mockMvc.perform(post("$basePath/$taskId/duplicate").with(authentication(auth)).with(csrf()))
+            .andExpect(status().isCreated)
+            .andExpect(jsonPath("$.title").value("Test Task (copy)"))
+    }
+
+    @Test
+    fun `POST duplicate returns 404 when task not found`() {
+        whenever(backlogTaskService.duplicateTask(userId, boardId, taskId))
+            .thenThrow(NoSuchElementException("not found"))
+
+        mockMvc.perform(post("$basePath/$taskId/duplicate").with(authentication(auth)).with(csrf()))
+            .andExpect(status().isNotFound)
+    }
+
+    @Test
+    fun `POST move returns 200 with the moved task`() {
+        val targetBoardId = UUID.fromString("00000000-0000-0000-0000-0000000000c0")
+        val targetCategoryId = UUID.fromString("00000000-0000-0000-0000-0000000000c1")
+        whenever(backlogTaskService.moveTask(userId, boardId, taskId, targetBoardId, targetCategoryId)).thenReturn(aTask())
+
+        mockMvc.perform(
+            post("$basePath/$taskId/move")
+                .with(authentication(auth))
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"targetBoardId":"$targetBoardId","categoryId":"$targetCategoryId"}""")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.id").value(taskId.toString()))
+    }
+
+    @Test
+    fun `POST move to the same board returns 400`() {
+        whenever(backlogTaskService.moveTask(eq(userId), eq(boardId), eq(taskId), any(), any()))
+            .thenThrow(SameBoardMoveException())
+
+        mockMvc.perform(
+            post("$basePath/$taskId/move")
+                .with(authentication(auth))
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"targetBoardId":"$boardId","categoryId":"$categoryId"}""")
+        )
+            .andExpect(status().isBadRequest)
     }
 
     @Test

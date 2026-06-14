@@ -46,6 +46,8 @@ class StatsControllerTest(@Autowired val mockMvc: MockMvc) {
                 avgTasksCreatedPerWeek = 2.5,
                 avgTasksCompletedPerWeek = 1.0,
                 avgCompletion = Duration.ofDays(3),
+                totalTasksCreated = 20,
+                totalTasksCompleted = 15,
             )
         )
 
@@ -57,6 +59,8 @@ class StatsControllerTest(@Autowired val mockMvc: MockMvc) {
             .andExpect(jsonPath("$.planningSessions").value(4))
             .andExpect(jsonPath("$.avgTasksCreatedPerWeek").value(2.5))
             .andExpect(jsonPath("$.avgCompletionSeconds").value(259200))
+            .andExpect(jsonPath("$.totalTasksCreated").value(20))
+            .andExpect(jsonPath("$.totalTasksCompleted").value(15))
     }
 
     @Test

@@ -23,6 +23,7 @@ import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -405,6 +406,113 @@ class BacklogTaskServiceTest {
 
         assertFailsWith<NoSuchElementException> {
             service.deleteTask(userId, boardId, taskId)
+        }
+    }
+
+    // --- duplicateTask ---
+
+    @Test
+    fun `duplicateTask copies fields with a new TODO status and a copy suffix, dropping claim and plan stamp`() {
+        val taskId = UUID.randomUUID()
+        val source = taskEntity(categoryEntity(), id = taskId, title = "Write report").apply {
+            status = TaskStatus.DONE
+            url = "https://example.com"
+            assigneeUserId = UUID.randomUUID()
+            lastScheduledInSessionId = UUID.randomUUID()
+        }
+        whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(source)
+        whenever(backlogTaskRepository.findMaxSortKeyByBoardId(boardId)).thenReturn(null)
+        stubSaveTask()
+
+        val result = service.duplicateTask(userId, boardId, taskId)
+
+        val captor = argumentCaptor<BacklogTaskEntity>()
+        verify(backlogTaskRepository).save(captor.capture())
+        val saved = captor.firstValue
+        assertEquals("Write report (copy)", saved.title?.toString(Charsets.UTF_8))
+        assertEquals(TaskStatus.TODO, saved.status)
+        assertEquals("https://example.com", saved.url)
+        assertNull(saved.assigneeUserId)
+        assertNull(saved.lastScheduledInSessionId)
+        verify(taskChangeService).recordCreated(eq(boardId), eq(userId), any(), eq("Write report (copy)"), eq(TaskStatus.TODO))
+        assertEquals("Write report (copy)", result.title)
+    }
+
+    @Test
+    fun `duplicateTask throws when task not found`() {
+        val taskId = UUID.randomUUID()
+        whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(null)
+
+        assertFailsWith<NoSuchElementException> {
+            service.duplicateTask(userId, boardId, taskId)
+        }
+    }
+
+    // --- moveTask ---
+
+    private val targetBoardId: UUID = UUID.fromString("00000000-0000-0000-0000-0000000000c0")
+    private val targetCategoryId: UUID = UUID.fromString("00000000-0000-0000-0000-0000000000c1")
+
+    private fun targetCategoryEntity(id: UUID = targetCategoryId, label: String = "Work") =
+        BacklogTaskCategoryEntity().apply {
+            this.id = id
+            this.boardId = targetBoardId
+            this.label = label
+            this.swatchId = CategoryColor.SUNSHINE
+        }
+
+    @Test
+    fun `moveTask re-homes the task into the chosen category and clears claim and plan stamp`() {
+        val taskId = UUID.randomUUID()
+        val source = taskEntity(categoryEntity(label = "Work"), id = taskId, title = "Ship it").apply {
+            assigneeUserId = UUID.randomUUID()
+            lastScheduledInSessionId = UUID.randomUUID()
+        }
+        val targetCat = targetCategoryEntity()
+        whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(source)
+        whenever(categoryRepository.findByIdAndBoardId(targetCategoryId, targetBoardId)).thenReturn(targetCat)
+        whenever(tagRepository.findAllByBoardId(targetBoardId)).thenReturn(emptyList())
+        whenever(backlogTaskRepository.findMaxSortKeyByBoardId(targetBoardId)).thenReturn(null)
+        stubSaveTask()
+
+        val result = service.moveTask(userId, boardId, taskId, targetBoardId, targetCategoryId)
+
+        assertEquals(targetBoardId, source.boardId)
+        assertEquals(targetCat, source.category)
+        assertNull(source.assigneeUserId)
+        assertNull(source.lastScheduledInSessionId)
+        verify(taskChangeService).bumpWatermark(boardId)
+        verify(taskChangeService).bumpWatermark(targetBoardId)
+        verify(taskChangeService, never()).recordCreated(any(), any(), any(), any(), any())
+        assertEquals(targetBoardId, result.boardId)
+    }
+
+    @Test
+    fun `moveTask throws when the chosen category is not on the destination board`() {
+        val taskId = UUID.randomUUID()
+        val source = taskEntity(categoryEntity(label = "Work"), id = taskId, title = "Ship it")
+        whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(source)
+        whenever(categoryRepository.findByIdAndBoardId(targetCategoryId, targetBoardId)).thenReturn(null)
+
+        assertFailsWith<NoSuchElementException> {
+            service.moveTask(userId, boardId, taskId, targetBoardId, targetCategoryId)
+        }
+    }
+
+    @Test
+    fun `moveTask rejects a move to the same board`() {
+        assertFailsWith<SameBoardMoveException> {
+            service.moveTask(userId, boardId, UUID.randomUUID(), boardId, targetCategoryId)
+        }
+    }
+
+    @Test
+    fun `moveTask throws when task not found`() {
+        val taskId = UUID.randomUUID()
+        whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(null)
+
+        assertFailsWith<NoSuchElementException> {
+            service.moveTask(userId, boardId, taskId, targetBoardId, targetCategoryId)
         }
     }
 

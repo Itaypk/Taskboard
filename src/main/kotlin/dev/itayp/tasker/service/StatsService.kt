@@ -75,6 +75,8 @@ class StatsService(
             avgTasksCreatedPerWeek = createdCount / weeks,
             avgTasksCompletedPerWeek = firstCompletedAtByTask.size / weeks,
             avgCompletion = avgCompletion,
+            totalTasksCreated = createdCount.toLong(),
+            totalTasksCompleted = firstCompletedAtByTask.size.toLong(),
         )
     }
 

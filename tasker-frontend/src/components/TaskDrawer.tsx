@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { Task, Tag, TagColorId, Category } from '../types';
 import { TAG_PALETTE, PAPER_SWATCHES } from '../types';
-import type { BoardMember } from '../api';
+import { ApiError, type BoardMember } from '../api';
 import { WashiTape } from './WashiTape';
 import { Autocomplete } from './Autocomplete';
 import { generateId, formatRelative } from '../utils';
@@ -17,7 +17,7 @@ interface TaskDrawerProps {
   members: BoardMember[];
   currentUserId: string | null;
   onClose: () => void;
-  onSave: (task: Omit<Task, 'sortKey'>) => void;
+  onSave: (task: Omit<Task, 'sortKey'>) => void | Promise<void>;
   onDelete: (id: string) => void;
   onMarkDone: (id: string) => void;
   onMarkTodo: (id: string) => void;
@@ -25,6 +25,41 @@ interface TaskDrawerProps {
 }
 
 type FormState = Omit<Task, 'id' | 'createdAt' | 'sortKey'>;
+type FieldErrors = Partial<Record<'title' | 'url' | 'description', string>>;
+
+// Mirrors the server-side constraints on CreateBacklogTaskRequest so the user gets an inline,
+// field-specific reason before submitting (rather than a generic "invalid request" toast).
+const URL_PATTERN = /^https?:\/\//i;
+
+function validate(form: FormState): FieldErrors {
+  const errors: FieldErrors = {};
+  const title = form.title.trim();
+  if (!title) errors.title = 'Title is required.';
+  else if (title.length > 500) errors.title = 'Title must be at most 500 characters.';
+  if (form.description && form.description.length > 5000) {
+    errors.description = 'Description must be at most 5000 characters.';
+  }
+  const url = form.url?.trim();
+  if (url) {
+    if (!URL_PATTERN.test(url)) errors.url = 'Link must start with http:// or https://';
+    else if (url.length > 2000) errors.url = 'Link must be at most 2000 characters.';
+  }
+  return errors;
+}
+
+// Map a failed save's server-side field errors onto the inline slots we render. The server field
+// names (from the request DTO) match our keys; fields without an inline slot fall through to the
+// global error toast that api.ts already raised.
+function serverFieldErrors(e: unknown): FieldErrors | null {
+  if (!(e instanceof ApiError) || !e.fieldErrors?.length) return null;
+  const known: (keyof FieldErrors)[] = ['title', 'url', 'description'];
+  const mapped: FieldErrors = {};
+  for (const fe of e.fieldErrors) {
+    const key = known.find(k => k === fe.field);
+    if (key && !mapped[key]) mapped[key] = fe.message;
+  }
+  return Object.keys(mapped).length > 0 ? mapped : null;
+}
 
 function makeEmpty(defaultCategoryId: string | null): FormState {
   return {
@@ -51,10 +86,14 @@ export function TaskDrawer({
   const [tagColorId, setTagColorId] = useState<TagColorId>('sage');
   const [tagId, setTagId] = useState<string | null>(null);
   const [formKey, setFormKey] = useState<string | null>(null);
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [formError, setFormError] = useState<string | null>(null);
 
   const targetKey = open ? (task?.id ?? '__new__') : null;
   if (targetKey !== formKey) {
     setFormKey(targetKey);
+    setErrors({});
+    setFormError(null);
     if (targetKey !== null) {
       setForm(task ? {
         title: task.title,
@@ -89,20 +128,40 @@ export function TaskDrawer({
     ? PAPER_SWATCHES.find(s => s.id === selectedCategory.swatchId)
     : undefined;
 
-  const handleSave = () => {
-    if (!form.title.trim() || !form.categoryId) return;
+  const clearError = (field: keyof FieldErrors) =>
+    setErrors(e => (e[field] ? { ...e, [field]: undefined } : e));
+
+  const handleSave = async () => {
+    if (!form.categoryId) return;
+    setFormError(null);
+    const found = validate(form);
+    if (found.title || found.url || found.description) {
+      setErrors(found);
+      return;
+    }
     const now = new Date().toISOString();
-    onSave({
-      id: task?.id ?? generateId(),
-      createdAt: task?.createdAt ?? now,
-      ...form,
-      title: form.title.trim(),
-      description: form.description?.trim() || undefined,
-      url: form.url?.trim() || undefined,
-      deadline: form.deadline || undefined,
-      relevantFrom: form.relevantFrom || undefined,
-      estimatedMinutes: form.estimatedMinutes || undefined,
-    });
+    try {
+      await onSave({
+        id: task?.id ?? generateId(),
+        createdAt: task?.createdAt ?? now,
+        ...form,
+        title: form.title.trim(),
+        description: form.description?.trim() || undefined,
+        url: form.url?.trim() || undefined,
+        deadline: form.deadline || undefined,
+        relevantFrom: form.relevantFrom || undefined,
+        estimatedMinutes: form.estimatedMinutes || undefined,
+      });
+    } catch (e) {
+      // The drawer owns error display here (the save call opts out of the global toast). Server-side
+      // field reasons go inline; anything else shows as a form-level banner. The drawer stays open.
+      const mapped = serverFieldErrors(e);
+      if (mapped) {
+        setErrors(mapped);
+      } else {
+        setFormError(e instanceof ApiError ? e.userMessage : 'Something went wrong. Please try again.');
+      }
+    }
   };
 
   const commitTag = () => {
@@ -148,17 +207,22 @@ export function TaskDrawer({
         </div>
 
         <div className="drawer__body">
+          {formError && (
+            <div className="drawer__error" role="alert">{formError}</div>
+          )}
           {readOnly && (
             <p className="drawer__readonly-hint">This is a tutorial task. Mark it done or clear the tutorial when you’re ready.</p>
           )}
           <fieldset className="drawer__fieldset" disabled={readOnly}>
           <input
-            className="field__title-input"
+            className={`field__title-input${errors.title ? ' field__input--error' : ''}`}
             value={form.title}
-            onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+            onChange={e => { setForm(f => ({ ...f, title: e.target.value })); clearError('title'); }}
             placeholder="Task title…"
             autoFocus={isNew}
+            aria-invalid={errors.title ? true : undefined}
           />
+          {errors.title && <p className="field__error">{errors.title}</p>}
 
           <div className="field">
             <label className="field__label">Category</label>
@@ -221,23 +285,27 @@ export function TaskDrawer({
           <div className="field">
             <label className="field__label">Description</label>
             <textarea
-              className="field__textarea"
+              className={`field__textarea${errors.description ? ' field__input--error' : ''}`}
               value={form.description}
-              onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+              onChange={e => { setForm(f => ({ ...f, description: e.target.value })); clearError('description'); }}
               placeholder="Optional notes, context…"
               rows={3}
+              aria-invalid={errors.description ? true : undefined}
             />
+            {errors.description && <p className="field__error">{errors.description}</p>}
           </div>
 
           <div className="field">
             <label className="field__label">Link</label>
             <input
-              className="field__input"
+              className={`field__input${errors.url ? ' field__input--error' : ''}`}
               type="url"
               value={form.url}
-              onChange={e => setForm(f => ({ ...f, url: e.target.value }))}
+              onChange={e => { setForm(f => ({ ...f, url: e.target.value })); clearError('url'); }}
               placeholder="https://…"
+              aria-invalid={errors.url ? true : undefined}
             />
+            {errors.url && <p className="field__error">{errors.url}</p>}
           </div>
 
           <div className="row-2">

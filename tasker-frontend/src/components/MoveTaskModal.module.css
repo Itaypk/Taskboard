@@ -1,0 +1,53 @@
+.subtitle {
+  margin: 0 0 16px;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.note {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
+
+.boardList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.boardBtn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid var(--paper-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.boardBtn:hover {
+  border-color: var(--accent-edge);
+}
+
+.boardBtnSelected {
+  border-color: var(--accent-edge);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.boardName {
+  font-weight: 600;
+}
+
+.boardMeta {
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}

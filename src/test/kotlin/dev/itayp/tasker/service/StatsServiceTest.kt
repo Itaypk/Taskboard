@@ -54,6 +54,8 @@ class StatsServiceTest {
         assertTrue(stats.isEmpty)
         assertNull(stats.avgCompletion)
         assertEquals(0.0, stats.avgTasksCreatedPerWeek)
+        assertEquals(0, stats.totalTasksCreated)
+        assertEquals(0, stats.totalTasksCompleted)
     }
 
     @Test
@@ -84,6 +86,9 @@ class StatsServiceTest {
         assertEquals(0.5, stats.avgTasksCompletedPerWeek)
         // mean of 2 days and 4 days = 3 days
         assertEquals(Duration.ofDays(3), stats.avgCompletion)
+        // lifetime totals come straight off the change log: 2 created, 2 distinct completed
+        assertEquals(2, stats.totalTasksCreated)
+        assertEquals(2, stats.totalTasksCompleted)
     }
 
     @Test
@@ -108,6 +113,9 @@ class StatsServiceTest {
         assertEquals(1.0, stats.avgTasksCompletedPerWeek)
         // first completion was one day after creation
         assertEquals(Duration.ofDays(1), stats.avgCompletion)
+        // a re-completed task still counts once toward the lifetime totals
+        assertEquals(1, stats.totalTasksCreated)
+        assertEquals(1, stats.totalTasksCompleted)
     }
 
     private fun stubUser(joinedAt: Instant) {
