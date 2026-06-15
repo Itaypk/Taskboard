@@ -36,8 +36,10 @@ class TelegramOidcConfiguration {
         return decoder
     }
 
-    /** Client for the Telegram token exchange, built from the autoconfigured builder so it inherits
-     *  the app's JSON message converters. Isolated as its own bean to keep it easy to mock in tests. */
+    /** Client for the Telegram token exchange. Built standalone via [RestClient.create] (rather than
+     *  an autoconfigured `RestClient.Builder`, which isn't present in this context) — it still uses
+     *  the framework's default message converters, including the project's Jackson, for the token JSON.
+     *  Isolated as its own bean to keep it easy to mock in tests. */
     @Bean
-    fun telegramTokenRestClient(builder: RestClient.Builder): RestClient = builder.build()
+    fun telegramTokenRestClient(): RestClient = RestClient.create()
 }
