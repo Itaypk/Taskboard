@@ -28,29 +28,59 @@ class TutorialSeeder(
     private val clock: Clock,
 ) {
 
+    /**
+     * A seeded tutorial card. [url] carries an in-app deep link the client resolves: an internal route
+     * (`/settings/<tab>`) or an action token (`app:clear-tutorial`). These bypass the API's `https?://`
+     * URL validation because they're written straight to the repository — users can never create them.
+     */
+    private data class TutorialCard(val title: String, val url: String?, val description: String?)
+
     @Transactional
     fun seed(userId: UUID) {
         val boardId = boardMembershipService.resolveDefaultBoard(userId)
-        // Any seeded default category satisfies the not-null category; tutorial tasks aren't about
-        // categorisation, so we don't fuss over which one.
-        val category = categoryRepository.findAllByBoardId(boardId).firstOrNull() ?: return
+        val categories = categoryRepository.findAllByBoardId(boardId)
+        if (categories.isEmpty()) return
         val now = clock.instant()
 
-        val titles = listOf(
-            "Welcome to Backlog.fyi — mark this task done to get started",
-            "Add your own task (try the + button)",
-            "Add an email or Telegram so your tasks are saved",
-            "Set your assistant preferences",
-            "Clear these tutorial tasks when you're ready",
+        val cards = listOf(
+            TutorialCard(
+                "Welcome to Backlog.fyi — mark this task done to get started",
+                null,
+                "Tap a task to open it, then mark it done to check it off.",
+            ),
+            TutorialCard(
+                "Add your own task",
+                null,
+                "Use the + button up top to pin your first note to the board.",
+            ),
+            TutorialCard(
+                "Save your tasks — add an email or Telegram",
+                "/settings/general",
+                "Open settings to connect a login so your tasks stick around.",
+            ),
+            TutorialCard(
+                "Set your assistant preferences",
+                "/settings/assistant",
+                "Open settings to tell the assistant a bit about you.",
+            ),
+            TutorialCard(
+                "Clear these tutorial tasks when you're ready",
+                "app:clear-tutorial",
+                "Done exploring? This clears the whole tutorial in one tap.",
+            ),
         )
 
-        val sortKeys = SortKeyGenerator.spreadKeys(titles.size)
-        val tasks = titles.zip(sortKeys).map { (title, key) ->
+        val sortKeys = SortKeyGenerator.spreadKeys(cards.size)
+        val tasks = cards.zip(sortKeys).mapIndexed { index, (card, key) ->
             BacklogTaskEntity().apply {
                 this.boardId = boardId
-                this.title = boardCrypto.encrypt(boardId, title)
+                this.title = boardCrypto.encrypt(boardId, card.title)
+                this.description = card.description?.let { boardCrypto.encrypt(boardId, it) }
+                this.url = card.url
                 this.status = TaskStatus.TODO
-                this.category = category
+                // Spread the cards across distinct categories for a "rainbow" of post-it colours; tutorial
+                // tasks aren't really about categorisation, so the exact mapping doesn't matter.
+                this.category = categories[index % categories.size]
                 this.sortKey = key
                 this.createdAt = now
                 this.tutorial = true

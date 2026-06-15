@@ -4,6 +4,7 @@ import { PAPER_SWATCHES } from '../types';
 import { formatDeadline, isOverdue, formatDuration, rotationFromId } from '../utils';
 import { WashiTape } from './WashiTape';
 import { MarkdownRenderer } from './MarkdownRenderer';
+import { resolveTaskLink } from '../taskLink';
 import styles from './PostItNote.module.css';
 
 /** Resolved claimer for the assignee chip; only supplied on shared boards. */
@@ -21,6 +22,8 @@ interface PostItNoteProps {
   assignee?: AssigneeChipInfo | null;
   onClick: () => void;
   onContextMenu?: (e: React.MouseEvent) => void;
+  /** Follows the task's link field (external/internal/action); only wired when the task has a link. */
+  onFollowLink?: () => void;
 }
 
 const FALLBACK_SWATCH: PaperSwatchId = 'cream';
@@ -33,12 +36,14 @@ export function PostItNote({
   assignee = null,
   onClick,
   onContextMenu,
+  onFollowLink,
 }: PostItNoteProps) {
   const swatchId = category?.swatchId ?? FALLBACK_SWATCH;
   const swatch = PAPER_SWATCHES.find(s => s.id === swatchId) ?? PAPER_SWATCHES[6];
 
   const rotation = rotationFromId(task.id) * 0.3;
   const tags = task.tags.slice(0, 3);
+  const hasLink = onFollowLink != null && resolveTaskLink(task.url) != null;
 
   const {
     attributes,
@@ -130,6 +135,18 @@ export function PostItNote({
             {assignee.initials}
           </span>
         )}
+        {hasLink && (
+          <button
+            type="button"
+            className={styles.linkBtn}
+            aria-label="Open link"
+            title="Open link"
+            onPointerDown={e => e.stopPropagation()}
+            onClick={e => { e.stopPropagation(); onFollowLink?.(); }}
+          >
+            <LinkIcon />
+          </button>
+        )}
       </div>
 
       {tags.length > 0 && (
@@ -157,6 +174,16 @@ export function PostItNote({
         </button>
       )}
     </article>
+  );
+}
+
+function LinkIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M4.5 2.5H2.5v7h7v-2" />
+      <path d="M7 2.5h2.5V5" />
+      <path d="M9.5 2.5L5.5 6.5" />
+    </svg>
   );
 }
 

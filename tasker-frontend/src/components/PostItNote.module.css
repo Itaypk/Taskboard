@@ -49,6 +49,28 @@
   }
 }
 
+/* "Open link" affordance in the meta row — present only when the task has a resolvable link. */
+.linkBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 18px;
+  margin-left: auto;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  color: var(--paper-ink, currentColor);
+  background: transparent;
+  opacity: 0.55;
+  cursor: pointer;
+}
+
+.linkBtn:hover {
+  opacity: 0.9;
+  background: rgba(0, 0, 0, 0.06);
+}
+
 /* Assignee chip: small initials badge in the meta row, only on shared boards. */
 .assignee {
   display: inline-flex;

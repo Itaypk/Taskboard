@@ -5,6 +5,7 @@ import { ApiError, type BoardMember } from '../api';
 import { WashiTape } from './WashiTape';
 import { Autocomplete } from './Autocomplete';
 import { generateId, formatRelative } from '../utils';
+import { resolveTaskLink } from '../taskLink';
 
 interface TaskDrawerProps {
   task: Task | null;
@@ -22,6 +23,8 @@ interface TaskDrawerProps {
   onMarkDone: (id: string) => void;
   onMarkTodo: (id: string) => void;
   onSetAssignee: (id: string, userId: string | null) => void;
+  /** Follows a (read-only) task's link field — internal routes/actions can't be plain anchors. */
+  onFollowLink?: (task: Task) => void;
 }
 
 type FormState = Omit<Task, 'id' | 'createdAt' | 'sortKey'>;
@@ -78,7 +81,7 @@ function makeEmpty(defaultCategoryId: string | null): FormState {
 
 export function TaskDrawer({
   task, isNew, open, categories, availableTags, defaultCategoryId, members, currentUserId,
-  onClose, onSave, onDelete, onMarkDone, onMarkTodo, onSetAssignee,
+  onClose, onSave, onDelete, onMarkDone, onMarkTodo, onSetAssignee, onFollowLink,
 }: TaskDrawerProps) {
   const [form, setForm] = useState<FormState>(makeEmpty(defaultCategoryId));
   const [showTagForm, setShowTagForm] = useState(false);
@@ -122,6 +125,8 @@ export function TaskDrawer({
   // Tutorial tasks are immutable — a UX guardrail (not a server-side rule). You can still complete
   // or delete them; only field editing is locked.
   const readOnly = !isNew && !!task?.tutorial;
+  // For read-only tasks we surface the link as a real, clickable affordance instead of a dead input.
+  const taskLink = !isNew && task ? resolveTaskLink(task.url) : null;
 
   const selectedCategory = categories.find(c => c.id === form.categoryId);
   const selectedSwatch = selectedCategory
@@ -295,18 +300,36 @@ export function TaskDrawer({
             {errors.description && <p className="field__error">{errors.description}</p>}
           </div>
 
-          <div className="field">
-            <label className="field__label">Link</label>
-            <input
-              className={`field__input${errors.url ? ' field__input--error' : ''}`}
-              type="url"
-              value={form.url}
-              onChange={e => { setForm(f => ({ ...f, url: e.target.value })); clearError('url'); }}
-              placeholder="https://…"
-              aria-invalid={errors.url ? true : undefined}
-            />
-            {errors.url && <p className="field__error">{errors.url}</p>}
-          </div>
+          {(!readOnly || taskLink) && (
+            <div className="field">
+              <label className="field__label">Link</label>
+              {readOnly && taskLink ? (
+                // Internal/action links can't be plain anchors; let Board resolve them. An <a> stays
+                // clickable inside the disabled fieldset (only form controls are disabled).
+                <a
+                  className="drawer__link"
+                  href={taskLink.kind === 'external' ? taskLink.href : undefined}
+                  target={taskLink.kind === 'external' ? '_blank' : undefined}
+                  rel={taskLink.kind === 'external' ? 'noopener noreferrer' : undefined}
+                  onClick={e => { e.preventDefault(); onFollowLink?.(task!); }}
+                >
+                  Open ↗
+                </a>
+              ) : (
+                <>
+                  <input
+                    className={`field__input${errors.url ? ' field__input--error' : ''}`}
+                    type="url"
+                    value={form.url}
+                    onChange={e => { setForm(f => ({ ...f, url: e.target.value })); clearError('url'); }}
+                    placeholder="https://…"
+                    aria-invalid={errors.url ? true : undefined}
+                  />
+                  {errors.url && <p className="field__error">{errors.url}</p>}
+                </>
+              )}
+            </div>
+          )}
 
           <div className="row-2">
             <div className="field">

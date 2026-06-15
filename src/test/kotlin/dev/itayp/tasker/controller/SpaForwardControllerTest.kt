@@ -41,4 +41,18 @@ class SpaForwardControllerTest(@Autowired val mockMvc: MockMvc) {
             .andExpect(status().isOk)
             .andExpect(forwardedUrl("/index.html"))
     }
+
+    @Test
+    fun `settings route is forwarded to index html`() {
+        mockMvc.perform(get("/settings"))
+            .andExpect(status().isOk)
+            .andExpect(forwardedUrl("/index.html"))
+    }
+
+    @Test
+    fun `settings tab route is forwarded to index html`() {
+        mockMvc.perform(get("/settings/assistant"))
+            .andExpect(status().isOk)
+            .andExpect(forwardedUrl("/index.html"))
+    }
 }

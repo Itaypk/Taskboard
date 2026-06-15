@@ -33,7 +33,8 @@ import { fetchBoards, createBoard, renameBoard, deleteBoard, fetchTasks, fetchCa
 import type { Task, UserSettings, Tag, CurrentPlan, TaskFilter } from './types';
 
 const ACTIVE_BOARD_KEY = 'backlog.activeBoardId';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { resolveTaskLink, settingsTabFromPath } from './taskLink';
 import { useAuth } from './auth/AuthContext';
 import { LoginPage } from './auth/LoginPage';
 import { TermsPage, PrivacyPage } from './auth/PolicyPage';
@@ -81,6 +82,8 @@ export default function App() {
       <Route path="/email-verify" element={<EmailVerifyConfirmPage />} />
       <Route path="/invite" element={<InvitePage />} />
       <Route path="/" element={<AuthShell />} />
+      <Route path="/settings" element={<AuthShell />} />
+      <Route path="/settings/:tab" element={<AuthShell />} />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
@@ -102,6 +105,13 @@ function AuthShell() {
 
 function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const { state: authState } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  // Settings is a URL-driven modal: `/settings[/<tab>]` opens it on the matching tab, so deep links
+  // (e.g. from a tutorial task's link) are shareable and refresh-safe.
+  const settingsOpen = location.pathname.startsWith('/settings');
+  const settingsTab = settingsTabFromPath(location.pathname);
+  const closeSettings = useCallback(() => navigate('/'), [navigate]);
   const currentUserId = authState.status === 'authenticated' ? authState.user.id : null;
   // Unclaimed = zero-registration account with no login identity yet; nudge them to save it.
   const claimed = authState.status === 'authenticated' ? authState.user.claimed : true;
@@ -116,7 +126,6 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const [settings, setSettings]       = useState<UserSettings>({ ...DEFAULT_SETTINGS, categories: [] });
   const [selectedId, setSelectedId]   = useState<string | null>(null);
   const [isCreating, setIsCreating]   = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
   // Keyed to its board so a stale fetch from a previous board is ignored without a synchronous reset.
@@ -266,8 +275,6 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
 
   const visibleIds = useMemo(() => visibleTasks.map(t => t.id), [visibleTasks]);
 
-  const hasTutorialTasks = useMemo(() => tasks.some(t => t.tutorial), [tasks]);
-
   const categoryById = useMemo(
     () => new Map(settings.categories.map(c => [c.id, c])),
     [settings.categories],
@@ -341,6 +348,20 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
       console.error('Failed to clear tutorial tasks', e);
     }
   }, [activeBoardId]);
+
+  const followTaskLink = useCallback((task: Task) => {
+    const link = resolveTaskLink(task.url);
+    if (!link) return;
+    // Following a link supersedes the task view: dismiss the drawer so it doesn't linger behind the
+    // settings modal (internal links) or point at a since-cleared task (the clear-tutorial action).
+    setSelectedId(null);
+    setIsCreating(false);
+    switch (link.kind) {
+      case 'external': window.open(link.href, '_blank', 'noopener,noreferrer'); break;
+      case 'internal': navigate(link.to); break;
+      case 'action': if (link.action === 'clear-tutorial') void handleClearTutorial(); break;
+    }
+  }, [navigate, handleClearTutorial]);
 
   const handleMarkDone = useCallback((id: string) => {
     const task = tasks.find(t => t.id === id);
@@ -572,7 +593,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
 
   const openNew = () => {
     if (settings.categories.length === 0) {
-      setSettingsOpen(true);
+      navigate('/settings/categories');
       return;
     }
     setSelectedId(null);
@@ -632,41 +653,11 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
           <UserMenu
             displayName={settings.displayName}
             onOpenStats={() => setStatsOpen(true)}
-            onOpenSettings={() => setSettingsOpen(true)}
+            onOpenSettings={() => navigate('/settings')}
             onSignOut={() => { void onSignOut(); }}
           />
         </div>
       </header>
-
-      {!claimed && !nudgeDismissed && (
-        <div className="account-nudge" role="status">
-          <span className="account-nudge__text">Add an email or Telegram to keep your tasks safe.</span>
-          <button
-            type="button"
-            className="account-nudge__cta"
-            onClick={() => setSettingsOpen(true)}
-          >
-            Save my account
-          </button>
-          <button
-            type="button"
-            className="account-nudge__dismiss"
-            aria-label="Dismiss"
-            onClick={() => { localStorage.setItem('saveAccountNudgeDismissed', '1'); setNudgeDismissed(true); }}
-          >
-            ×
-          </button>
-        </div>
-      )}
-
-      {hasTutorialTasks && (
-        <div className="tutorial-strip">
-          <span className="tutorial-strip__text">These tutorial tasks are here to help you get started.</span>
-          <button type="button" className="tutorial-strip__clear" onClick={() => { void handleClearTutorial(); }}>
-            Clear tutorial
-          </button>
-        </div>
-      )}
 
       <main className="board-wrap">
         {visibleTasks.length === 0 ? (
@@ -696,6 +687,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
                     assignee={resolveAssignee(task)}
                     onClick={() => { setIsCreating(false); setSelectedId(task.id); }}
                     onContextMenu={e => setContextMenu({ x: e.clientX, y: e.clientY, taskId: task.id, inPlan: planId !== null && task.lastScheduledInSessionId === planId })}
+                    onFollowLink={() => followTaskLink(task)}
                   />
                 ))}
               </div>
@@ -729,6 +721,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
         onMarkDone={handleMarkDone}
         onMarkTodo={handleMarkTodo}
         onSetAssignee={handleSetAssignee}
+        onFollowLink={followTaskLink}
       />
 
       <WeeklyPlanDrawer
@@ -757,7 +750,8 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
         settings={settings}
         tasks={tasks}
         open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
+        initialTab={settingsTab}
+        onClose={closeSettings}
         onSave={setSettings}
         onAccountDeleted={() => { void onSignOut(); }}
       />
@@ -840,6 +834,27 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
         onConfirm={() => { void handleDeleteBoard(); }}
         onClose={() => setBoardDeleteConfirm(false)}
       />
+
+      {!claimed && !nudgeDismissed && (
+        <div className="account-nudge" role="status">
+          <span className="account-nudge__text">Add an email or Telegram to keep your tasks safe.</span>
+          <button
+            type="button"
+            className="account-nudge__cta"
+            onClick={() => navigate('/settings/general')}
+          >
+            Save my account
+          </button>
+          <button
+            type="button"
+            className="account-nudge__dismiss"
+            aria-label="Dismiss"
+            onClick={() => { localStorage.setItem('saveAccountNudgeDismissed', '1'); setNudgeDismissed(true); }}
+          >
+            ×
+          </button>
+        </div>
+      )}
     </>
   );
 }
