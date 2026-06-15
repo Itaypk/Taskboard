@@ -28,22 +28,19 @@ import org.springframework.web.cors.CorsConfigurationSource
 import java.util.function.Supplier
 
 // Content-Security-Policy applied to every non-actuator response. Notes on each entry:
-//  - script-src telegram.org           : Telegram Login Widget script (telegram-widget.js)
-//  - script-src unsafe-eval            : telegram-widget.js calls eval() internally; unavoidable for this third-party widget
-//  - script-src sha256-ZswfT...        : hash of the inline <script> that bootstraps the Telegram widget on the login page
-//  - frame-src oauth.telegram.org      : the iframe the widget injects for the login flow
 //  - style-src 'unsafe-inline'         : React inline `style={{...}}` attributes (no nonces in our build)
 //  - style-src fonts.googleapis        : the Google Fonts stylesheet linked from index.html
 //  - font-src fonts.gstatic            : the actual font files referenced by that stylesheet
 //  - img-src data:                     : SVG noise/mask textures used as CSS backgrounds and masks
 //  - frame-ancestors 'none'            : modern equivalent of X-Frame-Options: DENY
+// Telegram login is a top-level OAuth redirect (no widget script, no iframe), so it needs no CSP
+// allowances — navigating away to oauth.telegram.org is a normal navigation, not script/frame loading.
 private val CSP_POLICY = listOf(
     "default-src 'self'",
-    "script-src 'self' https://telegram.org 'unsafe-eval' 'sha256-ZswfTY7H35rbv8WC7NXBoiC7WNu86vSzCDChNWwZZDM='",
+    "script-src 'self'",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data:",
-    "frame-src https://oauth.telegram.org",
     "connect-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",
@@ -110,7 +107,11 @@ class SecurityConfiguration(
                 authorize("/assets/**", permitAll)
                 authorize("/favicon.ico", permitAll)
                 authorize("/api/auth/me", permitAll)
-                authorize("/api/auth/telegram", permitAll)
+                // Telegram OIDC login: the start kicks off the redirect, the callback creates the
+                // session — both must be reachable unauthenticated. The link variant
+                // (/api/auth/telegram/link/start) is NOT listed, so it stays authenticated.
+                authorize("/api/auth/telegram/start", permitAll)
+                authorize("/api/auth/telegram/callback", permitAll)
                 authorize("/api/auth/dev-login", permitAll)
                 authorize("/api/auth/demo-login", permitAll)
                 authorize("/api/auth/email", permitAll)
@@ -166,7 +167,7 @@ class SecurityConfiguration(
                 // These endpoints carry their credential in the request body (not in a session-derived
                 // cookie), so CSRF protection adds nothing and would break cross-device flows.
                 ignoringRequestMatchers(
-                    "/api/auth/telegram", "/api/auth/dev-login", "/api/auth/demo-login",
+                    "/api/auth/dev-login", "/api/auth/demo-login",
                     "/api/auth/email", "/api/auth/email/callback",
                     "/api/v1/settings/email/verify",
                     "/api/dev/**",

@@ -11,25 +11,17 @@ export interface AuthUser {
     claimed: boolean;
 }
 
-export interface TelegramWidgetPayload {
-    id: number;
-    first_name?: string;
-    last_name?: string;
-    username?: string;
-    photo_url?: string;
-    auth_date: number;
-    hash: string;
-}
-
 export const fetchMe = (): Promise<AuthUser | null> =>
     request<AuthUser | null>('/api/auth/me');
 
-export const telegramLogin = (payload: TelegramWidgetPayload): Promise<AuthUser> =>
-    request<AuthUser>('/api/auth/telegram', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-    });
+// Telegram login/link use the OIDC redirect flow: navigate the browser to these backend
+// endpoints, which 302 to Telegram and (on the callback) back to the SPA. No fetch/JSON.
+export const telegramLoginUrl = (next?: string): string =>
+    next && next !== '/'
+        ? `/api/auth/telegram/start?next=${encodeURIComponent(next)}`
+        : '/api/auth/telegram/start';
+
+export const TELEGRAM_LINK_URL = '/api/auth/telegram/link/start';
 
 export const devLogin = (): Promise<AuthUser> =>
     request<AuthUser>('/api/auth/dev-login', { method: 'POST' });
@@ -79,14 +71,6 @@ export interface LinkedIdentity {
 
 export const fetchIdentities = (): Promise<LinkedIdentity[]> =>
     request<LinkedIdentity[]>('/api/auth/identities');
-
-// Link a Telegram account to the signed-in user (CSRF-protected; the user is already authenticated).
-export const linkTelegram = (payload: TelegramWidgetPayload): Promise<AuthUser> =>
-    request<AuthUser>('/api/auth/link/telegram', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-    });
 
 export const unlinkIdentity = (provider: string): Promise<void> =>
     request<void>(`/api/auth/identities/${provider}`, { method: 'DELETE' });

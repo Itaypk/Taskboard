@@ -25,6 +25,8 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-h2console")
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 	implementation("org.springframework.boot:spring-boot-starter-security")
+	// JWT/JWKS validation for the Telegram OIDC login flow (NimbusJwtDecoder).
+	implementation("org.springframework.security:spring-security-oauth2-jose")
 	implementation("org.springframework.boot:spring-boot-starter-webmvc")
 	implementation("org.springframework.boot:spring-boot-starter-validation")
 	implementation("org.springframework.session:spring-session-jdbc")

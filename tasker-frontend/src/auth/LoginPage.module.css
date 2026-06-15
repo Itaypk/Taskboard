@@ -361,20 +361,13 @@
   gap: 10px;
 }
 
-/* Telegram widget host — the official widget renders its own iframe button,
-   so we centre it rather than styling our own button. */
-.telegramSlot {
-  display: flex;
-  justify-content: center;
-  min-height: 40px;
-}
-
 .channelBtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
   width: 100%;
+  box-sizing: border-box;
   padding: 13px 22px;
   border-radius: 999px;
   font-family: var(--font-serif);
@@ -382,7 +375,10 @@
   font-weight: 600;
   cursor: pointer;
   position: relative;
+  text-decoration: none;
 }
+.chTelegram { background: #fff; color: var(--cb-ink); border: 1.5px solid var(--cb-telegram); }
+.chTelegram:hover { background: rgba(42,171,238,0.06); }
 .chGoogle { background: #fff; color: #2a1f14; border: 1.5px solid rgba(60,40,15,0.2); }
 .chEmail  { background: transparent; color: var(--cb-ink); border: 1.5px solid var(--cb-ink); }
 .channelBtn:disabled { opacity: 0.55; cursor: not-allowed; }
@@ -515,12 +511,6 @@
 }
 .devBtn:disabled { opacity: 0.6; cursor: wait; }
 
-.warning {
-  text-align: center;
-  font-size: 13px;
-  color: #a86000;
-  margin: 0;
-}
 .error {
   text-align: center;
   color: #c83218;

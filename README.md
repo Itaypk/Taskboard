@@ -65,18 +65,19 @@ You'll need a dev proxy to forward `/api/**` to `:8080` (not set up by default; 
 
 ## Telegram login setup (optional)
 
-Telegram is no longer required to sign in — email magic-link, the demo sandbox, and (in dev) the dev-login button all work without it. Set this up when you want the Telegram login button and the Telegram-driven weekly planning conversation.
+Telegram is no longer required to sign in — email magic-link, the demo sandbox, and (in dev) the dev-login button all work without it. Set this up when you want the Telegram login button (an OAuth2/OIDC redirect, [Telegram Login docs](https://core.telegram.org/widgets/login)) and the Telegram-driven weekly planning conversation.
 
 
 1. `/newbot` with [@BotFather](https://t.me/BotFather), save the token.
-2. `/setdomain` on your bot → point at the HTTPS host you'll serve from (Telegram won't attach the widget to bare `http://localhost`).
+2. In BotFather → **Bot Settings → Web Login**, set the HTTPS host you'll serve from (Telegram won't redirect back to bare `http://localhost`) and copy the **Client ID** and **Client Secret**.
 3. Export:
    ```bash
-   export TASKER_TELEGRAM_BOT_TOKEN=...          # backend: verifies HMAC
-   export TASKER_TELEGRAM_BOT_USERNAME=...       # backend + widget
-   export VITE_TELEGRAM_BOT_USERNAME=...         # frontend build: renders the widget
+   export TASKER_TELEGRAM_CLIENT_ID=...          # backend: OIDC client id (bot id) + expected id_token aud
+   export TASKER_TELEGRAM_CLIENT_SECRET=...      # backend: OIDC client secret (token-exchange credential)
+   export TASKER_TELEGRAM_BOT_TOKEN=...          # backend: bot messaging (planning conversation)
+   export TASKER_TELEGRAM_BOT_USERNAME=...       # backend (cosmetic)
    ```
-4. Restart `./gradlew bootRun`. The login page will render the Telegram button instead of (in addition to, in dev) the dev-login button.
+4. Restart `./gradlew bootRun`. The login page's Telegram button kicks off the OAuth redirect; without the Client ID/Secret it shows a "temporarily unavailable" notice and you fall back to the dev-login button.
 
 Without these vars, the dev-login button (and the demo sandbox) get you in for local work; email magic-link login also works once email is configured.
 
@@ -86,7 +87,7 @@ Without these vars, the dev-login button (and the demo sandbox) get you in for l
 src/main/kotlin/dev/itayp/tasker/
   config/        Spring config (security, Prometheus auth, dev seed, telegram properties, time)
   controller/    REST controllers (auth, tasks, categories, tags)
-  service/       Business logic (TelegramAuthService, UserAuthService, …)
+  service/       Business logic (TelegramOidcService, UserAuthService, …)
   security/      TaskerPrincipal + SessionAuthenticator
   jpa/           JPA entities
   repository/    Spring Data repositories
@@ -140,7 +141,9 @@ Required environment variables:
 | `TASKER_DB_USERNAME` | Postgres user |
 | `TASKER_DB_PASSWORD` | Postgres password |
 | `TASKER_DATA_KEK` | base64-encoded 32-byte key wrapping per-user DEKs for at-rest encryption. **Losing it loses all encrypted data.** Generate with `openssl rand -base64 32` |
-| `TASKER_TELEGRAM_BOT_TOKEN` | Bot token for HMAC verification |
+| `TASKER_TELEGRAM_CLIENT_ID` | OIDC client id (bot id) for Telegram login; expected id_token `aud` |
+| `TASKER_TELEGRAM_CLIENT_SECRET` | OIDC client secret for the Telegram token exchange |
+| `TASKER_TELEGRAM_BOT_TOKEN` | Bot messaging token (planning conversation) |
 | `TASKER_TELEGRAM_BOT_USERNAME` | Bot username (cosmetic) |
 | `TASKER_PROMETHEUS_USERNAME` | Basic Auth username for `/actuator/prometheus` |
 | `TASKER_PROMETHEUS_PASSWORD` | Basic Auth password for `/actuator/prometheus` |
@@ -160,7 +163,7 @@ Startup fails fast if any of the database, data-encryption, or Prometheus creden
 
 ## Testing
 
-- **Unit tests** — Mockito + JUnit 5 for services (`BacklogTaskServiceTest`, `TelegramAuthServiceTest`, `UserAuthServiceTest`).
+- **Unit tests** — Mockito + JUnit 5 for services (`BacklogTaskServiceTest`, `TelegramOidcServiceTest`, `UserAuthServiceTest`).
 - **Controller slice tests** — `@WebMvcTest` + `SecurityConfiguration` so auth + CSRF behavior is exercised (`AuthControllerTest`, `BacklogTaskControllerTest`).
 - **Integration tests** — `@SpringBootTest(RANDOM_PORT)` with `TestRestTemplate` for real session-cookie reuse, CSRF enforcement, and prod-profile gating (`SecurityIntegrationTest`).
 - **Postgres integration tests** — `AbstractIntegrationTest.Initializer` starts a TestContainers `PostgreSQLContainer` and wires it into the Spring context. Tests run under `@ActiveProfiles("prod")` and exercise JPA and the health endpoints against a real database (`PostgresIntegrationTest`, `SecurityIntegrationProdProfileTest`).
