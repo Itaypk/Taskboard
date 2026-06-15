@@ -22,8 +22,6 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Currently, a single task is tied to a single time-block; would we like to change that, so that a single task might have mutiple (or zero) time blocks attached?
 - Add a search functionality in the "All" tasks tab.
 - Favicon - we are using a default one.
-- Stats should show all times total number of tasks and completed tasks.
-- Tutorial tasks - update the "welcome" cards to provide better experience.
 
 ## UI - Tasks
 - Work on tagline and satellite notes in the welcome page with better texts. See if we need to move a few things around 
@@ -35,7 +33,8 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Filter chips can still wrap on very small screens even after the "Week" shortening. If it keeps bugging us, consider a segmented control or horizontally-scrollable chip row on mobile.
 - Board management: consider streamlining things. For now, we have "Rename board", and "Members", as extra rows in the dropdown. Should it be a "settings" icon next to the board? Just one "Edit..." row?
 - Board management: custom board color pin marker (the member count pin)?
-- Per-board mascots: add a few new mascots (in addition to the pineapple pet), customizable by board. 
+- Per-board mascots: add a few new mascots (in addition to the pineapple pet), customizable by board.
+- Tasks with URL: the URL is not displayed. We have a small link icon, but we should consider adding link description and add it to the bottom of the note.
 
 ## General features (medium-sized)
 - Add "feedback" option.
