@@ -33,13 +33,11 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Settings dialog - each tab has a different height; switching tabs move the modal. Also, consider moving some fields from the "General" area to somewhere more relevant.
 - Task list Markdown (subtasks) checkboxes - makes it possible to check directly from the main screen
 - Filter chips can still wrap on very small screens even after the "Week" shortening. If it keeps bugging us, consider a segmented control or horizontally-scrollable chip row on mobile.
-- Right-click menu: duplicate task; move task to another board
 - Board management: consider streamlining things. For now, we have "Rename board", and "Members", as extra rows in the dropdown. Should it be a "settings" icon next to the board? Just one "Edit..." row?
 - Board management: custom board color pin marker (the member count pin)?
-- When adding a new task, some validation errors (like an invalid link) are causing an unexplained error. Solutions to consider (not exclusive or): client side validation in line with server side definitions; error details that include the offending field and reason that would be displayed properly.
 - Per-board mascots: add a few new mascots (in addition to the pineapple pet), customizable by board. 
 
-## General features (medium sized)
+## General features (medium-sized)
 - Add "feedback" option.
 
 ## Assistant - Mid-week response
