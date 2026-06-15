@@ -1482,11 +1482,6 @@ input[type="number"] { -moz-appearance: textfield; }
   font-size: 14px;
 }
 
-.connected-account__telegram-slot {
-  min-height: 34px;
-  margin-top: 4px;
-}
-
 .settings-error {
   color: #b3261e;
   font-size: 13px;

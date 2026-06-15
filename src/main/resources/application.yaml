@@ -55,6 +55,9 @@ tasker:
     bot-token: ${TASKER_TELEGRAM_BOT_TOKEN:}
     bot-username: ${TASKER_TELEGRAM_BOT_USERNAME:}
     enabled: ${TASKER_TELEGRAM_ENABLED:false}
+    # OIDC login (BotFather → Bot Settings → Web Login). Required for Telegram login in prod.
+    client-id: ${TASKER_TELEGRAM_CLIENT_ID:}
+    client-secret: ${TASKER_TELEGRAM_CLIENT_SECRET:}
   prometheus:
     username: ${TASKER_PROMETHEUS_USERNAME:prometheus}
     password: ${TASKER_PROMETHEUS_PASSWORD:prometheus-dev}

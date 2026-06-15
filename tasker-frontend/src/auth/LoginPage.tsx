@@ -1,43 +1,33 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from './AuthContext';
-import { demoLogin, devLogin, requestEmailLogin, telegramLogin, type TelegramWidgetPayload } from './authApi';
+import { demoLogin, devLogin, requestEmailLogin, telegramLoginUrl } from './authApi';
 import pineappleUrl from '../assets/pineapple.png';
 import styles from './LoginPage.module.css';
 
-const BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME as string | undefined;
-const TELEGRAM_CALLBACK = 'onTaskerTelegramAuth';
+// The Telegram OIDC callback redirects back here with a notice if login didn't complete.
+const TELEGRAM_NOTICES: Record<string, string> = {
+    failed: 'Telegram sign-in didn’t complete. Please try again.',
+    unavailable: 'Telegram sign-in is temporarily unavailable. Try another method.',
+};
 
-declare global {
-    interface Window {
-        [TELEGRAM_CALLBACK]?: (user: TelegramWidgetPayload) => void;
-    }
+function readTelegramNotice(): string | null {
+    const code = new URLSearchParams(window.location.search).get('telegramLogin');
+    return code ? TELEGRAM_NOTICES[code] ?? TELEGRAM_NOTICES.failed : null;
 }
 
 export function LoginPage({ next }: { next?: string } = {}) {
     const { setUser } = useAuth();
-    const [modalOpen, setModalOpen] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    // A failed Telegram redirect lands on "/" with the modal closed — auto-open it to show the error.
+    const initialNotice = readTelegramNotice();
+    const [modalOpen, setModalOpen] = useState(initialNotice != null);
+    const [error, setError] = useState<string | null>(initialNotice);
     const [busy, setBusy] = useState(false);
 
+    // Strip the notice from the URL so a refresh doesn't re-show it.
     useEffect(() => {
-        window[TELEGRAM_CALLBACK] = async (payload) => {
-            setError(null);
-            setBusy(true);
-            try {
-                const user = await telegramLogin(payload);
-                setUser(user);
-            } catch (e) {
-                console.error('Telegram login failed', e);
-                setError('Telegram login failed. Please try again.');
-            } finally {
-                setBusy(false);
-            }
-        };
-        return () => {
-            window[TELEGRAM_CALLBACK] = undefined;
-        };
-    }, [setUser]);
+        if (initialNotice) window.history.replaceState(null, '', window.location.pathname);
+    }, [initialNotice]);
 
     // Close the modal on Escape.
     useEffect(() => {
@@ -189,7 +179,6 @@ function LoginModal({
     onDevLogin: () => void;
     onClose: () => void;
 }) {
-    const telegramSlot = useRef<HTMLDivElement | null>(null);
     const [emailMode, setEmailMode] = useState(false);
     const [email, setEmail] = useState('');
     const [emailSent, setEmailSent] = useState(false);
@@ -213,23 +202,6 @@ function LoginModal({
         }
     };
 
-    // Mount the official Telegram Login Widget inside the modal. It renders its
-    // own iframe button (not restyleable), so we host it rather than fake one.
-    useEffect(() => {
-        if (!BOT_USERNAME || !telegramSlot.current) return;
-        const container = telegramSlot.current;
-        const script = document.createElement('script');
-        script.src = 'https://telegram.org/js/telegram-widget.js?22';
-        script.async = true;
-        script.setAttribute('data-telegram-login', BOT_USERNAME);
-        script.setAttribute('data-size', 'large');
-        script.setAttribute('data-radius', '20');
-        script.setAttribute('data-onauth', `${TELEGRAM_CALLBACK}(user)`);
-        script.setAttribute('data-request-access', 'write');
-        container.appendChild(script);
-        return () => { container.replaceChildren(); };
-    }, []);
-
     return (
         <div className={styles.overlay} onClick={onClose}>
             <div className={styles.modal} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
@@ -240,13 +212,12 @@ function LoginModal({
                 <p className={styles.modalSub}>One tap. We'll create your board if it's your first time.</p>
 
                 <div className={styles.channels}>
-                    {BOT_USERNAME ? (
-                        <div ref={telegramSlot} className={styles.telegramSlot} />
-                    ) : (
-                        <p className={styles.warning}>
-                            Telegram bot username not configured (set <code>VITE_TELEGRAM_BOT_USERNAME</code>).
-                        </p>
-                    )}
+                    <a
+                        href={telegramLoginUrl(next)}
+                        className={`${styles.channelBtn} ${styles.chTelegram}`}
+                    >
+                        <TelegramIcon /> Log in with Telegram
+                    </a>
 
                     <button type="button" className={`${styles.channelBtn} ${styles.chGoogle}`} disabled>
                         <GIcon /> Continue with Google
@@ -326,6 +297,18 @@ function GIcon() {
             <path fill="#34A853" d="M12 24c3.2 0 6-1.1 8-2.9l-3.9-3c-1.1.7-2.5 1.2-4.1 1.2-3.1 0-5.8-2.1-6.7-5H1.3v3.1A12 12 0 0012 24z" />
             <path fill="#FBBC05" d="M5.3 14.3a7.2 7.2 0 010-4.6V6.6H1.3a12 12 0 000 10.8l4-3.1z" />
             <path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0012 0 12 12 0 001.3 6.6l4 3.1c.9-2.9 3.6-5 6.7-5z" />
+        </svg>
+    );
+}
+
+function TelegramIcon() {
+    return (
+        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="12" fill="#2aabee" />
+            <path
+                fill="#fff"
+                d="M5.5 11.9l11-4.25c.51-.18.96.12.79.9l-1.87 8.82c-.13.62-.5.77-1.02.48l-2.82-2.08-1.36 1.31c-.15.15-.28.28-.57.28l.2-2.88 5.25-4.74c.23-.2-.05-.32-.35-.12l-6.49 4.08-2.8-.87c-.6-.19-.62-.6.13-.89z"
+            />
         </svg>
     );
 }

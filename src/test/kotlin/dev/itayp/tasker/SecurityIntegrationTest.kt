@@ -119,9 +119,11 @@ class SecurityIntegrationTest(
         val csp = response.headers.getFirst("Content-Security-Policy")
         assertThat(csp).isNotNull()
         assertThat(csp).contains("default-src 'self'")
-        assertThat(csp).contains("https://telegram.org")
-        assertThat(csp).contains("frame-src https://oauth.telegram.org")
+        assertThat(csp).contains("script-src 'self'")
         assertThat(csp).contains("frame-ancestors 'none'")
+        // Telegram login is now a top-level OAuth redirect, so the widget's script/frame
+        // allowances are gone.
+        assertThat(csp).doesNotContain("telegram.org")
     }
 
     @Test

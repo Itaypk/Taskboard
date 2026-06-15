@@ -1,23 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import {
     fetchIdentities,
     fetchMe,
-    linkTelegram,
     unlinkIdentity,
+    TELEGRAM_LINK_URL,
     type LinkedIdentity,
-    type TelegramWidgetPayload,
 } from '../auth/authApi';
 import { ApiError } from '../api';
-
-const BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME as string | undefined;
-const LINK_CALLBACK = 'onTaskerTelegramLink';
-
-declare global {
-    interface Window {
-        [LINK_CALLBACK]?: (user: TelegramWidgetPayload) => void;
-    }
-}
 
 const PROVIDER_LABELS: Record<string, string> = {
     telegram: 'Telegram',
@@ -25,19 +15,30 @@ const PROVIDER_LABELS: Record<string, string> = {
     google: 'Google',
 };
 
+// Surfaced after the Telegram link redirect lands back on /settings?telegramLink=<code>.
+const LINK_NOTICES: Record<string, string> = {
+    conflict: 'That Telegram account is already linked to a different Backlog.fyi account.',
+    exists: 'You already have a Telegram account linked.',
+    failed: 'Could not link Telegram. Please try again.',
+    unavailable: 'Telegram linking is temporarily unavailable.',
+};
+
+function readLinkNotice(): string | null {
+    const code = new URLSearchParams(window.location.search).get('telegramLink');
+    return code && code !== 'success' ? LINK_NOTICES[code] ?? LINK_NOTICES.failed : null;
+}
+
 /**
  * "Connected accounts" — the login methods linked to the current user. Lets the user link a
- * Telegram account (via the official widget) and unlink any method, guarded so they can't remove
- * their last way to sign in. Email is linked through the verify-email field above; it appears here
- * once verified. Provider-agnostic so a future Google method just shows up as another row.
+ * Telegram account (via the OIDC redirect flow) and unlink any method, guarded so they can't
+ * remove their last way to sign in. Email is linked through the verify-email field above; it
+ * appears here once verified. Provider-agnostic so a future Google method just shows up as a row.
  */
 export function ConnectedAccounts() {
     const { setUser } = useAuth();
     const [identities, setIdentities] = useState<LinkedIdentity[] | null>(null);
     const [busy, setBusy] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [linking, setLinking] = useState(false);
-    const telegramSlot = useRef<HTMLDivElement | null>(null);
+    const [error, setError] = useState<string | null>(() => readLinkNotice());
 
     const refresh = useCallback(async () => {
         try {
@@ -56,44 +57,14 @@ export function ConnectedAccounts() {
         return () => { cancelled = true; };
     }, []);
 
-    const hasTelegram = identities?.some(i => i.provider === 'telegram') ?? false;
-
-    // Mount the Telegram widget when the user opens the link affordance.
+    // Drop the telegramLink notice from the URL so it doesn't survive a refresh.
     useEffect(() => {
-        if (!linking || !BOT_USERNAME || !telegramSlot.current) return;
-        window[LINK_CALLBACK] = async (payload) => {
-            setBusy(true);
-            setError(null);
-            try {
-                const user = await linkTelegram(payload);
-                setUser(user);
-                await refresh();
-                setLinking(false);
-            } catch (e) {
-                if (e instanceof ApiError && e.status === 409) {
-                    setError('That Telegram account is already linked to a different Backlog.fyi account.');
-                } else {
-                    setError('Could not link Telegram. Please try again.');
-                }
-            } finally {
-                setBusy(false);
-            }
-        };
-        const container = telegramSlot.current;
-        const script = document.createElement('script');
-        script.src = 'https://telegram.org/js/telegram-widget.js?22';
-        script.async = true;
-        script.setAttribute('data-telegram-login', BOT_USERNAME);
-        script.setAttribute('data-size', 'medium');
-        script.setAttribute('data-radius', '14');
-        script.setAttribute('data-onauth', `${LINK_CALLBACK}(user)`);
-        script.setAttribute('data-request-access', 'write');
-        container.appendChild(script);
-        return () => {
-            container.replaceChildren();
-            window[LINK_CALLBACK] = undefined;
-        };
-    }, [linking, refresh, setUser]);
+        if (new URLSearchParams(window.location.search).has('telegramLink')) {
+            window.history.replaceState(null, '', window.location.pathname);
+        }
+    }, []);
+
+    const hasTelegram = identities?.some(i => i.provider === 'telegram') ?? false;
 
     const handleUnlink = async (provider: string) => {
         setBusy(true);
@@ -144,19 +115,10 @@ export function ConnectedAccounts() {
                 )}
             </ul>
 
-            {!hasTelegram && BOT_USERNAME && (
-                linking ? (
-                    <div ref={telegramSlot} className="connected-account__telegram-slot" />
-                ) : (
-                    <button
-                        type="button"
-                        className="btn btn--ghost"
-                        onClick={() => { setError(null); setLinking(true); }}
-                        disabled={busy}
-                    >
-                        Link Telegram
-                    </button>
-                )
+            {!hasTelegram && (
+                <a className="btn btn--ghost" href={TELEGRAM_LINK_URL}>
+                    Link Telegram
+                </a>
             )}
 
             {error && <p className="settings-error">{error}</p>}
