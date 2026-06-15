@@ -6,6 +6,7 @@ import { ConnectedAccounts } from './ConnectedAccounts';
 import { Tabs } from './Tabs';
 import { createCategory, updateCategory, deleteCategory, updateUserSettings, fetchSettingsOptions, deleteAccount, exportAccount, importAccount, requestEmailVerification } from '../api';
 import type { ImportSummary } from '../api';
+import type { SettingsTab } from '../taskLink';
 
 interface SettingsModalProps {
   /** Categories are board-owned, so their edits go to the active board. */
@@ -13,6 +14,8 @@ interface SettingsModalProps {
   settings: UserSettings;
   tasks: Task[];
   open: boolean;
+  /** Tab to show; tracks the `/settings/<tab>` route so deep links land on the right section. */
+  initialTab?: SettingsTab;
   onClose: () => void;
   onSave: (s: UserSettings) => void;
   onAccountDeleted: () => void;
@@ -54,9 +57,9 @@ function parseCron(cron: string | null | undefined): { day: string; time: string
   return { day: dow.toUpperCase(), time };
 }
 
-export function SettingsModal({ boardId, settings, tasks, open, onClose, onSave, onAccountDeleted }: SettingsModalProps) {
+export function SettingsModal({ boardId, settings, tasks, open, initialTab, onClose, onSave, onAccountDeleted }: SettingsModalProps) {
   const [form, setForm] = useState<UserSettings>(settings);
-  const [activeTab, setActiveTab] = useState<'general' | 'categories' | 'assistant'>('general');
+  const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const [wasOpen, setWasOpen] = useState(open);
   const [saving, setSaving] = useState(false);
   const [options, setOptions] = useState<SettingsOptions | null>(null);
@@ -76,10 +79,16 @@ export function SettingsModal({ boardId, settings, tasks, open, onClose, onSave,
     setEmailInput(settings.email ?? '');
     setDeleteConfirm(false);
     setVerificationSent(false);
-    setActiveTab('general');
+    setActiveTab(initialTab ?? 'general');
   } else if (!open && wasOpen) {
     setWasOpen(false);
   }
+
+  // Keep the tab in sync when the `/settings/<tab>` route changes while the modal is already open
+  // (the open-transition above only fires on the closed→open edge).
+  useEffect(() => {
+    if (open && initialTab) setActiveTab(initialTab);
+  }, [open, initialTab]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -250,7 +259,7 @@ export function SettingsModal({ boardId, settings, tasks, open, onClose, onSave,
         <Tabs
           tabs={SETTINGS_TABS}
           activeTab={activeTab}
-          onChange={id => setActiveTab(id as 'general' | 'categories' | 'assistant')}
+          onChange={id => setActiveTab(id as SettingsTab)}
         />
 
         <div className="modal__body">

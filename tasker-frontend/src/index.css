@@ -620,10 +620,14 @@ input[type="number"] { -moz-appearance: textfield; }
   gap: 20px;
 }
 
-/* Zero-registration "save your account" nudge and the tutorial-clear strip sit between the
-   header and the board, sharing a light paper band so they don't compete with the notes. */
-.account-nudge,
-.tutorial-strip {
+/* Zero-registration "save your account" nudge: a light paper band pinned to the bottom of the
+   viewport (it may overlap the "show archived" control on the `all` view — acceptable). */
+.account-nudge {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -631,16 +635,11 @@ input[type="number"] { -moz-appearance: textfield; }
   font-family: var(--font-ui);
   font-size: 0.9rem;
   background: var(--paper-surface);
-  border-bottom: 1px solid var(--paper-border);
+  border-top: 1px solid var(--paper-border);
 }
 
-.account-nudge__text,
-.tutorial-strip__text {
+.account-nudge__text {
   color: var(--ink-soft);
-}
-
-.tutorial-strip__text {
-  flex: 1;
 }
 
 .account-nudge__cta {
@@ -665,19 +664,6 @@ input[type="number"] { -moz-appearance: textfield; }
   cursor: pointer;
 }
 
-.tutorial-strip__clear {
-  font-family: var(--font-ui);
-  font-weight: 600;
-  color: var(--ink-soft);
-  background: none;
-  border: 1px solid var(--paper-border);
-  border-radius: var(--r-sm);
-  padding: 4px 10px;
-  cursor: pointer;
-}
-
-.tutorial-strip__clear:hover { color: var(--ink); border-color: var(--ink-ghost); }
-
 /* Wraps the editable fields so `disabled` (tutorial tasks) cascades natively; `display: contents`
    keeps the children in the body's flex flow so the field spacing is unchanged. */
 .drawer__fieldset {
@@ -694,6 +680,21 @@ input[type="number"] { -moz-appearance: textfield; }
   font-style: italic;
   color: var(--ink-soft, #8a7f73);
 }
+
+/* Clickable link affordance shown for a read-only (tutorial) task in place of the Link input. */
+.drawer__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--stamp);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.drawer__link:hover { text-decoration: underline; }
 
 .drawer__timestamps {
   padding: 0 24px 10px 60px;
