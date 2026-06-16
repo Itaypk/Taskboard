@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { demoLogin, devLogin, requestEmailLogin, telegramLoginUrl } from './authApi';
-import pineappleUrl from '../assets/pineapple.png';
+import pineappleUrl from '../assets/pineapple.webp';
 import styles from './LoginPage.module.css';
 
 // The Telegram OIDC callback redirects back here with a notice if login didn't complete.

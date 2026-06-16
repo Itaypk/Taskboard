@@ -4,6 +4,7 @@ import dev.itayp.tasker.crypto.BoardCryptoService
 import dev.itayp.tasker.jpa.BacklogTaskCategoryEntity
 import dev.itayp.tasker.jpa.BoardEntity
 import dev.itayp.tasker.jpa.BoardMembershipEntity
+import dev.itayp.tasker.model.BoardMascot
 import dev.itayp.tasker.model.BoardRole
 import dev.itayp.tasker.model.BoardSummary
 import dev.itayp.tasker.repository.BacklogTaskCategoryRepository
@@ -41,6 +42,7 @@ class BoardService(
         val boardId = UUID.randomUUID()
         val board = boardRepository.save(BoardEntity().apply {
             this.id = boardId
+            this.mascot = BoardMascot.DEFAULT.id
             this.createdAt = now
         })
         boardCrypto.ensureBoardKey(boardId)
@@ -75,22 +77,30 @@ class BoardService(
         val normalized = normalizeName(name)
         val boardId = createBoardForOwner(userId, normalized)
         val board = boardRepository.findById(boardId).orElseThrow()
-        return BoardSummary(boardId, normalized, BoardRole.OWNER, board.createdAt!!, memberCount = 1)
+        return BoardSummary(
+            boardId, normalized, BoardRole.OWNER, board.createdAt!!,
+            memberCount = 1, mascot = BoardMascot.normalize(board.mascot),
+        )
     }
 
-    /** Renames a board the user **owns**. Re-encrypts `board.name` under the board DEK. */
+    /**
+     * Updates a board the user **owns**: re-encrypts `board.name` under the board DEK and, when
+     * [mascot] is non-null, sets the (cosmetic, plaintext) mascot. A null [mascot] leaves it as-is.
+     */
     @Transactional
-    fun renameBoard(userId: UUID, boardId: UUID, name: String): BoardSummary {
+    fun updateBoard(userId: UUID, boardId: UUID, name: String, mascot: String?): BoardSummary {
         val role = boardMembershipService.requireMember(userId, boardId)
         requireOwner(role)
         val normalized = normalizeName(name)
         val board = boardRepository.findById(boardId)
             .orElseThrow { NoSuchElementException("Board $boardId not found") }
         board.name = boardCrypto.encrypt(boardId, normalized)
+        if (mascot != null) board.mascot = BoardMascot.normalize(mascot)
         boardRepository.save(board)
         return BoardSummary(
             boardId, normalized, role, board.createdAt!!,
             memberCount = boardMembershipRepository.countByBoardId(boardId).toInt(),
+            mascot = BoardMascot.normalize(board.mascot),
         )
     }
 
@@ -144,6 +154,7 @@ class BoardService(
                 role = membership.role!!,
                 createdAt = board.createdAt!!,
                 memberCount = boardMembershipRepository.countByBoardId(board.id!!).toInt(),
+                mascot = BoardMascot.normalize(board.mascot),
             )
         }
     }

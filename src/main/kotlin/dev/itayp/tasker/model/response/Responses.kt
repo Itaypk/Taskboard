@@ -52,6 +52,7 @@ data class BoardResponse(
     val role: String,
     val createdAt: String,
     val memberCount: Int,
+    val mascot: String,
 )
 
 fun BoardSummary.toResponse() = BoardResponse(
@@ -60,6 +61,7 @@ fun BoardSummary.toResponse() = BoardResponse(
     role = role.name,
     createdAt = createdAt.toString(),
     memberCount = memberCount,
+    mascot = mascot,
 )
 
 data class BoardMemberResponse(

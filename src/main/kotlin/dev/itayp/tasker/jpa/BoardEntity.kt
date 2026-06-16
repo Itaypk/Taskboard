@@ -22,6 +22,10 @@ class BoardEntity {
     @Column
     var name: ByteArray? = null
 
+    /** Cosmetic mascot id (plaintext, shared by all members). Null is read as the default mascot. */
+    @Column
+    var mascot: String? = null
+
     @Column(name = "created_at", nullable = false)
     var createdAt: Instant? = null
 }

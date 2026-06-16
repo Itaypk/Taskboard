@@ -41,13 +41,13 @@ class BoardController(private val boardService: BoardService) {
     }
 
     @PatchMapping("/{boardId}")
-    fun renameBoard(
+    fun updateBoard(
         @AuthenticationPrincipal principal: TaskerPrincipal,
         @PathVariable boardId: UUID,
         @Valid @RequestBody request: UpdateBoardRequest,
     ): ResponseEntity<BoardResponse> {
         return try {
-            ResponseEntity.ok(boardService.renameBoard(principal.userId, boardId, request.name).toResponse())
+            ResponseEntity.ok(boardService.updateBoard(principal.userId, boardId, request.name, request.mascot).toResponse())
         } catch (_: NoSuchElementException) {
             ResponseEntity.notFound().build()
         }
