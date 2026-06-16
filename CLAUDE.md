@@ -31,7 +31,7 @@ A few things to consider while working on the project:
 - `tasker-frontend/` — React + TypeScript + Vite app. **Bundled into the backend** at build time: the Gradle `buildFrontend` task runs `npm run build`, and `processResources` copies `tasker-frontend/dist/` into `src/main/resources/static/`. At runtime everything is served same-origin.
 - `compose.yaml` — Postgres service for local dev. `spring-boot-docker-compose` starts it automatically on `bootRun`.
 - `docs/SPEC.md` — product spec (source of truth for intent).
-- `tools/` — ad-hoc scripts (currently just an image background-remover).
+- `tools/` — ad-hoc asset-prep scripts (background removal, bottom-gap leveling, WebP conversion). See `tools/README.md` for the "add a new board mascot" workflow.
 
 ## Web environment note
 
