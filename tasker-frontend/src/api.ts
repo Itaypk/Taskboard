@@ -171,6 +171,8 @@ export interface Board {
     createdAt: string;
     /** Members on the board; > 1 means it's shared. */
     memberCount: number;
+    /** Cosmetic mascot id (see `mascots.ts`); always a known id. */
+    mascot: string;
 }
 
 /** The user's boards, default board first (the backend orders by membership age). */
@@ -180,8 +182,9 @@ export const fetchBoards = (): Promise<Board[]> =>
 export const createBoard = (name: string): Promise<Board> =>
     apiRequest('/boards', { method: 'POST', ...jsonBody({ name }) });
 
-export const renameBoard = (boardId: string, name: string): Promise<Board> =>
-    apiRequest(`/boards/${boardId}`, { method: 'PATCH', ...jsonBody({ name }) });
+/** Updates a board's name and/or mascot (owner only). Omitting `mascot` leaves it unchanged. */
+export const updateBoard = (boardId: string, payload: { name: string; mascot?: string }): Promise<Board> =>
+    apiRequest(`/boards/${boardId}`, { method: 'PATCH', ...jsonBody(payload) });
 
 export const deleteBoard = (boardId: string): Promise<void> =>
     apiRequest(`/boards/${boardId}`, { method: 'DELETE' });

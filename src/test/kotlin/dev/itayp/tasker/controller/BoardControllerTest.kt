@@ -9,6 +9,7 @@ import dev.itayp.tasker.service.BoardService
 import dev.itayp.tasker.service.LastBoardException
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.whenever
@@ -99,23 +100,24 @@ class BoardControllerTest(@Autowired val mockMvc: MockMvc) {
     }
 
     @Test
-    fun `PATCH boards renames the board`() {
-        whenever(boardService.renameBoard(eq(userId), eq(boardId), eq("Renamed")))
-            .thenReturn(BoardSummary(boardId, "Renamed", BoardRole.OWNER, Instant.parse("2026-01-01T00:00:00Z")))
+    fun `PATCH boards updates the name and mascot`() {
+        whenever(boardService.updateBoard(eq(userId), eq(boardId), eq("Renamed"), eq("mr_roboto")))
+            .thenReturn(BoardSummary(boardId, "Renamed", BoardRole.OWNER, Instant.parse("2026-01-01T00:00:00Z"), mascot = "mr_roboto"))
 
         mockMvc.perform(
             patch("/api/v1/boards/$boardId")
                 .with(authentication(auth)).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("""{"name":"Renamed"}""")
+                .content("""{"name":"Renamed","mascot":"mr_roboto"}""")
         )
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.name").value("Renamed"))
+            .andExpect(jsonPath("$.mascot").value("mr_roboto"))
     }
 
     @Test
     fun `PATCH boards by a non-owner returns 403`() {
-        doThrow(BoardOwnerRequiredException()).whenever(boardService).renameBoard(any(), any(), any())
+        doThrow(BoardOwnerRequiredException()).whenever(boardService).updateBoard(any(), any(), any(), anyOrNull())
 
         mockMvc.perform(
             patch("/api/v1/boards/$boardId")

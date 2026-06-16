@@ -11,6 +11,8 @@ data class BoardSummary(
     val createdAt: Instant,
     /** How many members the board has; > 1 means it's shared (drives the switcher badge). */
     val memberCount: Int = 1,
+    /** Cosmetic mascot id (see [BoardMascot]); always a canonical id, never null. */
+    val mascot: String = BoardMascot.DEFAULT.id,
 )
 
 /** One member of a board, with a server-resolved display name (see [dev.itayp.tasker.service.MemberDisplayNameResolver]). */

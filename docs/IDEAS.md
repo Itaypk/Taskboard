@@ -23,6 +23,7 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Add a search functionality in the "All" tasks tab.
 - Favicon - we are using a default one.
 - Grafana board update - there are obsolete stats (demo users), and some stats that are not displayed.
+- Set up a Grafana alert, at least for downtime. If possible, for elevated error logs rate.
 
 ## UI - Tasks
 - Work on tagline and satellite notes in the welcome page with better texts. See if we need to move a few things around 
@@ -32,9 +33,7 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Settings dialog - each tab has a different height; switching tabs move the modal. Also, consider moving some fields from the "General" area to somewhere more relevant.
 - Task list Markdown (subtasks) checkboxes - makes it possible to check directly from the main screen
 - Filter chips can still wrap on very small screens even after the "Week" shortening. If it keeps bugging us, consider a segmented control or horizontally-scrollable chip row on mobile.
-- Board management: consider streamlining things. For now, we have "Rename board", and "Members", as extra rows in the dropdown. Should it be a "settings" icon next to the board? Just one "Edit..." row?
 - Board management: custom board color pin marker (the member count pin)?
-- Per-board mascots: add a few new mascots (in addition to the pineapple pet), customizable by board. Add ideas here.
 - Tasks with URL: the URL is not displayed. We have a small link icon, but we should consider adding link description and add it to the bottom of the note.
 
 ## General features (medium-sized)

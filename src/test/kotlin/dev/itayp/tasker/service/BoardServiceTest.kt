@@ -93,23 +93,38 @@ class BoardServiceTest {
     }
 
     @Test
-    fun `renameBoard re-encrypts the name for an owner`() {
+    fun `updateBoard re-encrypts the name and sets the mascot for an owner`() {
         whenever(boardMembershipService.requireMember(userId, boardId)).thenReturn(BoardRole.OWNER)
         val board = boardEntity(name = "Old").apply { id = boardId }
         whenever(boardRepository.findById(boardId)).thenReturn(Optional.of(board))
         whenever(boardRepository.save(any<BoardEntity>())).thenAnswer { it.arguments[0] as BoardEntity }
 
-        val summary = service.renameBoard(userId, boardId, "New name")
+        val summary = service.updateBoard(userId, boardId, "New name", "mr_roboto")
 
         assertEquals("New name", summary.name)
         assertEquals("New name", board.name?.toString(Charsets.UTF_8))
+        assertEquals("mr_roboto", summary.mascot)
+        assertEquals("mr_roboto", board.mascot)
     }
 
     @Test
-    fun `renameBoard refuses a non-owner`() {
+    fun `updateBoard leaves the mascot unchanged when null and normalizes unknown values`() {
+        whenever(boardMembershipService.requireMember(userId, boardId)).thenReturn(BoardRole.OWNER)
+        val board = boardEntity(name = "Old").apply { id = boardId; mascot = "stationery" }
+        whenever(boardRepository.findById(boardId)).thenReturn(Optional.of(board))
+        whenever(boardRepository.save(any<BoardEntity>())).thenAnswer { it.arguments[0] as BoardEntity }
+
+        // null mascot leaves it as-is …
+        assertEquals("stationery", service.updateBoard(userId, boardId, "New name", null).mascot)
+        // … and an unknown id falls back to the default.
+        assertEquals("pineapple", service.updateBoard(userId, boardId, "New name", "nope").mascot)
+    }
+
+    @Test
+    fun `updateBoard refuses a non-owner`() {
         whenever(boardMembershipService.requireMember(userId, boardId)).thenReturn(BoardRole.MEMBER)
 
-        assertFailsWith<BoardOwnerRequiredException> { service.renameBoard(userId, boardId, "New") }
+        assertFailsWith<BoardOwnerRequiredException> { service.updateBoard(userId, boardId, "New", null) }
         verify(boardRepository, never()).save(any())
     }
 

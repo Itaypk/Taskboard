@@ -9,4 +9,6 @@ data class CreateBoardRequest(
 
 data class UpdateBoardRequest(
     @field:NotBlank @field:Size(max = 60) val name: String,
+    /** Optional mascot id; null leaves the mascot unchanged. Unknown values fall back to the default. */
+    val mascot: String? = null,
 )

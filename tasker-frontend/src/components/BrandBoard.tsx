@@ -7,9 +7,8 @@ interface BrandBoardProps {
   activeBoardId: string | null;
   onSwitch: (boardId: string) => void;
   onCreate: () => void;
-  onRename: () => void;
-  onDelete: () => void;
-  onManageMembers: () => void;
+  /** Opens the unified board settings dialog (rename, mascot, members, delete). */
+  onOpenSettings: () => void;
   /** Brand wordmark shown on the Dymo tape. */
   brandName?: string;
 }
@@ -47,9 +46,7 @@ export function BrandBoard({
   activeBoardId,
   onSwitch,
   onCreate,
-  onRename,
-  onDelete,
-  onManageMembers,
+  onOpenSettings,
   brandName = 'Backlog.fyi',
 }: BrandBoardProps) {
   const [open, setOpen] = useState(false);
@@ -110,19 +107,11 @@ export function BrandBoard({
             ))}
             <li className={styles.divider} role="separator" />
             <li role="none">
+              <button type="button" role="menuitem" className={styles.item} onClick={() => run(onOpenSettings)}>Board settings…</button>
+            </li>
+            <li role="none">
               <button type="button" role="menuitem" className={styles.item} onClick={() => run(onCreate)}>+ New board</button>
             </li>
-            <li role="none">
-              <button type="button" role="menuitem" className={styles.item} onClick={() => run(onRename)}>Rename board</button>
-            </li>
-            <li role="none">
-              <button type="button" role="menuitem" className={styles.item} onClick={() => run(onManageMembers)}>Members…</button>
-            </li>
-            {boards.length > 1 && (
-              <li role="none">
-                <button type="button" role="menuitem" className={`${styles.item} ${styles.itemDanger}`} onClick={() => run(onDelete)}>Delete board</button>
-              </li>
-            )}
           </ul>
         )}
       </div>

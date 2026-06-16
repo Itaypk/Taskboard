@@ -27,9 +27,9 @@ import { ScheduleTaskModal } from './components/ScheduleTaskModal';
 import { MoveTaskModal } from './components/MoveTaskModal';
 import { UserMenu } from './components/UserMenu';
 import { StatsModal } from './components/StatsModal';
-import { BoardMembersModal } from './components/BoardMembersModal';
+import { BoardSettingsModal } from './components/BoardSettingsModal';
 import { DEFAULT_SETTINGS } from './data';
-import { fetchBoards, createBoard, renameBoard, deleteBoard, fetchTasks, fetchCategories, fetchUserSettings, fetchTags, fetchCurrentPlan, checkTaskChanges, createTask, updateTask, deleteTask, duplicateTask, moveTaskToBoard, reorderTask, removeTaskFromPlan, clearTutorialTasks, addTaskToPlan, fetchMembers, setTaskAssignee, type TaskStatusFilter, type Board, type BoardMember } from './api';
+import { fetchBoards, createBoard, fetchTasks, fetchCategories, fetchUserSettings, fetchTags, fetchCurrentPlan, checkTaskChanges, createTask, updateTask, deleteTask, duplicateTask, moveTaskToBoard, reorderTask, removeTaskFromPlan, clearTutorialTasks, addTaskToPlan, fetchMembers, setTaskAssignee, type TaskStatusFilter, type Board, type BoardMember } from './api';
 import type { Task, UserSettings, Tag, CurrentPlan, TaskFilter } from './types';
 
 const ACTIVE_BOARD_KEY = 'backlog.activeBoardId';
@@ -42,7 +42,7 @@ import { EmailLoginConfirmPage } from './auth/EmailLoginConfirmPage';
 import { EmailVerifyConfirmPage } from './auth/EmailVerifyConfirmPage';
 import { InvitePage } from './auth/InvitePage';
 import { NotFoundPage } from './NotFoundPage';
-import pineappleUrl from './assets/pineapple.png';
+import { mascotFor } from './mascots';
 import './App.css';
 
 /** Up to two initials from a display name (e.g. "Dana Scully" → "DS", "it***@gmail.com" → "IT"). */
@@ -119,15 +119,15 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   // One active board at a time; every account has at least one (the backend lists them default-first).
   const [boards, setBoards]           = useState<Board[]>([]);
   const [activeBoardId, setActiveBoardId] = useState<string | null>(null);
-  const [boardDialog, setBoardDialog] = useState<{ mode: 'create' | 'rename' } | null>(null);
-  const [boardDeleteConfirm, setBoardDeleteConfirm] = useState(false);
+  // The create dialog is a small name prompt; rename/mascot/members/delete all live in the settings modal.
+  const [boardCreateOpen, setBoardCreateOpen] = useState(false);
+  const [boardSettingsOpen, setBoardSettingsOpen] = useState(false);
   const [tasks, setTasks]             = useState<Task[]>([]);
   const [tags, setTags]               = useState<Tag[]>([]);
   const [settings, setSettings]       = useState<UserSettings>({ ...DEFAULT_SETTINGS, categories: [] });
   const [selectedId, setSelectedId]   = useState<string | null>(null);
   const [isCreating, setIsCreating]   = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
-  const [membersOpen, setMembersOpen] = useState(false);
   // Keyed to its board so a stale fetch from a previous board is ignored without a synchronous reset.
   const [memberData, setMemberData]   = useState<{ boardId: string; members: BoardMember[] } | null>(null);
   const [leavingId, setLeavingId]     = useState<string | null>(null);
@@ -553,17 +553,17 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
     switchBoard(created.id);
   }, [switchBoard]);
 
-  const handleRenameBoard = useCallback(async (name: string) => {
-    if (!activeBoardId) return;
-    const updated = await renameBoard(activeBoardId, name);
+  // Name/mascot edits are persisted by the settings modal; here we only sync the local list.
+  const handleBoardChanged = useCallback((updated: Board) => {
     setBoards(prev => prev.map(b => b.id === updated.id ? updated : b));
-  }, [activeBoardId]);
+  }, []);
 
-  const handleDeleteBoard = useCallback(async () => {
+  // The settings modal performs the delete; we drop it locally and switch to another board.
+  const handleBoardDeleted = useCallback(() => {
+    setBoardSettingsOpen(false);
     if (!activeBoardId) return;
     const remaining = boards.filter(b => b.id !== activeBoardId);
     if (remaining.length === 0) return; // backend enforces the same last-board guard
-    await deleteBoard(activeBoardId);
     setBoards(remaining);
     switchBoard(remaining[0].id);
   }, [activeBoardId, boards, switchBoard]);
@@ -575,7 +575,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
 
   // The user left the active (shared) board: drop it locally and switch to another of theirs.
   const handleLeftBoard = useCallback(async () => {
-    setMembersOpen(false);
+    setBoardSettingsOpen(false);
     const fresh = await fetchBoards().catch(() => null);
     if (!fresh || fresh.length === 0) { onSignOut(); return; }
     setBoards(fresh);
@@ -615,10 +615,8 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
           boards={boards}
           activeBoardId={activeBoardId}
           onSwitch={switchBoard}
-          onCreate={() => setBoardDialog({ mode: 'create' })}
-          onRename={() => setBoardDialog({ mode: 'rename' })}
-          onDelete={() => setBoardDeleteConfirm(true)}
-          onManageMembers={() => setMembersOpen(true)}
+          onCreate={() => setBoardCreateOpen(true)}
+          onOpenSettings={() => setBoardSettingsOpen(true)}
         />
         <BoardFilter
           value={filter}
@@ -704,7 +702,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
         </div>
       )}
 
-      <img className="pineapple-pet" src={pineappleUrl} alt="" aria-hidden="true" />
+      <img className="pineapple-pet" src={mascotFor(activeBoard?.mascot).url} alt="" aria-hidden="true" />
 
       <TaskDrawer
         task={selectedTask}
@@ -758,13 +756,17 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
 
       <StatsModal open={statsOpen} onClose={() => setStatsOpen(false)} />
 
-      <BoardMembersModal
-        open={membersOpen}
+      <BoardSettingsModal
+        open={boardSettingsOpen}
         board={activeBoard}
         currentUserId={currentUserId}
-        onClose={() => setMembersOpen(false)}
+        canDelete={boards.length > 1}
+        canInvite={claimed}
+        onClose={() => setBoardSettingsOpen(false)}
         onMembershipChanged={refreshBoards}
+        onBoardChanged={handleBoardChanged}
         onLeft={handleLeftBoard}
+        onDeleted={handleBoardDeleted}
       />
 
       {contextMenu && (
@@ -817,22 +819,11 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
       )}
 
       <BoardNameDialog
-        open={boardDialog !== null}
-        title={boardDialog?.mode === 'rename' ? 'Rename board' : 'New board'}
-        confirmLabel={boardDialog?.mode === 'rename' ? 'Save' : 'Create'}
-        initialValue={boardDialog?.mode === 'rename' ? (activeBoard?.name ?? '') : ''}
-        onConfirm={boardDialog?.mode === 'rename' ? handleRenameBoard : handleCreateBoard}
-        onClose={() => setBoardDialog(null)}
-      />
-
-      <ConfirmDialog
-        open={boardDeleteConfirm}
-        title="Delete board"
-        message={`Delete "${activeBoard?.name ?? 'this board'}" and all of its tasks, categories, and tags? This cannot be undone.`}
-        confirmLabel="Delete board"
-        danger
-        onConfirm={() => { void handleDeleteBoard(); }}
-        onClose={() => setBoardDeleteConfirm(false)}
+        open={boardCreateOpen}
+        title="New board"
+        confirmLabel="Create"
+        onConfirm={handleCreateBoard}
+        onClose={() => setBoardCreateOpen(false)}
       />
 
       {!claimed && !nudgeDismissed && (
