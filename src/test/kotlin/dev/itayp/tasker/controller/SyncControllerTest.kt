@@ -8,7 +8,9 @@ import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.BoardAccessDeniedException
 import dev.itayp.tasker.service.BoardMembershipService
 import org.hamcrest.Matchers.nullValue
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.mockito.Mockito
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest
@@ -21,6 +23,7 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import java.time.Clock
 import java.time.Instant
 import java.util.UUID
 
@@ -31,6 +34,7 @@ class SyncControllerTest(@Autowired val mockMvc: MockMvc) {
     @MockitoBean lateinit var backlogTaskChangeService: BacklogTaskChangeService
     @MockitoBean lateinit var planWatermarkService: PlanWatermarkService
     @MockitoBean lateinit var boardMembershipService: BoardMembershipService
+    @MockitoBean lateinit var clock: Clock
 
     private val userId = UUID.fromString("00000000-0000-0000-0000-000000000099")
     private val boardId = UUID.fromString("00000000-0000-0000-0000-000000000003")
@@ -41,6 +45,12 @@ class SyncControllerTest(@Autowired val mockMvc: MockMvc) {
         null,
         listOf(SimpleGrantedAuthority("ROLE_USER")),
     )
+
+    @BeforeEach
+    fun stubClock() {
+        // Lenient: the unauthenticated / membership-denied paths never reach clock.instant().
+        Mockito.lenient().`when`(clock.instant()).thenReturn(Instant.parse("2026-06-17T12:00:00Z"))
+    }
 
     @Test
     fun `GET sync returns the per-entity watermarks and a version`() {
