@@ -11,6 +11,18 @@ plugins {
 group = "dev.itayp"
 version = "0.0.1-SNAPSHOT"
 
+// Short git commit, baked into build-info.properties so the running app can report which build it is
+// (the sync endpoint surfaces it; the SPA prompts a refresh when it changes). Best-effort: falls back
+// to "unknown" when git isn't available (e.g. a source-only build environment).
+val gitCommit: String = runCatching {
+	val process = ProcessBuilder("git", "rev-parse", "--short", "HEAD")
+		.directory(rootDir)
+		.redirectErrorStream(true)
+		.start()
+	val output = process.inputStream.bufferedReader().use { it.readText() }.trim()
+	if (process.waitFor() == 0 && output.isNotEmpty()) output else "unknown"
+}.getOrDefault("unknown")
+
 java {
 	toolchain {
 		languageVersion = JavaLanguageVersion.of(25)
@@ -61,6 +73,15 @@ dependencies {
 
 dependencyManagement {
 	imports {}
+}
+
+springBoot {
+	// Generates META-INF/build-info.properties; SyncController reads the commit to report the version.
+	buildInfo {
+		properties {
+			additional.put("commit", gitCommit)
+		}
+	}
 }
 
 kotlin {

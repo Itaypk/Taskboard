@@ -249,8 +249,24 @@ export type TaskStatusFilter = 'todo' | 'done' | 'all' | 'archived';
 export const fetchTasks = (boardId: string, status: TaskStatusFilter = 'todo'): Promise<Task[]> =>
     apiRequest(`/boards/${boardId}/tasks?status=${status}`);
 
-export const checkTaskChanges = (boardId: string, since: string): Promise<{ hasChanges: boolean; checkedAt: string }> =>
-    apiRequest(`/boards/${boardId}/tasks/has-changes?since=${encodeURIComponent(since)}`);
+// --- Sync ---
+
+/**
+ * One-shot staleness snapshot for an open board tab. Each `*ChangedAt` is the watermark for that
+ * entity type (or null if nothing recorded); the caller keeps the last-seen values and refetches only
+ * what moved. `appVersion` lets the SPA notice a backend redeploy and prompt a refresh.
+ */
+export interface SyncSnapshot {
+    checkedAt: string;
+    tasksChangedAt: string | null;
+    tagsChangedAt: string | null;
+    categoriesChangedAt: string | null;
+    planChangedAt: string | null;
+    appVersion: string;
+}
+
+export const fetchSync = (boardId: string): Promise<SyncSnapshot> =>
+    apiRequest(`/boards/${boardId}/sync`);
 
 // --- Current plan ---
 

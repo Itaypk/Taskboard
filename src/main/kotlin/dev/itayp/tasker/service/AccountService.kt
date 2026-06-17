@@ -81,6 +81,8 @@ class AccountService(
             userId,
         )
         jdbcTemplate.update("DELETE FROM planned_task WHERE user_id = ?", userId)
+        // Per-user plan watermark FKs users(id) with no cascade.
+        jdbcTemplate.update("DELETE FROM plan_watermark WHERE user_id = ?", userId)
         // planning_session has FKs to both users and ai_conversation
         jdbcTemplate.update("DELETE FROM planning_session WHERE user_id = ?", userId)
         // ai_message cascades automatically from ai_conversation (ON DELETE CASCADE in schema)

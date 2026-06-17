@@ -5,4 +5,4 @@ import org.springframework.stereotype.Repository
 import java.util.UUID
 
 @Repository
-interface BacklogTaskWatermarkRepository : JpaRepository<BacklogTaskWatermarkEntity, UUID>
+interface PlanWatermarkRepository : JpaRepository<PlanWatermarkEntity, UUID>

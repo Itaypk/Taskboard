@@ -13,6 +13,7 @@ import dev.itayp.tasker.model.request.ReorderTaskRequest
 import dev.itayp.tasker.model.request.TagInput
 import dev.itayp.tasker.model.request.UpdateBacklogTaskRequest
 import dev.itayp.tasker.planning.BacklogTaskChangeService
+import dev.itayp.tasker.planning.PlanWatermarkService
 import dev.itayp.tasker.repository.BacklogTaskCategoryRepository
 import dev.itayp.tasker.repository.BacklogTaskRepository
 import dev.itayp.tasker.repository.BacklogTaskTagRepository
@@ -35,6 +36,7 @@ class BacklogTaskService(
     private val categoryRepository: BacklogTaskCategoryRepository,
     private val tagRepository: BacklogTaskTagRepository,
     private val taskChangeService: BacklogTaskChangeService,
+    private val planWatermarkService: PlanWatermarkService,
     private val userSettingsService: UserSettingsService,
     private val boardMembershipService: BoardMembershipService,
     private val boardCrypto: BoardCryptoService,
@@ -273,6 +275,8 @@ class BacklogTaskService(
         entity.updatedAt = Instant.now()
         backlogTaskRepository.save(entity)
         taskChangeService.bumpWatermark(boardId)
+        // Unscheduling drops the task from the current plan view, so the plan watermark moves too.
+        planWatermarkService.bump(userId)
     }
 
     /**
@@ -403,8 +407,9 @@ class BacklogTaskService(
 
     private fun resolveOrCreateTags(boardId: UUID, inputs: List<TagInput>): MutableSet<BacklogTaskTagEntity> {
         val existing = tagRepository.findAllByBoardId(boardId)
+        var createdAny = false
 
-        return inputs.map { input ->
+        val resolved = inputs.map { input ->
             val inputId = input.id?.let { runCatching { UUID.fromString(it) }.getOrNull() }
 
             // Try to find by exact ID first
@@ -420,12 +425,17 @@ class BacklogTaskService(
             }
 
             // Create new
+            createdAny = true
             BacklogTaskTagEntity().apply {
                 this.boardId = boardId
                 this.label = input.label.trim()
                 this.colorId = TagColor.valueOf(input.colorId.uppercase())
             }.let { tagRepository.save(it) }
         }.toMutableSet()
+
+        // Tags are only ever born here (as a side-effect of a task save); bump so open tabs refetch them.
+        if (createdAny) taskChangeService.bumpTags(boardId)
+        return resolved
     }
 }
 

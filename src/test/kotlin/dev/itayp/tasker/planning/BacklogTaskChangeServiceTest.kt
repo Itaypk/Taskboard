@@ -15,6 +15,7 @@ import org.mockito.kotlin.whenever
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
+import java.util.Optional
 import java.util.UUID
 import kotlin.test.assertEquals
 import kotlin.test.assertFails
@@ -103,6 +104,7 @@ class BacklogTaskChangeServiceTest {
 
     @Test
     fun `bumpWatermark upserts the board watermark to now`() {
+        whenever(watermarkRepository.findById(boardId)).thenReturn(Optional.empty())
         whenever(watermarkRepository.save(any<BacklogTaskWatermarkEntity>())).thenAnswer { it.arguments[0] }
 
         service.bumpWatermark(boardId)
@@ -114,13 +116,46 @@ class BacklogTaskChangeServiceTest {
     }
 
     @Test
-    fun `changedSince delegates to the board watermark existence query`() {
-        val since = now.minusSeconds(60)
-        whenever(watermarkRepository.existsByBoardIdAndTasksChangedAtGreaterThanEqual(boardId, since))
-            .thenReturn(true)
+    fun `bumpTags on a fresh board seeds tasks and records the tag change`() {
+        whenever(watermarkRepository.findById(boardId)).thenReturn(Optional.empty())
+        whenever(watermarkRepository.save(any<BacklogTaskWatermarkEntity>())).thenAnswer { it.arguments[0] }
 
-        assertTrue(service.changedSince(boardId, since))
-        verify(watermarkRepository).existsByBoardIdAndTasksChangedAtGreaterThanEqual(boardId, since)
+        service.bumpTags(boardId)
+
+        val captor = argumentCaptor<BacklogTaskWatermarkEntity>()
+        verify(watermarkRepository).save(captor.capture())
+        assertEquals(now, captor.firstValue.tagsChangedAt)
+        // The non-null tasks column is seeded so the row is valid even on a tags-first bump.
+        assertEquals(now, captor.firstValue.tasksChangedAt)
+    }
+
+    @Test
+    fun `bumpCategories preserves the existing tasks watermark`() {
+        val earlier = now.minusSeconds(3600)
+        val existing = BacklogTaskWatermarkEntity().apply {
+            this.boardId = this@BacklogTaskChangeServiceTest.boardId
+            this.tasksChangedAt = earlier
+        }
+        whenever(watermarkRepository.findById(boardId)).thenReturn(Optional.of(existing))
+        whenever(watermarkRepository.save(any<BacklogTaskWatermarkEntity>())).thenAnswer { it.arguments[0] }
+
+        service.bumpCategories(boardId)
+
+        val captor = argumentCaptor<BacklogTaskWatermarkEntity>()
+        verify(watermarkRepository).save(captor.capture())
+        assertEquals(now, captor.firstValue.categoriesChangedAt)
+        assertEquals(earlier, captor.firstValue.tasksChangedAt)
+    }
+
+    @Test
+    fun `readWatermark returns the board row`() {
+        val entity = BacklogTaskWatermarkEntity().apply {
+            this.boardId = this@BacklogTaskChangeServiceTest.boardId
+            this.tasksChangedAt = now
+        }
+        whenever(watermarkRepository.findById(boardId)).thenReturn(Optional.of(entity))
+
+        assertEquals(entity, service.readWatermark(boardId))
     }
 
     @Test

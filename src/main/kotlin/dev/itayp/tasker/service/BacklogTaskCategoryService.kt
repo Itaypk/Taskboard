@@ -6,6 +6,7 @@ import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.CategoryColor
 import dev.itayp.tasker.model.request.CreateCategoryRequest
 import dev.itayp.tasker.model.request.UpdateCategoryRequest
+import dev.itayp.tasker.planning.BacklogTaskChangeService
 import dev.itayp.tasker.repository.BacklogTaskCategoryRepository
 import dev.itayp.tasker.repository.BacklogTaskRepository
 import org.springframework.stereotype.Service
@@ -16,6 +17,7 @@ class BacklogTaskCategoryService(
     private val categoryRepository: BacklogTaskCategoryRepository,
     private val taskRepository: BacklogTaskRepository,
     private val boardMembershipService: BoardMembershipService,
+    private val taskChangeService: BacklogTaskChangeService,
 ) {
 
     /**
@@ -37,7 +39,9 @@ class BacklogTaskCategoryService(
             this.label = request.label
             this.swatchId = CategoryColor.valueOf(request.swatchId.uppercase())
         }
-        return categoryRepository.save(entity).toDomain()
+        val saved = categoryRepository.save(entity).toDomain()
+        taskChangeService.bumpCategories(boardId)
+        return saved
     }
 
     fun updateCategory(userId: UUID, boardId: UUID, id: UUID, request: UpdateCategoryRequest): BacklogTaskCategory {
@@ -46,7 +50,9 @@ class BacklogTaskCategoryService(
             ?: throw NoSuchElementException("Category $id not found")
         entity.label = request.label
         entity.swatchId = CategoryColor.valueOf(request.swatchId.uppercase())
-        return categoryRepository.save(entity).toDomain()
+        val saved = categoryRepository.save(entity).toDomain()
+        taskChangeService.bumpCategories(boardId)
+        return saved
     }
 
     fun deleteCategory(userId: UUID, boardId: UUID, id: UUID) {
@@ -57,5 +63,6 @@ class BacklogTaskCategoryService(
         categoryRepository.findByIdAndBoardId(id, boardId)
             ?: throw NoSuchElementException("Category $id not found")
         categoryRepository.deleteById(id)
+        taskChangeService.bumpCategories(boardId)
     }
 }

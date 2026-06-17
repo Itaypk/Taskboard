@@ -103,24 +103,40 @@ class BacklogTaskChangeService(
     /**
      * Bumps the board's lightweight "tasks changed" watermark to now. Call from every backlog
      * mutation — including plain field edits and reorders that don't warrant a semantic
-     * [BacklogTaskChangeEventEntity]. Backs [changedSince] (the polling endpoint).
+     * [BacklogTaskChangeEventEntity]. Backs the sync endpoint.
      */
     @Transactional
-    fun bumpWatermark(boardId: UUID) {
-        watermarkRepository.save(BacklogTaskWatermarkEntity().apply {
-            this.boardId = boardId
-            this.tasksChangedAt = clock.instant()
-        })
-    }
+    fun bumpWatermark(boardId: UUID) = bump(boardId) { it.tasksChangedAt = clock.instant() }
+
+    /** Bumps the board's "tags changed" watermark. Call whenever a tag is created/edited. */
+    @Transactional
+    fun bumpTags(boardId: UUID) = bump(boardId) { it.tagsChangedAt = clock.instant() }
+
+    /** Bumps the board's "categories changed" watermark. Call on category create/update/delete. */
+    @Transactional
+    fun bumpCategories(boardId: UUID) = bump(boardId) { it.categoriesChangedAt = clock.instant() }
+
+    /** The board's watermark row, or null if nothing has ever been recorded for it. */
+    @Transactional(readOnly = true)
+    fun readWatermark(boardId: UUID): BacklogTaskWatermarkEntity? =
+        watermarkRepository.findById(boardId).orElse(null)
 
     /**
-     * Cheap O(1) check used by the polling endpoint: has any task on [boardId] changed at or after
-     * [since]? Unlike the semantic event log, this also reflects field edits, reorders, and
-     * scheduling stamps, and never scans the tasks table.
+     * Read-modify-write so a tasks bump doesn't clobber tags/categories (the columns share one row).
+     * A lost update under concurrent bumps just means a slightly-earlier timestamp wins → at worst an
+     * extra harmless refetch on the client; precision here is not safety-critical.
      */
-    @Transactional(readOnly = true)
-    fun changedSince(boardId: UUID, since: Instant): Boolean =
-        watermarkRepository.existsByBoardIdAndTasksChangedAtGreaterThanEqual(boardId, since)
+    private fun bump(boardId: UUID, mutate: (BacklogTaskWatermarkEntity) -> Unit) {
+        val entity = watermarkRepository.findById(boardId).orElseGet {
+            // Fresh row: seed the non-null tasks column so a tags/categories-first bump is valid.
+            BacklogTaskWatermarkEntity().apply {
+                this.boardId = boardId
+                this.tasksChangedAt = clock.instant()
+            }
+        }
+        mutate(entity)
+        watermarkRepository.save(entity)
+    }
 
     private fun summarize(events: List<BacklogTaskChangeEventEntity>): TaskChangeSummary {
         val createdTaskIds = mutableSetOf<UUID>()

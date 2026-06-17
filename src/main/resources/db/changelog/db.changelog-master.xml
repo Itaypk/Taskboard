@@ -9,5 +9,6 @@
     <include file="db/changelog/changesets/003-board-invitation.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changesets/004-account-lifecycle.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changesets/005-board-mascot.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changesets/006-sync-watermarks.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

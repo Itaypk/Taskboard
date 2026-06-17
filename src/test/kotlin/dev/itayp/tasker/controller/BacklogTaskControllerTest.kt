@@ -5,12 +5,10 @@ import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.CategoryColor
 import dev.itayp.tasker.model.TaskStatus
-import dev.itayp.tasker.planning.BacklogTaskChangeService
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.AssigneeNotMemberException
 import dev.itayp.tasker.service.BacklogTaskService
 import dev.itayp.tasker.service.BoardAccessDeniedException
-import dev.itayp.tasker.service.BoardMembershipService
 import dev.itayp.tasker.service.SameBoardMoveException
 import dev.itayp.tasker.service.SortKeyGenerator
 import org.junit.jupiter.api.Test
@@ -35,7 +33,6 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
-import java.time.Clock
 import java.time.Instant
 import java.util.UUID
 
@@ -45,17 +42,6 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @MockitoBean
     lateinit var backlogTaskService: BacklogTaskService
-
-    @MockitoBean
-    lateinit var backlogTaskChangeService: BacklogTaskChangeService
-
-    @MockitoBean
-    lateinit var boardMembershipService: BoardMembershipService
-
-    @MockitoBean
-    lateinit var clock: Clock
-
-    private val fixedNow = Instant.parse("2026-05-19T10:00:00Z")
 
     private val userId = UUID.fromString("00000000-0000-0000-0000-000000000099")
     private val boardId = UUID.fromString("00000000-0000-0000-0000-000000000003")
@@ -383,49 +369,5 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
                 .content("""{"afterId":null,"beforeId":null}""")
         )
             .andExpect(status().isNotFound)
-    }
-
-    @Test
-    fun `GET tasks-has-changes returns hasChanges=true when events exist`() {
-        val since = "2026-05-19T09:00:00Z"
-        whenever(clock.instant()).thenReturn(fixedNow)
-        whenever(backlogTaskChangeService.changedSince(eq(boardId), any())).thenReturn(true)
-
-        mockMvc.perform(get("$basePath/has-changes?since=$since").with(authentication(auth)))
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$.hasChanges").value(true))
-            .andExpect(jsonPath("$.checkedAt").value(fixedNow.toString()))
-    }
-
-    @Test
-    fun `GET tasks-has-changes returns hasChanges=false when no events`() {
-        val since = "2026-05-19T09:00:00Z"
-        whenever(clock.instant()).thenReturn(fixedNow)
-        whenever(backlogTaskChangeService.changedSince(eq(boardId), any())).thenReturn(false)
-
-        mockMvc.perform(get("$basePath/has-changes?since=$since").with(authentication(auth)))
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$.hasChanges").value(false))
-    }
-
-    @Test
-    fun `GET tasks-has-changes returns 400 for invalid since parameter`() {
-        mockMvc.perform(get("$basePath/has-changes?since=not-a-date").with(authentication(auth)))
-            .andExpect(status().isBadRequest)
-    }
-
-    @Test
-    fun `GET tasks-has-changes enforces board membership`() {
-        whenever(boardMembershipService.requireMember(userId, boardId))
-            .thenThrow(BoardAccessDeniedException(userId, boardId))
-
-        mockMvc.perform(get("$basePath/has-changes?since=2026-05-19T09:00:00Z").with(authentication(auth)))
-            .andExpect(status().isForbidden)
-    }
-
-    @Test
-    fun `GET tasks-has-changes unauthenticated returns 401`() {
-        mockMvc.perform(get("$basePath/has-changes?since=2026-05-19T09:00:00Z"))
-            .andExpect(status().isUnauthorized)
     }
 }

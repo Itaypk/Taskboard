@@ -29,7 +29,8 @@ import { UserMenu } from './components/UserMenu';
 import { StatsModal } from './components/StatsModal';
 import { BoardSettingsModal } from './components/BoardSettingsModal';
 import { DEFAULT_SETTINGS } from './data';
-import { fetchBoards, createBoard, fetchTasks, fetchCategories, fetchUserSettings, fetchTags, fetchCurrentPlan, checkTaskChanges, createTask, updateTask, deleteTask, duplicateTask, moveTaskToBoard, reorderTask, removeTaskFromPlan, clearTutorialTasks, addTaskToPlan, fetchMembers, setTaskAssignee, type TaskStatusFilter, type Board, type BoardMember } from './api';
+import { fetchBoards, createBoard, fetchTasks, fetchCategories, fetchUserSettings, fetchTags, fetchCurrentPlan, fetchSync, createTask, updateTask, deleteTask, duplicateTask, moveTaskToBoard, reorderTask, removeTaskFromPlan, clearTutorialTasks, addTaskToPlan, fetchMembers, setTaskAssignee, type TaskStatusFilter, type Board, type BoardMember } from './api';
+import { UpdateBanner } from './components/UpdateBanner';
 import type { Task, UserSettings, Tag, CurrentPlan, TaskFilter } from './types';
 
 const ACTIVE_BOARD_KEY = 'backlog.activeBoardId';
@@ -143,7 +144,17 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const [deleteConfirm, setDeleteConfirm] = useState<{ taskId: string; title: string } | null>(null);
   const [scheduleModal, setScheduleModal] = useState<{ taskId: string; title: string } | null>(null);
   const [moveModal, setMoveModal] = useState<{ taskId: string; title: string; categoryLabel: string | null } | null>(null);
-  const lastSyncedAt = useRef(new Date().toISOString());
+  // Last-seen sync watermarks (per board) + the version baseline. The first poll after a board switch
+  // just records these; later polls refetch only the entity types whose timestamp moved.
+  const syncState = useRef<{
+    boardId: string;
+    tasks: string | null;
+    tags: string | null;
+    categories: string | null;
+    plan: string | null;
+    version: string;
+  } | null>(null);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
 
   // Mouse: start drag after 5px to keep clicks alive.
   // Touch: long-press (~200ms) so tap-to-open and finger-scroll still work.
@@ -221,25 +232,59 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
 
   const drawerOpen   = selectedId !== null || isCreating;
 
-  // Periodic sync — check for task changes every 60 s; skip while tab is hidden or drawer is open.
-  // On visibility restore, run an immediate catch-up sync.
+  // Periodic sync — one lightweight call every 60 s returns a watermark per entity type; refetch only
+  // what moved. Skips while the tab is hidden or a drawer is open; on visibility restore, catches up.
   useEffect(() => {
     if (loading || !activeBoardId) return;
+    const boardId = activeBoardId;
 
     const sync = async () => {
       if (drawerOpen || document.hidden) return;
       try {
-        const { hasChanges, checkedAt } = await checkTaskChanges(activeBoardId, lastSyncedAt.current);
-        lastSyncedAt.current = checkedAt;
-        const [freshPlan, freshTags] = await Promise.all([fetchCurrentPlan(), fetchTags(activeBoardId)]);
-        setCurrentPlan(freshPlan);
-        setTags(freshTags);
-        if (hasChanges) {
-          const freshTasks = await fetchTasks(activeBoardId, fetchStatus);
-          setTasks(freshTasks);
+        const s = await fetchSync(boardId);
+        const prev = syncState.current;
+
+        // First poll for this board: record the baseline (initial load already fetched everything).
+        if (!prev || prev.boardId !== boardId) {
+          syncState.current = {
+            boardId,
+            tasks: s.tasksChangedAt, tags: s.tagsChangedAt,
+            categories: s.categoriesChangedAt, plan: s.planChangedAt,
+            version: s.appVersion,
+          };
+          return;
         }
+
+        if (s.appVersion !== prev.version) setUpdateAvailable(true);
+
+        const jobs: Promise<void>[] = [];
+        if (s.tasksChangedAt !== prev.tasks) {
+          jobs.push(fetchTasks(boardId, fetchStatus).then(setTasks));
+        }
+        if (s.tagsChangedAt !== prev.tags) {
+          jobs.push(fetchTags(boardId).then(setTags));
+        }
+        if (s.categoriesChangedAt !== prev.categories) {
+          jobs.push(fetchCategories(boardId).then(c => setSettings(p => ({ ...p, categories: c }))));
+        }
+        if (s.planChangedAt !== prev.plan) {
+          jobs.push(fetchCurrentPlan().then(setCurrentPlan));
+        }
+        await Promise.all(jobs);
+
+        // Keep the original version baseline so the banner stays up once a redeploy is detected.
+        syncState.current = {
+          boardId,
+          tasks: s.tasksChangedAt, tags: s.tagsChangedAt,
+          categories: s.categoriesChangedAt, plan: s.planChangedAt,
+          version: prev.version,
+        };
       } catch { /* silent — don't surface background network blips */ }
     };
+
+    // Baseline immediately on entering a board (not a full interval later) so a change landing between
+    // the initial load and the first poll isn't silently adopted as the baseline.
+    if (!syncState.current || syncState.current.boardId !== boardId) void sync();
 
     const id = setInterval(sync, 60_000);
     document.addEventListener('visibilitychange', sync);
@@ -610,6 +655,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
 
   return (
     <>
+      {updateAvailable && <UpdateBanner onReload={() => window.location.reload()} />}
       <header className="header">
         <BrandBoard
           boards={boards}

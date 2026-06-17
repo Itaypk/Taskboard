@@ -30,6 +30,7 @@ class PlanFinalizationServiceTest {
     @Mock lateinit var plannedTaskService: PlannedTaskService
     @Mock lateinit var planInviteDispatcher: PlanInviteDispatcher
     @Mock lateinit var inviteDeliveryResolver: InviteDeliveryResolver
+    @Mock lateinit var planWatermarkService: PlanWatermarkService
 
     private val emailProps = EmailProperties(
         enabled = true,
@@ -39,7 +40,7 @@ class PlanFinalizationServiceTest {
     private val service by lazy {
         PlanFinalizationService(
             planningSessionService, backlogTaskService, plannedTaskService,
-            planInviteDispatcher, emailProps, inviteDeliveryResolver,
+            planInviteDispatcher, emailProps, inviteDeliveryResolver, planWatermarkService,
         )
     }
 

@@ -13,6 +13,7 @@ import dev.itayp.tasker.model.request.ReorderTaskRequest
 import dev.itayp.tasker.model.request.TagInput
 import dev.itayp.tasker.model.request.UpdateBacklogTaskRequest
 import dev.itayp.tasker.planning.BacklogTaskChangeService
+import dev.itayp.tasker.planning.PlanWatermarkService
 import dev.itayp.tasker.repository.BacklogTaskCategoryRepository
 import dev.itayp.tasker.repository.BacklogTaskRepository
 import dev.itayp.tasker.repository.BacklogTaskTagRepository
@@ -43,6 +44,7 @@ class BacklogTaskServiceTest {
     @Mock private lateinit var categoryRepository: BacklogTaskCategoryRepository
     @Mock private lateinit var tagRepository: BacklogTaskTagRepository
     @Mock private lateinit var taskChangeService: BacklogTaskChangeService
+    @Mock private lateinit var planWatermarkService: PlanWatermarkService
     @Mock private lateinit var userSettingsService: UserSettingsService
     @Mock private lateinit var boardMembershipService: BoardMembershipService
     @Mock private lateinit var userRepository: UserRepository
@@ -56,6 +58,7 @@ class BacklogTaskServiceTest {
             categoryRepository,
             tagRepository,
             taskChangeService,
+            planWatermarkService,
             userSettingsService,
             boardMembershipService,
             boardCrypto,
@@ -234,6 +237,8 @@ class BacklogTaskServiceTest {
         verify(tagRepository).save(captor.capture())
         assertEquals("urgent", captor.firstValue.label)
         assertEquals(TagColor.CORAL, captor.firstValue.colorId)
+        // A newly-born tag bumps the tags watermark so open tabs refetch the tag list.
+        verify(taskChangeService).bumpTags(boardId)
     }
 
     @Test
@@ -252,6 +257,8 @@ class BacklogTaskServiceTest {
         ))
 
         verify(tagRepository, never()).save(any())
+        // No tag was created, so the tags watermark must not move.
+        verify(taskChangeService, never()).bumpTags(any())
     }
 
     // --- updateTask ---

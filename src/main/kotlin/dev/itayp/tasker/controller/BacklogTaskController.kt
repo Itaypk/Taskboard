@@ -6,13 +6,10 @@ import dev.itayp.tasker.model.request.MoveTaskRequest
 import dev.itayp.tasker.model.request.ReorderTaskRequest
 import dev.itayp.tasker.model.request.SetAssigneeRequest
 import dev.itayp.tasker.model.request.UpdateBacklogTaskRequest
-import dev.itayp.tasker.model.response.HasChangesResponse
 import dev.itayp.tasker.model.response.TaskResponse
 import dev.itayp.tasker.model.response.toResponse
-import dev.itayp.tasker.planning.BacklogTaskChangeService
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.BacklogTaskService
-import dev.itayp.tasker.service.BoardMembershipService
 import jakarta.validation.Valid
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
@@ -28,38 +25,13 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
-import java.time.Clock
-import java.time.Instant
 import java.util.UUID
 
 @RestController
 @RequestMapping("/api/v1/boards/{boardId}/tasks")
 class BacklogTaskController(
     private val backlogTaskService: BacklogTaskService,
-    private val backlogTaskChangeService: BacklogTaskChangeService,
-    private val boardMembershipService: BoardMembershipService,
-    private val clock: Clock,
 ) {
-
-    /**
-     * Board-scoped staleness check: the watermark is keyed by board, so this reflects exactly this
-     * board's changes — including edits made by other members — and nothing from the user's other
-     * boards.
-     */
-    @GetMapping("/has-changes")
-    fun hasTaskChanges(
-        @AuthenticationPrincipal principal: TaskerPrincipal,
-        @PathVariable boardId: UUID,
-        @RequestParam since: String,
-    ): ResponseEntity<HasChangesResponse> {
-        boardMembershipService.requireMember(principal.userId, boardId)
-        val sinceInstant = runCatching { Instant.parse(since) }.getOrElse {
-            return ResponseEntity.badRequest().build()
-        }
-        val checkedAt = clock.instant()
-        val hasChanges = backlogTaskChangeService.changedSince(boardId, sinceInstant)
-        return ResponseEntity.ok(HasChangesResponse(hasChanges = hasChanges, checkedAt = checkedAt.toString()))
-    }
 
     @GetMapping
     fun getBacklogTasks(
