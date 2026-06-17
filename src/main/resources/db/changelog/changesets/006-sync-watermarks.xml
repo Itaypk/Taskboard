@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Unified sync poll: the open-tab poller used to fire three calls per cycle (tasks has-changes,
+        tags, current plan). It now fires one `sync` call that returns a per-entity-type "changed at"
+        watermark; the client refetches only what moved.
+
+        Extends the per-board watermark to also track tags and categories (nullable — an older board
+        simply has no tag/category change recorded yet), and adds a per-user plan watermark (the plan
+        is user-scoped, not board-scoped).
+    -->
+
+    <changeSet id="006-1-watermark-tags-categories" author="tasker">
+        <comment>Track tag and category changes alongside tasks on the per-board watermark.</comment>
+        <addColumn tableName="backlog_task_watermark">
+            <column name="tags_changed_at" type="TIMESTAMP"/>
+            <column name="categories_changed_at" type="TIMESTAMP"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="006-2-plan-watermark" author="tasker">
+        <comment>Per-user "plan changed" watermark so the open tab can poll the current plan cheaply.</comment>
+        <createTable tableName="plan_watermark">
+            <column name="user_id" type="UUID">
+                <constraints primaryKey="true" nullable="false"
+                             foreignKeyName="fk_plan_watermark_user" references="users(id)"/>
+            </column>
+            <column name="plan_changed_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+</databaseChangeLog>

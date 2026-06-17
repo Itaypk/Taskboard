@@ -4,6 +4,7 @@ import dev.itayp.tasker.jpa.BacklogTaskCategoryEntity
 import dev.itayp.tasker.model.CategoryColor
 import dev.itayp.tasker.model.request.CreateCategoryRequest
 import dev.itayp.tasker.model.request.UpdateCategoryRequest
+import dev.itayp.tasker.planning.BacklogTaskChangeService
 import dev.itayp.tasker.repository.BacklogTaskCategoryRepository
 import dev.itayp.tasker.repository.BacklogTaskRepository
 import org.junit.jupiter.api.Test
@@ -13,6 +14,7 @@ import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.util.UUID
@@ -25,6 +27,7 @@ class BacklogTaskCategoryServiceTest {
     @Mock private lateinit var categoryRepository: BacklogTaskCategoryRepository
     @Mock private lateinit var taskRepository: BacklogTaskRepository
     @Mock private lateinit var boardMembershipService: BoardMembershipService
+    @Mock private lateinit var taskChangeService: BacklogTaskChangeService
 
     @InjectMocks private lateinit var service: BacklogTaskCategoryService
 
@@ -57,6 +60,7 @@ class BacklogTaskCategoryServiceTest {
         assertEquals("Home", captor.firstValue.label)
         assertEquals(CategoryColor.MINT, captor.firstValue.swatchId)
         assertEquals(boardId, captor.firstValue.boardId)
+        verify(taskChangeService).bumpCategories(boardId)
     }
 
     @Test
@@ -70,6 +74,7 @@ class BacklogTaskCategoryServiceTest {
 
         assertEquals("New", entity.label)
         assertEquals(CategoryColor.BLOSSOM, entity.swatchId)
+        verify(taskChangeService).bumpCategories(boardId)
     }
 
     @Test
@@ -91,6 +96,7 @@ class BacklogTaskCategoryServiceTest {
         service.deleteCategory(userId, boardId, id)
 
         verify(categoryRepository).deleteById(id)
+        verify(taskChangeService).bumpCategories(boardId)
     }
 
     @Test
@@ -101,6 +107,7 @@ class BacklogTaskCategoryServiceTest {
         assertFailsWith<IllegalStateException> {
             service.deleteCategory(userId, boardId, id)
         }
+        verify(taskChangeService, never()).bumpCategories(any())
     }
 
     @Test

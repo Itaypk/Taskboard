@@ -8,10 +8,14 @@ import java.time.Instant
 import java.util.UUID
 
 /**
- * A single per-board "tasks changed" watermark, bumped on every backlog mutation
- * (create / edit / delete / reorder / schedule). The polling endpoint compares it
- * against the client's last-seen time to decide whether an open board tab is stale;
- * because it's board-keyed, a member's edit refreshes other members' open tabs.
+ * A single per-board change watermark, bumped on every backlog mutation
+ * (create / edit / delete / reorder / schedule) plus tag and category edits. The sync
+ * endpoint returns these timestamps so an open board tab can refetch only the entity
+ * types that moved; because it's board-keyed, a member's edit refreshes other members' tabs.
+ *
+ * [tagsChangedAt] / [categoriesChangedAt] are nullable: a board that predates this signal
+ * (or has had no tag/category change yet) simply has no value, which the client reads as
+ * "unchanged".
  *
  * Distinct from [BacklogTaskChangeEventEntity]: that log records *semantic* lifecycle
  * events the planner needs (and which must outlive deleted tasks). This is a cheap,
@@ -28,4 +32,10 @@ open class BacklogTaskWatermarkEntity {
 
     @Column(name = "tasks_changed_at", nullable = false)
     var tasksChangedAt: Instant? = null
+
+    @Column(name = "tags_changed_at")
+    var tagsChangedAt: Instant? = null
+
+    @Column(name = "categories_changed_at")
+    var categoriesChangedAt: Instant? = null
 }
