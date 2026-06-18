@@ -5,7 +5,7 @@ import { ApiError, type BoardMember } from '../api';
 import { WashiTape } from './WashiTape';
 import { Autocomplete } from './Autocomplete';
 import { generateId, formatRelative } from '../utils';
-import { resolveTaskLink } from '../taskLink';
+import { resolveTaskLink, linkLabel } from '../taskLink';
 
 interface TaskDrawerProps {
   task: Task | null;
@@ -312,8 +312,9 @@ export function TaskDrawer({
                   target={taskLink.kind === 'external' ? '_blank' : undefined}
                   rel={taskLink.kind === 'external' ? 'noopener noreferrer' : undefined}
                   onClick={e => { e.preventDefault(); onFollowLink?.(task!); }}
+                  title={taskLink.kind === 'external' ? taskLink.href : undefined}
                 >
-                  Open ↗
+                  {linkLabel(taskLink)} ↗
                 </a>
               ) : (
                 <>

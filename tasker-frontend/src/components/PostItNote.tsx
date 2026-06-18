@@ -4,7 +4,7 @@ import { PAPER_SWATCHES } from '../types';
 import { formatDeadline, isOverdue, formatDuration, rotationFromId } from '../utils';
 import { WashiTape } from './WashiTape';
 import { MarkdownRenderer } from './MarkdownRenderer';
-import { resolveTaskLink } from '../taskLink';
+import { resolveTaskLink, linkLabel } from '../taskLink';
 import styles from './PostItNote.module.css';
 
 /** Resolved claimer for the assignee chip; only supplied on shared boards. */
@@ -43,7 +43,7 @@ export function PostItNote({
 
   const rotation = rotationFromId(task.id) * 0.3;
   const tags = task.tags.slice(0, 3);
-  const hasLink = onFollowLink != null && resolveTaskLink(task.url) != null;
+  const link = onFollowLink != null ? resolveTaskLink(task.url) : null;
 
   const {
     attributes,
@@ -135,18 +135,6 @@ export function PostItNote({
             {assignee.initials}
           </span>
         )}
-        {hasLink && (
-          <button
-            type="button"
-            className={styles.linkBtn}
-            aria-label="Open link"
-            title="Open link"
-            onPointerDown={e => e.stopPropagation()}
-            onClick={e => { e.stopPropagation(); onFollowLink?.(); }}
-          >
-            <LinkIcon />
-          </button>
-        )}
       </div>
 
       {tags.length > 0 && (
@@ -155,6 +143,20 @@ export function PostItNote({
             <WashiTape key={i} tag={tag} index={i} idSeed={task.id} />
           ))}
         </div>
+      )}
+
+      {link && (
+        <button
+          type="button"
+          className={styles.linkRow}
+          aria-label={`Open link: ${linkLabel(link)}`}
+          title={link.kind === 'external' ? link.href : linkLabel(link)}
+          onPointerDown={e => e.stopPropagation()}
+          onClick={e => { e.stopPropagation(); onFollowLink?.(); }}
+        >
+          <LinkIcon />
+          <span className={styles.linkLabel}>{linkLabel(link)}</span>
+        </button>
       )}
 
       <span className="note__curl" aria-hidden />
