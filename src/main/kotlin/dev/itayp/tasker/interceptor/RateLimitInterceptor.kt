@@ -2,6 +2,7 @@ package dev.itayp.tasker.interceptor
 
 import dev.itayp.tasker.ratelimit.RateLimiter
 import dev.itayp.tasker.security.TaskerPrincipal
+import dev.itayp.tasker.util.clientIp
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.http.MediaType
@@ -49,16 +50,3 @@ class RateLimitInterceptor(
         private const val TELEGRAM_LOGIN_PATH = "/api/auth/telegram"
     }
 }
-
-// Nginx in front of this app sets `X-Forwarded-For: $proxy_add_x_forwarded_for`, which
-// APPENDS the immediate client IP to whatever XFF the client supplied. Taking the *last*
-// entry therefore yields the address Nginx saw — which is what we want for per-IP
-// throttling. Taking the first entry (a previous, common mistake here) would trust the
-// attacker-supplied value and make the rate limit trivially bypassable.
-private fun HttpServletRequest.clientIp(): String =
-    getHeader("X-Forwarded-For")
-        ?.split(',')
-        ?.lastOrNull()
-        ?.trim()
-        ?.takeIf { it.isNotEmpty() }
-        ?: remoteAddr
