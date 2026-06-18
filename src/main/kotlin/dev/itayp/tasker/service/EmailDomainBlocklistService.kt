@@ -15,12 +15,14 @@ class EmailDomainBlocklistService(properties: EmailProperties) {
 
     private val exactDomains: Set<String> = properties.blockedDomains
         .map { it.trim().lowercase() }
-        .filterTo(mutableSetOf()) { it.isNotEmpty() && !it.startsWith("*.") }
+        .filter { it.isNotEmpty() && !it.startsWith("*.") }
+        .toSet()
 
     private val wildcardSuffixes: Set<String> = properties.blockedDomains
         .map { it.trim().lowercase() }
         .filter { it.startsWith("*.") }
-        .mapTo(mutableSetOf()) { it.removePrefix("*") }
+        .map { it.removePrefix("*") }
+        .toSet()
 
     /** True if [email]'s domain is blocked, either by an exact match or a wildcard suffix. */
     fun isBlocked(email: String): Boolean {
