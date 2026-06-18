@@ -34,7 +34,7 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Task list Markdown (subtasks) checkboxes - makes it possible to check directly from the main screen
 - Filter chips can still wrap on very small screens even after the "Week" shortening. If it keeps bugging us, consider a segmented control or horizontally-scrollable chip row on mobile.
 - Board management: custom board color pin marker (the member count pin)?
-- Tasks with URL: the URL is not displayed. We have a small link icon, but we should consider adding link description and add it to the bottom of the note.
+- ~~Tasks with URL: the URL is not displayed. We have a small link icon, but we should consider adding link description and add it to the bottom of the note.~~ ✅ Done — truncated link label shown in the note footer next to the icon (custom link descriptions deferred).
 
 ## General features (medium-sized)
 - Add "feedback" option.

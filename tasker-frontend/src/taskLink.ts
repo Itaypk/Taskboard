@@ -27,6 +27,30 @@ export function resolveTaskLink(url: string | null | undefined): TaskLink {
   return null;
 }
 
+/**
+ * Human-readable text for a resolved link, shown in the note footer next to the link icon.
+ * External links show a prettified, truncated URL; internal/action links (tutorial-only) get a
+ * fixed friendly name since their raw target ("/settings/general", "app:clear-tutorial") is meaningless
+ * to a user.
+ */
+export function linkLabel(link: TaskLink): string {
+  if (!link) return '';
+  switch (link.kind) {
+    case 'external': return prettifyUrl(link.href);
+    case 'internal': return link.to.startsWith('/settings') ? 'Open settings' : 'Open';
+    case 'action':
+      switch (link.action) {
+        case 'clear-tutorial': return 'Clear tutorial tasks';
+      }
+  }
+}
+
+/** Strips scheme/`www.`/trailing slash and truncates so a long URL stays on one note line. */
+function prettifyUrl(href: string, maxLen = 28): string {
+  const stripped = href.replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/+$/, '');
+  return stripped.length > maxLen ? stripped.slice(0, maxLen - 1) + '…' : stripped;
+}
+
 export type SettingsTab = 'general' | 'categories' | 'assistant';
 
 const SETTINGS_TABS: readonly SettingsTab[] = ['general', 'categories', 'assistant'];
