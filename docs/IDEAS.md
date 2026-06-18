@@ -18,7 +18,6 @@ The scope of the individual idea is varying - could be small UI improvements, or
   before shipping.
 - Fonts look bad in Hebrew (especially the header - serif - ones). Either choose one that support multilanguage, or use language-specific ones.
 - Persisted calendar invite SEQUENCE counter. Plan-revise updates re-send same-time slot edits (label/title/notes) with a fixed `SEQUENCE:1`. A second same-slot edit in a later session sends `SEQUENCE:1` again, which strict calendar clients may not re-apply. Persisting a per-slot revision counter (incremented on each update) would make repeated updates robust. Low priority: time moves go through cancel + fresh invite, which is unaffected.
-- Switch over to UUID v7 (better DB performance for indexes).
 - Currently, a single task is tied to a single time-block; would we like to change that, so that a single task might have mutiple (or zero) time blocks attached?
 - Add a search functionality in the "All" tasks tab.
 - Favicon - we are using a default one.
@@ -34,7 +33,6 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Task list Markdown (subtasks) checkboxes - makes it possible to check directly from the main screen
 - Filter chips can still wrap on very small screens even after the "Week" shortening. If it keeps bugging us, consider a segmented control or horizontally-scrollable chip row on mobile.
 - Board management: custom board color pin marker (the member count pin)?
-- ~~Tasks with URL: the URL is not displayed. We have a small link icon, but we should consider adding link description and add it to the bottom of the note.~~ ✅ Done — truncated link label shown in the note footer next to the icon (custom link descriptions deferred).
 
 ## General features (medium-sized)
 - Add "feedback" option.

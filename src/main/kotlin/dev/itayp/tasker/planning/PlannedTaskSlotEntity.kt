@@ -2,17 +2,16 @@ package dev.itayp.tasker.planning
 
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
-import jakarta.persistence.GeneratedValue
-import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
-import java.util.UUID
+import org.hibernate.annotations.UuidGenerator
+import java.util.*
 
 @Entity
 @Table(name = "planned_task_slot")
-open class PlannedTaskSlotEntity {
+class PlannedTaskSlotEntity {
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
+    @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
     var id: UUID? = null
 
     @Column(name = "planned_task_id", nullable = false)
