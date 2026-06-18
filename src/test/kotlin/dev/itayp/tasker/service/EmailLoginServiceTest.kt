@@ -2,6 +2,7 @@ package dev.itayp.tasker.service
 
 import dev.itayp.tasker.channel.OutboundChannel
 import dev.itayp.tasker.channel.email.EmailMessage
+import dev.itayp.tasker.channel.email.EmailProperties
 import dev.itayp.tasker.channel.email.EmailTemplateEngine
 import dev.itayp.tasker.config.AppProperties
 import dev.itayp.tasker.crypto.newTestUserCryptoService
@@ -30,10 +31,11 @@ class EmailLoginServiceTest {
     private val templateEngine: EmailTemplateEngine = mock()
     private val messageSource: MessageSource = mock()
     private val appProperties = AppProperties(baseUrl = "https://backlog.fyi")
+    private val blocklist = EmailDomainBlocklistService(EmailProperties(blockedDomains = setOf("blocked.example")))
 
     private val service = EmailLoginService(
         tokenRepository, userAuthService, outboundChannel, templateEngine,
-        messageSource, crypto, appProperties, clock,
+        messageSource, crypto, appProperties, blocklist, clock,
     )
 
     @Test
@@ -96,6 +98,15 @@ class EmailLoginServiceTest {
 
         service.requestLogin("user@example.com")
 
+        verify(tokenRepository, never()).save(any())
+        verify(outboundChannel, never()).send(any())
+    }
+
+    @Test
+    fun `requestLogin is suppressed when the email domain is blocklisted`() {
+        service.requestLogin("user@blocked.example")
+
+        verify(tokenRepository, never()).countByEmailHashAndCreatedAtAfter(any(), any())
         verify(tokenRepository, never()).save(any())
         verify(outboundChannel, never()).send(any())
     }

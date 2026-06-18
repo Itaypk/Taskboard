@@ -1,5 +1,6 @@
 package dev.itayp.tasker.controller
 
+import dev.itayp.tasker.service.BlockedEmailDomainException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ProblemDetail
 import org.springframework.web.bind.MethodArgumentNotValidException
@@ -28,4 +29,16 @@ class ApiExceptionHandler {
             setProperty("errors", errors)
         }
     }
+
+    /**
+     * Handled here (rather than per-controller) so every entry point that checks the email
+     * blocklist — settings email change, board invitations — surfaces the same clean response.
+     * The exception's own `@ResponseStatus` reason wouldn't reach the client on its own
+     * (`server.error.include-message` defaults to `never`), so we set `detail` explicitly.
+     */
+    @ExceptionHandler(BlockedEmailDomainException::class)
+    fun handleBlockedEmailDomain(ex: BlockedEmailDomainException): ProblemDetail =
+        ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.message ?: "This email domain isn't allowed").apply {
+            title = "Email domain not allowed"
+        }
 }

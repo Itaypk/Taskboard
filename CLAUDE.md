@@ -120,6 +120,12 @@ Session chain details:
   counter (hook it to a Grafana alert, especially `purpose=auth,outcome=failure`).
   - `TASKER_EMAIL_ENABLED` - toggle email integration (default: false). When false, both senders
     log instead of sending (and the magic link is printed to the log).
+  - `TASKER_EMAIL_BLOCKED_DOMAINS` — comma-separated application-wide email domain blocklist
+    (`EmailDomainBlocklistService`), checked on every new address: magic-link login (silently
+    no-ops, same as the rate limit, to preserve the no-enumeration guarantee), settings email
+    change, and board invitations (both throw `BlockedEmailDomainException` → 400). An entry
+    matches that domain exactly; prefix with `*.` to match subdomains only, not the domain
+    itself — list both forms to block a domain and all its subdomains.
   - Auth sender: `TASKER_EMAIL_AUTH_FROM`, `TASKER_EMAIL_AUTH_FROM_NAME` (default: Backlog.fyi),
     `TASKER_EMAIL_AUTH_SMTP_HOST` (default: smtp.protonmail.ch), `TASKER_EMAIL_AUTH_SMTP_PORT`
     (default: 587), `TASKER_EMAIL_AUTH_SMTP_USERNAME`, `TASKER_EMAIL_AUTH_SMTP_PASSWORD`.

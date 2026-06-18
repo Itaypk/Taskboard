@@ -1,6 +1,7 @@
 package dev.itayp.tasker.service
 
 import dev.itayp.tasker.channel.OutboundChannel
+import dev.itayp.tasker.channel.email.EmailProperties
 import dev.itayp.tasker.channel.email.EmailTemplateEngine
 import dev.itayp.tasker.config.AppProperties
 import dev.itayp.tasker.crypto.noopBoardCryptoService
@@ -57,12 +58,14 @@ class BoardInvitationServiceTest {
     private val now = Instant.parse("2026-06-12T12:00:00Z")
     private val clock = Clock.fixed(now, ZoneOffset.UTC)
     private val boardCrypto = noopBoardCryptoService()
+    private val blocklist = EmailDomainBlocklistService(EmailProperties(blockedDomains = setOf("blocked.example")))
 
     private val service by lazy {
         BoardInvitationService(
             invitationRepository, boardMembershipRepository, boardMembershipService, authIdentityRepository,
             userRepository, userSettingsRepository, boardRepository, boardCrypto, displayNameResolver,
-            outboundChannel, emailTemplateEngine, messageSource, AppProperties(baseUrl = "https://test.local"), clock,
+            outboundChannel, emailTemplateEngine, messageSource, AppProperties(baseUrl = "https://test.local"),
+            blocklist, clock,
         )
     }
 
@@ -142,6 +145,15 @@ class BoardInvitationServiceTest {
         whenever(boardMembershipRepository.findAllByBoardId(boardId)).thenReturn(members)
 
         assertThrows<MemberLimitException> { service.invite(owner, boardId, email) }
+    }
+
+    @Test
+    fun `invite to a blocklisted email domain is refused`() {
+        whenever(boardMembershipService.requireMember(owner, boardId)).thenReturn(BoardRole.OWNER)
+        whenever(authIdentityRepository.existsByUserId(owner)).thenReturn(true)
+
+        assertThrows<BlockedEmailDomainException> { service.invite(owner, boardId, "bob@blocked.example") }
+        verify(invitationRepository, never()).save(any())
     }
 
     @Test

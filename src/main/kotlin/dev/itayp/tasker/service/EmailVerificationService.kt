@@ -31,12 +31,14 @@ class EmailVerificationService(
     private val userSettingsService: UserSettingsService,
     private val messageSource: MessageSource,
     private val userCrypto: UserCryptoService,
+    private val emailDomainBlocklistService: EmailDomainBlocklistService,
 ) {
 
     private val log = LoggerFactory.getLogger(EmailVerificationService::class.java)
 
     fun requestVerification(userId: UUID, email: String) {
         val normalised = email.trim().lowercase()
+        emailDomainBlocklistService.requireAllowed(normalised)
         val emailHash = EmailHasher.hash(normalised)
         // An address can back at most one account (unique email_hash). Refuse rather than let the
         // unique constraint surface as a 500 — and don't let one user claim another's address.
