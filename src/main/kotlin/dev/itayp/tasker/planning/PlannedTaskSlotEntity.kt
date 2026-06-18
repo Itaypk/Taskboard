@@ -9,7 +9,7 @@ import java.util.*
 
 @Entity
 @Table(name = "planned_task_slot")
-open class PlannedTaskSlotEntity {
+class PlannedTaskSlotEntity {
     @Id
     @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
     var id: UUID? = null

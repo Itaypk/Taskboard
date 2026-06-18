@@ -8,7 +8,7 @@ import java.util.*
 
 @Entity
 @Table(name = "backlog_task_change_event")
-open class BacklogTaskChangeEventEntity {
+class BacklogTaskChangeEventEntity {
     @Id
     @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
     var id: UUID? = null

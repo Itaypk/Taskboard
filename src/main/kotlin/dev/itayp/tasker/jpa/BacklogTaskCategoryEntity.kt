@@ -7,7 +7,7 @@ import java.util.*
 
 @Entity
 @Table(name = "backlog_task_category")
-open class BacklogTaskCategoryEntity {
+class BacklogTaskCategoryEntity {
     @Id
     @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
     var id: UUID? = null

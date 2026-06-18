@@ -10,7 +10,7 @@ import java.util.*
 
 @Entity
 @Table(name = "backlog_task")
-open class BacklogTaskEntity {
+class BacklogTaskEntity {
     @Id
     @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
     var id: UUID? = null

@@ -8,7 +8,7 @@ import java.util.*
 
 @Entity
 @Table(name = "planning_session")
-open class PlanningSessionEntity {
+class PlanningSessionEntity {
     @Id
     @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
     var id: UUID? = null
