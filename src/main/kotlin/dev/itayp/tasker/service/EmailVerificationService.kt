@@ -11,7 +11,9 @@ import dev.itayp.tasker.repository.AuthIdentityRepository
 import dev.itayp.tasker.repository.UserRepository
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
+import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.util.HtmlUtils
 import dev.itayp.tasker.channel.email.EmailTemplateEngine
 import org.springframework.context.MessageSource
@@ -36,6 +38,11 @@ class EmailVerificationService(
 
     private val log = LoggerFactory.getLogger(EmailVerificationService::class.java)
 
+    companion object {
+        private val RATE_WINDOW: Duration = Duration.ofHours(1)
+        private const val RATE_LIMIT = 5
+    }
+
     fun requestVerification(userId: UUID, email: String) {
         val normalised = email.trim().lowercase()
         emailDomainBlocklistService.requireAllowed(normalised)
@@ -47,12 +54,24 @@ class EmailVerificationService(
             throw EmailAlreadyLinkedException()
         }
         val user = userRepository.findById(userId).orElseThrow { NoSuchElementException("User not found") }
+
+        val now = clock.instant()
+        val windowStart = user.emailVerificationRequestWindowStart
+        if (windowStart == null || now.isAfter(windowStart.plus(RATE_WINDOW))) {
+            user.emailVerificationRequestWindowStart = now
+            user.emailVerificationRequestCount = 0
+        }
+        if (user.emailVerificationRequestCount >= RATE_LIMIT) {
+            throw EmailVerificationRateLimitException()
+        }
+        user.emailVerificationRequestCount += 1
+
         val token = UUID.randomUUID().toString().replace("-", "")
         user.email = userCrypto.encrypt(userId, normalised)
         user.emailHash = emailHash
         user.emailVerifiedAt = null
         user.emailVerificationToken = token
-        user.emailVerificationTokenExpiresAt = clock.instant().plus(Duration.ofHours(24))
+        user.emailVerificationTokenExpiresAt = now.plus(Duration.ofHours(24))
         userRepository.save(user)
 
         // Link opens a side-effect-free SPA confirm page; the actual verification happens on POST.
@@ -117,3 +136,7 @@ class EmailVerificationService(
 
 /** The submitted address already backs a different account. */
 class EmailAlreadyLinkedException : RuntimeException("Email already linked to another account")
+
+/** Thrown when verification-email requests exceed the rate limit. Maps to HTTP 429. */
+@ResponseStatus(HttpStatus.TOO_MANY_REQUESTS)
+class EmailVerificationRateLimitException : RuntimeException("Too many verification emails sent; try again later")
