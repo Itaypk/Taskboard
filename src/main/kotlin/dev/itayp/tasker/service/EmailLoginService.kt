@@ -39,14 +39,16 @@ class EmailLoginService(
     private val messageSource: MessageSource,
     private val userCrypto: UserCryptoService,
     private val appProperties: AppProperties,
+    private val emailDomainBlocklistService: EmailDomainBlocklistService,
     private val clock: Clock,
 ) {
 
     private val log = LoggerFactory.getLogger(EmailLoginService::class.java)
 
     /**
-     * Sends a login link for [email], unless the address has hit its recent-send rate limit.
-     * Returns nothing and never reveals whether the address maps to an account (no enumeration).
+     * Sends a login link for [email], unless the address has hit its recent-send rate limit
+     * or its domain is blocklisted. Returns nothing and never reveals whether the address maps
+     * to an account (no enumeration) — both failure modes are silent, same as a normal send.
      *
      * [next] is an optional same-origin path to navigate to after login (e.g. a board invitation
      * accept page). It is validated and threaded through the confirm-page URL so the SPA can
@@ -55,6 +57,10 @@ class EmailLoginService(
     @Transactional
     fun requestLogin(email: String, next: String? = null) {
         val normalised = email.trim().lowercase()
+        if (emailDomainBlocklistService.isBlocked(normalised)) {
+            log.info("Email login blocked for disallowed domain")
+            return
+        }
         val emailHash = EmailHasher.hash(normalised)
         val now = clock.instant()
 

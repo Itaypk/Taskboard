@@ -53,6 +53,7 @@ class BoardInvitationService(
     private val emailTemplateEngine: EmailTemplateEngine,
     private val messageSource: MessageSource,
     private val appProperties: AppProperties,
+    private val emailDomainBlocklistService: EmailDomainBlocklistService,
     private val clock: Clock,
 ) {
 
@@ -68,6 +69,9 @@ class BoardInvitationService(
         requireOwner(inviterUserId, boardId)
         if (!authIdentityRepository.existsByUserId(inviterUserId)) throw InviterNotEligibleException()
 
+        val normalised = email.trim().lowercase()
+        emailDomainBlocklistService.requireAllowed(normalised)
+
         val now = clock.instant()
         if (invitationRepository.countByBoardIdAndCreatedAtAfter(boardId, now.minus(RATE_WINDOW)) >= BOARD_RATE_LIMIT ||
             invitationRepository.countByInvitedByUserIdAndCreatedAtAfter(inviterUserId, now.minus(RATE_WINDOW)) >= INVITER_RATE_LIMIT
@@ -75,7 +79,6 @@ class BoardInvitationService(
             throw InvitationRateLimitException()
         }
 
-        val normalised = email.trim().lowercase()
         val emailHash = EmailHasher.hash(normalised)
 
         // Already a member? (Only resolvable if the address maps to an existing account.)

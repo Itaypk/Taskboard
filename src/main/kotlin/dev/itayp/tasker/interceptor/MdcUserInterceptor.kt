@@ -1,5 +1,6 @@
 package dev.itayp.tasker.interceptor
 
+import dev.itayp.tasker.util.clientIp
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.slf4j.MDC
@@ -16,6 +17,7 @@ class MdcUserInterceptor : HandlerInterceptor {
             else -> "anonymous"
         }
         MDC.put(USER_KEY, username)
+        MDC.put(IP_KEY, request.clientIp())
         return true
     }
 
@@ -26,9 +28,11 @@ class MdcUserInterceptor : HandlerInterceptor {
         ex: Exception?
     ) {
         MDC.remove(USER_KEY)
+        MDC.remove(IP_KEY)
     }
 
     companion object {
         const val USER_KEY = "user"
+        const val IP_KEY = "ip"
     }
 }

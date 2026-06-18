@@ -75,6 +75,11 @@ tasker:
       window-seconds: 3600
   email:
     enabled: ${TASKER_EMAIL_ENABLED:false}
+    # Comma-separated domains refused for any new address (login, settings, board invites).
+    # Prefix an entry with `*.` to match subdomains only, not the domain itself — e.g.
+    # `*.mailinator.com` blocks `inbox.mailinator.com` but not `mailinator.com`; list both
+    # forms to block a domain and all its subdomains.
+    blocked-domains: ${TASKER_EMAIL_BLOCKED_DOMAINS:}
     # Critical path: login / register / verification magic links.
     auth:
       from: ${TASKER_EMAIL_AUTH_FROM:}

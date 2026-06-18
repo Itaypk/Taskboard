@@ -7,13 +7,16 @@ import dev.itayp.tasker.config.AppProperties
 import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.jpa.AuthIdentityEntity
 import dev.itayp.tasker.jpa.AuthProvider
+import dev.itayp.tasker.ratelimit.RateLimiter
 import dev.itayp.tasker.repository.AuthIdentityRepository
 import dev.itayp.tasker.repository.UserRepository
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.context.properties.EnableConfigurationProperties
-import org.springframework.context.MessageSource
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
+import org.springframework.web.bind.annotation.ResponseStatus
+import org.springframework.context.MessageSource
 import java.time.Clock
 import java.time.Duration
 import java.util.*
@@ -33,12 +36,18 @@ class EmailVerificationService(
     private val userSettingsService: UserSettingsService,
     private val messageSource: MessageSource,
     private val userCrypto: UserCryptoService,
+    private val emailDomainBlocklistService: EmailDomainBlocklistService,
+    @Qualifier("emailVerificationRateLimiter") private val rateLimiter: RateLimiter,
 ) {
 
     private val log = LoggerFactory.getLogger(EmailVerificationService::class.java)
 
     fun requestVerification(userId: UUID, email: String) {
         val normalised = email.trim().lowercase()
+        emailDomainBlocklistService.requireAllowed(normalised)
+        if (!rateLimiter.tryConsume(userId.toString())) {
+            throw EmailVerificationRateLimitException()
+        }
         val emailHash = EmailHasher.hash(normalised)
         // An address can back at most one account (unique email_hash). Refuse rather than let the
         // unique constraint surface as a 500 — and don't let one user claim another's address.
@@ -47,12 +56,14 @@ class EmailVerificationService(
             throw EmailAlreadyLinkedException()
         }
         val user = userRepository.findById(userId).orElseThrow { NoSuchElementException("User not found") }
+
+        val now = clock.instant()
         val token = UUID.randomUUID().toString().replace("-", "")
         user.email = userCrypto.encrypt(userId, normalised)
         user.emailHash = emailHash
         user.emailVerifiedAt = null
         user.emailVerificationToken = token
-        user.emailVerificationTokenExpiresAt = clock.instant().plus(Duration.ofHours(24))
+        user.emailVerificationTokenExpiresAt = now.plus(Duration.ofHours(24))
         userRepository.save(user)
 
         // Link opens a side-effect-free SPA confirm page; the actual verification happens on POST.
@@ -117,3 +128,7 @@ class EmailVerificationService(
 
 /** The submitted address already backs a different account. */
 class EmailAlreadyLinkedException : RuntimeException("Email already linked to another account")
+
+/** Thrown when verification-email requests exceed the rate limit. Maps to HTTP 429. */
+@ResponseStatus(HttpStatus.TOO_MANY_REQUESTS)
+class EmailVerificationRateLimitException : RuntimeException("Too many verification emails sent; try again later")

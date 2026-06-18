@@ -22,6 +22,8 @@ class SmtpEmailChannel(
         require(message is EmailMessage) { "SmtpEmailChannel only handles EmailMessage" }
         val mime = mailSender.createMimeMessage()
 
+        log.debug("Sending email to {}, from {}, subject='{}'", message.to, from, message.subject)
+
         if (message.iCalAttachment != null) {
             // Multipart/mixed: HTML body + text/calendar part for Gmail "Add to Calendar"
             mime.setFrom(InternetAddress(from, fromName, "UTF-8"))
