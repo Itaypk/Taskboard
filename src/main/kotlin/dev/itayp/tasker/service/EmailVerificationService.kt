@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Qualifier
 import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.jpa.AuthIdentityEntity
 import dev.itayp.tasker.jpa.AuthProvider
+import dev.itayp.tasker.ratelimit.RateLimiter
 import dev.itayp.tasker.repository.AuthIdentityRepository
 import dev.itayp.tasker.repository.UserRepository
 import org.slf4j.LoggerFactory
@@ -34,18 +35,17 @@ class EmailVerificationService(
     private val messageSource: MessageSource,
     private val userCrypto: UserCryptoService,
     private val emailDomainBlocklistService: EmailDomainBlocklistService,
+    @Qualifier("emailVerificationRateLimiter") private val rateLimiter: RateLimiter,
 ) {
 
     private val log = LoggerFactory.getLogger(EmailVerificationService::class.java)
 
-    companion object {
-        private val RATE_WINDOW: Duration = Duration.ofHours(1)
-        private const val RATE_LIMIT = 5
-    }
-
     fun requestVerification(userId: UUID, email: String) {
         val normalised = email.trim().lowercase()
         emailDomainBlocklistService.requireAllowed(normalised)
+        if (!rateLimiter.tryConsume(userId.toString())) {
+            throw EmailVerificationRateLimitException()
+        }
         val emailHash = EmailHasher.hash(normalised)
         // An address can back at most one account (unique email_hash). Refuse rather than let the
         // unique constraint surface as a 500 — and don't let one user claim another's address.
@@ -56,16 +56,6 @@ class EmailVerificationService(
         val user = userRepository.findById(userId).orElseThrow { NoSuchElementException("User not found") }
 
         val now = clock.instant()
-        val windowStart = user.emailVerificationRequestWindowStart
-        if (windowStart == null || now.isAfter(windowStart.plus(RATE_WINDOW))) {
-            user.emailVerificationRequestWindowStart = now
-            user.emailVerificationRequestCount = 0
-        }
-        if (user.emailVerificationRequestCount >= RATE_LIMIT) {
-            throw EmailVerificationRateLimitException()
-        }
-        user.emailVerificationRequestCount += 1
-
         val token = UUID.randomUUID().toString().replace("-", "")
         user.email = userCrypto.encrypt(userId, normalised)
         user.emailHash = emailHash

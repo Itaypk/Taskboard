@@ -7,6 +7,7 @@ data class RateLimitProperties(
     val api: Policy = Policy(limit = 300, windowSeconds = 60),
     val demoLogin: Policy = Policy(limit = 5, windowSeconds = 3600),
     val telegramLogin: Policy = Policy(limit = 30, windowSeconds = 60),
+    val emailVerification: Policy = Policy(limit = 5, windowSeconds = 3600),
 ) {
     data class Policy(val limit: Int, val windowSeconds: Long)
 }

@@ -40,13 +40,6 @@ class UserEntity {
     @Column(name = "email_verification_token_expires_at")
     var emailVerificationTokenExpiresAt: Instant? = null
 
-    /** Fixed-window rate-limit counter for [emailVerificationRequestWindowStart]'s window. */
-    @Column(name = "email_verification_request_count", nullable = false)
-    var emailVerificationRequestCount: Int = 0
-
-    @Column(name = "email_verification_request_window_start")
-    var emailVerificationRequestWindowStart: Instant? = null
-
     @Column(name = "is_demo", nullable = false)
     var isDemo: Boolean = false
 

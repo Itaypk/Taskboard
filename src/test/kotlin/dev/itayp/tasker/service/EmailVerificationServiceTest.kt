@@ -6,9 +6,9 @@ import dev.itayp.tasker.channel.email.EmailTemplateEngine
 import dev.itayp.tasker.config.AppProperties
 import dev.itayp.tasker.crypto.newTestUserCryptoService
 import dev.itayp.tasker.jpa.UserEntity
+import dev.itayp.tasker.ratelimit.InMemoryRateLimiter
 import dev.itayp.tasker.repository.AuthIdentityRepository
 import dev.itayp.tasker.repository.UserRepository
-import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.kotlin.any
@@ -29,8 +29,7 @@ import java.util.UUID
 
 class EmailVerificationServiceTest {
 
-    private val now = Instant.parse("2026-06-12T12:00:00Z")
-    private val clock = Clock.fixed(now, ZoneOffset.UTC)
+    private val clock = Clock.fixed(Instant.parse("2026-06-12T12:00:00Z"), ZoneOffset.UTC)
     private val crypto = newTestUserCryptoService()
     private val userRepository: UserRepository = mock()
     private val authIdentityRepository: AuthIdentityRepository = mock()
@@ -39,10 +38,11 @@ class EmailVerificationServiceTest {
     private val userSettingsService: UserSettingsService = mock()
     private val messageSource: MessageSource = mock()
     private val blocklist = EmailDomainBlocklistService(EmailProperties(blockedDomains = setOf("blocked.example")))
+    private val rateLimiter = InMemoryRateLimiter(limit = 5, windowMillis = Duration.ofHours(1).toMillis())
 
     private val service = EmailVerificationService(
         userRepository, authIdentityRepository, outboundChannel, AppProperties(baseUrl = "https://test.local"),
-        clock, emailTemplateEngine, userSettingsService, messageSource, crypto, blocklist,
+        clock, emailTemplateEngine, userSettingsService, messageSource, crypto, blocklist, rateLimiter,
     )
 
     private fun primeSendingMocks() {
@@ -63,6 +63,7 @@ class EmailVerificationServiceTest {
     fun `requestVerification is refused once the rate limit is hit within the window`() {
         primeSendingMocks()
         val userId = UUID.randomUUID()
+        crypto.ensureUserKey(userId)
         val user = UserEntity().apply { id = userId }
         whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
 
@@ -72,23 +73,5 @@ class EmailVerificationServiceTest {
         }
 
         verify(outboundChannel, times(5)).send(any())
-    }
-
-    @Test
-    fun `requestVerification resets the counter once the window has elapsed`() {
-        primeSendingMocks()
-        val userId = UUID.randomUUID()
-        val user = UserEntity().apply {
-            id = userId
-            emailVerificationRequestCount = 5
-            emailVerificationRequestWindowStart = now.minus(Duration.ofHours(2))
-        }
-        whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
-
-        service.requestVerification(userId, "user@example.com")
-
-        verify(outboundChannel).send(any())
-        assertThat(user.emailVerificationRequestCount).isEqualTo(1)
-        assertThat(user.emailVerificationRequestWindowStart).isEqualTo(now)
     }
 }
