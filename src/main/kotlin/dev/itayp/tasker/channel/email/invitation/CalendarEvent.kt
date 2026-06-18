@@ -2,10 +2,10 @@ package dev.itayp.tasker.channel.email.invitation
 
 import java.time.ZonedDateTime
 import java.util.Locale
-import java.util.UUID
+import kotlin.uuid.Uuid
 
 data class CalendarEvent(
-    val uid: String = UUID.randomUUID().toString(),
+    val uid: String = Uuid.generateV7().toString(),
     val title: String,
     val description: String? = null,
     val start: ZonedDateTime,
