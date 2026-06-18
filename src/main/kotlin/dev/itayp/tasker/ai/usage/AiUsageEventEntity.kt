@@ -1,15 +1,9 @@
 package dev.itayp.tasker.ai.usage
 
-import jakarta.persistence.Column
-import jakarta.persistence.Entity
-import jakarta.persistence.EnumType
-import jakarta.persistence.Enumerated
-import jakarta.persistence.GeneratedValue
-import jakarta.persistence.GenerationType
-import jakarta.persistence.Id
-import jakarta.persistence.Table
+import jakarta.persistence.*
+import org.hibernate.annotations.UuidGenerator
 import java.time.Instant
-import java.util.UUID
+import java.util.*
 
 /**
  * One row per AI (OpenRouter) call, written right after the call returns (or fails). This is the
@@ -22,7 +16,7 @@ import java.util.UUID
 @Table(name = "ai_usage_event")
 class AiUsageEventEntity {
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
+    @UuidGenerator(style = UuidGenerator.Style.VERSION_7)
     var id: UUID? = null
 
     @Column(name = "user_id", nullable = false)

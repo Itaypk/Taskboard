@@ -2,8 +2,8 @@ package dev.itayp.tasker.service
 
 import dev.itayp.tasker.channel.OutboundChannel
 import dev.itayp.tasker.channel.email.EmailMessage
+import dev.itayp.tasker.channel.email.EmailTemplateEngine
 import dev.itayp.tasker.config.AppProperties
-import org.springframework.beans.factory.annotation.Qualifier
 import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.jpa.AuthIdentityEntity
 import dev.itayp.tasker.jpa.AuthProvider
@@ -11,6 +11,7 @@ import dev.itayp.tasker.ratelimit.RateLimiter
 import dev.itayp.tasker.repository.AuthIdentityRepository
 import dev.itayp.tasker.repository.UserRepository
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
@@ -18,8 +19,12 @@ import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.util.HtmlUtils
 import dev.itayp.tasker.channel.email.EmailTemplateEngine
 import org.springframework.context.MessageSource
+import org.springframework.stereotype.Service
 import java.time.Clock
 import java.time.Duration
+import java.util.*
+import kotlin.uuid.Uuid
+import kotlin.uuid.toJavaUuid
 import java.util.UUID
 
 @Service
@@ -109,7 +114,7 @@ class EmailVerificationService(
             authIdentityRepository.findByProviderAndProviderUserId(AuthProvider.EMAIL, emailHash) == null
         ) {
             authIdentityRepository.save(AuthIdentityEntity().apply {
-                id = UUID.randomUUID()
+                id = Uuid.generateV7().toJavaUuid()
                 userId = user.id
                 provider = AuthProvider.EMAIL
                 providerUserId = emailHash
