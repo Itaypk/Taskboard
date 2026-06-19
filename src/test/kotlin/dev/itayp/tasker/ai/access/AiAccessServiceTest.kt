@@ -63,7 +63,6 @@ class AiAccessServiceTest {
     @Test
     fun `requireAiAllowedForUser throws when the user has opted out`() {
         whenever(userSettingsRepository.findById(userId)).thenReturn(Optional.of(settings(userId, enabled = false)))
-        whenever(boardMembershipService.listBoardIds(userId)).thenReturn(emptyList())
 
         assertFailsWith<AiDisabledException> { service.requireAiAllowedForUser(userId) }
     }
