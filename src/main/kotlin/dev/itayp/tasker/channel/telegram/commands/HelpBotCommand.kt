@@ -1,5 +1,6 @@
 package dev.itayp.tasker.channel.telegram.commands
 
+import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.service.UserSettingsService
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -18,6 +19,7 @@ import org.springframework.web.util.HtmlUtils
 class HelpBotCommand(
     @Lazy private val allCommands: List<BotCommandHandler>,
     private val userSettingsService: UserSettingsService,
+    private val aiAccessService: AiAccessService,
     private val messageSource: MessageSource,
 ) : BotCommandHandler {
 
@@ -28,7 +30,9 @@ class HelpBotCommand(
     override fun handle(context: BotCommandContext) {
         val locale = userSettingsService.getLocale(context.userId)
         val header = messageSource.getMessage("command.help.header", null, locale)
+        val aiEnabled = aiAccessService.isAiEnabledForUser(context.userId)
         val lines = allCommands
+            .filter { aiEnabled || !it.requiresAi }
             .sortedBy { it.command }
             .joinToString(separator = "\n") { handler ->
                 "/${handler.command} — ${handler.description}"

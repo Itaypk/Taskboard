@@ -115,6 +115,10 @@ export interface UserSettings {
   planningCron?: string | null;
   weekStartDay?: string | null;
   autoArchiveDays?: number | null;
+  /** Hard binary AI opt-out. When false, all AI-driven features are hidden / disabled. */
+  aiEnabled: boolean;
+  /** Server-controlled subscription tier name; read-only on the client. */
+  aiTier: string;
   email: string;
   emailVerified: boolean;
   categories: Category[];

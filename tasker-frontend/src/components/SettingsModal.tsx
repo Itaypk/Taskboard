@@ -135,6 +135,7 @@ export function SettingsModal({ boardId, settings, tasks, open, initialTab, onCl
           planningCron: form.planningCron ?? null,
           weekStartDay: form.weekStartDay ?? null,
           autoArchiveDays: form.autoArchiveDays ?? null,
+          aiEnabled: form.aiEnabled,
         }),
         ...settings.categories
           .filter(c => !newIdSet.has(c.id))
@@ -506,6 +507,36 @@ export function SettingsModal({ boardId, settings, tasks, open, initialTab, onCl
           {activeTab === 'assistant' && (
             <>
               <div className="field">
+                <label className="field__label">AI access</label>
+                <p className="settings-hint">
+                  Turn this off to disable every AI-driven feature for your account: weekly planning,
+                  quick capture suggestions, and the Telegram <code>/plan</code> and <code>/add</code>
+                  commands. If you share a board with other people, the board's AI features stop working
+                  for them too while yours is off.
+                </p>
+                <label className="settings-toggle">
+                  <input
+                    type="checkbox"
+                    checked={form.aiEnabled}
+                    onChange={e => setForm(f => ({ ...f, aiEnabled: e.target.checked }))}
+                  />
+                  <span>Allow AI features to read my data</span>
+                </label>
+              </div>
+
+              <div className="field">
+                <label className="field__label">AI plan</label>
+                <p className="settings-hint">
+                  Your current AI plan: <strong>{form.aiTier}</strong>. Sets the monthly usage budget
+                  for AI-driven features.
+                </p>
+              </div>
+
+              <fieldset
+                disabled={!form.aiEnabled}
+                style={{ border: 'none', padding: 0, margin: 0, opacity: form.aiEnabled ? 1 : 0.55 }}
+              >
+              <div className="field">
                 <label className="field__label" htmlFor="settings-gender">How should the assistant address you?</label>
                 <p className="settings-hint">Sets pronouns and gendered language used during planning conversations.</p>
                 <select
@@ -534,6 +565,7 @@ export function SettingsModal({ boardId, settings, tasks, open, initialTab, onCl
                   placeholder="e.g. I prefer deep work in the morning…"
                 />
               </div>
+              </fieldset>
             </>
           )}
         </div>

@@ -258,6 +258,8 @@ class AccountService(
                     planningCron = it.planningCron,
                     weekStartDay = it.weekStartDay,
                     autoArchiveDays = it.autoArchiveDays,
+                    aiEnabled = it.aiEnabled,
+                    aiTier = it.aiTier,
                 )
             },
             boards = boards,

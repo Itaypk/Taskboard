@@ -106,6 +106,8 @@ class AccountImportService(
             settings.planningCron = s.planningCron
             settings.weekStartDay = s.weekStartDay
             settings.autoArchiveDays = s.autoArchiveDays
+            settings.aiEnabled = s.aiEnabled
+            s.aiTier?.let { settings.aiTier = it }
             userSettingsRepository.save(settings)
         }
 

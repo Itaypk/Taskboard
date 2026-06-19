@@ -9,6 +9,8 @@ export const DEFAULT_SETTINGS: UserSettings = {
   planningCron: null,
   weekStartDay: null,
   autoArchiveDays: null,
+  aiEnabled: true,
+  aiTier: 'standard',
   email: '',
   emailVerified: false,
   categories: [],

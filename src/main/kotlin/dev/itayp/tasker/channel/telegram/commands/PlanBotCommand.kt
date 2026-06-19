@@ -38,6 +38,8 @@ class PlanBotCommand(
 
     override val description = "Start or review your weekly planning session"
 
+    override val requiresAi = true
+
     override fun handle(context: BotCommandContext) {
         val locale = userSettingsService.getLocale(context.userId)
         val existingSessionId = context.sessionRegistry.get(context.chatId)

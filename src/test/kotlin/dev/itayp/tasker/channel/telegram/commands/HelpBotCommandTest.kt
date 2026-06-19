@@ -1,5 +1,6 @@
 package dev.itayp.tasker.channel.telegram.commands
 
+import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.telegram.TelegramConversationChannel
 import dev.itayp.tasker.channel.telegram.TelegramSessionRegistry
@@ -22,6 +23,7 @@ import kotlin.test.assertTrue
 class HelpBotCommandTest {
 
     @Mock private lateinit var userSettingsService: UserSettingsService
+    @Mock private lateinit var aiAccessService: AiAccessService
     @Mock private lateinit var channel: TelegramConversationChannel
     @Mock private lateinit var sessionRegistry: TelegramSessionRegistry
 
@@ -35,6 +37,7 @@ class HelpBotCommandTest {
         val help = HelpBotCommand(
             handlers,
             userSettingsService,
+            aiAccessService,
             StaticMessageSource().also { src ->
                 src.addMessage("command.help.header", Locale.ENGLISH, "Available commands")
             },
@@ -50,6 +53,7 @@ class HelpBotCommandTest {
     @BeforeEach
     fun setUp() {
         whenever(userSettingsService.getLocale(userId)).thenReturn(Locale.ENGLISH)
+        whenever(aiAccessService.isAiEnabledForUser(userId)).thenReturn(true)
     }
 
     @Test
@@ -75,6 +79,7 @@ class HelpBotCommandTest {
         val help = HelpBotCommand(
             handlers,
             userSettingsService,
+            aiAccessService,
             StaticMessageSource().also { src ->
                 src.addMessage("command.help.header", Locale.ENGLISH, "<oops>")
             },

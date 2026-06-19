@@ -1,16 +1,19 @@
 package dev.itayp.tasker.ai.client
 
+import dev.itayp.tasker.ai.access.AiAccessService
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
 /**
- * Hook invoked immediately before the outbound OpenRouter call, in the same place a future
- * per-user rate limiter will live. A gate may throw to refuse the call (the exception propagates
- * to the caller); the default gate is a no-op.
+ * Hook invoked immediately before the outbound OpenRouter call. A gate may throw to refuse
+ * the call (the exception propagates to the caller).
  *
- * Kept as a [fun interface] so a real limiter can be dropped in as a single bean; defining any
- * `AiCallGate` bean replaces [noOpAiCallGate] below.
+ * Wired by default to [AiAccessService]: refuses calls when the caller has opted out of AI
+ * (binary toggle, also vetoed when a co-member of a shared board has opted out) and when the
+ * caller has burned through their subscription tier's rolling-window token budget.
+ *
+ * Kept as a [fun interface] so tests can replace the gate with a no-op or a mock.
  */
 fun interface AiCallGate {
     fun beforeCall(context: AiCallContext, request: ChatRequest)
@@ -20,5 +23,9 @@ fun interface AiCallGate {
 class AiCallGateConfiguration {
     @Bean
     @ConditionalOnMissingBean(AiCallGate::class)
-    fun noOpAiCallGate(): AiCallGate = AiCallGate { _, _ -> }
+    fun defaultAiCallGate(aiAccessService: AiAccessService): AiCallGate =
+        AiCallGate { context, _ ->
+            aiAccessService.requireAiAllowedForUser(context.userId)
+            aiAccessService.requireWithinTierLimit(context.userId)
+        }
 }

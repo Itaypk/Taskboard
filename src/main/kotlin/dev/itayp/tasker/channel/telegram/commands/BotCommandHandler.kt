@@ -11,5 +11,14 @@ interface BotCommandHandler {
      */
     val description: String
 
+    /**
+     * True when this command's flow drives the LLM (planner, quick-add). Commands that read
+     * existing data without invoking the model leave this false. Used by the dispatcher to
+     * pre-empt AI-disabled users (clean message instead of a buried `AiDisabledException`)
+     * and by /help to hide commands that wouldn't do anything for them.
+     */
+    val requiresAi: Boolean
+        get() = false
+
     fun handle(context: BotCommandContext)
 }
