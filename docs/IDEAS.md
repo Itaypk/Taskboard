@@ -21,8 +21,6 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Currently, a single task is tied to a single time-block; would we like to change that, so that a single task might have mutiple (or zero) time blocks attached?
 - Add a search functionality in the "All" tasks tab.
 - Favicon - we are using a default one.
-- Grafana board update - there are obsolete stats (demo users), and some stats that are not displayed.
-- Set up a Grafana alert, at least for downtime. If possible, for elevated error logs rate.
 
 ## UI - Tasks
 - Work on tagline and satellite notes in the welcome page with better texts. See if we need to move a few things around 
