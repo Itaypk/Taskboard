@@ -1,5 +1,5 @@
 {
-  "__note": "Backlog.fyi application overview dashboard. Import into Grafana and pick your Prometheus datasource. Companion to the default Spring Boot dashboard (vitals/heap/CPU detail/HTTP detail) — this one is the shallow, broad, at-a-glance view. Every query is scoped by the `application` label (added by Alloy) so a shared Prometheus serving multiple apps doesn't mix data.",
+  "__note": "Backlog.fyi application overview dashboard. Import into Grafana and pick your Prometheus datasource (and a Loki datasource for the logs-based panel). Companion to the default Spring Boot dashboard (vitals/heap/CPU detail/HTTP detail) — this one is the shallow, broad, at-a-glance view. Every Prometheus query is scoped by the `application` label (added by Alloy) so a shared Prometheus serving multiple apps doesn't mix data.",
   "annotations": {
     "list": [
       {
@@ -31,6 +31,20 @@
         "name": "datasource",
         "options": [],
         "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      },
+      {
+        "current": { "text": "grafanacloud-itaypk-logs", "value": "grafanacloud-itaypk-logs" },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Logs datasource",
+        "multi": false,
+        "name": "logs_datasource",
+        "options": [],
+        "query": "loki",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
@@ -155,29 +169,10 @@
     },
     {
       "type": "stat",
-      "title": "Disk free",
-      "description": "Usable disk on the app's working volume. Single VPS — watch for it filling up.",
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
-      "id": 6,
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bytes",
-          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "yellow", "value": 2000000000 }, { "color": "green", "value": 5000000000 } ] }
-        },
-        "overrides": []
-      },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "none", "textMode": "value" },
-      "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "min(disk_free_bytes{application=\"$application\"})" }
-      ]
-    },
-    {
-      "type": "stat",
       "title": "5xx errors (5m)",
       "description": "Server-error responses per second over the last 5 minutes. Anything above zero deserves a look.",
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
       "id": 7,
       "fieldConfig": {
         "defaults": {
@@ -193,6 +188,22 @@
       ]
     },
     {
+      "type": "stat",
+      "title": "Active users",
+      "description": "Claimed users with activity (any authenticated request) in the last 30 days.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
+      "id": 8,
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "green" } },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "none", "textMode": "value" },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "max(tasker_users_active{application=\"$application\"})" }
+      ]
+    },
+    {
       "type": "row",
       "title": "Vitals over time",
       "collapsed": false,
@@ -204,7 +215,7 @@
       "type": "timeseries",
       "title": "CPU",
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "gridPos": { "h": 8, "w": 10, "x": 0, "y": 6 },
       "id": 11,
       "fieldConfig": {
         "defaults": {
@@ -226,7 +237,7 @@
       "type": "timeseries",
       "title": "Memory",
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "gridPos": { "h": 8, "w": 10, "x": 10, "y": 6 },
       "id": 12,
       "fieldConfig": {
         "defaults": {
@@ -245,6 +256,25 @@
       ]
     },
     {
+      "type": "stat",
+      "title": "Disk free",
+      "description": "Usable disk on the app's working volume. Single VPS — watch for it filling up.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 4, "x": 20, "y": 6 },
+      "id": 6,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "yellow", "value": 2000000000 }, { "color": "green", "value": 5000000000 } ] }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area", "textMode": "value" },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "min(disk_free_bytes{application=\"$application\"})" }
+      ]
+    },
+    {
       "type": "row",
       "title": "API traffic",
       "collapsed": false,
@@ -257,7 +287,7 @@
       "title": "Requests by status",
       "description": "Request rate grouped by HTTP status. Actuator scrape traffic is excluded.",
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 15 },
       "id": 21,
       "fieldConfig": {
         "defaults": {
@@ -279,9 +309,9 @@
     {
       "type": "timeseries",
       "title": "Latency (avg & max)",
-      "description": "Average latency = rate(sum)/rate(count); max is Micrometer's rolling per-series max. NOTE: true p95/p99 require percentile histograms — see the README to enable them.",
+      "description": "Average latency = rate(sum)/rate(count); max is Micrometer's rolling per-series max. Excludes the synchronous, AI-backed planning-turn endpoints (see 'Planning turn latency') since they block on OpenRouter and aren't representative of normal API response time. NOTE: true p95/p99 require percentile histograms — see the README to enable them.",
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 15 },
       "id": 22,
       "fieldConfig": {
         "defaults": {
@@ -294,8 +324,30 @@
       },
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["mean", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(http_server_requests_seconds_sum{application=\"$application\", uri!~\"/actuator.*\"}[$__rate_interval])) / sum(rate(http_server_requests_seconds_count{application=\"$application\", uri!~\"/actuator.*\"}[$__rate_interval]))", "legendFormat": "avg" },
-        { "refId": "B", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "max(http_server_requests_seconds_max{application=\"$application\", uri!~\"/actuator.*\"})", "legendFormat": "max" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(http_server_requests_seconds_sum{application=\"$application\", uri!~\"/actuator.*|/api/v1/planning/(start|{sessionId}/(reply|revise))\"}[$__rate_interval])) / sum(rate(http_server_requests_seconds_count{application=\"$application\", uri!~\"/actuator.*|/api/v1/planning/(start|{sessionId}/(reply|revise))\"}[$__rate_interval]))", "legendFormat": "avg" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "max(http_server_requests_seconds_max{application=\"$application\", uri!~\"/actuator.*|/api/v1/planning/(start|{sessionId}/(reply|revise))\"})", "legendFormat": "max" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Planning turn latency (AI-backed)",
+      "description": "Latency of the synchronous web-planning endpoints (start/reply/revise) that block on the OpenRouter call for the duration of the HTTP request. Telegram's planning/quick-add flows run over long-polling, outside the HTTP request thread, so they never appear in http_server_requests_seconds at all.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 15 },
+      "id": 23,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 1, "showPoints": "never" }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "max" }, "properties": [ { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [8, 4] } }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } } ] }
+        ]
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["mean", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(http_server_requests_seconds_sum{application=\"$application\", uri=~\"/api/v1/planning/(start|{sessionId}/(reply|revise))\"}[$__rate_interval])) / sum(rate(http_server_requests_seconds_count{application=\"$application\", uri=~\"/api/v1/planning/(start|{sessionId}/(reply|revise))\"}[$__rate_interval]))", "legendFormat": "avg" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "max(http_server_requests_seconds_max{application=\"$application\", uri=~\"/api/v1/planning/(start|{sessionId}/(reply|revise))\"})", "legendFormat": "max" }
       ]
     },
     {
@@ -387,6 +439,7 @@
     {
       "type": "stat",
       "title": "Users",
+      "description": "Total registered users (claimed + unclaimed).",
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "gridPos": { "h": 6, "w": 4, "x": 0, "y": 33 },
       "id": 41,
@@ -400,18 +453,21 @@
       ]
     },
     {
-      "type": "stat",
-      "title": "Demo users",
+      "type": "bargauge",
+      "title": "Users by type",
+      "description": "Claimed accounts vs. zero-registration accounts that haven't claimed yet, split by whether they've actually done any work. The three segments sum to total Users. See UsageMetrics.kt / the demo-account-unification doc.",
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "gridPos": { "h": 6, "w": 4, "x": 4, "y": 33 },
       "id": 42,
       "fieldConfig": {
-        "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "yellow" } },
+        "defaults": { "unit": "short", "color": { "mode": "palette-classic" } },
         "overrides": []
       },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "none", "textMode": "value" },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"] }, "showUnfilled": true },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "max(tasker_users_demo{application=\"$application\"})" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "max(tasker_users{application=\"$application\"}) - max(tasker_users_unclaimed{application=\"$application\"})", "legendFormat": "claimed" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "max(tasker_users_unclaimed{application=\"$application\"}) - max(tasker_users_engaged_unclaimed{application=\"$application\"})", "legendFormat": "unclaimed, idle" },
+        { "refId": "C", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "max(tasker_users_engaged_unclaimed{application=\"$application\"})", "legendFormat": "unclaimed, engaged" }
       ]
     },
     {
@@ -461,17 +517,68 @@
     },
     {
       "type": "row",
+      "title": "Email delivery & quick add",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 39 },
+      "id": 60,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Emails sent / min by purpose & outcome",
+      "description": "Auth sender (login / register / verification magic links) vs. scheduling sender (calendar invites). A rise in outcome=failure on purpose=auth means users can't log in — see EmailMetricsOutboundChannel.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 40 },
+      "id": 61,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "bars", "fillOpacity": 60, "lineWidth": 0, "showPoints": "never" }
+        },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": "/failure/" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] }
+        ]
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by (purpose, outcome) (rate(tasker_email_sent_total{application=\"$application\"}[$__rate_interval])) * 60", "legendFormat": "{{purpose}} — {{outcome}}" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Quick-add outcomes / min",
+      "description": "Telegram quick-capture funnel: saved vs. cancelled vs. expired (timed out waiting on the user). A rise in expired relative to saved means people are abandoning the flow — see QuickAddFlow / QuickAddRegistry.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 40 },
+      "id": 63,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "bars", "fillOpacity": 60, "lineWidth": 0, "showPoints": "never" }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "saved" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] },
+          { "matcher": { "id": "byName", "options": "expired" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } } ] }
+        ]
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by (result) (rate(tasker_quickadd_outcome_total{application=\"$application\"}[$__rate_interval])) * 60", "legendFormat": "{{result}}" }
+      ]
+    },
+    {
+      "type": "row",
       "title": "Background jobs & logs",
       "collapsed": true,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 39 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 48 },
       "id": 50,
       "panels": [
         {
           "type": "timeseries",
           "title": "Scheduled task runs / min by outcome",
-          "description": "Auto-archive, demo cleanup, conversation cleanup, usage-metrics refresh. A rise in non-SUCCESS outcomes means a background job is failing.",
+          "description": "Auto-archive, unclaimed-account cleanup, conversation cleanup, usage-metrics refresh. A rise in non-SUCCESS outcomes means a background job is failing.",
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 40 },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 49 },
           "id": 51,
           "fieldConfig": {
             "defaults": { "unit": "short", "custom": { "drawStyle": "bars", "fillOpacity": 60, "lineWidth": 0, "showPoints": "never" } },
@@ -486,7 +593,7 @@
           "type": "timeseries",
           "title": "Log events / min by level",
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 40 },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 49 },
           "id": 52,
           "fieldConfig": {
             "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 1, "showPoints": "never" } },
@@ -500,6 +607,35 @@
             { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by (level) (rate(logback_events_total{application=\"$application\", level=~\"warn|error\"}[$__rate_interval])) * 60", "legendFormat": "{{level}}" }
           ]
         }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Request logs (Loki)",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 57 },
+      "id": 70,
+      "panels": []
+    },
+    {
+      "type": "logs",
+      "title": "Recent application logs",
+      "description": "Live tail of the most recent structured log lines for the service.",
+      "datasource": { "type": "loki", "uid": "${logs_datasource}" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 58 },
+      "id": 72,
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessages": false,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "loki", "uid": "${logs_datasource}" }, "queryType": "range", "expr": "{service_name=\"tasks\"}" }
       ]
     }
   ]

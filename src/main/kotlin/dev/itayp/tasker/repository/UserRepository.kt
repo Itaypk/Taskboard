@@ -46,4 +46,6 @@ interface UserRepository : JpaRepository<UserEntity, UUID> {
     fun countByClaimed(claimed: Boolean): Long
 
     fun countByClaimedAndEngagedAtNotNull(claimed: Boolean): Long
+
+    fun countByClaimedAndLastActiveAtAfter(claimed: Boolean, cutoff: Instant): Long
 }

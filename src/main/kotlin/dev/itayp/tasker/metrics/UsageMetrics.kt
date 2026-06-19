@@ -13,6 +13,8 @@ import jakarta.annotation.PostConstruct
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
+import java.time.Clock
+import java.time.Duration
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
@@ -29,12 +31,14 @@ class UsageMetrics(
     private val backlogTaskRepository: BacklogTaskRepository,
     private val planningSessionRepository: PlanningSessionRepository,
     private val conversationRepository: ConversationRepository,
+    private val clock: Clock,
 ) {
     private val log = LoggerFactory.getLogger(UsageMetrics::class.java)
 
     private val totalUsers = AtomicLong(0)
     private val unclaimedUsers = AtomicLong(0)
     private val engagedUnclaimedUsers = AtomicLong(0)
+    private val activeUsers = AtomicLong(0)
     private val tasksByStatus = TaskStatus.entries.associateWith { AtomicLong(0) }
     private val sessionsByStatus = PlanningSessionStatus.entries.associateWith { AtomicLong(0) }
     private val activeConversations = AtomicLong(0)
@@ -49,6 +53,9 @@ class UsageMetrics(
             .register(meterRegistry)
         Gauge.builder("tasker.users.engaged_unclaimed", engagedUnclaimedUsers) { it.get().toDouble() }
             .description("Unclaimed accounts that did real work (anonymous -> engaged -> claimed funnel)")
+            .register(meterRegistry)
+        Gauge.builder("tasker.users.active", activeUsers) { it.get().toDouble() }
+            .description("Claimed users with activity in the last $ACTIVE_WINDOW_DAYS days")
             .register(meterRegistry)
         tasksByStatus.forEach { (status, holder) ->
             Gauge.builder("tasker.tasks.total", holder) { it.get().toDouble() }
@@ -76,11 +83,16 @@ class UsageMetrics(
             totalUsers.set(userRepository.count())
             unclaimedUsers.set(userRepository.countByClaimed(false))
             engagedUnclaimedUsers.set(userRepository.countByClaimedAndEngagedAtNotNull(false))
+            activeUsers.set(userRepository.countByClaimedAndLastActiveAtAfter(true, clock.instant().minus(Duration.ofDays(ACTIVE_WINDOW_DAYS))))
             tasksByStatus.forEach { (status, holder) -> holder.set(backlogTaskRepository.countByStatus(status)) }
             sessionsByStatus.forEach { (status, holder) -> holder.set(planningSessionRepository.countByStatus(status)) }
             activeConversations.set(conversationRepository.countByStatus(ConversationStatus.ACTIVE))
         } catch (e: Exception) {
             log.warn("Failed to refresh usage metrics", e)
         }
+    }
+
+    companion object {
+        private const val ACTIVE_WINDOW_DAYS = 30L
     }
 }
