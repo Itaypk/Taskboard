@@ -25,7 +25,7 @@ class AiCallGateConfiguration {
     @ConditionalOnMissingBean(AiCallGate::class)
     fun defaultAiCallGate(aiAccessService: AiAccessService): AiCallGate =
         AiCallGate { context, _ ->
-            aiAccessService.requireAiAllowedForUser(context.userId)
+            aiAccessService.requireAiEnabledForUser(context.userId)
             aiAccessService.requireWithinTierLimit(context.userId)
         }
 }

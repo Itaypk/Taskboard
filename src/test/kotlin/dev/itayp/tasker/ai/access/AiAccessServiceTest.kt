@@ -5,7 +5,6 @@ import dev.itayp.tasker.jpa.BoardMembershipEntity
 import dev.itayp.tasker.jpa.UserSettingsEntity
 import dev.itayp.tasker.repository.BoardMembershipRepository
 import dev.itayp.tasker.repository.UserSettingsRepository
-import dev.itayp.tasker.service.BoardMembershipService
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
@@ -28,7 +27,6 @@ class AiAccessServiceTest {
 
     @Mock lateinit var userSettingsRepository: UserSettingsRepository
     @Mock lateinit var boardMembershipRepository: BoardMembershipRepository
-    @Mock lateinit var boardMembershipService: BoardMembershipService
     @Mock lateinit var usageRepository: AiUsageEventRepository
 
     private val clock = Clock.fixed(Instant.parse("2026-06-19T10:00:00Z"), ZoneOffset.UTC)
@@ -37,7 +35,6 @@ class AiAccessServiceTest {
         AiAccessService(
             userSettingsRepository,
             boardMembershipRepository,
-            boardMembershipService,
             usageRepository,
             clock,
         )
@@ -61,34 +58,43 @@ class AiAccessServiceTest {
     }
 
     @Test
-    fun `requireAiAllowedForUser throws when the user has opted out`() {
+    fun `requireAiEnabledForUser throws when the user has opted out`() {
         whenever(userSettingsRepository.findById(userId)).thenReturn(Optional.of(settings(userId, enabled = false)))
 
-        assertFailsWith<AiDisabledException> { service.requireAiAllowedForUser(userId) }
+        assertFailsWith<AiDisabledException> { service.requireAiEnabledForUser(userId) }
     }
 
     @Test
-    fun `requireAiAllowedForUser throws when a co-member of a shared board has opted out`() {
+    fun `requireAiEnabledForUser passes when the user is opted in, regardless of co-member opt-outs`() {
+        // The per-user gate must not block on what other people did — they only block AI on the
+        // shared board (requireAiEnabledForBoard). The opted-in user keeps AI on their own boards.
         whenever(userSettingsRepository.findById(userId)).thenReturn(Optional.of(settings(userId, enabled = true)))
-        whenever(boardMembershipService.listBoardIds(userId)).thenReturn(listOf(boardId))
+
+        service.requireAiEnabledForUser(userId)
+    }
+
+    @Test
+    fun `requireAiEnabledForBoard throws when any member of the board opted out`() {
         whenever(boardMembershipRepository.findAllByBoardId(boardId)).thenReturn(
             listOf(membership(userId, boardId), membership(coMemberId, boardId))
         )
-        whenever(userSettingsRepository.findAllById(eq(listOf(coMemberId))))
-            .thenReturn(listOf(settings(coMemberId, enabled = false)))
+        whenever(userSettingsRepository.findAllById(eq(listOf(userId, coMemberId)))).thenReturn(
+            listOf(settings(userId, enabled = true), settings(coMemberId, enabled = false))
+        )
 
-        assertFailsWith<AiDisabledException> { service.requireAiAllowedForUser(userId) }
+        assertFailsWith<AiDisabledException> { service.requireAiEnabledForBoard(boardId) }
     }
 
     @Test
-    fun `requireAiAllowedForUser passes for solo board with AI on`() {
-        whenever(userSettingsRepository.findById(userId)).thenReturn(Optional.of(settings(userId, enabled = true)))
-        whenever(boardMembershipService.listBoardIds(userId)).thenReturn(listOf(boardId))
+    fun `requireAiEnabledForBoard passes when every member is opted in`() {
         whenever(boardMembershipRepository.findAllByBoardId(boardId)).thenReturn(
             listOf(membership(userId, boardId))
         )
+        whenever(userSettingsRepository.findAllById(eq(listOf(userId)))).thenReturn(
+            listOf(settings(userId, enabled = true))
+        )
 
-        service.requireAiAllowedForUser(userId)
+        service.requireAiEnabledForBoard(boardId)
     }
 
     @Test
@@ -117,18 +123,6 @@ class AiAccessServiceTest {
         )
 
         assertFalse(service.isAiEnabledForBoard(boardId))
-    }
-
-    @Test
-    fun `isAiEnabledForBoard is true when every member has AI on`() {
-        whenever(boardMembershipRepository.findAllByBoardId(boardId)).thenReturn(
-            listOf(membership(userId, boardId))
-        )
-        whenever(userSettingsRepository.findAllById(eq(listOf(userId)))).thenReturn(
-            listOf(settings(userId, enabled = true))
-        )
-
-        assertTrue(service.isAiEnabledForBoard(boardId))
     }
 
     @Test

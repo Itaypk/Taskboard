@@ -1,10 +1,8 @@
 package dev.itayp.tasker.ai.access
 
 import dev.itayp.tasker.ai.usage.AiUsageEventRepository
-import dev.itayp.tasker.jpa.UserSettingsEntity
-import dev.itayp.tasker.repository.UserSettingsRepository
-import dev.itayp.tasker.service.BoardMembershipService
 import dev.itayp.tasker.repository.BoardMembershipRepository
+import dev.itayp.tasker.repository.UserSettingsRepository
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.web.bind.annotation.ResponseStatus
@@ -19,15 +17,15 @@ import java.util.UUID
  *   - the per-tier rolling-window token budget (`ai_tier`) — currently STANDARD for everyone,
  *     enforced by the [dev.itayp.tasker.ai.client.AiCallGate].
  *
- * Shared-board rule: AI work scoped to a board (planning, suggestions over board data) requires
- * every member of that board to have AI enabled. If any member opts out, the whole board's AI
- * features are unavailable to everyone — opting out covers data-on-shared-boards too.
+ * The shared-board veto is **per board**, not per user: a co-member's opt-out blocks AI on
+ * the shared board only. The opted-in user keeps using AI on their own / other boards. Callers
+ * operating against a specific board (planner, board-scoped tools) call
+ * [requireAiEnabledForBoard]; the per-call gate only checks the user-level toggle and tier.
  */
 @Service
 class AiAccessService(
     private val userSettingsRepository: UserSettingsRepository,
     private val boardMembershipRepository: BoardMembershipRepository,
-    private val boardMembershipService: BoardMembershipService,
     private val usageRepository: AiUsageEventRepository,
     private val clock: Clock,
 ) {
@@ -39,8 +37,7 @@ class AiAccessService(
         AiTier.fromName(userSettingsRepository.findById(userId).map { it.aiTier }.orElse(null))
 
     /**
-     * True iff every member of [boardId] has AI enabled. Used by callers that act over board
-     * data (the planner, board-scoped suggestions). For solo boards this collapses to the
+     * True iff every member of [boardId] has AI enabled. For solo boards this collapses to the
      * single member's toggle.
      */
     fun isAiEnabledForBoard(boardId: UUID): Boolean {
@@ -50,27 +47,22 @@ class AiAccessService(
         return userSettingsRepository.findAllById(memberIds).all { it.aiEnabled }
     }
 
-    /**
-     * Throws [AiDisabledException] if the calling user has opted out, or if any board they belong
-     * to has another member who opted out (so a co-member can block AI access to shared data).
-     * This is the broad check the call gate runs before every outbound AI request.
-     */
-    fun requireAiAllowedForUser(userId: UUID) {
-        val settings: UserSettingsEntity? = userSettingsRepository.findById(userId).orElse(null)
-        if (settings != null && !settings.aiEnabled) {
+    /** Throws [AiDisabledException] when the caller has flipped AI off in their settings. */
+    fun requireAiEnabledForUser(userId: UUID) {
+        if (!isAiEnabledForUser(userId)) {
             throw AiDisabledException("User $userId has AI disabled")
         }
-        val boardIds = boardMembershipService.listBoardIds(userId)
-        if (boardIds.isEmpty()) return
-        val otherMembers = boardIds
-            .flatMap { boardMembershipRepository.findAllByBoardId(it) }
-            .mapNotNull { it.userId }
-            .filter { it != userId }
-            .distinct()
-        if (otherMembers.isEmpty()) return
-        val anyOptedOut = userSettingsRepository.findAllById(otherMembers).any { !it.aiEnabled }
-        if (anyOptedOut) {
-            throw AiDisabledException("User $userId shares a board with a member who has AI disabled")
+    }
+
+    /**
+     * Throws [AiDisabledException] when any member of [boardId] has flipped AI off. Use this
+     * at every AI entry point that reads or writes board data — the per-user gate is *not*
+     * a substitute, since it intentionally ignores co-member opt-outs to let the caller keep
+     * using AI on boards where everyone is opted in.
+     */
+    fun requireAiEnabledForBoard(boardId: UUID) {
+        if (!isAiEnabledForBoard(boardId)) {
+            throw AiDisabledException("Board $boardId has a member with AI disabled")
         }
     }
 
