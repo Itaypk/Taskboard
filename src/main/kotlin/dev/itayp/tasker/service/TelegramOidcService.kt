@@ -101,7 +101,7 @@ class TelegramOidcService(
         )
     }
 
-    private fun telegramId(jwt: Jwt): Long? = when (val raw = jwt.getClaim<Any?>("id")) {
+    private fun telegramId(jwt: Jwt): Long? = when (val raw = jwt.getClaim<Any>("id")) {
         is Number -> raw.toLong()
         is String -> raw.toLongOrNull()
         else -> null
