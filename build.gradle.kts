@@ -3,7 +3,7 @@ import org.gradle.language.jvm.tasks.ProcessResources
 plugins {
 	kotlin("jvm") version "2.4.0"
 	kotlin("plugin.spring") version "2.4.0"
-	id("org.springframework.boot") version "4.0.6"
+	id("org.springframework.boot") version "4.1.0"
 	id("io.spring.dependency-management") version "1.1.7"
 	kotlin("plugin.jpa") version "2.4.0"
 }
@@ -48,7 +48,7 @@ dependencies {
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
 	implementation("tools.jackson.module:jackson-module-kotlin")
 	implementation("org.liquibase:liquibase-core")
-	implementation("io.micrometer:micrometer-registry-prometheus:1.16.6")
+	implementation("io.micrometer:micrometer-registry-prometheus:1.17.0")
 	implementation("net.logstash.logback:logstash-logback-encoder:9.0")
 	implementation("com.github.jknack:handlebars:4.5.1")
 	implementation("org.telegram:telegrambots-springboot-longpolling-starter:10.0.0")

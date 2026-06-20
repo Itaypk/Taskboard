@@ -23,11 +23,11 @@ class TelegramOidcConfiguration {
     @Bean
     fun telegramJwtDecoder(properties: TelegramAuthProperties): JwtDecoder {
         val decoder = NimbusJwtDecoder.withJwkSetUri(properties.jwkSetUri).build()
-        val validators = buildList<OAuth2TokenValidator<Jwt>> {
+        val validators = buildList {
             add(JwtValidators.createDefaultWithIssuer(properties.issuer))
             // Only enforce the audience when configured, so dev/test (no Client ID) can still boot.
             if (properties.clientId.isNotBlank()) {
-                add(JwtClaimValidator<List<String>?>(JwtClaimNames.AUD) { aud ->
+                add(JwtClaimValidator<List<String>>(JwtClaimNames.AUD) { aud ->
                     aud != null && aud.contains(properties.clientId)
                 })
             }
