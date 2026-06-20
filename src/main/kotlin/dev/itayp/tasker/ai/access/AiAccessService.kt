@@ -92,13 +92,40 @@ class AiAccessService(
      */
     fun requireWithinTierLimit(userId: UUID) {
         val limit = tierFor(userId).monthlyTokenLimit ?: return
-        val since = clock.instant().minus(Duration.ofDays(30))
+        val since = clock.instant().minus(Duration.ofDays(WINDOW_DAYS))
         val used = usageRepository.sumTotalTokensByUserIdSince(userId, since)
         if (used >= limit) {
             throw AiUsageLimitExceededException(userId, used, limit)
         }
     }
+
+    /**
+     * Snapshot of the user's tier and how much of its rolling-window budget they've spent — drives
+     * the usage meter in settings. [AiUsageSummary.limitTokens] is null for UNLIMITED tiers.
+     */
+    fun usageSummaryFor(userId: UUID): AiUsageSummary {
+        val tier = tierFor(userId)
+        val since = clock.instant().minus(Duration.ofDays(WINDOW_DAYS))
+        val used = usageRepository.sumTotalTokensByUserIdSince(userId, since)
+        return AiUsageSummary(
+            tier = tier.tierName,
+            usedTokens = used,
+            limitTokens = tier.monthlyTokenLimit,
+            windowDays = WINDOW_DAYS.toInt(),
+        )
+    }
+
+    private companion object {
+        const val WINDOW_DAYS = 30L
+    }
 }
+
+data class AiUsageSummary(
+    val tier: String,
+    val usedTokens: Long,
+    val limitTokens: Long?,
+    val windowDays: Int,
+)
 
 @ResponseStatus(HttpStatus.FORBIDDEN)
 class AiDisabledException(message: String) : RuntimeException(message)

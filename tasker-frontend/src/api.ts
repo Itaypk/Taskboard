@@ -1,4 +1,4 @@
-import type { Task, Category, Tag, UserSettings, SettingsOptions, CurrentPlan, TimeSlot, Stats } from './types';
+import type { Task, Category, Tag, UserSettings, SettingsOptions, CurrentPlan, TimeSlot, Stats, AiUsage } from './types';
 
 const BASE = '/api/v1';
 
@@ -381,6 +381,9 @@ export const updateUserSettings = (payload: UserSettingsPayload): Promise<UserSe
 
 export const fetchSettingsOptions = (): Promise<SettingsOptions> =>
     apiRequest('/settings/options');
+
+export const fetchAiUsage = (): Promise<AiUsage> =>
+    apiRequest('/settings/ai-usage');
 
 export const requestEmailVerification = (email: string): Promise<void> =>
     apiRequest('/settings/email', { method: 'POST', ...jsonBody({ email }) });

@@ -1,5 +1,7 @@
 package dev.itayp.tasker.controller
 
+import dev.itayp.tasker.ai.access.AiAccessService
+import dev.itayp.tasker.ai.access.AiUsageSummary
 import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.model.request.TokenRequest
 import dev.itayp.tasker.model.request.UpdateEmailRequest
@@ -35,6 +37,7 @@ class UserSettingsController(
     private val emailVerificationService: EmailVerificationService,
     private val userRepository: UserRepository,
     private val userCrypto: UserCryptoService,
+    private val aiAccessService: AiAccessService,
 ) {
 
     private val log = LoggerFactory.getLogger(UserSettingsController::class.java)
@@ -48,6 +51,12 @@ class UserSettingsController(
         val email = userCrypto.decrypt(principal.userId, user.email)
         return ResponseEntity.ok(settings.toResponse(email, user.emailVerifiedAt != null))
     }
+
+    @GetMapping("/ai-usage")
+    fun getAiUsage(
+        @AuthenticationPrincipal principal: TaskerPrincipal,
+    ): ResponseEntity<AiUsageSummary> =
+        ResponseEntity.ok(aiAccessService.usageSummaryFor(principal.userId))
 
     @PutMapping
     fun updateSettings(

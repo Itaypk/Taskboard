@@ -1,0 +1,107 @@
+.loading {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--ink-ghost);
+  margin: 4px 0;
+}
+
+.card {
+  background: var(--accent-paper);
+  border: 1px solid var(--paper-border);
+  border-radius: calc(var(--r) + 2px);
+  padding: 14px 16px;
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.headline {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+
+.remaining {
+  font-family: var(--font-serif);
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--accent-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.remainingLabel {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.tier {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-ghost);
+  padding: 3px 8px;
+  border: 1px solid var(--paper-border-2);
+  border-radius: 999px;
+}
+
+.track {
+  position: relative;
+  height: 8px;
+  margin: 12px 0 10px;
+  background: var(--paper-surface-2);
+  border-radius: 999px;
+  overflow: hidden;
+  /* Filled portion color, shifted by data-level below. */
+  --meter-fill: var(--ink);
+}
+
+.track[data-level='low']      { --meter-fill: #E8B860; } /* amber — see washi tape system */
+.track[data-level='critical'] { --meter-fill: #EC7D5C; } /* coral */
+
+.fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--meter-fill);
+  border-radius: 999px;
+  transition: width var(--t-slow), background-color var(--t);
+}
+
+.caption {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.unlimitedBadge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent-ink);
+  padding: 4px 10px;
+  border: 1px solid var(--paper-border-2);
+  border-radius: 999px;
+}
+
+.unlimitedNote {
+  margin: 10px 0 0;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fill { transition: none; }
+}

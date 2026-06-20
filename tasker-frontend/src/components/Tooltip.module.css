@@ -1,0 +1,56 @@
+.wrap {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+
+.bubble {
+  position: fixed;
+  /* Above every other layer (overlay/drawer 51, toast 10000) — the bubble is portalled to <body>
+     so its z-index competes globally, not within the modal's stacking context. */
+  z-index: 10001;
+  min-width: 200px;
+  max-width: 280px;
+  padding: 8px 10px;
+  background: var(--ink);
+  color: #fff;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.45;
+  text-transform: none;
+  letter-spacing: 0;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+  opacity: 0;
+  transition: opacity 120ms, transform 120ms;
+  pointer-events: none;
+  white-space: normal;
+}
+
+/* Anchored at the trigger's top-left, floated above it (default). */
+.bubbleRight {
+  transform: translateY(calc(-100% - 4px));
+}
+
+/* Anchored at the trigger's top-right, growing leftwards — for controls near the dialog edge. */
+.bubbleLeft {
+  transform: translate(-100%, calc(-100% - 4px));
+}
+
+.bubbleRight.bubbleVisible {
+  opacity: 1;
+  transform: translateY(calc(-100% - 6px));
+}
+
+.bubbleLeft.bubbleVisible {
+  opacity: 1;
+  transform: translate(-100%, calc(-100% - 6px));
+}
+
+.bubble code {
+  background: rgba(255, 255, 255, 0.12);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 11px;
+}

@@ -124,6 +124,15 @@ export interface UserSettings {
   categories: Category[];
 }
 
+export interface AiUsage {
+  tier: string;
+  usedTokens: number;
+  /** null for unlimited tiers — no budget cap. */
+  limitTokens: number | null;
+  /** Length of the rolling usage window, in days. */
+  windowDays: number;
+}
+
 export interface Stats {
   joinedAt: string | null;
   openTasks: number;

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef, type ChangeEvent } from 'react';
 import styles from './SettingsModal.module.css';
 import type { UserSettings, Task, SettingsOptions } from '../types';
+import { AiUsageMeter } from './AiUsageMeter';
 import { CategoryEditor } from './CategoryEditor';
 import { ConnectedAccounts } from './ConnectedAccounts';
 import { HelpTip } from './HelpTip';
@@ -61,7 +62,8 @@ function parseCron(cron: string | null | undefined): { day: string; time: string
 
 export function SettingsModal({ boardId, settings, tasks, open, initialTab, onClose, onSave, onAccountDeleted }: SettingsModalProps) {
   const [form, setForm] = useState<UserSettings>(settings);
-  const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+  const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab ?? 'general');
+  const [lastInitialTab, setLastInitialTab] = useState(initialTab);
   const [wasOpen, setWasOpen] = useState(open);
   const [saving, setSaving] = useState(false);
   const [options, setOptions] = useState<SettingsOptions | null>(null);
@@ -82,15 +84,15 @@ export function SettingsModal({ boardId, settings, tasks, open, initialTab, onCl
     setDeleteConfirm(false);
     setVerificationSent(false);
     setActiveTab(initialTab ?? 'general');
+    setLastInitialTab(initialTab);
   } else if (!open && wasOpen) {
     setWasOpen(false);
+  } else if (open && initialTab && initialTab !== lastInitialTab) {
+    // The `/settings/<tab>` route changed while the modal was already open (the open-edge above
+    // only fires on closed→open). Track the applied value so manual tab clicks aren't overridden.
+    setLastInitialTab(initialTab);
+    setActiveTab(initialTab);
   }
-
-  // Keep the tab in sync when the `/settings/<tab>` route changes while the modal is already open
-  // (the open-transition above only fires on the closed→open edge).
-  useEffect(() => {
-    if (open && initialTab) setActiveTab(initialTab);
-  }, [open, initialTab]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -110,6 +112,7 @@ export function SettingsModal({ boardId, settings, tasks, open, initialTab, onCl
   }, [open, options]);
 
   const planningParts = useMemo(() => parseCron(form.planningCron), [form.planningCron]);
+  const planningEnabled = planningParts.day !== '';
 
   const usage = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -407,36 +410,6 @@ export function SettingsModal({ boardId, settings, tasks, open, initialTab, onCl
                 </select>
               </div>
 
-              <div className="field">
-                <label className="field__label">
-                  Weekly planning schedule
-                  <HelpTip text="We'll start your planning session via Telegram at this time each week." />
-                </label>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <select
-                    aria-label="Planning day"
-                    className="field__input"
-                    style={{ width: 'auto' }}
-                    value={planningParts.day}
-                    onChange={e => setForm(f => ({ ...f, planningCron: composeCron(e.target.value, planningParts.time) }))}
-                  >
-                    <option value="">Off</option>
-                    {DAYS_OF_WEEK.map(d => (
-                      <option key={d.value} value={d.cron}>{d.label}</option>
-                    ))}
-                  </select>
-                  <input
-                    aria-label="Planning time"
-                    type="time"
-                    className="field__input"
-                    style={{ width: 'auto' }}
-                    value={planningParts.time}
-                    disabled={!planningParts.day}
-                    onChange={e => setForm(f => ({ ...f, planningCron: composeCron(planningParts.day, e.target.value) }))}
-                  />
-                </div>
-              </div>
-
               <div className="danger-zone">
                 <p className="danger-zone__label">Danger zone</p>
                 <div className="danger-zone__actions">
@@ -532,15 +505,48 @@ export function SettingsModal({ boardId, settings, tasks, open, initialTab, onCl
               <div className="field">
                 <label className="field__label">
                   AI plan
-                  <HelpTip side="left" text="Sets the monthly usage budget for AI-driven features." />
+                  <HelpTip side="left" text="Your token budget for AI-driven features over a rolling 30-day window." />
                 </label>
-                <p className="settings-hint">Your current AI plan: <strong>{form.aiTier}</strong>.</p>
+                <AiUsageMeter />
               </div>
 
-              <fieldset
-                disabled={!form.aiEnabled}
-                style={{ border: 'none', padding: 0, margin: 0, opacity: form.aiEnabled ? 1 : 0.55 }}
-              >
+              <fieldset className={styles.aiFieldset} disabled={!form.aiEnabled}>
+              <div className="field">
+                <label className="field__label">
+                  Weekly planning session
+                  <HelpTip text="We'll start your planning conversation via Telegram at this time each week." />
+                </label>
+                <Toggle
+                  checked={planningEnabled}
+                  onChange={next => setForm(f => ({
+                    ...f,
+                    planningCron: next ? composeCron('MON', planningParts.time) : null,
+                  }))}
+                  label="Start a weekly planning session"
+                />
+                {planningEnabled && (
+                  <div className={styles.planningRow}>
+                    <select
+                      aria-label="Planning day"
+                      className="field__input"
+                      value={planningParts.day}
+                      onChange={e => setForm(f => ({ ...f, planningCron: composeCron(e.target.value, planningParts.time) }))}
+                    >
+                      {DAYS_OF_WEEK.map(d => (
+                        <option key={d.value} value={d.cron}>{d.label}</option>
+                      ))}
+                    </select>
+                    <input
+                      aria-label="Planning time"
+                      type="time"
+                      className="field__input"
+                      value={planningParts.time}
+                      onChange={e => setForm(f => ({ ...f, planningCron: composeCron(planningParts.day, e.target.value) }))}
+                    />
+                  </div>
+                )}
+              </div>
+
               <div className="field">
                 <label className="field__label" htmlFor="settings-gender">
                   How should the assistant address you?

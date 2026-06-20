@@ -61,8 +61,8 @@ class PlannerTaskSelector(
             .findAllByBoardIdInAndStatusOrderBySortKeyAsc(boardIds, TaskStatus.TODO)
             .map { it.toDomain(boardCrypto) }
             .filter { it.relevantFrom == null || !it.relevantFrom.isAfter(today) }
-            // Decision 7: never offer a task another member has claimed — only unassigned or mine.
             .filter { it.assigneeUserId == null || it.assigneeUserId == userId }
+            .filterNot { it.tutorial }
 
         val totalSlots = urgentSlots + staleSlots
         val (urgent, stale) = if (tasks.size <= totalSlots) {

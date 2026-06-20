@@ -1,3 +1,32 @@
 .archiveDaysInput {
   width: 80px;
 }
+
+/* The AI-gated fields share the dialog's inter-field rhythm; a bare <fieldset> has no gap of its
+   own, so without this its children would collapse against each other. Greys out when AI is off. */
+.aiFieldset {
+  border: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.aiFieldset:disabled {
+  opacity: 0.55;
+}
+
+.planningRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+/* The day/time controls size to content rather than filling the row. */
+.planningRow select,
+.planningRow input {
+  width: auto;
+}

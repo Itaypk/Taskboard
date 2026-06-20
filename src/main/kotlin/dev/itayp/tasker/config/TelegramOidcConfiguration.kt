@@ -3,13 +3,7 @@ package dev.itayp.tasker.config
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator
-import org.springframework.security.oauth2.core.OAuth2TokenValidator
-import org.springframework.security.oauth2.jwt.Jwt
-import org.springframework.security.oauth2.jwt.JwtClaimNames
-import org.springframework.security.oauth2.jwt.JwtClaimValidator
-import org.springframework.security.oauth2.jwt.JwtDecoder
-import org.springframework.security.oauth2.jwt.JwtValidators
-import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
+import org.springframework.security.oauth2.jwt.*
 import org.springframework.web.client.RestClient
 
 /**
@@ -28,7 +22,7 @@ class TelegramOidcConfiguration {
             // Only enforce the audience when configured, so dev/test (no Client ID) can still boot.
             if (properties.clientId.isNotBlank()) {
                 add(JwtClaimValidator<List<String>>(JwtClaimNames.AUD) { aud ->
-                    aud != null && aud.contains(properties.clientId)
+                    aud.contains(properties.clientId)
                 })
             }
         }
