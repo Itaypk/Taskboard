@@ -3,7 +3,9 @@ import styles from './SettingsModal.module.css';
 import type { UserSettings, Task, SettingsOptions } from '../types';
 import { CategoryEditor } from './CategoryEditor';
 import { ConnectedAccounts } from './ConnectedAccounts';
+import { HelpTip } from './HelpTip';
 import { Tabs } from './Tabs';
+import { Toggle } from './Toggle';
 import { createCategory, updateCategory, deleteCategory, updateUserSettings, fetchSettingsOptions, deleteAccount, exportAccount, importAccount, requestEmailVerification } from '../api';
 import type { ImportSummary } from '../api';
 import type { SettingsTab } from '../taskLink';
@@ -319,8 +321,10 @@ export function SettingsModal({ boardId, settings, tasks, open, initialTab, onCl
               <ConnectedAccounts />
 
               <div className="field">
-                <label className="field__label" htmlFor="settings-auto-archive">Auto-archive done tasks</label>
-                <p className="settings-hint">Automatically archive done tasks after this many days. Leave blank to disable.</p>
+                <label className="field__label" htmlFor="settings-auto-archive">
+                  Auto-archive done tasks
+                  <HelpTip text="Done tasks are archived after this many days. Leave blank to disable." />
+                </label>
                 <input
                   id="settings-auto-archive"
                   className={`field__input ${styles.archiveDaysInput}`}
@@ -386,8 +390,10 @@ export function SettingsModal({ boardId, settings, tasks, open, initialTab, onCl
               </div>
 
               <div className="field">
-                <label className="field__label" htmlFor="settings-week-start">First day of the week</label>
-                <p className="settings-hint">Used to frame "this week" during your planning sessions.</p>
+                <label className="field__label" htmlFor="settings-week-start">
+                  First day of the week
+                  <HelpTip text="Frames &quot;this week&quot; during your planning sessions." />
+                </label>
                 <select
                   id="settings-week-start"
                   className="field__input"
@@ -402,8 +408,10 @@ export function SettingsModal({ boardId, settings, tasks, open, initialTab, onCl
               </div>
 
               <div className="field">
-                <label className="field__label">Weekly planning schedule</label>
-                <p className="settings-hint">We'll start your planning session via Telegram at this time each week.</p>
+                <label className="field__label">
+                  Weekly planning schedule
+                  <HelpTip text="We'll start your planning session via Telegram at this time each week." />
+                </label>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                   <select
                     aria-label="Planning day"
@@ -507,29 +515,26 @@ export function SettingsModal({ boardId, settings, tasks, open, initialTab, onCl
           {activeTab === 'assistant' && (
             <>
               <div className="field">
-                <label className="field__label">AI access</label>
-                <p className="settings-hint">
-                  Turn this off to disable every AI-driven feature for your account: weekly planning,
-                  quick capture suggestions, and the Telegram <code>/plan</code> and <code>/add</code>
-                  commands. If you share a board with other people, the board's AI features stop working
-                  for them too while yours is off.
-                </p>
-                <label className="settings-toggle">
-                  <input
-                    type="checkbox"
-                    checked={form.aiEnabled}
-                    onChange={e => setForm(f => ({ ...f, aiEnabled: e.target.checked }))}
+                <label className="field__label">
+                  AI access
+                  <HelpTip
+                    side="left"
+                    text="Turns off every AI-driven feature for your account: weekly planning, quick-capture suggestions, and the Telegram /plan and /add commands. On a board you share, the board's AI features stop working for everyone while yours is off."
                   />
-                  <span>Allow AI features to read my data</span>
                 </label>
+                <Toggle
+                  checked={form.aiEnabled}
+                  onChange={next => setForm(f => ({ ...f, aiEnabled: next }))}
+                  label="Allow AI features to read my data"
+                />
               </div>
 
               <div className="field">
-                <label className="field__label">AI plan</label>
-                <p className="settings-hint">
-                  Your current AI plan: <strong>{form.aiTier}</strong>. Sets the monthly usage budget
-                  for AI-driven features.
-                </p>
+                <label className="field__label">
+                  AI plan
+                  <HelpTip side="left" text="Sets the monthly usage budget for AI-driven features." />
+                </label>
+                <p className="settings-hint">Your current AI plan: <strong>{form.aiTier}</strong>.</p>
               </div>
 
               <fieldset
@@ -537,8 +542,10 @@ export function SettingsModal({ boardId, settings, tasks, open, initialTab, onCl
                 style={{ border: 'none', padding: 0, margin: 0, opacity: form.aiEnabled ? 1 : 0.55 }}
               >
               <div className="field">
-                <label className="field__label" htmlFor="settings-gender">How should the assistant address you?</label>
-                <p className="settings-hint">Sets pronouns and gendered language used during planning conversations.</p>
+                <label className="field__label" htmlFor="settings-gender">
+                  How should the assistant address you?
+                  <HelpTip text="Sets pronouns and gendered language used during planning conversations." />
+                </label>
                 <select
                   id="settings-gender"
                   className="field__select"
@@ -553,10 +560,10 @@ export function SettingsModal({ boardId, settings, tasks, open, initialTab, onCl
               </div>
 
               <div className="field">
-                <label className="field__label">Personal context</label>
-                <p className="settings-hint">
-                  Facts the AI planner will use when scheduling your week — preferences, recurring commitments, energy patterns.
-                </p>
+                <label className="field__label">
+                  Personal context
+                  <HelpTip text="Facts the AI planner will use when scheduling your week — preferences, recurring commitments, energy patterns." />
+                </label>
                 <textarea
                   className="field__textarea"
                   value={form.contextBlock}
