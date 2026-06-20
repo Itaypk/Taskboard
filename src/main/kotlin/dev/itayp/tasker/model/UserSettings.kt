@@ -18,4 +18,6 @@ data class UserSettings(
     val planningCron: String?,
     val weekStartDay: String?,
     val autoArchiveDays: Int?,
+    val aiEnabled: Boolean = true,
+    val aiTier: String = "standard",
 )

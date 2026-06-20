@@ -1,5 +1,6 @@
 package dev.itayp.tasker.planning
 
+import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.crypto.BoardCryptoService
 import dev.itayp.tasker.jpa.toDomain
 import dev.itayp.tasker.model.BacklogTask
@@ -35,6 +36,7 @@ class PlannerTaskSelector(
     private val boardCrypto: BoardCryptoService,
     private val boardMembershipService: BoardMembershipService,
     private val boardService: BoardService,
+    private val aiAccessService: AiAccessService,
     private val clock: Clock,
 ) {
 
@@ -47,9 +49,12 @@ class PlannerTaskSelector(
         urgentSlots: Int = DEFAULT_URGENT_SLOTS,
         staleSlots: Int = DEFAULT_STALE_SLOTS,
     ): PlannerTaskSelection {
-        // Candidates span every board the user belongs to; each task carries its boardId, and
-        // boardNames lets the prompt label them (only meaningfully when the user has >1 board).
+        // Candidates span every board the user belongs to *that AI is allowed to read*. A board
+        // with a member who opted out of AI is dropped here so its tasks never reach the model;
+        // each remaining task carries its boardId, and boardNames lets the prompt label them.
+        val allowedBoardIds = aiAccessService.aiAllowedBoardIds(userId)
         val boards = boardService.listBoardsForUser(userId)
+            .filter { it.id in allowedBoardIds }
         val boardNames = boards.associate { it.id to it.name }
         val boardIds = boards.map { it.id }
         val tasks = if (boardIds.isEmpty()) emptyList() else backlogTaskRepository

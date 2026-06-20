@@ -496,12 +496,23 @@ function OverviewActions({ entry, viewedPlan, loading, busy, onStart, onRevise, 
     return <p className={styles.entryHint}>Loading…</p>;
   }
 
+  const aiOff = !entry.aiAvailable;
+  // Disable starting / resuming / revising when AI is unavailable to the caller — either they
+  // opted out themselves or every board they belong to has a co-member who opted out. The plan
+  // itself stays readable; only the AI-driven actions are gated.
+  const aiHint = aiOff ? (
+    <p className={styles.actionsNote}>
+      AI planning is disabled. Re-enable it in Settings → Assistant, or ask a co-member who
+      opted out to do the same on a board you share.
+    </p>
+  ) : null;
+
   if (entry.activeSessionId) {
     const id = entry.activeSessionId;
     return (
       <div className={styles.actions}>
-        <p className={styles.actionsNote}>A planning session is in progress.</p>
-        <button type="button" className={`${styles.entryBtn} ${styles.entryPrimary}`} disabled={busy} onClick={() => onContinue(id)}>
+        {aiHint ?? <p className={styles.actionsNote}>A planning session is in progress.</p>}
+        <button type="button" className={`${styles.entryBtn} ${styles.entryPrimary}`} disabled={busy || aiOff} onClick={() => onContinue(id)}>
           Continue planning
         </button>
         <button type="button" className={styles.entryBtn} disabled={busy} onClick={() => onAbandon(id)}>
@@ -515,15 +526,16 @@ function OverviewActions({ entry, viewedPlan, loading, busy, onStart, onRevise, 
   const revisable = viewedPlan && viewedPlan.status === 'completed' ? viewedPlan.id : null;
   return (
     <div className={styles.actions}>
+      {aiHint}
       {revisable && (
-        <button type="button" className={`${styles.entryBtn} ${styles.entryPrimary}`} disabled={busy} onClick={() => onRevise(revisable)}>
+        <button type="button" className={`${styles.entryBtn} ${styles.entryPrimary}`} disabled={busy || aiOff} onClick={() => onRevise(revisable)}>
           Revise this plan
         </button>
       )}
-      <button type="button" className={`${styles.entryBtn} ${revisable ? '' : styles.entryPrimary}`} disabled={busy} onClick={() => onStart('CURRENT')}>
+      <button type="button" className={`${styles.entryBtn} ${revisable ? '' : styles.entryPrimary}`} disabled={busy || aiOff} onClick={() => onStart('CURRENT')}>
         Plan this week<span className={styles.entryDates}>{formatRange(entry.thisWeek.weekStart, entry.thisWeek.weekEnd)}</span>
       </button>
-      <button type="button" className={styles.entryBtn} disabled={busy} onClick={() => onStart('NEXT')}>
+      <button type="button" className={styles.entryBtn} disabled={busy || aiOff} onClick={() => onStart('NEXT')}>
         Plan next week<span className={styles.entryDates}>{formatRange(entry.nextWeek.weekStart, entry.nextWeek.weekEnd)}</span>
       </button>
     </div>

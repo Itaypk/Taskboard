@@ -1,5 +1,6 @@
 package dev.itayp.tasker.controller
 
+import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ConversationChannel
 import dev.itayp.tasker.config.SecurityConfiguration
@@ -53,6 +54,9 @@ class WebPlanningControllerTest(@Autowired val mockMvc: MockMvc) {
     lateinit var userSettingsService: UserSettingsService
 
     @MockitoBean
+    lateinit var aiAccessService: AiAccessService
+
+    @MockitoBean
     lateinit var clock: Clock
 
     private val userId = UUID.fromString("00000000-0000-0000-0000-000000000099")
@@ -75,6 +79,7 @@ class WebPlanningControllerTest(@Autowired val mockMvc: MockMvc) {
         stubWeekResolution()
         whenever(planningSessionService.findActiveSession(userId)).thenReturn(null)
         whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(null)
+        whenever(aiAccessService.isAiAvailableForUser(userId)).thenReturn(true)
 
         mockMvc.perform(get("/api/v1/planning/entry").with(authentication(auth)))
             .andExpect(status().isOk)
@@ -84,6 +89,7 @@ class WebPlanningControllerTest(@Autowired val mockMvc: MockMvc) {
             .andExpect(jsonPath("$.thisWeek.weekStart").value("2026-06-01"))
             .andExpect(jsonPath("$.thisWeek.weekEnd").value("2026-06-07"))
             .andExpect(jsonPath("$.nextWeek.weekStart").value("2026-06-08"))
+            .andExpect(jsonPath("$.aiAvailable").value(true))
     }
 
     @Test
@@ -92,11 +98,24 @@ class WebPlanningControllerTest(@Autowired val mockMvc: MockMvc) {
         whenever(planningSessionService.findActiveSession(userId)).thenReturn(null)
         whenever(planningSessionService.findCurrentPlan(userId))
             .thenReturn(session(PlanningSessionStatus.COMPLETED, summary = "Last week recap"))
+        whenever(aiAccessService.isAiAvailableForUser(userId)).thenReturn(true)
 
         mockMvc.perform(get("/api/v1/planning/entry").with(authentication(auth)))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.completedPlanSummary").value("Last week recap"))
             .andExpect(jsonPath("$.revisableSessionId").value(sessionId.toString()))
+    }
+
+    @Test
+    fun `entry reports aiAvailable=false when AI is unavailable to the caller`() {
+        stubWeekResolution()
+        whenever(planningSessionService.findActiveSession(userId)).thenReturn(null)
+        whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(null)
+        whenever(aiAccessService.isAiAvailableForUser(userId)).thenReturn(false)
+
+        mockMvc.perform(get("/api/v1/planning/entry").with(authentication(auth)))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.aiAvailable").value(false))
     }
 
     @Test

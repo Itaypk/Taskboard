@@ -32,6 +32,8 @@ class AddBotCommand(
 
     override val description = "Quickly add a task"
 
+    override val requiresAi = true
+
     override fun handle(context: BotCommandContext) {
         val activeSessionId = context.sessionRegistry.get(context.chatId)
         if (activeSessionId != null && orchestrator.phase(activeSessionId) != null) {

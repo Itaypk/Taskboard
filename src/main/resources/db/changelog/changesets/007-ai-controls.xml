@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Per-user AI controls:
+          - ai_enabled : hard binary opt-out. When false, AiCallGate refuses every call attributed
+                        to this user; on shared boards, AiAccessService refuses board-scoped AI work
+                        for any board this user is a member of.
+          - ai_tier    : subscription tier name (currently always "standard"); the gate maps it to
+                        a rolling-window token budget. New tiers add rows in AiTier without a
+                        schema change.
+    -->
+    <changeSet id="007-1-ai-controls" author="tasker">
+        <addColumn tableName="user_settings">
+            <column name="ai_enabled" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ai_tier" type="VARCHAR(32)" defaultValue="standard">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

@@ -27,6 +27,8 @@ data class UserSettingsResponse(
     val planningCron: String?,
     val weekStartDay: String?,
     val autoArchiveDays: Int?,
+    val aiEnabled: Boolean,
+    val aiTier: String,
     val email: String?,
     val emailVerified: Boolean,
 )
@@ -42,6 +44,8 @@ fun UserSettings.toResponse(email: String?, emailVerified: Boolean) = UserSettin
     planningCron = planningCron,
     weekStartDay = weekStartDay,
     autoArchiveDays = autoArchiveDays,
+    aiEnabled = aiEnabled,
+    aiTier = aiTier,
     email = email,
     emailVerified = emailVerified,
 )

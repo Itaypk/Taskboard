@@ -1,5 +1,6 @@
 package dev.itayp.tasker.controller
 
+import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.channel.BufferedConversationChannel
 import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.MarkdownMessageFormatter
@@ -45,6 +46,7 @@ class WebPlanningController(
     private val planningSessionService: PlanningSessionService,
     private val transcriptService: PlanningTranscriptService,
     private val userSettingsService: UserSettingsService,
+    private val aiAccessService: AiAccessService,
     private val clock: Clock,
 ) {
     private fun newChannel() = BufferedConversationChannel(formatter = MarkdownMessageFormatter)
@@ -101,6 +103,7 @@ class WebPlanningController(
             revisableSessionId = completedPlan?.id,
             thisWeek = weekOption(userId, WeekOffset.CURRENT),
             nextWeek = weekOption(userId, WeekOffset.NEXT),
+            aiAvailable = aiAccessService.isAiAvailableForUser(userId),
         )
     }
 
@@ -201,4 +204,10 @@ data class PlanningEntryResponse(
     val revisableSessionId: UUID?,
     val thisWeek: WeekOption,
     val nextWeek: WeekOption,
+    /**
+     * False when AI features are unavailable to the caller — either they themselves have opted
+     * out, or every board they belong to has a co-member who opted out. The SPA disables Start /
+     * Resume / Revise buttons in that state.
+     */
+    val aiAvailable: Boolean,
 )

@@ -47,6 +47,7 @@ class UserSettingsService(
         entity.planningCron = request.planningCron
         entity.weekStartDay = request.weekStartDay
         entity.autoArchiveDays = request.autoArchiveDays
+        entity.aiEnabled = request.aiEnabled
         val saved = settingsRepository.save(entity)
         if (scheduleChanged) {
             eventPublisher.publishEvent(UserPlanningScheduleChangedEvent(userId))
@@ -118,6 +119,8 @@ class UserSettingsService(
             planningCron = entity.planningCron,
             weekStartDay = entity.weekStartDay,
             autoArchiveDays = entity.autoArchiveDays,
+            aiEnabled = entity.aiEnabled,
+            aiTier = entity.aiTier,
         )
 
     companion object {

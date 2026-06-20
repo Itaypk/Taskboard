@@ -66,6 +66,9 @@ data class SettingsExport(
     @field:Size(max = 10)
     val weekStartDay: String?,
     val autoArchiveDays: Int?,
+    val aiEnabled: Boolean = true,
+    @field:Size(max = 32)
+    val aiTier: String? = null,
 )
 
 data class CategoryExport(

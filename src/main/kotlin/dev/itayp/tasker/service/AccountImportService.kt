@@ -106,6 +106,9 @@ class AccountImportService(
             settings.planningCron = s.planningCron
             settings.weekStartDay = s.weekStartDay
             settings.autoArchiveDays = s.autoArchiveDays
+            settings.aiEnabled = s.aiEnabled
+            // ai_tier is admin-controlled: import is untrusted user data and must not let a user
+            // assign themselves a higher tier. The existing row's tier stays as-is (default "standard").
             userSettingsRepository.save(settings)
         }
 

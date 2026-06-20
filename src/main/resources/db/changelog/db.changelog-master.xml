@@ -10,5 +10,6 @@
     <include file="db/changelog/changesets/004-account-lifecycle.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changesets/005-board-mascot.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changesets/006-sync-watermarks.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changesets/007-ai-controls.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>
