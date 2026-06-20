@@ -1,5 +1,6 @@
 package dev.itayp.tasker.planning
 
+import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.ai.prompt.PromptTemplateLoader
 import dev.itayp.tasker.channel.MessageFormatter
 import dev.itayp.tasker.model.BacklogTask
@@ -34,6 +35,7 @@ class WeeklyPlanningPromptAssembler(
     private val categoryService: BacklogTaskCategoryService,
     private val tagService: BacklogTaskTagService,
     private val boardService: BoardService,
+    private val aiAccessService: AiAccessService,
     private val inviteDeliveryResolver: InviteDeliveryResolver,
     private val clock: Clock,
 ) {
@@ -50,7 +52,10 @@ class WeeklyPlanningPromptAssembler(
 
         val today = LocalDate.ofInstant(clock.instant(), zone)
         val selection = plannerTaskSelector.select(userId, today, weekStart, zone)
-        val boards = boardService.listBoardsForUser(userId)
+        // Drop boards a co-member has opted out of: the LLM mustn't see their categories/tags or
+        // be allowed to target them via create_task. PlannerTaskSelector applies the same filter.
+        val allowedBoardIds = aiAccessService.aiAllowedBoardIds(userId)
+        val boards = boardService.listBoardsForUser(userId).filter { it.id in allowedBoardIds }
         val previousSummary = planningSessionService.findPreviousSummarizableSession(userId, weekStart)
             ?.summary?.takeIf { it.isNotBlank() }
         val diff = planningSessionService.diffSincePreviousSession(userId, weekStart)
@@ -118,7 +123,10 @@ class WeeklyPlanningPromptAssembler(
 
         val plannedAt = session.endedAt ?: session.startedAt
         val daysSinceCompleted = Duration.between(plannedAt, clock.instant()).toDays()
-        val boards = boardService.listBoardsForUser(userId)
+        // Drop boards a co-member has opted out of: the LLM mustn't see their categories/tags or
+        // be allowed to target them via create_task. PlannerTaskSelector applies the same filter.
+        val allowedBoardIds = aiAccessService.aiAllowedBoardIds(userId)
+        val boards = boardService.listBoardsForUser(userId).filter { it.id in allowedBoardIds }
 
         return templateLoader.load("weekly-planning/revise-system.md").render(mapOf(
             "display_name" to displayName,

@@ -1,5 +1,6 @@
 package dev.itayp.tasker.planning
 
+import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.jpa.BacklogTaskCategoryEntity
 import dev.itayp.tasker.jpa.BacklogTaskEntity
 import dev.itayp.tasker.model.CategoryColor
@@ -36,6 +37,7 @@ class PlannerTaskSelectorTest {
     @Mock private lateinit var plannedTaskSlotRepository: PlannedTaskSlotRepository
     @Mock private lateinit var boardMembershipService: BoardMembershipService
     @Mock private lateinit var boardService: BoardService
+    @Mock private lateinit var aiAccessService: AiAccessService
 
     private val today: LocalDate = LocalDate.parse("2026-05-01")
     private val weekStart: LocalDate = LocalDate.parse("2026-04-27") // Monday of that week
@@ -46,7 +48,7 @@ class PlannerTaskSelectorTest {
     private val boardCrypto = dev.itayp.tasker.crypto.noopBoardCryptoService()
 
     private val selector by lazy {
-        PlannerTaskSelector(backlogTaskRepository, plannedTaskRepository, plannedTaskSlotRepository, boardCrypto, boardMembershipService, boardService, clock)
+        PlannerTaskSelector(backlogTaskRepository, plannedTaskRepository, plannedTaskSlotRepository, boardCrypto, boardMembershipService, boardService, aiAccessService, clock)
     }
 
     private val userId: UUID = UUID.fromString("00000000-0000-0000-0000-000000000001")
@@ -59,6 +61,10 @@ class PlannerTaskSelectorTest {
         lenient().`when`(boardService.listBoardsForUser(userId)).thenReturn(
             listOf(BoardSummary(boardId, "My tasks", BoardRole.OWNER, now))
         )
+        // Default: every board the user belongs to is AI-allowed. Tests that exercise the
+        // restricted-board branch override with their own set.
+        lenient().`when`(aiAccessService.aiAllowedBoardIds(userId))
+            .thenReturn(setOf(boardId, UUID.fromString("00000000-0000-0000-0000-0000000000b1")))
     }
 
     private fun select() = selector.select(userId, today, weekStart, zone)

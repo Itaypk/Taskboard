@@ -30,9 +30,9 @@ class HelpBotCommand(
     override fun handle(context: BotCommandContext) {
         val locale = userSettingsService.getLocale(context.userId)
         val header = messageSource.getMessage("command.help.header", null, locale)
-        val aiEnabled = aiAccessService.isAiEnabledForUser(context.userId)
+        val aiAvailable = aiAccessService.isAiAvailableForUser(context.userId)
         val lines = allCommands
-            .filter { aiEnabled || !it.requiresAi }
+            .filter { aiAvailable || !it.requiresAi }
             .sortedBy { it.command }
             .joinToString(separator = "\n") { handler ->
                 "/${handler.command} — ${handler.description}"

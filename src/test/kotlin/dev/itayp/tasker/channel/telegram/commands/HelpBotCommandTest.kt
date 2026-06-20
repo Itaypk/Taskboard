@@ -53,7 +53,7 @@ class HelpBotCommandTest {
     @BeforeEach
     fun setUp() {
         whenever(userSettingsService.getLocale(userId)).thenReturn(Locale.ENGLISH)
-        whenever(aiAccessService.isAiEnabledForUser(userId)).thenReturn(true)
+        whenever(aiAccessService.isAiAvailableForUser(userId)).thenReturn(true)
     }
 
     @Test

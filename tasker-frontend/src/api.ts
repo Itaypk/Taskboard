@@ -416,6 +416,8 @@ export interface PlanningEntry {
     revisableSessionId: string | null;
     thisWeek: WeekOption;
     nextWeek: WeekOption;
+    /** False when AI is opted out (by the user or by a co-member on every board) — disable planning controls. */
+    aiAvailable: boolean;
 }
 
 export interface TranscriptMessage {

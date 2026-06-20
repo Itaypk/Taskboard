@@ -32,7 +32,9 @@ class BotCommandDispatcher(
         val commandName = parts[0].substringBefore("@").lowercase()
         val args = if (parts.size > 1) parts[1].trim() else ""
         val handler = handlerMap[commandName] ?: return false
-        if (handler.requiresAi && !aiAccessService.isAiEnabledForUser(context.userId)) {
+        // isAiAvailableForUser also rejects users whose only boards are restricted by an opted-out
+        // co-member — the planner / quick-add would otherwise run with no usable boards.
+        if (handler.requiresAi && !aiAccessService.isAiAvailableForUser(context.userId)) {
             val locale = userSettingsService.getLocale(context.userId)
             context.channel.send(ChannelMessage.Text(
                 messageSource.getMessage("command.ai_disabled", null, locale)

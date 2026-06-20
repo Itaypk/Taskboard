@@ -47,6 +47,26 @@ class AiAccessService(
         return userSettingsRepository.findAllById(memberIds).all { it.aiEnabled }
     }
 
+    /**
+     * Subset of [userId]'s boards whose every member has AI enabled. Drives the "only suggest
+     * tasks from non-restricted boards" rule in the planner and the LLM's `create_task` choices.
+     */
+    fun aiAllowedBoardIds(userId: UUID): Set<UUID> {
+        val memberBoards = boardMembershipRepository.findAllByUserId(userId)
+            .mapNotNull { it.boardId }
+            .toSet()
+        if (memberBoards.isEmpty()) return emptySet()
+        return memberBoards.filterTo(mutableSetOf()) { isAiEnabledForBoard(it) }
+    }
+
+    /**
+     * Composite "can this user use AI right now?" — true iff they themselves are opted in AND have
+     * at least one board where AI is allowed. Used by the web planning entry and the Telegram
+     * dispatcher to disable AI affordances when there's nothing to plan against.
+     */
+    fun isAiAvailableForUser(userId: UUID): Boolean =
+        isAiEnabledForUser(userId) && aiAllowedBoardIds(userId).isNotEmpty()
+
     /** Throws [AiDisabledException] when the caller has flipped AI off in their settings. */
     fun requireAiEnabledForUser(userId: UUID) {
         if (!isAiEnabledForUser(userId)) {
