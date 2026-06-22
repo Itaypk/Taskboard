@@ -1,5 +1,6 @@
 package dev.itayp.tasker.notification
 
+import dev.itayp.tasker.planning.PlanSlotDiffer
 import dev.itayp.tasker.planning.dto.AgreedPlanTask
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -27,22 +28,20 @@ class SlotReminderService(
 
     @Transactional
     fun sync(userId: UUID, sessionId: UUID, previous: List<AgreedPlanTask>, current: List<AgreedPlanTask>) {
-        val prev = index(previous)
-        val curr = index(current)
+        // Same `(taskId, startIso)` keying as the calendar invites; a same-start edit (a "changed"
+        // slot) leaves the fire time untouched, so only added/removed slots affect reminders.
+        val diff = PlanSlotDiffer.diff(previous, current)
         val now = clock.instant()
 
         // Removed slots: cancel any reminder still pending for them.
         var cancelled = 0
-        for ((key, ref) in prev) {
-            if (key !in curr) {
-                cancelled += repository.cancelPending(sessionId, ref.task.taskId, ref.slot.startIso)
-            }
+        for (ref in diff.removed) {
+            cancelled += repository.cancelPending(sessionId, ref.task.taskId, ref.slot.startIso)
         }
 
         // Added slots: queue a reminder if it would fire in the future.
         var created = 0
-        for ((key, ref) in curr) {
-            if (key in prev) continue
+        for (ref in diff.added) {
             val fireAt = runCatching { OffsetDateTime.parse(ref.slot.startIso).toInstant().minus(LEAD_TIME) }
                 .getOrElse {
                     log.warn("Skipping reminder for session {}: unparseable start '{}'", sessionId, ref.slot.startIso)
@@ -70,13 +69,6 @@ class SlotReminderService(
             log.debug("Slot reminders synced for user {}: created={} cancelled={}", userId, created, cancelled)
         }
     }
-
-    private data class SlotRef(val task: AgreedPlanTask, val slot: dev.itayp.tasker.planning.dto.AgreedTimeSlot) {
-        val key: String get() = "${task.taskId}|${slot.startIso}"
-    }
-
-    private fun index(tasks: List<AgreedPlanTask>): Map<String, SlotRef> =
-        tasks.flatMap { t -> t.slots.map { s -> SlotRef(t, s) } }.associateBy { it.key }
 
     companion object {
         /** Matches the iCal VALARM (TRIGGER:-PT15M) so in-app and calendar reminders feel consistent. */
