@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        App-driven notification queue. Phase 1 materializes slot reminders (15 min before a planned
+        slot starts) and a poller fires them as application events. Identifiers + timestamps only —
+        no task titles/notes — so no column needs at-rest encryption.
+    -->
+    <changeSet id="008-1-scheduled-notification" author="tasker">
+        <createTable tableName="scheduled_notification">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="session_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="backlog_task_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="slot_start_iso" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="slot_end_iso" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="type" type="VARCHAR(40)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="fire_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="sent_at" type="TIMESTAMP">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+
+        <!-- Drives the poll query: PENDING rows due now, oldest first. -->
+        <createIndex tableName="scheduled_notification" indexName="idx_scheduled_notification_status_fire_at">
+            <column name="status"/>
+            <column name="fire_at"/>
+        </createIndex>
+
+        <!-- Account-deletion cleanup. -->
+        <createIndex tableName="scheduled_notification" indexName="idx_scheduled_notification_user">
+            <column name="user_id"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

@@ -1,6 +1,7 @@
 package dev.itayp.tasker.planning
 
 import dev.itayp.tasker.channel.email.EmailProperties
+import dev.itayp.tasker.notification.SlotReminderService
 import dev.itayp.tasker.planning.dto.AgreedPlan
 import dev.itayp.tasker.planning.dto.AgreedPlanTask
 import dev.itayp.tasker.planning.dto.AgreedTimeSlot
@@ -18,6 +19,7 @@ class PlanFinalizationService(
     private val emailProperties: EmailProperties,
     private val inviteDeliveryResolver: InviteDeliveryResolver,
     private val planWatermarkService: PlanWatermarkService,
+    private val slotReminderService: SlotReminderService,
 ) {
     private val log = LoggerFactory.getLogger(PlanFinalizationService::class.java)
 
@@ -45,6 +47,7 @@ class PlanFinalizationService(
         backlogTaskService.stampPlanningSession(userId, listOf(task.taskId), sessionId)
         planWatermarkService.bump(userId)
         dispatchInvitesIfEligible(userId, AgreedPlan(tasks = listOf(task), summary = ""))
+        slotReminderService.sync(userId, sessionId, previous = emptyList(), current = listOf(task))
     }
 
     private fun applyPlan(userId: UUID, sessionId: UUID, plan: AgreedPlan) {
@@ -64,6 +67,7 @@ class PlanFinalizationService(
 
         planWatermarkService.bump(userId)
         dispatchInviteDiffIfEligible(userId, previousTasks, plan.tasks)
+        slotReminderService.sync(userId, sessionId, previousTasks, plan.tasks)
     }
 
     /**

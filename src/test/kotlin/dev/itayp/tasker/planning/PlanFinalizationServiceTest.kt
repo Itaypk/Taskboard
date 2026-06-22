@@ -1,6 +1,7 @@
 package dev.itayp.tasker.planning
 
 import dev.itayp.tasker.channel.email.EmailProperties
+import dev.itayp.tasker.notification.SlotReminderService
 import dev.itayp.tasker.planning.dto.AgreedPlan
 import dev.itayp.tasker.planning.dto.AgreedPlanTask
 import dev.itayp.tasker.planning.dto.AgreedTimeSlot
@@ -31,6 +32,7 @@ class PlanFinalizationServiceTest {
     @Mock lateinit var planInviteDispatcher: PlanInviteDispatcher
     @Mock lateinit var inviteDeliveryResolver: InviteDeliveryResolver
     @Mock lateinit var planWatermarkService: PlanWatermarkService
+    @Mock lateinit var slotReminderService: SlotReminderService
 
     private val emailProps = EmailProperties(
         enabled = true,
@@ -41,6 +43,7 @@ class PlanFinalizationServiceTest {
         PlanFinalizationService(
             planningSessionService, backlogTaskService, plannedTaskService,
             planInviteDispatcher, emailProps, inviteDeliveryResolver, planWatermarkService,
+            slotReminderService,
         )
     }
 
