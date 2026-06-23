@@ -3,17 +3,6 @@ import styles from './AiUsageMeter.module.css';
 import type { AiUsage } from '../types';
 import { fetchAiUsage } from '../api';
 
-/** 12345 → "12.3K", 1_000_000 → "1M". Keeps the hero figure scannable. */
-function compact(n: number): string {
-  if (n < 1000) return String(n);
-  if (n < 1_000_000) {
-    const k = n / 1000;
-    return `${k >= 100 ? Math.round(k) : k.toFixed(1).replace(/\.0$/, '')}K`;
-  }
-  const m = n / 1_000_000;
-  return `${m.toFixed(1).replace(/\.0$/, '')}M`;
-}
-
 /**
  * AI budget meter for the settings dialog: how much of the tier's rolling-window token allowance
  * is left. Self-fetches on mount (only mounted while the Assistant tab is open). Unlimited tiers
@@ -51,8 +40,8 @@ export function AiUsageMeter() {
   }
 
   const used = Math.min(usage.usedTokens, usage.limitTokens);
-  const remaining = Math.max(usage.limitTokens - usage.usedTokens, 0);
   const pctUsed = usage.limitTokens === 0 ? 100 : (used / usage.limitTokens) * 100;
+  const pctRemaining = Math.max(100 - pctUsed, 0);
   // Drain the bar warmer as the budget runs low — amber past 75%, coral past 90%.
   const level = pctUsed >= 90 ? 'critical' : pctUsed >= 75 ? 'low' : 'ok';
 
@@ -60,8 +49,8 @@ export function AiUsageMeter() {
     <div className={styles.card}>
       <div className={styles.head}>
         <div className={styles.headline}>
-          <span className={styles.remaining}>{compact(remaining)}</span>
-          <span className={styles.remainingLabel}>tokens left</span>
+          <span className={styles.remaining}>{Math.round(pctRemaining)}%</span>
+          <span className={styles.remainingLabel}>left</span>
         </div>
         <span className={styles.tier}>{usage.tier}</span>
       </div>
