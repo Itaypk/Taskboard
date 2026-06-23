@@ -10,6 +10,7 @@ import org.mockito.kotlin.doNothing
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.never
+import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.context.ApplicationEventPublisher
@@ -42,7 +43,7 @@ class NotificationSchedulerTest {
     }
 
     @Test
-    fun `due reminder before its slot start publishes an event and is marked SENT`() {
+    fun `publishes an event for each due row and leaves the row untouched`() {
         val n = due(slotStartIso = "2026-05-13T10:00:00Z")
         whenever(
             repository.findByStatusAndFireAtLessThanEqualOrderByFireAtAsc(any(), any(), any<Pageable>()),
@@ -54,21 +55,21 @@ class NotificationSchedulerTest {
         verify(eventPublisher).publishEvent(event.capture())
         val due = event.firstValue as SlotReminderDueEvent
         assertEquals(n.id, due.notificationId)
-        assertEquals(NotificationStatus.SENT, n.status)
+        assertEquals(n.backlogTaskId, due.backlogTaskId)
+        // The scheduler no longer owns status; the dispatcher records the terminal outcome.
+        assertEquals(NotificationStatus.PENDING, n.status)
+        verify(repository, never()).save(any())
     }
 
     @Test
-    fun `reminder whose slot start already passed is expired without an event`() {
-        // now is 09:50; this slot already started at 09:30.
-        val n = due(slotStartIso = "2026-05-13T09:30:00Z")
+    fun `no due rows publishes nothing`() {
         whenever(
             repository.findByStatusAndFireAtLessThanEqualOrderByFireAtAsc(any(), any(), any<Pageable>()),
-        ) doReturn listOf(n)
+        ) doReturn emptyList()
 
         scheduler.poll()
 
         verify(eventPublisher, never()).publishEvent(any())
-        assertEquals(NotificationStatus.EXPIRED, n.status)
     }
 
     @Test
@@ -83,7 +84,6 @@ class NotificationSchedulerTest {
 
         scheduler.poll()
 
-        verify(eventPublisher, org.mockito.kotlin.times(2)).publishEvent(any<Any>())
-        assertEquals(NotificationStatus.SENT, good.status)
+        verify(eventPublisher, times(2)).publishEvent(any<Any>())
     }
 }

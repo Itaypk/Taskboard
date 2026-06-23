@@ -12,5 +12,6 @@
     <include file="db/changelog/changesets/006-sync-watermarks.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changesets/007-ai-controls.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changesets/008-scheduled-notifications.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changesets/009-app-notifications.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

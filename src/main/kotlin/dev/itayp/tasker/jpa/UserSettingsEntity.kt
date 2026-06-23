@@ -28,6 +28,9 @@ class UserSettingsEntity {
     @Column(name = "calendar_invite_email", nullable = false)
     var calendarInviteEmail: Boolean = false
 
+    @Column(name = "app_reminders", nullable = false)
+    var appReminders: Boolean = true
+
     @Column(name = "gender")
     var gender: String? = null
 

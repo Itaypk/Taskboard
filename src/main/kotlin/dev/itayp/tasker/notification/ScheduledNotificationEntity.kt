@@ -11,8 +11,9 @@ import java.time.Instant
 import java.util.UUID
 
 /**
- * A single app-driven notification queued for delivery. Phase 1 only materializes and fires these
- * (publishing [SlotReminderDueEvent]); the actual channel delivery is a later phase.
+ * A single app-driven notification queued for delivery. [SlotReminderService] materializes these,
+ * [NotificationScheduler] fires due ones (publishing [SlotReminderDueEvent]), and
+ * [SlotReminderDispatcher] delivers them and records the terminal [status].
  *
  * Deliberately holds identifiers and timestamps only — no task titles/notes — so nothing here needs
  * DEK encryption. The handler resolves and decrypts user-authored content at send time.
@@ -55,4 +56,8 @@ class ScheduledNotificationEntity {
 
     @Column(name = "sent_at")
     var sentAt: Instant? = null
+
+    /** Delivery attempts so far; a transient send failure leaves the row PENDING for retry up to a cap. */
+    @Column(nullable = false)
+    var attempts: Int = 0
 }

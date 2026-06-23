@@ -13,6 +13,7 @@ data class UserSettings(
     val timeZone: String,
     val preferredLanguage: String,
     val calendarInviteEmail: Boolean,
+    val appReminders: Boolean = true,
     val gender: String?,
     val agentDescription: String?,
     val planningCron: String?,

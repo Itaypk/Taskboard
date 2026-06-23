@@ -371,7 +371,7 @@ export const fetchTags = (boardId: string): Promise<Tag[]> =>
 
 // --- User Settings ---
 
-type UserSettingsPayload = Pick<UserSettings, 'displayName' | 'contextBlock' | 'timeZone' | 'preferredLanguage' | 'calendarInviteEmail' | 'gender' | 'agentDescription' | 'planningCron' | 'weekStartDay' | 'autoArchiveDays' | 'aiEnabled'>;
+type UserSettingsPayload = Pick<UserSettings, 'displayName' | 'contextBlock' | 'timeZone' | 'preferredLanguage' | 'calendarInviteEmail' | 'appReminders' | 'gender' | 'agentDescription' | 'planningCron' | 'weekStartDay' | 'autoArchiveDays' | 'aiEnabled'>;
 
 export const fetchUserSettings = (): Promise<UserSettingsPayload> =>
     apiRequest('/settings');

@@ -1,10 +1,10 @@
 # App-driven notifications
 
-Status: **Phase 1 implemented** (slot-reminder trigger: durable queue, scheduler, no-op handler
-stub — see [Phase 1](#phase-1--the-trigger-implemented)). **Phase 2 planned, not started** (the
-handler / actual delivery), split into [Phase 2a](#phase-2a--static-telegram-delivery) (static
-one-way Telegram reminders end-to-end) and [Phase 2b](#phase-2b--ai-generated--interactive-reminders)
-(AI-generated, interactive reminders). This doc is the source of truth for the design.
+Status: **Phase 1 + Phase 2a implemented.** Phase 1 is the slot-reminder trigger (durable queue,
+scheduler, event — see [Phase 1](#phase-1--the-trigger-implemented)); [Phase 2a](#phase-2a--static-telegram-delivery)
+is static, localized, one-way Telegram delivery. **Phase 2b not started** —
+[AI-generated, interactive reminders](#phase-2b--ai-generated--interactive-reminders), high-level only.
+This doc is the source of truth for the design.
 
 ## Goal
 
@@ -117,101 +117,89 @@ delivery; keeping it the sole subscriber preserves the clean trigger/handler spl
 - `NotificationSchedulerTest` — due→event + `SENT`; past-start→`EXPIRED`, no event; one row throwing
   doesn't stop the batch.
 
-### Known limitations (intentional for Phase 1)
+### Known limitations
 
-- **No backfill.** Only plans finalized/revised *after* deploy get reminders; pre-existing plans
-  have no rows.
-- **No delivery and no gating yet.** Reminders are materialized for everyone and only logged. The
-  per-user opt-in and "does this user have a deliverable channel?" check belong with the handler
-  (Phase 2), so today we queue rows that will currently only ever be logged.
+- **No backfill.** Only plans finalized/revised *after* the Phase 1 deploy get reminders; pre-existing
+  plans have no rows.
 - **Fixed 15-minute lead time** (a constant, not yet configurable).
 
-## Phase 2 — the handler (delivery)
-
-Phase 2 turns the no-op `SlotReminderLogListener` into a real dispatcher: it resolves the user's push
-channel, decides whether the user should actually be notified, renders the message, sends it, and
-records the outcome. It ships in two increments:
-
-- **[Phase 2a](#phase-2a--static-telegram-delivery)** — a static, localized, one-way Telegram
-  reminder, end-to-end: opt-in resolution, channel gating, content rendering, delivery, status
-  lifecycle, and metrics. This is the whole "actually reach the user" path.
-- **[Phase 2b](#phase-2b--ai-generated--interactive-reminders)** — richer content: an AI-generated
-  nudge with inline actions (done / snooze / reschedule), gated on the user's existing `aiEnabled`
-  preference so AI-averse users keep the static 2a message permanently.
-
-### Cross-cutting decisions
-
-- **Gate at delivery, not materialization.** The queue stays a faithful mirror of the plan;
-  whether a row is actually sent is decided when it fires. This is required (not just preferred)
-  because the opt-in default depends on email eligibility, which can change between materialization
-  and fire time (see below).
-- **Opt-in default = "on only when the user has no calendar-invite email."** Model the preference as
-  a **nullable** `appReminders: Boolean?` on `UserSettings` (parallel to `calendarInviteEmail`):
-  - `null` (**auto**, the default) → enabled **iff** the user has no working calendar-invite email,
-    i.e. `InviteDeliveryResolver.resolveEmailContext(userId) == null`. This auto-reaches channel-less
-    / email-less users (the original motivation) without double-notifying users who already get an
-    email invite + its VALARM.
-  - `true` / `false` → explicit user override, regardless of email.
-- **The handler owns the terminal status, not the scheduler.** Today `NotificationScheduler` marks a
-  row `SENT` the moment it publishes the event — before any delivery has happened (a Phase 1
-  limitation). Phase 2 moves that transition into the dispatcher so a failed send is never recorded
-  as sent. See [Status lifecycle](#status-lifecycle--robustness).
+(Delivery and per-user gating were Phase 1 gaps; they are now implemented in
+[Phase 2a](#phase-2a--static-telegram-delivery).)
 
 ## Phase 2a — static Telegram delivery
 
+Phase 2a replaces Phase 1's no-op log listener with a real dispatcher: it resolves the user's push
+channel, decides whether the user should actually be notified, renders a localized message, sends it
+over Telegram, and records the outcome. Static, one-way text only — AI/interactive content is
+[Phase 2b](#phase-2b--ai-generated--interactive-reminders).
+
+### Cross-cutting decisions
+
+- **Opt-in is a plain boolean `appReminders` on `UserSettings`, defaulting to `true`** (parallel to
+  `calendarInviteEmail`). The channel gate (below) means "on by default" only ever notifies users who
+  actually have a Telegram channel, so it reaches the channel-less-user motivation without a more
+  elaborate rule. (An earlier design made this a nullable tri-state keyed off email eligibility; it
+  was simplified to a boolean.)
+- **Gate at delivery, not materialization.** The queue stays a faithful mirror of the plan; whether a
+  row is sent is decided when it fires, so a setting changed after planning takes effect immediately.
+- **The handler owns every terminal status.** Phase 1's scheduler marked a row `SENT` the moment it
+  published the event — before any delivery. Now the scheduler only finds due rows and publishes; the
+  dispatcher owns `EXPIRED` / `SKIPPED` / `SENT` / `FAILED`, so a failed send is never recorded as sent.
+
 ### The dispatcher
 
-Replace `SlotReminderLogListener` with `SlotReminderDispatcher` — still the **sole** `@EventListener`
-for `SlotReminderDueEvent`, preserving the trigger/handler split. On each event it:
+`SlotReminderDispatcher` — the **sole** `@EventListener` for `SlotReminderDueEvent`, preserving the
+trigger/handler split. It is `@Transactional` (the scheduler is deliberately *not*, so the dispatcher's
+write runs in its own transaction). On each event it:
 
-1. **Resolves eligibility** via a new `ReminderDeliveryResolver` (modelled on `InviteDeliveryResolver`,
-   the single home of the gate): applies the `appReminders` auto/override rule above, and confirms a
-   deliverable push channel exists (`ScheduledConversationChannelResolver.hasDeliverableChannel`).
-   Not eligible → mark `SKIPPED` (a distinct terminal state so metrics stay honest; not a failure).
-2. **Resolves content.** Looks up the task via `BacklogTaskService.findTask(userId, backlogTaskId)`
-   (the user-scoped bridge that returns the *decrypted* title). If the task no longer exists, mark
-   `SKIPPED`.
-3. **Renders** a localized string through Spring `MessageSource` with `UserSettingsService.getLocale`
-   (e.g. key `notification.slot_reminder.text` with the title and start time), exactly like the
-   planning conversation and email invites. The decrypted title lives only in the rendered message —
-   never written back to `scheduled_notification`.
-4. **Sends** via the channel from `ScheduledConversationChannelResolver.resolve(userId)` — a
-   `ConversationChannel.send(ChannelMessage.Text(...))` (one-way; no inbound expected in 2a).
-5. **Records the outcome** (below) and increments a metric.
+1. **Reloads the row** and ignores it unless still `PENDING` (idempotency guard).
+2. **Checks timing:** if the slot start has already passed (or is unparseable) → `EXPIRED` (a
+   "15-min-before" nudge after the fact is useless; this also absorbs reminders that came due during
+   downtime).
+3. **Resolves eligibility** via `ReminderDeliveryResolver` (modelled on `InviteDeliveryResolver`, the
+   single home of the gate): `appReminders` on **and** a deliverable channel
+   (`ScheduledConversationChannelResolver.resolve`). Not eligible → `SKIPPED` (a distinct terminal
+   state so metrics stay honest; not a failure). The resolver returns a `ReminderContext`
+   (channel + the user's locale + zone).
+4. **Resolves content:** `BacklogTaskService.findTask(userId, backlogTaskId)` (user-scoped bridge,
+   returns the *decrypted* title). Task gone → `SKIPPED`.
+5. **Renders** `notification.slot_reminder` via Spring `MessageSource` in the user's locale, with the
+   HTML-escaped title (`channel.formatter.escape`) and the start time formatted in the user's zone.
+   The decrypted title lives only in the rendered message — never written back to the row or logged.
+6. **Sends** `ConversationChannel.send(ChannelMessage.Text(...))` (one-way) and records the outcome.
 
 ### Opt-in setting & UI
 
-- New nullable `app_reminders` column on `user_settings` (additive Liquibase changeset; a plain
-  boolean — not sensitive, so no encryption), surfaced on the `UserSettings` model and
-  `UpdateUserSettingsRequest`.
-- Settings UI: a control next to the calendar-invite toggle. Because the setting is tri-state
-  (auto / on / off), present it as either three options or an explicit on/off whose default label
-  explains the auto behaviour ("Automatic — on when you don't get email invites").
+- `app_reminders` `BOOLEAN NOT NULL DEFAULT true` on `user_settings` (changeset `009`; a plain boolean,
+  not sensitive, so no encryption), threaded through `UserSettingsEntity` → `UserSettings` →
+  `UpdateUserSettingsRequest` / `UserSettingsResponse`, the account export/import, and the frontend
+  settings type.
+- Settings UI: a second checkbox under "Notifications" in `SettingsModal` — "In-app reminders before a
+  planned task starts (sent over Telegram, if connected)".
 
 ### Status lifecycle & robustness
 
-Statuses today: `PENDING → SENT | CANCELLED | EXPIRED`. Phase 2a adds `SKIPPED` and `FAILED`, plus an
-`attempts` counter:
+Statuses: `PENDING → SENT | CANCELLED | EXPIRED | SKIPPED | FAILED`, plus an `attempts` counter
+(changeset `009`):
 
 ```
-PENDING ─ slot start passed ───────────────────────────────► EXPIRED
-        ─ plan slot removed (SlotReminderService) ──────────► CANCELLED
-        ─ fired, but not eligible / task gone ──────────────► SKIPPED
-        ─ fired, sent OK ───────────────────────────────────► SENT
-        ─ fired, send failed (attempts < max) ──────────────► PENDING (retried next poll)
-        ─ fired, send failed (attempts == max) ─────────────► FAILED
+PENDING ─ plan slot removed (SlotReminderService, at materialization) ─► CANCELLED
+        ─ fired, slot start already passed ───────────────────────────► EXPIRED
+        ─ fired, not eligible / task gone ────────────────────────────► SKIPPED
+        ─ fired, sent OK ─────────────────────────────────────────────► SENT
+        ─ fired, send failed (attempts < max) ────────────────────────► PENDING (retried next poll)
+        ─ fired, send failed (attempts == max) ───────────────────────► FAILED
 ```
 
-- The scheduler stops setting `SENT`; it only flips `EXPIRED` for past-start rows and publishes the
-  event. The dispatcher sets `SENT` / `SKIPPED` / `FAILED` in its **own** transaction (so the
-  outcome survives independent of the poll), and a transient send failure leaves the row `PENDING`
-  for the next ~1-minute poll to retry — naturally bounded, because once the slot start passes the
-  `EXPIRED` gate retires it. `attempts`/`FAILED` caps pathological retries and gives a metric to
-  alert on.
-- **Idempotency / at-scale note.** A crash *after* a successful Telegram send but *before* the status
-  commit could re-send on the next poll. At single-instance, small-user scale this is acceptable; if
-  it ever matters, claim the row first (`PENDING → SENDING`, committed) and dispatch from an
-  `@TransactionalEventListener(AFTER_COMMIT)` with a sweep for stale `SENDING` rows.
+- A transient send failure leaves the row `PENDING`; the next ~1-minute poll re-selects it. Retry is
+  naturally bounded — once the slot start passes it goes `EXPIRED`, and an `attempts` cap (`FAILED`)
+  guards a permanently failing send and gives a metric to alert on.
+- **Idempotency / at-scale note.** Events are published synchronously, so each row reaches a
+  terminal/retry state before the next is processed. The only residual risk is a crash *after* a
+  successful Telegram send but *before* the status commit (rare double-send). At single-instance,
+  small-user scale this is acceptable; if it ever matters, claim the row first
+  (`PENDING → SENDING`, committed) and dispatch from an `@TransactionalEventListener(AFTER_COMMIT)`
+  with a sweep for stale `SENDING` rows.
 
 ### Metrics
 
@@ -221,23 +209,25 @@ A `tasker.notification.sent` counter tagged `type` (`slot_reminder`), `channel` 
 
 ### Tests
 
-- `ReminderDeliveryResolver` — the auto rule (no email → enabled; has email → disabled) and explicit
-  overrides; no deliverable channel → ineligible.
-- `SlotReminderDispatcher` — eligible → renders localized text + sends + `SENT`; opted-out / no
-  channel / missing task → `SKIPPED`, no send; send throws → `PENDING` then `FAILED` at the cap.
-- `NotificationScheduler` — adjust existing tests: scheduler no longer sets `SENT` itself.
-
-### Out of scope for 2a (→ 2b)
-
-AI-generated copy, inbound replies / interactive actions, and any channel other than Telegram.
+- `ReminderDeliveryResolverTest` — `appReminders` off → ineligible; on but no channel → ineligible;
+  on + channel → context with the user's locale/zone.
+- `SlotReminderDispatcherTest` — eligible → renders localized text + sends + `SENT` + success metric;
+  opted-out / no channel / missing task → `SKIPPED`, no send; slot start already passed → `EXPIRED`;
+  already-terminal row → ignored; send throws → `PENDING` then `FAILED` at the cap.
+- `NotificationSchedulerTest` — scheduler publishes an event per due row and writes no status itself.
 
 ## Phase 2b — AI-generated & interactive reminders
 
 > Sketch, not a committed design — to be detailed after 2a ships.
 
-The dispatcher's content step becomes conditional on the user's existing AI preference
-(`UserSettings.aiEnabled`, and `aiTier`): **AI-off users always get the static 2a message**; AI-on
-users get a richer one.
+The dispatcher's content step becomes conditional, with **AI-enhanced reminders offered as a choice**:
+
+- **AI-disabled users** (`UserSettings.aiEnabled == false`) always get the static 2a message — no
+  AI-enhanced option is shown to them at all.
+- **AI-enabled users** can choose between *simple* (the static 2a message) and *improved* (AI-generated)
+  reminders. This is a new per-user preference (e.g. `aiEnhancedReminders`), only meaningful — and only
+  surfaced in settings — when `aiEnabled` is on. It was deliberately **not** added in 2a, since there's
+  no AI content path yet for it to gate.
 
 - **AI content.** Generate a focused nudge with `AiClient` / `AiConversationManager` — encourage,
   summarize the task, set the tone from the user's context — instead of the static template. Subject

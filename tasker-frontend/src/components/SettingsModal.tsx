@@ -135,6 +135,7 @@ export function SettingsModal({ boardId, settings, tasks, open, initialTab, onCl
           timeZone: form.timeZone,
           preferredLanguage: form.preferredLanguage,
           calendarInviteEmail: form.calendarInviteEmail,
+          appReminders: form.appReminders,
           gender: form.gender,
           agentDescription: form.agentDescription,
           planningCron: form.planningCron ?? null,
@@ -356,6 +357,17 @@ export function SettingsModal({ boardId, settings, tasks, open, initialTab, onCl
                     {!settings.emailVerified && (
                       <span className="settings-hint"> (verify your email first)</span>
                     )}
+                  </span>
+                </label>
+                <label className="settings-toggle">
+                  <input
+                    type="checkbox"
+                    checked={form.appReminders}
+                    onChange={e => setForm(f => ({ ...f, appReminders: e.target.checked }))}
+                  />
+                  <span>
+                    In-app reminders before a planned task starts
+                    <span className="settings-hint"> (sent over Telegram, if connected)</span>
                   </span>
                 </label>
               </div>

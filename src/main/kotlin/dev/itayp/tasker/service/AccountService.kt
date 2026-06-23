@@ -255,6 +255,7 @@ class AccountService(
                     timeZone = it.timeZone,
                     preferredLanguage = it.preferredLanguage,
                     calendarInviteEmail = it.calendarInviteEmail,
+                    appReminders = it.appReminders,
                     gender = it.gender,
                     agentDescription = userCrypto.decrypt(userId, it.agentDescription),
                     planningCron = it.planningCron,
