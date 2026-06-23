@@ -49,6 +49,7 @@ class ReminderDeliveryResolverTest {
         )
         whenever(channelResolver.resolve(userId))
             .thenReturn(ScheduledConversationChannelResolver.Resolved(channel) {})
+        whenever(userSettingsService.toLocale("fr-FR")).thenReturn(Locale.forLanguageTag("fr-FR"))
 
         val ctx = resolver.resolve(userId)
 
@@ -64,6 +65,7 @@ class ReminderDeliveryResolverTest {
         val channel = mock<ConversationChannel>()
         whenever(channelResolver.resolve(userId))
             .thenReturn(ScheduledConversationChannelResolver.Resolved(channel) {})
+        whenever(userSettingsService.toLocale("en-US")).thenReturn(Locale.forLanguageTag("en-US"))
 
         whenever(userSettingsService.getOrCreate(userId))
             .thenReturn(settings(appReminders = true, aiEnabled = false, aiEnhancedReminders = true))
