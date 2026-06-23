@@ -1,10 +1,12 @@
 # App-driven notifications
 
-Status: **Phase 1 + Phase 2a implemented.** Phase 1 is the slot-reminder trigger (durable queue,
-scheduler, event — see [Phase 1](#phase-1--the-trigger-implemented)); [Phase 2a](#phase-2a--static-telegram-delivery)
-is static, localized, one-way Telegram delivery. **Phase 2b not started** —
-[AI-generated, interactive reminders](#phase-2b--ai-generated--interactive-reminders), high-level only.
-This doc is the source of truth for the design.
+Status: **Phase 1 + Phase 2a + Phase 2b implemented.** Phase 1 is the slot-reminder trigger (durable
+queue, scheduler, event — see [Phase 1](#phase-1--the-trigger-implemented)); [Phase 2a](#phase-2a--static-telegram-delivery)
+is static, localized, one-way Telegram delivery; [Phase 2b](#phase-2b--ai-generated--interactive-reminders)
+adds the interactive menu (ack / snooze / mark done) for every notified user and an AI-generated message
+for AI-enhanced users. **Phase 2c not started** — [a free-form "let's discuss" follow-up
+conversation](#phase-2c--lets-discuss-follow-up-conversation), under consideration. This doc is the
+source of truth for the design.
 
 ## Goal
 
@@ -218,30 +220,103 @@ A `tasker.notification.sent` counter tagged `type` (`slot_reminder`), `channel` 
 
 ## Phase 2b — AI-generated & interactive reminders
 
-> Sketch, not a committed design — to be detailed after 2a ships.
+Phase 2b adds two independent things on top of 2a's one-way text: an **interactive menu** on every
+reminder, and an **AI-generated message** for users who want it. The trigger (Phase 1) and the
+status lifecycle are unchanged; all the new behaviour lives in the dispatcher, a new action handler,
+and the settings/UI plumbing.
 
-The dispatcher's content step becomes conditional, with **AI-enhanced reminders offered as a choice**:
+### The interactive menu (all notified users)
 
-- **AI-disabled users** (`UserSettings.aiEnabled == false`) always get the static 2a message — no
-  AI-enhanced option is shown to them at all.
-- **AI-enabled users** can choose between *simple* (the static 2a message) and *improved* (AI-generated)
-  reminders. This is a new per-user preference (e.g. `aiEnhancedReminders`), only meaningful — and only
-  surfaced in settings — when `aiEnabled` is on. It was deliberately **not** added in 2a, since there's
-  no AI content path yet for it to gate.
+The dispatcher now sends a `ChannelMessage.Choice` (the reminder text as the prompt + inline buttons)
+instead of `ChannelMessage.Text`. Four options, for **every** notified user regardless of AI status:
+**👍 ack/dismiss**, **✅ mark done**, **💤 snooze 1h**, **💤 snooze a day** (labels localized via
+`MessageSource`).
 
-- **AI content.** Generate a focused nudge with `AiClient` / `AiConversationManager` — encourage,
-  summarize the task, set the tone from the user's context — instead of the static template. Subject
-  to the same AI access controls (`AiAccessService` / `AiUsageTracker`) as the planning conversation,
-  so reminders draw from the same budget/metering.
-- **Interactive turn.** Send a `ChannelMessage.Choice` (inline buttons) for *mark done / snooze /
-  reschedule*, and route the user's reply back into an AI conversation. This needs an inbound-routing
-  registry analogous to `TelegramSessionRegistry` (which already maps a Telegram chat to an active
-  planning session) so a reminder reply reaches the right handler — the one genuinely new piece of
-  plumbing. *Reschedule* in particular reopens the planner, which is still user-scoped today
+- **Routing is DB-backed, not a registry.** Each button's callback data is self-describing —
+  `rem:<code>:<notificationId>` (see `notification.ReminderAction`, kept under Telegram's 64-byte
+  limit). `TelegramChannel` detects the `rem:` prefix on a callback `Selection` and hands it to
+  `ReminderActionHandler`, which decodes the action and **reloads the row from the DB**. No in-memory
+  map to keep in sync, and it survives a restart — consistent with the rest of the feature, whose
+  state is the `scheduled_notification` table. The check runs ahead of the session / quick-add / plan
+  registries because a reminder can land mid-session.
+- **Actions** (`ReminderActionHandler`, channel-agnostic — replies go back through the same channel):
+  - *ack* → a thumbs-up confirmation, no state change.
+  - *snooze 1h / 1d* → `SlotReminderService.snooze(...)` inserts a **new** `PENDING` row (the original
+    is already `SENT`) with `snoozed = true` and `fire_at = now + delay`, carrying the same task/slot
+    identifiers. **Snoozing applies to the notification, not the calendar slot** (less friction/noise) —
+    so the dispatcher **skips its "slot start already passed → `EXPIRED`" gate for `snoozed` rows**, and
+    the re-delivery uses a time-less message variant (`notification.slot_reminder.snoozed`) since the
+    original start is now in the past. Snooze re-queues land back on the same menu, so a user can snooze
+    again or mark done. (Re-using `NotificationType.SLOT_REMINDER` + the flag, not a new enum value —
+    the delivery path is identical bar the expiry skip.)
+  - *mark done* → `BacklogTaskService.markDone(userId, taskId)`, a user-scoped bridge that resolves the
+    task's board, sets it `DONE` (idempotent), and records the change + watermark. Gracefully reports
+    when the task is gone.
+- A `tasker.notification.action` counter is tagged `action` + `outcome` for observability.
+
+### AI-generated copy (opt-out, AI-enabled users only)
+
+- **Preference.** `UserSettings.aiEnhancedReminders` (`ai_enhanced_reminders`, changeset `009-3`,
+  default `true`) — a plain boolean threaded through the entity / model / request / response /
+  export-import / frontend, surfaced in settings **inside the AI fieldset** so it's only meaningful and
+  visible when `aiEnabled` is on.
+- **Gate.** `ReminderDeliveryResolver` returns `aiEnhanced = aiEnabled && aiEnhancedReminders` on the
+  `ReminderContext`. The dispatcher additionally applies the **per-board** AI veto
+  (`AiAccessService.isAiEnabledForBoard(task.boardId)`) before calling the model, so a shared-board
+  co-member's opt-out is respected.
+- **Generation.** `ReminderMessageAgent` — a single, stateless `AiClient.chat` (modelled on
+  `TaskSuggestionAgent`; prompts in `prompts/slot-reminder/`) that writes a short warm nudge in the
+  user's language. It runs under the same `AiCallGate` as everything else (user toggle + rolling-window
+  tier budget), tagged `AiConversationType.SLOT_REMINDER` for usage accounting.
+- **AI is an enhancement, never a delivery dependency.** Any failure — gate refusal, tier limit, empty
+  reply, parse error — returns null and the dispatcher falls back to the static 2a template. AI vs
+  static is recorded as a `content` tag on `tasker.notification.sent`. The model output (which carries
+  the decrypted title) is escaped for the channel and never logged.
+
+### Synchronous delivery vs. the AI call's latency
+
+The AI call adds seconds of latency, which raised the question of moving `SlotReminderDueEvent` to
+async handling. **We deliberately kept it synchronous.** The scheduler publishes events synchronously
+and the `@Transactional` dispatcher processes the batch serially on the poller thread, so each row
+reaches a terminal/retry state before the next event — the idempotency invariant 2a relies on. At a
+handful of beta users with a ~1-minute cadence and "close-enough" tolerance, due-batches are near-always
+0–2 rows; a slow batch just makes one poll run long and the next waits (`fixedDelay`), with no
+correctness cost.
+
+Going async would **break that invariant**: with a 60s poll, a handler that hasn't committed its status
+yet can have its row re-selected and double-sent. The fix is the claim-then-dispatch pattern already
+noted under 2a's *idempotency note* (`PENDING → SENDING` committed first, dispatch from
+`AFTER_COMMIT`, plus a stale-`SENDING` sweep) — real machinery we don't need yet. **Upgrade trigger:**
+many reminders coming due simultaneously *and* AI latency starting to delay other sends. (Pre-existing
+caveat, unchanged by 2b: the dispatcher holds its transaction across the network send — and now the AI
+call — which is fine at this scale but is the other reason to revisit if volume grows.)
+
+### Tests
+
+- `ReminderMessageAgentTest` — AI reply rendered; any failure returns null (→ static fallback).
+- `SlotReminderDispatcherTest` — AI-eligible → AI `Choice` + `content=ai`; opted-out / AI-disabled →
+  static `Choice` + `content=static`; AI throws → static fallback; `snoozed` row never `EXPIRED` even
+  with a past slot start; the menu carries the four `rem:<code>:<id>` options.
+- `ReminderActionHandlerTest` — ack → confirmation, no state change; snooze → new `snoozed` `PENDING`
+  row at the right `fire_at`; mark done → task `DONE`; task gone / stale row → graceful notice.
+
+## Phase 2c — "let's discuss" follow-up conversation
+
+> Under consideration — captured here for future evaluation; not committed, and possibly not needed.
+
+A fifth menu option — *"let's discuss"* — would start a free-form conversation off a reminder, letting
+the user talk to the assistant in natural language to reschedule, restructure the task, or get
+advice/encouragement. Open questions before committing:
+
+- **Is it worth it?** It overlaps with the weekly-planning conversation; the value over "snooze / mark
+  done / wait for the next plan" is unproven. This is the main reason it's deferred.
+- **Inbound routing.** A reminder reply would need to reach an AI conversation, which means an
+  inbound-routing registry analogous to `TelegramSessionRegistry` (chat → active conversation) — the
+  one genuinely new piece of plumbing, since 2b's button routing is stateless/DB-backed.
+- **Reschedule** in particular reopens the planner, which is still user-scoped today
   (`docs/BOARD-SHARING-PHASE1.md`).
-- **Open questions.** Conversation lifetime / timeout for an unanswered reminder; whether *snooze*
-  re-queues a `scheduled_notification` row (it naturally can) vs. an in-memory delay; how an AI nudge
-  degrades if the AI call fails (fall back to the static 2a message — keeps delivery robust).
+- **Conversation lifetime / timeout** for an unanswered reminder, and how the conversation draws from
+  the same AI budget/metering.
 
 ## Beyond slot reminders
 

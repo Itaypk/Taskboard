@@ -49,6 +49,9 @@ class UserSettingsEntity {
     @Column(name = "ai_enabled", nullable = false)
     var aiEnabled: Boolean = true
 
+    @Column(name = "ai_enhanced_reminders", nullable = false)
+    var aiEnhancedReminders: Boolean = true
+
     @Column(name = "ai_tier", nullable = false)
     var aiTier: String = "standard"
 }

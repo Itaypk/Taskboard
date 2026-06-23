@@ -11,6 +11,7 @@ import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Compa
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_NEXT_WEEK
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_REVISE
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_THIS_WEEK
+import dev.itayp.tasker.notification.ReminderActionHandler
 import dev.itayp.tasker.planning.WeekOffset
 import dev.itayp.tasker.planning.WeekResolver
 import dev.itayp.tasker.planning.WeeklyPlanningOrchestrator
@@ -52,6 +53,7 @@ class TelegramChannel(
     private val planConfirmationRegistry: PlanConfirmationRegistry,
     private val quickAddRegistry: QuickAddRegistry,
     private val quickAddFlow: QuickAddFlow,
+    private val reminderActionHandler: ReminderActionHandler,
     private val userSettingsService: UserSettingsService,
     private val messageSource: MessageSource,
     private val telegramClient: TelegramClient,
@@ -135,6 +137,13 @@ class TelegramChannel(
             if (!handled) {
                 channel.send(ChannelMessage.Text("Unknown command. Send /help to see what I can do."))
             }
+            return
+        }
+
+        // A tap on a slot-reminder button is self-describing (the notification id rides in the callback
+        // data), so it's handled straight from the payload — ahead of the session/quick-add registries,
+        // since a reminder can land mid-session.
+        if (inbound is ChannelInbound.Selection && reminderActionHandler.handle(userId, channel, inbound.optionId)) {
             return
         }
 

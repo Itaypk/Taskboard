@@ -262,6 +262,7 @@ class AccountService(
                     weekStartDay = it.weekStartDay,
                     autoArchiveDays = it.autoArchiveDays,
                     aiEnabled = it.aiEnabled,
+                    aiEnhancedReminders = it.aiEnhancedReminders,
                     aiTier = it.aiTier,
                 )
             },

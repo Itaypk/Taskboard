@@ -15,6 +15,7 @@ import java.util.Locale
 import java.util.UUID
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 @ExtendWith(MockitoExtension::class)
 class ReminderDeliveryResolverTest {
@@ -55,12 +56,30 @@ class ReminderDeliveryResolverTest {
         assertEquals(channel, ctx.channel)
         assertEquals(Locale.forLanguageTag("fr-FR"), ctx.locale)
         assertEquals(ZoneId.of("America/New_York"), ctx.zone)
+        assertTrue(ctx.aiEnhanced)
+    }
+
+    @Test
+    fun `aiEnhanced is false when AI is disabled or enhanced reminders are opted out`() {
+        val channel = mock<ConversationChannel>()
+        whenever(channelResolver.resolve(userId))
+            .thenReturn(ScheduledConversationChannelResolver.Resolved(channel) {})
+
+        whenever(userSettingsService.getOrCreate(userId))
+            .thenReturn(settings(appReminders = true, aiEnabled = false, aiEnhancedReminders = true))
+        assertEquals(false, resolver.resolve(userId)?.aiEnhanced)
+
+        whenever(userSettingsService.getOrCreate(userId))
+            .thenReturn(settings(appReminders = true, aiEnabled = true, aiEnhancedReminders = false))
+        assertEquals(false, resolver.resolve(userId)?.aiEnhanced)
     }
 
     private fun settings(
         appReminders: Boolean,
         preferredLanguage: String = "en-US",
         timeZone: String = "UTC",
+        aiEnabled: Boolean = true,
+        aiEnhancedReminders: Boolean = true,
     ) = UserSettings(
         userId = userId,
         displayName = null,
@@ -74,5 +93,7 @@ class ReminderDeliveryResolverTest {
         planningCron = null,
         weekStartDay = null,
         autoArchiveDays = null,
+        aiEnabled = aiEnabled,
+        aiEnhancedReminders = aiEnhancedReminders,
     )
 }

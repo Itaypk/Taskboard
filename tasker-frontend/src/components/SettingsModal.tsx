@@ -142,6 +142,7 @@ export function SettingsModal({ boardId, settings, tasks, open, initialTab, onCl
           weekStartDay: form.weekStartDay ?? null,
           autoArchiveDays: form.autoArchiveDays ?? null,
           aiEnabled: form.aiEnabled,
+          aiEnhancedReminders: form.aiEnhancedReminders,
         }),
         ...settings.categories
           .filter(c => !newIdSet.has(c.id))
@@ -557,6 +558,18 @@ export function SettingsModal({ boardId, settings, tasks, open, initialTab, onCl
                     />
                   </div>
                 )}
+              </div>
+
+              <div className="field">
+                <label className="field__label">
+                  Reminders
+                  <HelpTip text="When on, the reminder sent before a planned task starts is written by the assistant — a short, personalized nudge instead of the standard template. The reminder buttons (snooze, mark done) work either way." />
+                </label>
+                <Toggle
+                  checked={form.aiEnhancedReminders}
+                  onChange={next => setForm(f => ({ ...f, aiEnhancedReminders: next }))}
+                  label="Let the assistant write my task reminders"
+                />
               </div>
 
               <div className="field">

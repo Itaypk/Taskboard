@@ -27,4 +27,5 @@ object AiConversationType {
     const val WEEKLY_PLANNING = "weekly_planning"
     const val TASK_SEARCH = "task_search"
     const val TASK_SUGGESTION = "task_suggestion"
+    const val SLOT_REMINDER = "slot_reminder"
 }

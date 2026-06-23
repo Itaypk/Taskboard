@@ -91,6 +91,29 @@ class BacklogTaskService(
         return backlogTaskRepository.findByIdAndBoardIdIn(id, boardIds)?.toDomain(boardCrypto)
     }
 
+    /**
+     * Marks a task done on whichever of the user's boards it lives on — the user-scoped bridge behind
+     * the "Mark done" reminder button (the channel reply layer doesn't know the board). Idempotent
+     * (already-done is a no-op), and returns null when the task no longer exists so the caller can tell
+     * the user gracefully.
+     */
+    @Transactional
+    fun markDone(userId: UUID, id: UUID): BacklogTask? {
+        val boardIds = boardMembershipService.listBoardIds(userId)
+        if (boardIds.isEmpty()) return null
+        val entity = backlogTaskRepository.findByIdAndBoardIdIn(id, boardIds) ?: return null
+        val boardId = entity.boardId!!
+        val previousStatus = entity.status!!
+        if (previousStatus == TaskStatus.DONE) return entity.toDomain(boardCrypto)
+        entity.status = TaskStatus.DONE
+        entity.updatedAt = Instant.now()
+        val saved = backlogTaskRepository.save(entity)
+        val domain = saved.toDomain(boardCrypto)
+        taskChangeService.recordStatusChange(boardId, userId, saved.id!!, domain.title, previousStatus, TaskStatus.DONE)
+        taskChangeService.bumpWatermark(boardId)
+        return domain
+    }
+
     @Transactional(readOnly = true)
     fun getTasksScheduledInSession(userId: UUID, sessionId: UUID): List<BacklogTask> {
         val boardIds = boardMembershipService.listBoardIds(userId)

@@ -49,6 +49,7 @@ class UserSettingsService(
         entity.weekStartDay = request.weekStartDay
         entity.autoArchiveDays = request.autoArchiveDays
         entity.aiEnabled = request.aiEnabled
+        entity.aiEnhancedReminders = request.aiEnhancedReminders
         val saved = settingsRepository.save(entity)
         if (scheduleChanged) {
             eventPublisher.publishEvent(UserPlanningScheduleChangedEvent(userId))
@@ -122,6 +123,7 @@ class UserSettingsService(
             weekStartDay = entity.weekStartDay,
             autoArchiveDays = entity.autoArchiveDays,
             aiEnabled = entity.aiEnabled,
+            aiEnhancedReminders = entity.aiEnhancedReminders,
             aiTier = entity.aiTier,
         )
 
