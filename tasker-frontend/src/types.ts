@@ -110,6 +110,8 @@ export interface UserSettings {
   timeZone: string;
   preferredLanguage: string;
   calendarInviteEmail: boolean;
+  /** Opt-in for app-driven reminders (Telegram). Only delivered to users with a push channel. */
+  appReminders: boolean;
   gender?: string;
   agentDescription?: string;
   planningCron?: string | null;

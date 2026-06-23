@@ -5,9 +5,7 @@ import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.domain.PageRequest
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
-import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
-import java.time.OffsetDateTime
 import java.util.concurrent.TimeUnit
 
 /**
@@ -16,8 +14,12 @@ import java.util.concurrent.TimeUnit
  * `scheduled_notification`, so a restart simply resumes from the PENDING rows. The user accepts that
  * "close enough" timing is fine, so a ~1-minute cadence is sufficient.
  *
- * Each due row is handled independently and fail-soft. A reminder whose slot start has already passed
- * is expired rather than fired — a "before-start" nudge after the fact is useless.
+ * The poller's only job is to find due rows and emit [SlotReminderDueEvent]; [SlotReminderDispatcher]
+ * (the sole subscriber) performs delivery and owns every terminal status, so a row is never recorded
+ * as sent before it actually is. It is deliberately *not* transactional: events are published
+ * synchronously and the dispatcher writes the outcome in its own transaction, so each row reaches a
+ * terminal/retry state before the next event is emitted. A still-`PENDING` row (a transient delivery
+ * failure) is simply picked up again on the next poll.
  */
 @Component
 class NotificationScheduler(
@@ -28,7 +30,6 @@ class NotificationScheduler(
     private val log = LoggerFactory.getLogger(NotificationScheduler::class.java)
 
     @Scheduled(fixedDelay = POLL_INTERVAL_SECONDS, timeUnit = TimeUnit.SECONDS)
-    @Transactional
     fun poll() {
         val now = clock.instant()
         val due = repository.findByStatusAndFireAtLessThanEqualOrderByFireAtAsc(
@@ -37,16 +38,8 @@ class NotificationScheduler(
         if (due.isEmpty()) return
 
         var fired = 0
-        var expired = 0
         for (notification in due) {
             try {
-                val slotStart = runCatching { OffsetDateTime.parse(notification.slotStartIso).toInstant() }.getOrNull()
-                if (slotStart == null || !now.isBefore(slotStart)) {
-                    notification.status = NotificationStatus.EXPIRED
-                    repository.save(notification)
-                    expired++
-                    continue
-                }
                 eventPublisher.publishEvent(
                     SlotReminderDueEvent(
                         notificationId = notification.id!!,
@@ -57,16 +50,13 @@ class NotificationScheduler(
                         slotEndIso = notification.slotEndIso!!,
                     ),
                 )
-                notification.status = NotificationStatus.SENT
-                notification.sentAt = now
-                repository.save(notification)
                 fired++
             } catch (e: Exception) {
                 log.error("Failed to fire notification {}", notification.id, e)
             }
         }
-        if (fired > 0 || expired > 0) {
-            log.info("Notification poll: fired={} expired={}", fired, expired)
+        if (fired > 0) {
+            log.info("Notification poll: fired={}", fired)
         }
     }
 

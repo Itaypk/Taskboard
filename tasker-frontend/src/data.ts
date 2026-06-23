@@ -6,6 +6,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   timeZone: 'UTC',
   preferredLanguage: 'en',
   calendarInviteEmail: false,
+  appReminders: true,
   planningCron: null,
   weekStartDay: null,
   autoArchiveDays: null,

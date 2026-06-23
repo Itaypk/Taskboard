@@ -4,8 +4,8 @@ import java.util.UUID
 
 /**
  * Emitted by [NotificationScheduler] when a slot reminder comes due. Carries identifiers only; the
- * handler resolves and decrypts the task title at delivery time. Phase 1 has a no-op listener
- * ([SlotReminderLogListener]); a later phase delivers it to the user's channel.
+ * handler ([SlotReminderDispatcher]) resolves and decrypts the task title at delivery time and pushes
+ * it to the user's channel.
  */
 data class SlotReminderDueEvent(
     val notificationId: UUID,

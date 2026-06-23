@@ -42,6 +42,7 @@ class UserSettingsService(
         entity.timeZone = request.timeZone
         entity.preferredLanguage = request.preferredLanguage
         entity.calendarInviteEmail = request.calendarInviteEmail
+        entity.appReminders = request.appReminders
         entity.gender = request.gender
         entity.agentDescription = userCrypto.encrypt(userId, request.agentDescription)
         entity.planningCron = request.planningCron
@@ -114,6 +115,7 @@ class UserSettingsService(
             timeZone = entity.timeZone,
             preferredLanguage = entity.preferredLanguage,
             calendarInviteEmail = entity.calendarInviteEmail,
+            appReminders = entity.appReminders,
             gender = entity.gender,
             agentDescription = userCrypto.decrypt(userId, entity.agentDescription),
             planningCron = entity.planningCron,

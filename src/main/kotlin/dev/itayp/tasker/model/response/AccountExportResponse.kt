@@ -57,6 +57,7 @@ data class SettingsExport(
     @field:NotBlank @field:Size(max = 10)
     val preferredLanguage: String,
     val calendarInviteEmail: Boolean = false,
+    val appReminders: Boolean = true,
     @field:Size(max = 20)
     val gender: String?,
     @field:Size(max = 10_000)

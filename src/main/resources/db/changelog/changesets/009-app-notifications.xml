@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Phase 2a app-driven reminder delivery:
+          - user_settings.app_reminders : per-user opt-in for app/Telegram slot reminders. Defaults
+                                          to true; in practice only users with a deliverable channel
+                                          are actually notified (the channel gate skips the rest).
+          - scheduled_notification.attempts : delivery retry counter; a transient send failure leaves
+                                          the row PENDING for retry until success, the cap, or EXPIRED.
+    -->
+    <changeSet id="009-1-app-reminders" author="tasker">
+        <addColumn tableName="user_settings">
+            <column name="app_reminders" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="009-2-notification-attempts" author="tasker">
+        <addColumn tableName="scheduled_notification">
+            <column name="attempts" type="INT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

@@ -101,6 +101,7 @@ class AccountImportService(
             settings.timeZone = s.timeZone
             settings.preferredLanguage = s.preferredLanguage
             settings.calendarInviteEmail = s.calendarInviteEmail
+            settings.appReminders = s.appReminders
             settings.gender = s.gender
             settings.agentDescription = userCrypto.encrypt(userId, s.agentDescription)
             settings.planningCron = s.planningCron
