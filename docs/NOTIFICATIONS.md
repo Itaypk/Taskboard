@@ -303,6 +303,8 @@ call — which is fine at this scale but is the other reason to revisit if volum
 ## Phase 2c — "let's discuss" follow-up conversation
 
 > Under consideration — captured here for future evaluation; not committed, and possibly not needed.
+> **Current recommendation: don't build as specced — stop at 2b and validate demand first** (see
+> *Assessment* below).
 
 A fifth menu option — *"let's discuss"* — would start a free-form conversation off a reminder, letting
 the user talk to the assistant in natural language to reschedule, restructure the task, or get
@@ -317,6 +319,35 @@ advice/encouragement. Open questions before committing:
   (`docs/BOARD-SHARING-PHASE1.md`).
 - **Conversation lifetime / timeout** for an unanswered reminder, and how the conversation draws from
   the same AI budget/metering.
+
+### Assessment (2026-06-23)
+
+The cost/value ratio is the worst of any phase, and 2a + 2b already close all three gaps in the
+[Goal](#goal) (sticky, channel coverage, AI-aware). 2c is the natural place to **stop**.
+
+- **Value — thin, mostly already covered.** Reschedule is served by snooze-a-day + the weekly-planning
+  conversation (the *designed* home for restructuring); restructuring is likewise planning's job. The
+  only genuinely unique offering is in-the-moment advice/encouragement — soft and unproven. There's
+  also a **timing mismatch**: the reminder fires 15 min *before* the task starts, precisely when the
+  user is least available for a free-form chat; that use case fits planning time or a dedicated "talk
+  to the assistant" entry better than a time-pressured reminder.
+- **Bloat risk — high.** A fifth button loads choice friction onto the most glanceable, time-sensitive
+  surface; a conversational surface is sticky (accrues memory/context/follow-up expectations, hard to
+  walk back); and it splits "talk to the assistant" across two doors, weakening the planning
+  conversation's role.
+- **Engineering cost — highest so far, and it regresses a core property.** The inbound-routing registry
+  reintroduces in-memory, restart-fragile state into a feature whose whole design (queue + poller +
+  stateless `rem:<code>:<id>` routing) was deliberately DB-backed and restart-safe — an architectural
+  regression, not just more code. Reschedule also reopens the user-scoped planner, colliding with the
+  deferred board-aware work (`docs/BOARD-SHARING-PHASE1.md`). Plus conversation lifetime/timeout,
+  multi-turn state, and AI-budget integration: effectively a second conversational agent, not a menu item.
+
+**Recommendation.** Defer pending real user signal. If more in-the-moment flexibility is wanted, two
+cheaper steps first: (1) **validate** — just ask the 2b beta users whether they ever wanted to "talk"
+off a reminder before building a speculative surface; (2) if one more affordance is warranted, make it
+**deterministic, not conversational** — e.g. "snooze: custom" or "bump to next weekly plan" — which
+covers most of the reschedule motivation at near-zero cost and reuses 2b's stateless DB-backed routing
+(no inbound registry).
 
 ## Beyond slot reminders
 
