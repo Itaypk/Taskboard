@@ -18,6 +18,7 @@ import dev.itayp.tasker.repository.BacklogTaskCategoryRepository
 import dev.itayp.tasker.repository.BacklogTaskRepository
 import dev.itayp.tasker.repository.BacklogTaskTagRepository
 import dev.itayp.tasker.repository.UserRepository
+import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -43,6 +44,7 @@ class BacklogTaskService(
     private val userRepository: UserRepository,
     private val clock: Clock,
 ) {
+    private val log = LoggerFactory.getLogger(BacklogTaskService::class.java)
 
     @Transactional(readOnly = true)
     fun getTasks(userId: UUID, boardId: UUID, status: TaskStatus?): List<BacklogTask> {
@@ -89,6 +91,42 @@ class BacklogTaskService(
         val boardIds = boardMembershipService.listBoardIds(userId)
         if (boardIds.isEmpty()) return null
         return backlogTaskRepository.findByIdAndBoardIdIn(id, boardIds)?.toDomain(boardCrypto)
+    }
+
+    /**
+     * Marks a task done on whichever of the user's boards it lives on — the user-scoped bridge behind
+     * the "Mark done" reminder button (the channel reply layer doesn't know the board). Idempotent
+     * (already-done is a no-op), and returns null when the task no longer exists so the caller can tell
+     * the user gracefully.
+     *
+     * Routes the status change through [updateTask] (with a request rebuilt from the task's current
+     * fields) rather than mutating the entity directly, so access checks and state-update side effects
+     * stay in a single flow — the same path the UI's "Mark done" context-menu action takes.
+     */
+    @Transactional
+    fun markDone(userId: UUID, id: UUID): BacklogTask? {
+        val boardIds = boardMembershipService.listBoardIds(userId)
+        val entity = if (boardIds.isEmpty()) null else backlogTaskRepository.findByIdAndBoardIdIn(id, boardIds)
+        if (entity == null) {
+            log.warn("markDone: task {} not found for user {}", id, userId)
+            return null
+        }
+        val task = entity.toDomain(boardCrypto)
+        // Idempotent — and avoids a needless re-encrypt/update — if the task is already done.
+        if (task.status == TaskStatus.DONE) return task
+        val request = UpdateBacklogTaskRequest(
+            title = task.title,
+            description = task.description,
+            url = task.url,
+            priority = task.priority?.name?.lowercase(),
+            deadline = task.deadline?.toString(),
+            estimatedMinutes = task.estimatedMinutes,
+            status = TaskStatus.DONE.name.lowercase(),
+            categoryId = task.category.id.toString(),
+            tags = task.tags.map { TagInput(it.id.toString(), it.label, it.colorId.name.lowercase()) },
+            relevantFrom = task.relevantFrom?.toString(),
+        )
+        return updateTask(userId, task.boardId, id, request)
     }
 
     @Transactional(readOnly = true)

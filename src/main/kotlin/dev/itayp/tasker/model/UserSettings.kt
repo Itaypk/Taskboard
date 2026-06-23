@@ -20,5 +20,6 @@ data class UserSettings(
     val weekStartDay: String?,
     val autoArchiveDays: Int?,
     val aiEnabled: Boolean = true,
+    val aiEnhancedReminders: Boolean = true,
     val aiTier: String = "standard",
 )

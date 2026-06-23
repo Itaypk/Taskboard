@@ -70,6 +70,33 @@ class SlotReminderService(
         }
     }
 
+    /**
+     * Re-queues a reminder [delay] from now in response to a user's "snooze" tap (Phase 2b). A fresh
+     * PENDING row is created (the original is already SENT) flagged `snoozed`, so the dispatcher skips
+     * its slot-start expiry gate and fires it at the snoozed time regardless of the slot — snoozing
+     * only the notification, never the calendar slot. Slot identifiers are carried over so the
+     * re-delivery still references the same task.
+     */
+    @Transactional
+    fun snooze(source: ScheduledNotificationEntity, delay: Duration) {
+        val now = clock.instant()
+        repository.save(
+            ScheduledNotificationEntity().apply {
+                this.userId = source.userId
+                this.sessionId = source.sessionId
+                this.backlogTaskId = source.backlogTaskId
+                this.slotStartIso = source.slotStartIso
+                this.slotEndIso = source.slotEndIso
+                this.type = NotificationType.SLOT_REMINDER
+                this.fireAt = now.plus(delay)
+                this.status = NotificationStatus.PENDING
+                this.createdAt = now
+                this.snoozed = true
+            },
+        )
+        log.debug("Snoozed reminder for user {} by {}", source.userId, delay)
+    }
+
     companion object {
         /** Matches the iCal VALARM (TRIGGER:-PT15M) so in-app and calendar reminders feel consistent. */
         private val LEAD_TIME: Duration = Duration.ofMinutes(15)

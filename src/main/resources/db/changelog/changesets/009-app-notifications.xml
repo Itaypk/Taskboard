@@ -28,4 +28,31 @@
         </addColumn>
     </changeSet>
 
+    <!--
+        Phase 2b interactive / AI-generated reminders:
+          - user_settings.ai_enhanced_reminders : per-user opt-out for AI-generated reminder copy.
+                                          Defaults to true; only meaningful (and only surfaced in
+                                          settings) when ai_enabled is also true. When off — or when
+                                          AI is disabled — reminders fall back to the static template.
+          - scheduled_notification.snoozed : true for rows re-queued by a "snooze" tap. The dispatcher
+                                          skips its "slot start already passed -> EXPIRED" gate for
+                                          these, so a snooze always fires at fire_at regardless of slot
+                                          timing (snoozing applies to the notification, not the slot).
+    -->
+    <changeSet id="009-3-ai-enhanced-reminders" author="tasker">
+        <addColumn tableName="user_settings">
+            <column name="ai_enhanced_reminders" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="009-4-notification-snoozed" author="tasker">
+        <addColumn tableName="scheduled_notification">
+            <column name="snoozed" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
 </databaseChangeLog>

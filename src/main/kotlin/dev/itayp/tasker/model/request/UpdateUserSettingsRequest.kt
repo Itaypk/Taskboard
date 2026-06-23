@@ -17,4 +17,5 @@ data class UpdateUserSettingsRequest(
     @field:Size(max = 16) val weekStartDay: String? = null,
     @field:Min(1) val autoArchiveDays: Int? = null,
     val aiEnabled: Boolean = true,
+    val aiEnhancedReminders: Boolean = true,
 )

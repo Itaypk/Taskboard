@@ -119,6 +119,8 @@ export interface UserSettings {
   autoArchiveDays?: number | null;
   /** Hard binary AI opt-out. When false, all AI-driven features are hidden / disabled. */
   aiEnabled: boolean;
+  /** Opt-out for AI-generated reminder copy. Only meaningful (and only shown) when aiEnabled. */
+  aiEnhancedReminders: boolean;
   /** Server-controlled subscription tier name; read-only on the client. */
   aiTier: string;
   email: string;

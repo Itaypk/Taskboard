@@ -1,5 +1,6 @@
 package dev.itayp.tasker.notification
 
+import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ConversationChannel
 import dev.itayp.tasker.channel.HtmlMessageFormatter
@@ -15,8 +16,8 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.argumentCaptor
-import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
@@ -31,6 +32,7 @@ import java.util.Locale
 import java.util.Optional
 import java.util.UUID
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 @ExtendWith(MockitoExtension::class)
 class SlotReminderDispatcherTest {
@@ -38,12 +40,17 @@ class SlotReminderDispatcherTest {
     @Mock lateinit var repository: ScheduledNotificationRepository
     @Mock lateinit var deliveryResolver: ReminderDeliveryResolver
     @Mock lateinit var backlogTaskService: BacklogTaskService
+    @Mock lateinit var reminderMessageAgent: ReminderMessageAgent
+    @Mock lateinit var aiAccessService: AiAccessService
     @Mock lateinit var messageSource: MessageSource
 
     private val meterRegistry = SimpleMeterRegistry()
     private val clock = Clock.fixed(Instant.parse("2026-05-13T09:50:00Z"), ZoneOffset.UTC)
     private val dispatcher by lazy {
-        SlotReminderDispatcher(repository, deliveryResolver, backlogTaskService, messageSource, meterRegistry, clock)
+        SlotReminderDispatcher(
+            repository, deliveryResolver, backlogTaskService, reminderMessageAgent,
+            aiAccessService, messageSource, meterRegistry, clock,
+        )
     }
 
     private val userId: UUID = UUID.randomUUID()
@@ -71,8 +78,8 @@ class SlotReminderDispatcherTest {
         createdAt = Instant.parse("2026-05-13T08:00:00Z")
     }
 
-    private fun context(channel: ConversationChannel) =
-        ReminderContext(channel, Locale.ENGLISH, ZoneId.of("UTC"))
+    private fun context(channel: ConversationChannel, aiEnhanced: Boolean = false) =
+        ReminderContext(channel, Locale.ENGLISH, ZoneId.of("UTC"), aiEnhanced)
 
     private fun task(title: String): BacklogTask {
         val boardId = UUID.randomUUID()
@@ -98,29 +105,123 @@ class SlotReminderDispatcherTest {
         )
     }
 
-    private fun counter(outcome: String) = meterRegistry
-        .counter("tasker.notification.sent", "type", "slot_reminder", "channel", "telegram", "outcome", outcome)
+    private fun counter(outcome: String, content: String) = meterRegistry
+        .counter(
+            "tasker.notification.sent",
+            "type", "slot_reminder", "channel", "telegram", "outcome", outcome, "content", content,
+        )
         .count()
 
-    @Test
-    fun `eligible reminder renders localized text, sends it, and marks SENT`() {
-        val row = pendingRow()
+    private fun mockChannel(): ConversationChannel {
         val channel = mock<ConversationChannel>()
         whenever(channel.formatter).thenReturn(HtmlMessageFormatter)
+        return channel
+    }
+
+    @Test
+    fun `eligible reminder renders the static text plus the interactive menu and marks SENT`() {
+        val row = pendingRow()
+        val channel = mockChannel()
         whenever(repository.findById(notificationId)).thenReturn(Optional.of(row))
         whenever(deliveryResolver.resolve(userId)).thenReturn(context(channel))
         whenever(backlogTaskService.findTask(userId, taskId)).thenReturn(task("Buy milk"))
         whenever(messageSource.getMessage(eq("notification.slot_reminder"), any(), any<Locale>()))
             .thenReturn("Reminder: Buy milk")
+        whenever(messageSource.getMessage(any<String>(), eq(null), any<Locale>())).thenReturn("label")
 
         dispatcher.on(event())
 
         val sent = argumentCaptor<ChannelMessage>()
         verify(channel).send(sent.capture())
-        assertEquals("Reminder: Buy milk", (sent.firstValue as ChannelMessage.Text).text)
+        val choice = sent.firstValue as ChannelMessage.Choice
+        assertEquals("Reminder: Buy milk", choice.prompt)
+        assertEquals(4, choice.options.size)
+        assertTrue(choice.options.all { it.id.startsWith(ReminderAction.PREFIX) && it.id.endsWith(notificationId.toString()) })
         assertEquals(NotificationStatus.SENT, row.status)
         assertEquals(clock.instant(), row.sentAt)
-        assertEquals(1.0, counter("success"))
+        assertEquals(1.0, counter("success", "static"))
+        verify(reminderMessageAgent, never()).generate(any(), any(), any(), any(), any(), any())
+    }
+
+    @Test
+    fun `AI-enhanced eligible reminder uses the generated copy`() {
+        val row = pendingRow()
+        val channel = mockChannel()
+        val theTask = task("Buy milk")
+        whenever(repository.findById(notificationId)).thenReturn(Optional.of(row))
+        whenever(deliveryResolver.resolve(userId)).thenReturn(context(channel, aiEnhanced = true))
+        whenever(backlogTaskService.findTask(userId, taskId)).thenReturn(theTask)
+        whenever(aiAccessService.isAiEnabledForBoard(theTask.boardId)).thenReturn(true)
+        whenever(reminderMessageAgent.generate(eq(userId), eq("Buy milk"), anyOrNull(), any(), any(), any()))
+            .thenReturn("You've got this — milk run in 10!")
+        whenever(messageSource.getMessage(any<String>(), eq(null), any<Locale>())).thenReturn("label")
+
+        dispatcher.on(event())
+
+        val sent = argumentCaptor<ChannelMessage>()
+        verify(channel).send(sent.capture())
+        assertEquals("You've got this — milk run in 10!", (sent.firstValue as ChannelMessage.Choice).prompt)
+        assertEquals(NotificationStatus.SENT, row.status)
+        assertEquals(1.0, counter("success", "ai"))
+    }
+
+    @Test
+    fun `AI generation failure falls back to the static template`() {
+        val row = pendingRow()
+        val channel = mockChannel()
+        val theTask = task("Buy milk")
+        whenever(repository.findById(notificationId)).thenReturn(Optional.of(row))
+        whenever(deliveryResolver.resolve(userId)).thenReturn(context(channel, aiEnhanced = true))
+        whenever(backlogTaskService.findTask(userId, taskId)).thenReturn(theTask)
+        whenever(aiAccessService.isAiEnabledForBoard(theTask.boardId)).thenReturn(true)
+        whenever(reminderMessageAgent.generate(any(), any(), anyOrNull(), any(), any(), any())).thenReturn(null)
+        whenever(messageSource.getMessage(eq("notification.slot_reminder"), any(), any<Locale>()))
+            .thenReturn("Reminder: Buy milk")
+        whenever(messageSource.getMessage(any<String>(), eq(null), any<Locale>())).thenReturn("label")
+
+        dispatcher.on(event())
+
+        val sent = argumentCaptor<ChannelMessage>()
+        verify(channel).send(sent.capture())
+        assertEquals("Reminder: Buy milk", (sent.firstValue as ChannelMessage.Choice).prompt)
+        assertEquals(1.0, counter("success", "static"))
+    }
+
+    @Test
+    fun `AI opt-in but board veto skips generation and uses static`() {
+        val row = pendingRow()
+        val channel = mockChannel()
+        val theTask = task("Buy milk")
+        whenever(repository.findById(notificationId)).thenReturn(Optional.of(row))
+        whenever(deliveryResolver.resolve(userId)).thenReturn(context(channel, aiEnhanced = true))
+        whenever(backlogTaskService.findTask(userId, taskId)).thenReturn(theTask)
+        whenever(aiAccessService.isAiEnabledForBoard(theTask.boardId)).thenReturn(false)
+        whenever(messageSource.getMessage(eq("notification.slot_reminder"), any(), any<Locale>()))
+            .thenReturn("Reminder: Buy milk")
+        whenever(messageSource.getMessage(any<String>(), eq(null), any<Locale>())).thenReturn("label")
+
+        dispatcher.on(event())
+
+        assertEquals(1.0, counter("success", "static"))
+        verify(reminderMessageAgent, never()).generate(any(), any(), any(), any(), any(), any())
+    }
+
+    @Test
+    fun `snoozed reminder is delivered even though the slot start has passed`() {
+        val row = pendingRow().apply { snoozed = true }
+        val channel = mockChannel()
+        whenever(repository.findById(notificationId)).thenReturn(Optional.of(row))
+        whenever(deliveryResolver.resolve(userId)).thenReturn(context(channel))
+        whenever(backlogTaskService.findTask(userId, taskId)).thenReturn(task("Buy milk"))
+        whenever(messageSource.getMessage(eq("notification.slot_reminder.snoozed"), any(), any<Locale>()))
+            .thenReturn("Reminder: Buy milk")
+        whenever(messageSource.getMessage(any<String>(), eq(null), any<Locale>())).thenReturn("label")
+
+        // Slot started 20 minutes before "now" — a non-snoozed row would expire here.
+        dispatcher.on(event(slotStartIso = "2026-05-13T09:30:00Z"))
+
+        verify(channel).send(any())
+        assertEquals(NotificationStatus.SENT, row.status)
     }
 
     @Test
@@ -132,7 +233,7 @@ class SlotReminderDispatcherTest {
         dispatcher.on(event())
 
         assertEquals(NotificationStatus.SKIPPED, row.status)
-        assertEquals(1.0, counter("skipped"))
+        assertEquals(1.0, counter("skipped", "none"))
         verify(backlogTaskService, never()).findTask(any(), any())
     }
 
@@ -174,14 +275,14 @@ class SlotReminderDispatcherTest {
     @Test
     fun `send failures retry and then mark FAILED at the cap`() {
         val row = pendingRow()
-        val channel = mock<ConversationChannel>()
-        whenever(channel.formatter).thenReturn(HtmlMessageFormatter)
+        val channel = mockChannel()
         whenever(channel.send(any())).thenThrow(RuntimeException("telegram down"))
         whenever(repository.findById(notificationId)).thenReturn(Optional.of(row))
         whenever(deliveryResolver.resolve(userId)).thenReturn(context(channel))
         whenever(backlogTaskService.findTask(userId, taskId)).thenReturn(task("Buy milk"))
         whenever(messageSource.getMessage(eq("notification.slot_reminder"), any(), any<Locale>()))
             .thenReturn("Reminder: Buy milk")
+        whenever(messageSource.getMessage(any<String>(), eq(null), any<Locale>())).thenReturn("label")
 
         dispatcher.on(event())
         assertEquals(1, row.attempts)
@@ -194,6 +295,6 @@ class SlotReminderDispatcherTest {
         dispatcher.on(event())
         assertEquals(3, row.attempts)
         assertEquals(NotificationStatus.FAILED, row.status)
-        assertEquals(3.0, counter("failure"))
+        assertEquals(3.0, counter("failure", "static"))
     }
 }

@@ -26,6 +26,12 @@ class ReminderDeliveryResolver(
         val channel: ConversationChannel,
         val locale: Locale,
         val zone: ZoneId,
+        /**
+         * The user-level gate for AI-generated reminder copy: AI is on AND they haven't opted out of
+         * enhanced reminders. The dispatcher still applies the per-board AI veto (a shared-board
+         * co-member opt-out) before actually calling the model.
+         */
+        val aiEnhanced: Boolean,
     )
 
     /** Non-null when a reminder can be delivered to the user; null otherwise (with a debug reason). */
@@ -41,6 +47,11 @@ class ReminderDeliveryResolver(
             return null
         }
         val zone = runCatching { ZoneId.of(settings.timeZone) }.getOrDefault(ZoneId.of("UTC"))
-        return ReminderContext(resolved.channel, Locale.forLanguageTag(settings.preferredLanguage), zone)
+        return ReminderContext(
+            channel = resolved.channel,
+            locale = userSettingsService.toLocale(settings.preferredLanguage),
+            zone = zone,
+            aiEnhanced = settings.aiEnabled && settings.aiEnhancedReminders,
+        )
     }
 }

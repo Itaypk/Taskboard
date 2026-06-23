@@ -11,6 +11,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   weekStartDay: null,
   autoArchiveDays: null,
   aiEnabled: true,
+  aiEnhancedReminders: true,
   aiTier: 'standard',
   email: '',
   emailVerified: false,

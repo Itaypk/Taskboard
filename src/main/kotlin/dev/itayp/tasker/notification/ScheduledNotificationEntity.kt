@@ -60,4 +60,13 @@ class ScheduledNotificationEntity {
     /** Delivery attempts so far; a transient send failure leaves the row PENDING for retry up to a cap. */
     @Column(nullable = false)
     var attempts: Int = 0
+
+    /**
+     * True for rows re-queued by a user's "snooze" tap. The dispatcher skips its
+     * "slot start already passed -> EXPIRED" gate for these, so a snooze always fires at [fireAt]
+     * regardless of the (now possibly past) slot timing — snoozing applies to the notification, not
+     * the calendar slot.
+     */
+    @Column(nullable = false)
+    var snoozed: Boolean = false
 }
