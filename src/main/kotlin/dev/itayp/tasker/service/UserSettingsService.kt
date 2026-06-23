@@ -69,7 +69,11 @@ class UserSettingsService(
     fun findAllWithAutoArchive(): List<UserSettingsEntity> =
         settingsRepository.findAllByAutoArchiveDaysIsNotNull()
 
-    fun getLocale(userId: UUID): Locale = Locale.forLanguageTag(fetchOrCreate(userId).preferredLanguage)
+    fun getLocale(userId: UUID): Locale = toLocale(fetchOrCreate(userId).preferredLanguage)
+
+    /** Maps a stored `preferredLanguage` tag to a [Locale]. Centralized so callers that already hold
+     * a [UserSettings] don't re-fetch (and so the tag→locale rule lives in one place). */
+    fun toLocale(preferredLanguage: String): Locale = Locale.forLanguageTag(preferredLanguage)
 
     fun initializeForNewUser(userId: UUID) {
         settingsRepository.save(UserSettingsEntity().apply { this.userId = userId })

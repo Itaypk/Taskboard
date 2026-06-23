@@ -49,7 +49,7 @@ class ReminderDeliveryResolver(
         val zone = runCatching { ZoneId.of(settings.timeZone) }.getOrDefault(ZoneId.of("UTC"))
         return ReminderContext(
             channel = resolved.channel,
-            locale = Locale.forLanguageTag(settings.preferredLanguage),
+            locale = userSettingsService.toLocale(settings.preferredLanguage),
             zone = zone,
             aiEnhanced = settings.aiEnabled && settings.aiEnhancedReminders,
         )

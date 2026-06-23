@@ -47,7 +47,7 @@ class ReminderMessageAgent(
     ): String? = runCatching {
         val settings = userSettingsService.getOrCreate(userId)
         val languageName = runCatching {
-            Locale.forLanguageTag(settings.preferredLanguage).getDisplayLanguage(Locale.ENGLISH)
+            userSettingsService.toLocale(settings.preferredLanguage).getDisplayLanguage(Locale.ENGLISH)
         }.getOrNull()?.takeIf { it.isNotBlank() } ?: "English"
         val contextBlock = settings.contextBlock?.takeIf { it.isNotBlank() } ?: "(no personal context shared)"
         val startTime = OffsetDateTime.parse(slotStartIso)

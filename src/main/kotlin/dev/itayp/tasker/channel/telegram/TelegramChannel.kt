@@ -143,7 +143,9 @@ class TelegramChannel(
         // A tap on a slot-reminder button is self-describing (the notification id rides in the callback
         // data), so it's handled straight from the payload — ahead of the session/quick-add registries,
         // since a reminder can land mid-session.
-        if (inbound is ChannelInbound.Selection && reminderActionHandler.handle(userId, channel, inbound.optionId)) {
+        if (inbound is ChannelInbound.Selection &&
+            reminderActionHandler.processReminderResponse(userId, channel, inbound.optionId)
+        ) {
             return
         }
 

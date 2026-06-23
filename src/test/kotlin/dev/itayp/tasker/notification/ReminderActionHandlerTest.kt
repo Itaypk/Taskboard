@@ -84,7 +84,7 @@ class ReminderActionHandlerTest {
 
     @Test
     fun `non-reminder callback data is not handled`() {
-        assertFalse(handler.handle(userId, channel(), "plan_keep"))
+        assertFalse(handler.processReminderResponse(userId, channel(), "plan_keep"))
         verify(repository, never()).findById(any())
     }
 
@@ -94,7 +94,7 @@ class ReminderActionHandlerTest {
         whenever(repository.findById(notificationId)).thenReturn(Optional.of(row()))
         val channel = channel()
 
-        val handled = handler.handle(userId, channel, ReminderAction.ACK.callbackData(notificationId))
+        val handled = handler.processReminderResponse(userId, channel, ReminderAction.ACK.callbackData(notificationId))
 
         assertTrue(handled)
         verify(channel).send(any<ChannelMessage.Text>())
@@ -108,7 +108,7 @@ class ReminderActionHandlerTest {
         val row = row()
         whenever(repository.findById(notificationId)).thenReturn(Optional.of(row))
 
-        handler.handle(userId, channel(), ReminderAction.SNOOZE_HOUR.callbackData(notificationId))
+        handler.processReminderResponse(userId, channel(), ReminderAction.SNOOZE_HOUR.callbackData(notificationId))
 
         verify(slotReminderService).snooze(eq(row), eq(Duration.ofHours(1)))
     }
@@ -119,7 +119,7 @@ class ReminderActionHandlerTest {
         val row = row()
         whenever(repository.findById(notificationId)).thenReturn(Optional.of(row))
 
-        handler.handle(userId, channel(), ReminderAction.SNOOZE_DAY.callbackData(notificationId))
+        handler.processReminderResponse(userId, channel(), ReminderAction.SNOOZE_DAY.callbackData(notificationId))
 
         verify(slotReminderService).snooze(eq(row), eq(Duration.ofDays(1)))
     }
@@ -132,7 +132,7 @@ class ReminderActionHandlerTest {
         val channel = channel()
         whenever(channel.formatter).thenReturn(HtmlMessageFormatter)
 
-        handler.handle(userId, channel, ReminderAction.MARK_DONE.callbackData(notificationId))
+        handler.processReminderResponse(userId, channel, ReminderAction.MARK_DONE.callbackData(notificationId))
 
         verify(backlogTaskService).markDone(userId, taskId)
         verify(channel).send(any<ChannelMessage.Text>())
@@ -146,7 +146,7 @@ class ReminderActionHandlerTest {
         whenever(backlogTaskService.markDone(userId, taskId)).thenReturn(null)
         val channel = channel()
 
-        handler.handle(userId, channel, ReminderAction.MARK_DONE.callbackData(notificationId))
+        handler.processReminderResponse(userId, channel, ReminderAction.MARK_DONE.callbackData(notificationId))
 
         val sent = argumentCaptor<ChannelMessage>()
         verify(channel).send(sent.capture())
@@ -160,7 +160,7 @@ class ReminderActionHandlerTest {
         whenever(repository.findById(notificationId)).thenReturn(Optional.empty())
         val channel = channel()
 
-        val handled = handler.handle(userId, channel, ReminderAction.ACK.callbackData(notificationId))
+        val handled = handler.processReminderResponse(userId, channel, ReminderAction.ACK.callbackData(notificationId))
 
         assertTrue(handled)
         val sent = argumentCaptor<ChannelMessage>()
