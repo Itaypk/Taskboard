@@ -15,6 +15,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
@@ -76,7 +77,9 @@ class ReminderActionHandlerTest {
 
     private fun stubLocaleAndMessages() {
         whenever(userSettingsService.getLocale(userId)).thenReturn(Locale.ENGLISH)
-        whenever(messageSource.getMessage(any<String>(), any(), any<Locale>())).thenReturn("ok")
+        // anyOrNull() for the args array: the confirmation messages pass null args (no-arg keys),
+        // and mockito-kotlin's any() is reified and would not match null.
+        whenever(messageSource.getMessage(any<String>(), anyOrNull(), any<Locale>())).thenReturn("ok")
     }
 
     @Test

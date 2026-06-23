@@ -16,6 +16,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
@@ -151,7 +152,7 @@ class SlotReminderDispatcherTest {
         whenever(deliveryResolver.resolve(userId)).thenReturn(context(channel, aiEnhanced = true))
         whenever(backlogTaskService.findTask(userId, taskId)).thenReturn(theTask)
         whenever(aiAccessService.isAiEnabledForBoard(theTask.boardId)).thenReturn(true)
-        whenever(reminderMessageAgent.generate(eq(userId), eq("Buy milk"), any(), any(), any(), any()))
+        whenever(reminderMessageAgent.generate(eq(userId), eq("Buy milk"), anyOrNull(), any(), any(), any()))
             .thenReturn("You've got this — milk run in 10!")
         whenever(messageSource.getMessage(any<String>(), eq(null), any<Locale>())).thenReturn("label")
 
@@ -173,7 +174,7 @@ class SlotReminderDispatcherTest {
         whenever(deliveryResolver.resolve(userId)).thenReturn(context(channel, aiEnhanced = true))
         whenever(backlogTaskService.findTask(userId, taskId)).thenReturn(theTask)
         whenever(aiAccessService.isAiEnabledForBoard(theTask.boardId)).thenReturn(true)
-        whenever(reminderMessageAgent.generate(any(), any(), any(), any(), any(), any())).thenReturn(null)
+        whenever(reminderMessageAgent.generate(any(), any(), anyOrNull(), any(), any(), any())).thenReturn(null)
         whenever(messageSource.getMessage(eq("notification.slot_reminder"), any(), any<Locale>()))
             .thenReturn("Reminder: Buy milk")
         whenever(messageSource.getMessage(any<String>(), eq(null), any<Locale>())).thenReturn("label")
