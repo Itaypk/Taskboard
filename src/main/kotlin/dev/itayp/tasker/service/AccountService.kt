@@ -85,6 +85,8 @@ class AccountService(
         jdbcTemplate.update("DELETE FROM plan_watermark WHERE user_id = ?", userId)
         // planning_session has FKs to both users and ai_conversation
         jdbcTemplate.update("DELETE FROM planning_session WHERE user_id = ?", userId)
+        // Queued app notifications are keyed by user_id (no cascade); clear before the user row.
+        jdbcTemplate.update("DELETE FROM scheduled_notification WHERE user_id = ?", userId)
         // ai_message cascades automatically from ai_conversation (ON DELETE CASCADE in schema)
         jdbcTemplate.update("DELETE FROM ai_conversation WHERE user_id = ?", userId)
 

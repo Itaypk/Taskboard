@@ -1,9 +1,9 @@
 package dev.itayp.tasker.planning
 
 import dev.itayp.tasker.channel.email.EmailProperties
+import dev.itayp.tasker.notification.SlotReminderService
 import dev.itayp.tasker.planning.dto.AgreedPlan
 import dev.itayp.tasker.planning.dto.AgreedPlanTask
-import dev.itayp.tasker.planning.dto.AgreedTimeSlot
 import dev.itayp.tasker.service.BacklogTaskService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -18,6 +18,7 @@ class PlanFinalizationService(
     private val emailProperties: EmailProperties,
     private val inviteDeliveryResolver: InviteDeliveryResolver,
     private val planWatermarkService: PlanWatermarkService,
+    private val slotReminderService: SlotReminderService,
 ) {
     private val log = LoggerFactory.getLogger(PlanFinalizationService::class.java)
 
@@ -45,6 +46,7 @@ class PlanFinalizationService(
         backlogTaskService.stampPlanningSession(userId, listOf(task.taskId), sessionId)
         planWatermarkService.bump(userId)
         dispatchInvitesIfEligible(userId, AgreedPlan(tasks = listOf(task), summary = ""))
+        slotReminderService.sync(userId, sessionId, previous = emptyList(), current = listOf(task))
     }
 
     private fun applyPlan(userId: UUID, sessionId: UUID, plan: AgreedPlan) {
@@ -64,62 +66,21 @@ class PlanFinalizationService(
 
         planWatermarkService.bump(userId)
         dispatchInviteDiffIfEligible(userId, previousTasks, plan.tasks)
+        slotReminderService.sync(userId, sessionId, previousTasks, plan.tasks)
     }
-
-    /**
-     * Identifies a scheduled slot by `(taskId, startIso)` — the same key the calendar UID is built
-     * from. A time move therefore reads as a removal of the old slot plus an addition of the new one
-     * (the user gets a cancellation + a fresh invite), while a same-time edit to the end time, label,
-     * title, or notes reads as an update to the existing event.
-     */
-    private data class SlotRef(val task: AgreedPlanTask, val slot: AgreedTimeSlot) {
-        val key: String get() = "${task.taskId}|${slot.startIso}"
-    }
-
-    private data class InviteDiff(
-        val added: List<AgreedPlanTask>,
-        val changed: List<AgreedPlanTask>,
-        val removed: List<AgreedPlanTask>,
-    )
-
-    private fun computeInviteDiff(previous: List<AgreedPlanTask>, current: List<AgreedPlanTask>): InviteDiff {
-        fun index(tasks: List<AgreedPlanTask>): Map<String, SlotRef> =
-            tasks.flatMap { t -> t.slots.map { s -> SlotRef(t, s) } }.associateBy { it.key }
-
-        val prev = index(previous)
-        val curr = index(current)
-
-        val added = curr.filterKeys { it !in prev }.values
-        val removed = prev.filterKeys { it !in curr }.values
-        val changed = curr.filterValues { new ->
-            val old = prev[new.key] ?: return@filterValues false
-            old.slot.endIso != new.slot.endIso ||
-                old.slot.label != new.slot.label ||
-                old.task.title != new.task.title ||
-                old.task.notes != new.task.notes
-        }.values
-
-        return InviteDiff(regroup(added), regroup(changed), regroup(removed))
-    }
-
-    /** Reassembles per-slot refs back into [AgreedPlanTask]s carrying only the slots in this bucket. */
-    private fun regroup(refs: Collection<SlotRef>): List<AgreedPlanTask> =
-        refs.groupBy { it.task.taskId }.map { (_, group) ->
-            group.first().task.copy(slots = group.map { it.slot })
-        }
 
     private fun dispatchInviteDiffIfEligible(
         userId: UUID,
         previous: List<AgreedPlanTask>,
         current: List<AgreedPlanTask>,
     ) {
-        val diff = computeInviteDiff(previous, current)
+        val diff = PlanSlotDiffer.diff(previous, current)
         log.debug(
             "Invite diff for session user {}: addedSlots={} changedSlots={} removedSlots={}",
             userId,
-            diff.added.sumOf { it.slots.size },
-            diff.changed.sumOf { it.slots.size },
-            diff.removed.sumOf { it.slots.size },
+            diff.added.size,
+            diff.changed.size,
+            diff.removed.size,
         )
         if (diff.added.isEmpty() && diff.changed.isEmpty() && diff.removed.isEmpty()) return
 
@@ -127,19 +88,19 @@ class PlanFinalizationService(
         if (diff.added.isNotEmpty()) {
             planInviteDispatcher.dispatch(
                 ctx.email, emailProperties.scheduling.from, emailProperties.scheduling.fromName,
-                AgreedPlan(diff.added, summary = ""), ctx.locale,
+                AgreedPlan(PlanSlotDiffer.regroup(diff.added), summary = ""), ctx.locale,
             )
         }
         if (diff.changed.isNotEmpty()) {
             planInviteDispatcher.dispatchUpdates(
                 ctx.email, emailProperties.scheduling.from, emailProperties.scheduling.fromName,
-                AgreedPlan(diff.changed, summary = ""), ctx.locale,
+                AgreedPlan(PlanSlotDiffer.regroup(diff.changed), summary = ""), ctx.locale,
             )
         }
         if (diff.removed.isNotEmpty()) {
             planInviteDispatcher.dispatchCancellations(
                 ctx.email, emailProperties.scheduling.from, emailProperties.scheduling.fromName,
-                diff.removed, ctx.locale,
+                PlanSlotDiffer.regroup(diff.removed), ctx.locale,
             )
         }
     }

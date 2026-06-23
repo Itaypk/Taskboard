@@ -10,5 +10,6 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories
     "dev.itayp.tasker.ai.usage",
     "dev.itayp.tasker.planning",
     "dev.itayp.tasker.crypto",
+    "dev.itayp.tasker.notification",
 ])
 class JpaConfiguration
