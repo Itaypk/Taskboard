@@ -79,7 +79,7 @@ export function AiUsageMeter() {
       </div>
 
       <p className={styles.caption}>
-        {compact(used)} of {compact(usage.limitTokens)} used · resets as your last{' '}
+        {Math.round(pctUsed)}% used · resets as your last{' '}
         {usage.windowDays} days roll forward
       </p>
     </div>
