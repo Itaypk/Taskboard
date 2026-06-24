@@ -7,7 +7,6 @@ import dev.itayp.tasker.model.request.UpdateTagRequest
 import dev.itayp.tasker.planning.BacklogTaskChangeService
 import dev.itayp.tasker.repository.BacklogTaskRepository
 import dev.itayp.tasker.repository.BacklogTaskTagRepository
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.InjectMocks
@@ -42,13 +41,9 @@ class BacklogTaskTagServiceTest {
             this.colorId = color
         }
 
-    @BeforeEach
-    fun stubBoard() {
-        whenever(boardMembershipService.resolveDefaultBoard(userId)).thenReturn(boardId)
-    }
-
     @Test
     fun `getAllForUser returns tags mapped to domain`() {
+        whenever(boardMembershipService.resolveDefaultBoard(userId)).thenReturn(boardId)
         whenever(tagRepository.findAllByBoardId(boardId)).thenReturn(listOf(tag(UUID.randomUUID(), "deep-work")))
 
         val result = service.getAllForUser(userId)
@@ -60,6 +55,7 @@ class BacklogTaskTagServiceTest {
 
     @Test
     fun `getAllForUser returns empty list when no tags exist`() {
+        whenever(boardMembershipService.resolveDefaultBoard(userId)).thenReturn(boardId)
         whenever(tagRepository.findAllByBoardId(boardId)).thenReturn(emptyList())
 
         assertEquals(0, service.getAllForUser(userId).size)
