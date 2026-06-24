@@ -388,6 +388,12 @@ export const fetchAiUsage = (): Promise<AiUsage> =>
 export const requestEmailVerification = (email: string): Promise<void> =>
     apiRequest('/settings/email', { method: 'POST', ...jsonBody({ email }) });
 
+// --- Feedback ---
+
+/** Sends a piece of user feedback. `replyEmail` is optional — only if the user wants a reply. */
+export const sendFeedback = (message: string, replyEmail?: string, config?: RequestConfig): Promise<void> =>
+    apiRequest('/feedback', { method: 'POST', ...jsonBody({ message, replyEmail: replyEmail || null }) }, config);
+
 // --- Weekly planning (web channel) ---
 
 export interface RenderedChoiceOption {

@@ -132,6 +132,12 @@ Session chain details:
   - Scheduling sender: `TASKER_EMAIL_SCHEDULING_FROM`, `TASKER_EMAIL_SCHEDULING_FROM_NAME`,
     `TASKER_EMAIL_SCHEDULING_SMTP_HOST`, `TASKER_EMAIL_SCHEDULING_SMTP_PORT`,
     `TASKER_EMAIL_SCHEDULING_SMTP_USERNAME`, `TASKER_EMAIL_SCHEDULING_SMTP_PASSWORD`.
+- Backend env var for the in-app feedback form (`FeedbackController` → `FeedbackService`,
+  `POST /api/v1/feedback`, authenticated + CSRF):
+  - `TASKER_FEEDBACK_RECIPIENT` — mailbox that feedback submissions are forwarded to. Sent over
+    the **auth** email sender (same SMTP credentials as login/verification mail). When blank,
+    falls back to the auth sender's own `from` address. Per-user rate-limited
+    (`tasker.rate-limit.feedback`); the admin-facing email is English-only (not user-localised).
 
 ## Internationalization
 

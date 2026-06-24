@@ -27,6 +27,7 @@ import { ScheduleTaskModal } from './components/ScheduleTaskModal';
 import { MoveTaskModal } from './components/MoveTaskModal';
 import { UserMenu } from './components/UserMenu';
 import { StatsModal } from './components/StatsModal';
+import { FeedbackModal } from './components/FeedbackModal';
 import { BoardSettingsModal } from './components/BoardSettingsModal';
 import { DEFAULT_SETTINGS } from './data';
 import { fetchBoards, createBoard, fetchTasks, fetchCategories, fetchUserSettings, fetchTags, fetchCurrentPlan, fetchSync, createTask, updateTask, deleteTask, duplicateTask, moveTaskToBoard, reorderTask, removeTaskFromPlan, clearTutorialTasks, addTaskToPlan, fetchMembers, setTaskAssignee, type TaskStatusFilter, type Board, type BoardMember } from './api';
@@ -129,6 +130,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const [selectedId, setSelectedId]   = useState<string | null>(null);
   const [isCreating, setIsCreating]   = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   // Keyed to its board so a stale fetch from a previous board is ignored without a synchronous reset.
   const [memberData, setMemberData]   = useState<{ boardId: string; members: BoardMember[] } | null>(null);
   const [leavingId, setLeavingId]     = useState<string | null>(null);
@@ -698,6 +700,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
             displayName={settings.displayName}
             onOpenStats={() => setStatsOpen(true)}
             onOpenSettings={() => navigate('/settings')}
+            onOpenFeedback={() => setFeedbackOpen(true)}
             onSignOut={() => { void onSignOut(); }}
           />
         </div>
@@ -801,6 +804,8 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
       />
 
       <StatsModal open={statsOpen} onClose={() => setStatsOpen(false)} />
+
+      <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
 
       <BoardSettingsModal
         open={boardSettingsOpen}

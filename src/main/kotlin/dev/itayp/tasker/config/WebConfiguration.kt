@@ -60,6 +60,12 @@ class WebConfiguration(
         windowMillis = rateLimitProperties.emailVerification.windowSeconds * 1_000,
     )
 
+    @Bean
+    fun feedbackRateLimiter(): RateLimiter = InMemoryRateLimiter(
+        limit = rateLimitProperties.feedback.limit,
+        windowMillis = rateLimitProperties.feedback.windowSeconds * 1_000,
+    )
+
     // Only registered when a Clock bean is present (i.e. full app context, not @WebMvcTest slices,
     // which don't load TimeConfiguration). The filter is non-essential for slice tests anyway —
     // they exercise individual controllers, not session lifetime.

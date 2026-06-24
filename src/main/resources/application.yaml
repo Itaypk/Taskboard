@@ -73,6 +73,13 @@ tasker:
     demo-login:
       limit: 5
       window-seconds: 3600
+    feedback:
+      limit: 10
+      window-seconds: 3600
+  feedback:
+    # Mailbox that in-app feedback is forwarded to (via the auth email sender). When blank,
+    # falls back to the auth sender's own `from` address.
+    recipient: ${TASKER_FEEDBACK_RECIPIENT:}
   email:
     enabled: ${TASKER_EMAIL_ENABLED:false}
     # Comma-separated domains refused for any new address (login, settings, board invites).
