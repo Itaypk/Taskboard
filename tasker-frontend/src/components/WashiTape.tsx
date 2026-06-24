@@ -5,9 +5,12 @@ interface WashiTapeProps {
   index?: number;          // for stacking offset / rotation
   idSeed?: string;         // stable randomness per-tape (usually task id + tag index)
   onRemove?: () => void;
+  /** When set, the tape's label becomes a button (e.g. to open a tag editor). Kept separate from
+   *  the × button so the two interactive targets don't nest. */
+  onClick?: () => void;
 }
 
-export function WashiTape({ tag, index = 0, idSeed = '', onRemove }: WashiTapeProps) {
+export function WashiTape({ tag, index = 0, idSeed = '', onRemove, onClick }: WashiTapeProps) {
   const jitterRot = jitter(idSeed + ':r:' + index) * 1.1;
   const jitterX   = jitter(idSeed + ':x:' + index) * 3;
 
@@ -20,7 +23,13 @@ export function WashiTape({ tag, index = 0, idSeed = '', onRemove }: WashiTapePr
         zIndex: 10 + index,
       }}
     >
-      <span className="washi__label">{tag.label}</span>
+      {onClick ? (
+        <button type="button" className="washi__label washi__label--btn" onClick={onClick} title={`Edit tag ${tag.label}`}>
+          {tag.label}
+        </button>
+      ) : (
+        <span className="washi__label">{tag.label}</span>
+      )}
       {onRemove && (
         <button
           type="button"

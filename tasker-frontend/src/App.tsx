@@ -30,7 +30,7 @@ import { StatsModal } from './components/StatsModal';
 import { FeedbackModal } from './components/FeedbackModal';
 import { BoardSettingsModal } from './components/BoardSettingsModal';
 import { DEFAULT_SETTINGS } from './data';
-import { fetchBoards, createBoard, fetchTasks, fetchCategories, fetchUserSettings, fetchTags, fetchCurrentPlan, fetchSync, createTask, updateTask, deleteTask, duplicateTask, moveTaskToBoard, reorderTask, removeTaskFromPlan, clearTutorialTasks, addTaskToPlan, fetchMembers, setTaskAssignee, type TaskStatusFilter, type Board, type BoardMember } from './api';
+import { fetchBoards, createBoard, fetchTasks, fetchCategories, fetchUserSettings, fetchTags, updateTag, fetchCurrentPlan, fetchSync, createTask, updateTask, deleteTask, duplicateTask, moveTaskToBoard, reorderTask, removeTaskFromPlan, clearTutorialTasks, addTaskToPlan, fetchMembers, setTaskAssignee, type TaskStatusFilter, type Board, type BoardMember } from './api';
 import { UpdateBanner } from './components/UpdateBanner';
 import type { Task, UserSettings, Tag, CurrentPlan, TaskFilter } from './types';
 
@@ -768,6 +768,14 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
         onMarkDone={handleMarkDone}
         onMarkTodo={handleMarkTodo}
         onSetAssignee={handleSetAssignee}
+        onUpdateTag={(tagId, label, colorId) => {
+          if (!activeBoardId) return;
+          // Board-wide tag rename/recolor from the inline editor; refresh tags + tasks (tapes embed label/colour).
+          updateTag(activeBoardId, tagId, { label, colorId })
+            .then(() => Promise.all([fetchTags(activeBoardId), fetchTasks(activeBoardId, fetchStatus)]))
+            .then(([freshTags, freshTasks]) => { setTags(freshTags); setTasks(freshTasks); })
+            .catch(e => console.error('Failed to update tag', e));
+        }}
         onFollowLink={followTaskLink}
       />
 

@@ -516,6 +516,20 @@ input[type="number"] { -moz-appearance: textfield; }
   max-width: 100%;
 }
 
+/* Clickable label variant: inherits the tape's typography, adds only an edit affordance. */
+.washi__label--btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.washi__label--btn:hover { text-decoration: underline; }
+.washi__label--btn:focus-visible { outline: 2px solid var(--tape-ink); outline-offset: 2px; }
+
 .washi__remove {
   position: relative;
   z-index: 1;

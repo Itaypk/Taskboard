@@ -31,7 +31,7 @@ interface SettingsModalProps {
 
 const SETTINGS_TABS = [
   { id: 'general', label: 'General' },
-  { id: 'categories', label: 'Labeling' },
+  { id: 'categories', label: 'Labels' },
   { id: 'assistant', label: 'Assistant' },
 ];
 
