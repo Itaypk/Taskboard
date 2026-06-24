@@ -10,5 +10,7 @@ interface BacklogTaskTagRepository : JpaRepository<BacklogTaskTagEntity, UUID> {
 
     fun findAllByBoardId(boardId: UUID): List<BacklogTaskTagEntity>
 
+    fun findByIdAndBoardId(id: UUID, boardId: UUID): BacklogTaskTagEntity?
+
     fun deleteAllByBoardId(boardId: UUID)
 }

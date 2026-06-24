@@ -36,6 +36,12 @@ data class BacklogTaskTag(
     val description: String?
 )
 
+/** A tag paired with how many of the board's tasks carry it — drives popularity ordering and the tag manager's usage hint. */
+data class TagUsage(
+    val tag: BacklogTaskTag,
+    val usageCount: Int,
+)
+
 data class BacklogTaskCategory(
     val id: UUID,
     val boardId: UUID,

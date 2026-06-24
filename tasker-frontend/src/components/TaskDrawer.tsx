@@ -3,6 +3,7 @@ import type { Task, Tag, TagColorId, Category } from '../types';
 import { TAG_PALETTE, PAPER_SWATCHES } from '../types';
 import { ApiError, type BoardMember } from '../api';
 import { WashiTape } from './WashiTape';
+import { TagEditModal } from './TagEditModal';
 import { Autocomplete } from './Autocomplete';
 import { generateId, formatRelative } from '../utils';
 import { resolveTaskLink, linkLabel } from '../taskLink';
@@ -23,6 +24,8 @@ interface TaskDrawerProps {
   onMarkDone: (id: string) => void;
   onMarkTodo: (id: string) => void;
   onSetAssignee: (id: string, userId: string | null) => void;
+  /** Persists a board-wide tag rename/recolor (from the inline tag-edit modal) and refreshes tags/tasks. */
+  onUpdateTag?: (tagId: string, label: string, colorId: TagColorId) => void;
   /** Follows a (read-only) task's link field — internal routes/actions can't be plain anchors. */
   onFollowLink?: (task: Task) => void;
 }
@@ -81,13 +84,14 @@ function makeEmpty(defaultCategoryId: string | null): FormState {
 
 export function TaskDrawer({
   task, isNew, open, categories, availableTags, defaultCategoryId, members, currentUserId,
-  onClose, onSave, onDelete, onMarkDone, onMarkTodo, onSetAssignee, onFollowLink,
+  onClose, onSave, onDelete, onMarkDone, onMarkTodo, onSetAssignee, onUpdateTag, onFollowLink,
 }: TaskDrawerProps) {
   const [form, setForm] = useState<FormState>(makeEmpty(defaultCategoryId));
   const [showTagForm, setShowTagForm] = useState(false);
   const [tagLabel, setTagLabel] = useState('');
   const [tagColorId, setTagColorId] = useState<TagColorId>('sage');
   const [tagId, setTagId] = useState<string | null>(null);
+  const [editingTagIndex, setEditingTagIndex] = useState<number | null>(null);
   const [formKey, setFormKey] = useState<string | null>(null);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -113,14 +117,16 @@ export function TaskDrawer({
       setShowTagForm(false);
       setTagLabel('');
       setTagId(null);
+      setEditingTagIndex(null);
     }
   }
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    // The tag-edit modal owns Escape while it's open, so the drawer doesn't close out from under it.
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape' && editingTagIndex === null) onClose(); };
     if (open) window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [open, onClose]);
+  }, [open, onClose, editingTagIndex]);
 
   // Tutorial tasks are immutable — a UX guardrail (not a server-side rule). You can still complete
   // or delete them; only field editing is locked.
@@ -186,6 +192,39 @@ export function TaskDrawer({
 
   const removeTag = (i: number) =>
     setForm(f => ({ ...f, tags: f.tags.filter((_, idx) => idx !== i) }));
+
+  // One-click add of an existing board tag (no typing). No-op if already applied or at the cap.
+  const addExistingTag = (tag: Tag) => {
+    if (form.tags.length >= 3) return;
+    if (form.tags.some(t => t.id === tag.id || t.label.toLowerCase() === tag.label.toLowerCase())) return;
+    setForm(f => ({ ...f, tags: [...f.tags, { id: tag.id, label: tag.label, colorId: tag.colorId }] }));
+  };
+
+  // Most-used board tags not already on this task (availableTags arrives popularity-ordered from the API).
+  const tagSuggestions = availableTags
+    .filter(t => !form.tags.some(ft => ft.id === t.id || ft.label.toLowerCase() === t.label.toLowerCase()))
+    .slice(0, 6);
+
+  // Tapes loaded from a saved task carry no id (the task API embeds only label+colour), so resolve the
+  // board tag id by label. Returns undefined for a freshly-typed tag that hasn't been persisted yet.
+  const resolveBoardTagId = (tag: Tag): string | undefined =>
+    tag.id || availableTags.find(t => t.label.toLowerCase() === tag.label.toLowerCase())?.id;
+
+  const editingTag = editingTagIndex !== null ? form.tags[editingTagIndex] : null;
+
+  const handleTagEditSave = (label: string, colorId: TagColorId) => {
+    if (editingTagIndex === null) return;
+    const current = form.tags[editingTagIndex];
+    setForm(f => ({
+      ...f,
+      tags: f.tags.map((t, i) => i === editingTagIndex ? { ...t, label, colorId } : t),
+    }));
+    const boardTagId = resolveBoardTagId(current);
+    if (boardTagId && (current.label !== label || current.colorId !== colorId)) {
+      onUpdateTag?.(boardTagId, label, colorId);
+    }
+    setEditingTagIndex(null);
+  };
 
   const accentStyle = selectedSwatch
     ? {
@@ -383,12 +422,30 @@ export function TaskDrawer({
                     index={i}
                     idSeed={'draft-' + tag.label + i}
                     onRemove={() => removeTag(i)}
+                    onClick={readOnly ? undefined : () => setEditingTagIndex(i)}
                   />
                 ))}
                 {form.tags.length === 0 && !showTagForm && (
                   <span className="tape-editor__hint">No tags yet</span>
                 )}
               </div>
+
+              {form.tags.length < 3 && !showTagForm && tagSuggestions.length > 0 && (
+                <div className="tape-quickadd">
+                  {tagSuggestions.map(t => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      className="tape-quickadd__chip"
+                      onClick={() => addExistingTag(t)}
+                      aria-label={`Add tag ${t.label}`}
+                      title={`Add ${t.label}`}
+                    >
+                      <WashiTape tag={t} idSeed={'sugg-' + t.id} />
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {form.tags.length < 3 && !showTagForm && (
                 <button
@@ -532,6 +589,15 @@ export function TaskDrawer({
           </div>
         </div>
       </aside>
+
+      <TagEditModal
+        open={editingTag !== null}
+        initialLabel={editingTag?.label ?? ''}
+        initialColorId={editingTag?.colorId ?? 'sage'}
+        persists={editingTag ? resolveBoardTagId(editingTag) !== undefined : false}
+        onSave={handleTagEditSave}
+        onClose={() => setEditingTagIndex(null)}
+      />
     </>
   );
 }

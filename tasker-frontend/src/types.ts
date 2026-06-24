@@ -18,6 +18,9 @@ export interface Tag {
   id: string;
   label: string;
   colorId: TagColorId;
+  /** How many of the board's tasks carry this tag. Present on board tag lists (fetchTags),
+   *  absent on tags embedded in a task. Drives popularity ordering and the manager's usage hint. */
+  usageCount?: number;
 }
 
 export const PAPER_SWATCHES = [

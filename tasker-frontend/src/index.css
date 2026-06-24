@@ -510,11 +510,28 @@ input[type="number"] { -moz-appearance: textfield; }
 .washi__label {
   position: relative;
   z-index: 1;
+  /* Own line-height so the label still renders inside parents that zero it out
+     (e.g. the quick-add chip uses line-height:0 to kill its inline gap). */
+  line-height: 1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
 }
+
+/* Clickable label variant: inherits the tape's typography, adds only an edit affordance. */
+.washi__label--btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.washi__label--btn:hover { text-decoration: underline; }
+.washi__label--btn:focus-visible { outline: 2px solid var(--tape-ink); outline-offset: 2px; }
 
 .washi__remove {
   position: relative;
@@ -898,6 +915,21 @@ input[type="number"] { -moz-appearance: textfield; }
   color: var(--ink-ghost);
 }
 
+/* One-click "popular tags" row in the task drawer: each chip is a bare button wrapping a washi tape. */
+.tape-quickadd { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; }
+.tape-quickadd__chip {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  line-height: 0;
+  border-radius: 3px;
+  transition: transform var(--t), opacity var(--t);
+}
+.tape-quickadd__chip:hover { transform: translateY(-1px); }
+.tape-quickadd__chip:active { transform: translateY(0); opacity: 0.85; }
+.tape-quickadd__chip:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
 .tag-form {
   display: flex;
   flex-direction: column;
@@ -1205,10 +1237,12 @@ input[type="number"] { -moz-appearance: textfield; }
 .cat-row__del:disabled { opacity: 0.3; cursor: not-allowed; }
 
 .cat-row__picker {
-  position: absolute;
-  top: calc(100% - 4px);
-  left: 0;
-  z-index: 2;
+  /* Flow inline as a full-width row instead of an absolute popover: an absolutely
+     positioned picker gets clipped by the scrolling modal body (overflow-y: auto),
+     so the bottom rows' pickers were cut off. In-flow, the body just scrolls to it. */
+  grid-column: 1 / -1;
+  z-index: 5;
+  margin-top: 2px;
   background: var(--paper-surface);
   padding: 10px 12px;
   border-radius: var(--r);
