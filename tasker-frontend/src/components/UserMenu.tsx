@@ -7,6 +7,7 @@ interface UserMenuProps {
   displayName?: string | null;
   onOpenStats: () => void;
   onOpenSettings: () => void;
+  onOpenFeedback: () => void;
   onSignOut: () => void;
 }
 
@@ -31,7 +32,7 @@ function UserProfileIcon() {
  * actions into a single menu. Reads the signed-in identity from auth context for the menu header;
  * the menu itself is right-aligned under the trigger and dismisses on outside-click or Escape.
  */
-export function UserMenu({ displayName, onOpenStats, onOpenSettings, onSignOut }: UserMenuProps) {
+export function UserMenu({ displayName, onOpenStats, onOpenSettings, onOpenFeedback, onSignOut }: UserMenuProps) {
   const { state } = useAuth();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -99,6 +100,17 @@ export function UserMenu({ displayName, onOpenStats, onOpenSettings, onSignOut }
               Settings
             </button>
           </li>
+          <li role="none">
+            <button
+              type="button"
+              role="menuitem"
+              className={styles.item}
+              onClick={() => runAction(onOpenFeedback)}
+            >
+              Send feedback
+            </button>
+          </li>
+          <li className={styles.divider} role="separator" />
           <li role="none">
             <button
               type="button"

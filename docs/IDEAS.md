@@ -31,9 +31,6 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Filter chips can still wrap on very small screens even after the "Week" shortening. If it keeps bugging us, consider a segmented control or horizontally-scrollable chip row on mobile.
 - Board management: custom board color pin marker (the member count pin)?
 
-## General features (medium-sized)
-- Add "feedback" option.
-
 ## Assistant - Mid-week response
 - When texting the assistant out of the blue, respond with the correct context. 
 
