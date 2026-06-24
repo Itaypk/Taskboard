@@ -510,6 +510,9 @@ input[type="number"] { -moz-appearance: textfield; }
 .washi__label {
   position: relative;
   z-index: 1;
+  /* Own line-height so the label still renders inside parents that zero it out
+     (e.g. the quick-add chip uses line-height:0 to kill its inline gap). */
+  line-height: 1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1234,10 +1237,12 @@ input[type="number"] { -moz-appearance: textfield; }
 .cat-row__del:disabled { opacity: 0.3; cursor: not-allowed; }
 
 .cat-row__picker {
-  position: absolute;
-  top: calc(100% - 4px);
-  left: 0;
-  z-index: 2;
+  /* Flow inline as a full-width row instead of an absolute popover: an absolutely
+     positioned picker gets clipped by the scrolling modal body (overflow-y: auto),
+     so the bottom rows' pickers were cut off. In-flow, the body just scrolls to it. */
+  grid-column: 1 / -1;
+  z-index: 5;
+  margin-top: 2px;
   background: var(--paper-surface);
   padding: 10px 12px;
   border-radius: var(--r);
