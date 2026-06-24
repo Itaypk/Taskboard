@@ -51,6 +51,17 @@ class FeedbackServiceTest {
         verify(outboundChannel).send(captor.capture())
         assertThat(captor.firstValue.to).containsExactly("owner@example.com")
         assertThat(captor.firstValue.subject).contains("feedback")
+        // The submitter's address rides along as Reply-To so the owner can reply directly.
+        assertThat(captor.firstValue.replyTo).isEqualTo("me@example.com")
+    }
+
+    @Test
+    fun `leaves reply-to null when no reply email is given`() {
+        service().submit(userId, "No reply needed", null)
+
+        val captor = argumentCaptor<EmailMessage>()
+        verify(outboundChannel).send(captor.capture())
+        assertThat(captor.firstValue.replyTo).isNull()
     }
 
     @Test

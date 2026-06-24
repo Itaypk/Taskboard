@@ -12,9 +12,10 @@ class LoggingEmailChannel(private val purpose: String = "email") : OutboundChann
     override fun send(message: OutboundMessage) {
         require(message is EmailMessage) { "LoggingEmailChannel only handles EmailMessage" }
         log.info(
-            "[EMAIL DISABLED purpose={}] to={} subject='{}' hasIcal={}",
+            "[EMAIL DISABLED purpose={}] to={} replyTo={} subject='{}' hasIcal={}",
             purpose,
             message.to,
+            message.replyTo,
             message.subject,
             message.iCalAttachment != null,
         )

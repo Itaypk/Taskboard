@@ -80,6 +80,9 @@ class FeedbackService(
                 to = listOf(recipient),
                 subject = "New Backlog.fyi feedback",
                 htmlBody = htmlBody,
+                // Direct replies straight to the submitter (when they gave an address); the mail is
+                // still sent from the auth sender's own mailbox, so SMTP auth is unaffected.
+                replyTo = cleanedReplyEmail,
             )
         )
 

@@ -27,6 +27,7 @@ class SmtpEmailChannel(
         if (message.iCalAttachment != null) {
             // Multipart/mixed: HTML body + text/calendar part for Gmail "Add to Calendar"
             mime.setFrom(InternetAddress(from, fromName, "UTF-8"))
+            message.replyTo?.let { mime.replyTo = arrayOf(InternetAddress(it)) }
             mime.setSubject(message.subject, "UTF-8")
             for (to in message.to) {
                 mime.addRecipients(RecipientType.TO, to)
@@ -51,6 +52,7 @@ class SmtpEmailChannel(
         } else {
             val helper = MimeMessageHelper(mime, true, "UTF-8")
             helper.setFrom(from, fromName)
+            message.replyTo?.let { helper.setReplyTo(it) }
             helper.setTo(message.to.toTypedArray())
             helper.setSubject(message.subject)
             if (message.textBody != null) {

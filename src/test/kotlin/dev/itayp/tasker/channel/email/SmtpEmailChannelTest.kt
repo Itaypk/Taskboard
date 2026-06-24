@@ -44,6 +44,59 @@ class SmtpEmailChannelTest {
     }
 
     @Test
+    fun `sets Reply-To header when replyTo is provided`() {
+        val mimeMessage = newMimeMessage()
+        whenever(mailSender.createMimeMessage()).thenReturn(mimeMessage)
+
+        channel.send(
+            EmailMessage(
+                to = listOf("owner@example.com"),
+                subject = "New feedback",
+                htmlBody = "<p>Hi</p>",
+                replyTo = "submitter@example.com",
+            ),
+        )
+
+        verify(mailSender).send(any<MimeMessage>())
+        assertEquals("submitter@example.com", mimeMessage.getHeader("Reply-To")?.single())
+    }
+
+    @Test
+    fun `sets Reply-To header on multipart iCal message`() {
+        val mimeMessage = newMimeMessage()
+        whenever(mailSender.createMimeMessage()).thenReturn(mimeMessage)
+
+        channel.send(
+            EmailMessage(
+                to = listOf("user@example.com"),
+                subject = "Invite",
+                htmlBody = "<p>Event</p>",
+                iCalAttachment = ICalAttachment(content = "BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n"),
+                replyTo = "organizer@example.com",
+            ),
+        )
+
+        assertEquals("organizer@example.com", mimeMessage.getHeader("Reply-To")?.single())
+    }
+
+    @Test
+    fun `leaves Reply-To header unset when replyTo is null`() {
+        val mimeMessage = newMimeMessage()
+        whenever(mailSender.createMimeMessage()).thenReturn(mimeMessage)
+
+        channel.send(
+            EmailMessage(
+                to = listOf("user@example.com"),
+                subject = "Hello",
+                htmlBody = "<p>Hi</p>",
+            ),
+        )
+
+        // No explicit Reply-To header is written; JavaMail only falls back to From at read time.
+        assertEquals(null, mimeMessage.getHeader("Reply-To"))
+    }
+
+    @Test
     fun `sends multipart message when iCal attachment is present`() {
         val mimeMessage = newMimeMessage()
         whenever(mailSender.createMimeMessage()).thenReturn(mimeMessage)
