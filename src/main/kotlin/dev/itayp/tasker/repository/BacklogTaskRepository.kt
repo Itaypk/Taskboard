@@ -67,6 +67,14 @@ interface BacklogTaskRepository : JpaRepository<BacklogTaskEntity, UUID> {
 
     fun deleteAllByBoardId(boardId: UUID)
 
+    /** All tasks on the board carrying [tagId] — used to detach a tag before deleting it. */
+    @Query("SELECT t FROM BacklogTaskEntity t JOIN t.tags tag WHERE tag.id = :tagId")
+    fun findAllByTagId(tagId: UUID): List<BacklogTaskEntity>
+
+    /** `[tagId, taskCount]` rows for every tag actually used on the board; unused tags are absent. */
+    @Query("SELECT tag.id, COUNT(t.id) FROM BacklogTaskEntity t JOIN t.tags tag WHERE t.boardId = :boardId GROUP BY tag.id")
+    fun countTasksPerTag(boardId: UUID): List<Array<Any>>
+
     @Query("SELECT MAX(t.sortKey) FROM BacklogTaskEntity t WHERE t.boardId = :boardId")
     fun findMaxSortKeyByBoardId(boardId: UUID): String?
 

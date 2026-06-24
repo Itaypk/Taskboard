@@ -1,32 +1,37 @@
 import { useState, useEffect, useMemo, useRef, type ChangeEvent } from 'react';
 import styles from './SettingsModal.module.css';
-import type { UserSettings, Task, SettingsOptions } from '../types';
+import type { UserSettings, Task, SettingsOptions, Tag } from '../types';
 import { AiUsageMeter } from './AiUsageMeter';
 import { CategoryEditor } from './CategoryEditor';
+import { TagEditor } from './TagEditor';
 import { ConnectedAccounts } from './ConnectedAccounts';
 import { HelpTip } from './HelpTip';
 import { Tabs } from './Tabs';
 import { Toggle } from './Toggle';
-import { createCategory, updateCategory, deleteCategory, updateUserSettings, fetchSettingsOptions, deleteAccount, exportAccount, importAccount, requestEmailVerification } from '../api';
+import { createCategory, updateCategory, deleteCategory, updateTag, deleteTag, updateUserSettings, fetchSettingsOptions, deleteAccount, exportAccount, importAccount, requestEmailVerification } from '../api';
 import type { ImportSummary } from '../api';
 import type { SettingsTab } from '../taskLink';
 
 interface SettingsModalProps {
-  /** Categories are board-owned, so their edits go to the active board. */
+  /** Categories and tags are board-owned, so their edits go to the active board. */
   boardId: string;
   settings: UserSettings;
   tasks: Task[];
+  /** Board tags (popularity-ordered, with usage counts) for the labeling tab's tag manager. */
+  tags: Tag[];
   open: boolean;
   /** Tab to show; tracks the `/settings/<tab>` route so deep links land on the right section. */
   initialTab?: SettingsTab;
   onClose: () => void;
   onSave: (s: UserSettings) => void;
+  /** Called after tags were renamed/recolored/deleted on save, so the shell refetches tags and tasks. */
+  onTagsChanged: () => void;
   onAccountDeleted: () => void;
 }
 
 const SETTINGS_TABS = [
   { id: 'general', label: 'General' },
-  { id: 'categories', label: 'Categories' },
+  { id: 'categories', label: 'Labeling' },
   { id: 'assistant', label: 'Assistant' },
 ];
 
@@ -60,8 +65,10 @@ function parseCron(cron: string | null | undefined): { day: string; time: string
   return { day: dow.toUpperCase(), time };
 }
 
-export function SettingsModal({ boardId, settings, tasks, open, initialTab, onClose, onSave, onAccountDeleted }: SettingsModalProps) {
+export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab, onClose, onSave, onTagsChanged, onAccountDeleted }: SettingsModalProps) {
   const [form, setForm] = useState<UserSettings>(settings);
+  // Staged tag edits (rename/recolor/delete), seeded from props on the open-edge and persisted on Save.
+  const [tagDraft, setTagDraft] = useState<Tag[]>(tags);
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab ?? 'general');
   const [lastInitialTab, setLastInitialTab] = useState(initialTab);
   const [wasOpen, setWasOpen] = useState(open);
@@ -80,6 +87,7 @@ export function SettingsModal({ boardId, settings, tasks, open, initialTab, onCl
   if (open && !wasOpen) {
     setWasOpen(true);
     setForm(settings);
+    setTagDraft(tags);
     setEmailInput(settings.email ?? '');
     setDeleteConfirm(false);
     setVerificationSent(false);
@@ -168,7 +176,22 @@ export function SettingsModal({ boardId, settings, tasks, open, initialTab, onCl
         !originalIds.has(c.id) ? created[createIdx++] : c
       );
 
+      // Tags are born from tasks, so the manager only renames/recolors/deletes — no create path.
+      const draftTagIds = new Set(tagDraft.map(t => t.id));
+      const tagDeletes = tags.filter(t => !draftTagIds.has(t.id));
+      const tagUpdates = tagDraft.filter(t => {
+        const orig = tags.find(o => o.id === t.id);
+        return orig && t.label.trim() && (orig.label !== t.label.trim() || orig.colorId !== t.colorId);
+      });
+      const tagsTouched = tagDeletes.length > 0 || tagUpdates.length > 0;
+      await Promise.all([
+        ...tagDeletes.map(t => deleteTag(boardId, t.id)),
+        ...tagUpdates.map(t => updateTag(boardId, t.id, { label: t.label.trim(), colorId: t.colorId })),
+      ]);
+
       onSave({ ...form, categories: finalCategories });
+      // A tag rename/recolor fans out to tasks (they embed the label/colour), so refetch both.
+      if (tagsTouched) onTagsChanged();
       onClose();
     } catch (e) {
       console.error('Failed to save settings', e);
@@ -488,14 +511,23 @@ export function SettingsModal({ boardId, settings, tasks, open, initialTab, onCl
           )}
 
           {activeTab === 'categories' && (
-            <div className="field">
-              <p className="settings-hint">Post-it color on the board.</p>
-              <CategoryEditor
-                categories={form.categories}
-                usage={usage}
-                onChange={next => setForm(f => ({ ...f, categories: next }))}
-              />
-            </div>
+            <>
+              <div className="field">
+                <label className="field__label">Categories</label>
+                <p className="settings-hint">Post-it color on the board. Every task belongs to one.</p>
+                <CategoryEditor
+                  categories={form.categories}
+                  usage={usage}
+                  onChange={next => setForm(f => ({ ...f, categories: next }))}
+                />
+              </div>
+
+              <div className="field">
+                <label className="field__label">Tags</label>
+                <p className="settings-hint">Washi-tape labels a task can carry several of. Rename, recolor, or remove them.</p>
+                <TagEditor tags={tagDraft} onChange={setTagDraft} />
+              </div>
+            </>
           )}
 
           {activeTab === 'assistant' && (

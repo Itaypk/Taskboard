@@ -369,6 +369,12 @@ export const deleteCategory = (boardId: string, id: string): Promise<void> =>
 export const fetchTags = (boardId: string): Promise<Tag[]> =>
     apiRequest(`/boards/${boardId}/tags`);
 
+export const updateTag = (boardId: string, id: string, payload: { label: string; colorId: string }): Promise<Tag> =>
+    apiRequest(`/boards/${boardId}/tags/${id}`, { method: 'PUT', ...jsonBody(payload) });
+
+export const deleteTag = (boardId: string, id: string): Promise<void> =>
+    apiRequest(`/boards/${boardId}/tags/${id}`, { method: 'DELETE' });
+
 // --- User Settings ---
 
 type UserSettingsPayload = Pick<UserSettings, 'displayName' | 'contextBlock' | 'timeZone' | 'preferredLanguage' | 'calendarInviteEmail' | 'appReminders' | 'gender' | 'agentDescription' | 'planningCron' | 'weekStartDay' | 'autoArchiveDays' | 'aiEnabled' | 'aiEnhancedReminders'>;

@@ -796,10 +796,16 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
         boardId={activeBoardId}
         settings={settings}
         tasks={tasks}
+        tags={tags}
         open={settingsOpen}
         initialTab={settingsTab}
         onClose={closeSettings}
         onSave={setSettings}
+        onTagsChanged={() => {
+          // Tag rename/recolor/delete fans out to tasks (they embed the tag label/colour), so refresh both.
+          fetchTags(activeBoardId).then(setTags).catch(e => console.error('Failed to refetch tags', e));
+          fetchTasks(activeBoardId, fetchStatus).then(setTasks).catch(e => console.error('Failed to refetch tasks', e));
+        }}
         onAccountDeleted={() => { void onSignOut(); }}
       />
 

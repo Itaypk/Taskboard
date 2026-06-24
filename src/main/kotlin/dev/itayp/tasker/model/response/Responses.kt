@@ -2,8 +2,8 @@ package dev.itayp.tasker.model.response
 
 import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.BacklogTaskCategory
-import dev.itayp.tasker.model.BacklogTaskTag
 import dev.itayp.tasker.model.BoardSummary
+import dev.itayp.tasker.model.TagUsage
 import dev.itayp.tasker.model.UserSettings
 
 data class LanguageOption(val code: String, val label: String)
@@ -159,7 +159,7 @@ data class PlanTaskResponse(
 
 data class CategoryResponse(val id: String, val label: String, val swatchId: String)
 
-data class TagResponse(val id: String, val label: String, val colorId: String)
+data class TagResponse(val id: String, val label: String, val colorId: String, val usageCount: Int)
 
 fun BacklogTask.toResponse() = TaskResponse(
     id = id.toString(),
@@ -187,8 +187,9 @@ fun BacklogTaskCategory.toResponse() = CategoryResponse(
     swatchId = swatchId.name.lowercase()
 )
 
-fun BacklogTaskTag.toResponse() = TagResponse(
-    id = id.toString(),
-    label = label,
-    colorId = colorId.name.lowercase()
+fun TagUsage.toResponse() = TagResponse(
+    id = tag.id.toString(),
+    label = tag.label,
+    colorId = tag.colorId.name.lowercase(),
+    usageCount = usageCount,
 )

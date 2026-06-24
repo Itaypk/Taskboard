@@ -187,6 +187,18 @@ export function TaskDrawer({
   const removeTag = (i: number) =>
     setForm(f => ({ ...f, tags: f.tags.filter((_, idx) => idx !== i) }));
 
+  // One-click add of an existing board tag (no typing). No-op if already applied or at the cap.
+  const addExistingTag = (tag: Tag) => {
+    if (form.tags.length >= 3) return;
+    if (form.tags.some(t => t.id === tag.id || t.label.toLowerCase() === tag.label.toLowerCase())) return;
+    setForm(f => ({ ...f, tags: [...f.tags, { id: tag.id, label: tag.label, colorId: tag.colorId }] }));
+  };
+
+  // Most-used board tags not already on this task (availableTags arrives popularity-ordered from the API).
+  const tagSuggestions = availableTags
+    .filter(t => !form.tags.some(ft => ft.id === t.id || ft.label.toLowerCase() === t.label.toLowerCase()))
+    .slice(0, 6);
+
   const accentStyle = selectedSwatch
     ? {
         ['--accent-paper' as string]: selectedSwatch.paper,
@@ -389,6 +401,23 @@ export function TaskDrawer({
                   <span className="tape-editor__hint">No tags yet</span>
                 )}
               </div>
+
+              {form.tags.length < 3 && !showTagForm && tagSuggestions.length > 0 && (
+                <div className="tape-quickadd">
+                  {tagSuggestions.map(t => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      className="tape-quickadd__chip"
+                      onClick={() => addExistingTag(t)}
+                      aria-label={`Add tag ${t.label}`}
+                      title={`Add ${t.label}`}
+                    >
+                      <WashiTape tag={t} idSeed={'sugg-' + t.id} />
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {form.tags.length < 3 && !showTagForm && (
                 <button
