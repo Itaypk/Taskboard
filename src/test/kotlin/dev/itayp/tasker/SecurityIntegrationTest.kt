@@ -113,17 +113,13 @@ class SecurityIntegrationTest(
     }
 
     @Test
-    fun `responses include a Content-Security-Policy header`() {
+    fun `the app layer does not emit a Content-Security-Policy header`() {
+        // CSP is owned entirely by Nginx (per-vhost, in the itayp_dev Ansible repo), not the app:
+        // Spring's HeaderWriterFilter can't cover the forwarded SPA document anyway, and a second
+        // app-layer CSP behind Nginx would produce a duplicate header. If this starts failing,
+        // someone re-added CSP to SecurityConfiguration — remove it; the policy belongs in Nginx.
         val response = rest.getForEntity("/api/v1/boards", String::class.java)
-        // Doesn't matter that this is a 401 — CSP should land regardless.
-        val csp = response.headers.getFirst("Content-Security-Policy")
-        assertThat(csp).isNotNull()
-        assertThat(csp).contains("default-src 'self'")
-        assertThat(csp).contains("script-src 'self'")
-        assertThat(csp).contains("frame-ancestors 'none'")
-        // Telegram login is now a top-level OAuth redirect, so the widget's script/frame
-        // allowances are gone.
-        assertThat(csp).doesNotContain("telegram.org")
+        assertThat(response.headers.getFirst("Content-Security-Policy")).isNull()
     }
 
     @Test

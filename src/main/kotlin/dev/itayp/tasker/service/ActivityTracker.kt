@@ -5,7 +5,8 @@ import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
-import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
 import java.time.Duration
 import java.util.UUID
@@ -24,8 +25,14 @@ import java.util.concurrent.ConcurrentHashMap
 class ActivityTracker(
     private val userRepository: UserRepository,
     private val clock: Clock,
+    transactionManager: PlatformTransactionManager,
 ) {
     private val log = LoggerFactory.getLogger(ActivityTracker::class.java)
+
+    // Programmatic transaction so [flush] runs in a real transaction regardless of how it's called.
+    // The shutdown path ([flushOnShutdown]) invokes flush() directly on this instance, which would
+    // bypass a method-level @Transactional proxy — and silently run without a transaction.
+    private val transactionTemplate = TransactionTemplate(transactionManager)
 
     // userId -> latest activity instant not yet persisted.
     private val pending = ConcurrentHashMap<UUID, java.time.Instant>()
@@ -42,25 +49,26 @@ class ActivityTracker(
     }
 
     @Scheduled(fixedDelay = FLUSH_INTERVAL_MILLIS)
-    @Transactional
     fun flush() {
         if (pending.isEmpty()) return
-        // Snapshot-and-clear: drain each key individually so touches arriving mid-flush aren't lost.
-        val drained = pending.keys.toList()
-        var written = 0
-        for (userId in drained) {
-            val ts = pending.remove(userId) ?: continue
-            try {
-                userRepository.touchLastActiveAt(userId, ts)
-                lastPersisted[userId] = ts
-                written++
-            } catch (e: Exception) {
-                // Re-queue so a transient failure doesn't drop the activity signal.
-                pending.putIfAbsent(userId, ts)
-                log.warn("Failed to persist last_active_at for user {}", userId, e)
+        transactionTemplate.executeWithoutResult {
+            // Snapshot-and-clear: drain each key individually so touches arriving mid-flush aren't lost.
+            val drained = pending.keys.toList()
+            var written = 0
+            for (userId in drained) {
+                val ts = pending.remove(userId) ?: continue
+                try {
+                    userRepository.touchLastActiveAt(userId, ts)
+                    lastPersisted[userId] = ts
+                    written++
+                } catch (e: Exception) {
+                    // Re-queue so a transient failure doesn't drop the activity signal.
+                    pending.putIfAbsent(userId, ts)
+                    log.warn("Failed to persist last_active_at for user {}", userId, e)
+                }
             }
+            if (written > 0) log.debug("Flushed last_active_at for {} user(s)", written)
         }
-        if (written > 0) log.debug("Flushed last_active_at for {} user(s)", written)
     }
 
     @PreDestroy

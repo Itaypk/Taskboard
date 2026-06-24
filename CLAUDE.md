@@ -74,6 +74,16 @@ Session chain details:
 - **Session persistence**: sessions are stored in the `SPRING_SESSION` / `SPRING_SESSION_ATTRIBUTES` tables via `spring-session-jdbc`, so they survive application restarts. `spring.session.jdbc.initialize-schema: never` — the schema is owned by Liquibase (changeset `002-spring-session.xml`). Every request updates `last_access_time`, so the 30-day TTL rolls forward for active users and only idle sessions expire. Expired rows are GC'd by Spring Session's internal scheduled cleanup.
 - **CORS**: allow access from common localhost ports (NPM default and IntelliJ local files), and the base production URL (read from configuration)
 
+## Security response headers
+
+All HTTP response security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy) are owned by **Nginx in front of the app**, not Spring. The Nginx config lives in a separate Ansible repo (`../itayp_dev`, role `nginx`).
+
+- **Why not the app**: in prod the SPA's HTML document (`/`, and the SPA routes `/settings`, `/terms`, … which are `forward:/index.html`) is served by Spring's welcome-page / static-resource handler, and Spring Security's `HeaderWriterFilter` does **not** run on that forwarded response — so an app-layer CSP would silently miss the one response that matters most for XSS. Putting headers in Nginx covers it uniformly, and avoids emitting a duplicate header behind the proxy.
+- **Do not add `contentSecurityPolicy`/header writers to `SecurityConfiguration`'s session chain.** `SecurityIntegrationTest` asserts the app emits *no* CSP precisely to catch a re-introduction (which would double the header behind Nginx). The dev-only `h2ConsoleFilterChain` is the lone exception (its own `frame-ancestors 'self'`).
+- **CSP is per-vhost, never in the shared snippet.** `roles/nginx/files/snippets/security-headers.conf` (HSTS/X-Frame-Options/nosniff/Referrer/Permissions) is included by *every* vhost, so a CSP there would impose Backlog's policy on the other sites. CSP is instead a `csp:` field on the `tasks` service in `group_vars/all/main.yml`, emitted by `templates/vhost.conf.j2` into each Backlog `location` (the SPA static locations **and** the catch-all that serves the document forwards + API). Because Nginx `add_header` is replace-not-merge, every location that emits CSP must also re-`include security-headers.conf` or it drops the rest.
+- **Local dev has no Nginx**, so responses carry no security headers there — expected; don't "fix" it by adding them to Spring.
+- Known cosmetic wart: Spring's default `X-Frame-Options: DENY` still leaks on directly-served responses (e.g. `/assets/*`), doubling Nginx's `SAMEORIGIN`. Harmless (CSP `frame-ancestors 'none'` is authoritative), left as-is.
+
 ## Data model
 
 - **UUIDs everywhere**: user ids, task ids, category/tag ids. Stored as `UUID` columns with foreign keys to `users(id)`.

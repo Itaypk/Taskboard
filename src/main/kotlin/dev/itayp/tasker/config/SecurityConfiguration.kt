@@ -27,28 +27,6 @@ import org.springframework.web.cors.CorsConfiguration
 import org.springframework.web.cors.CorsConfigurationSource
 import java.util.function.Supplier
 
-// Content-Security-Policy applied to every non-actuator response. Notes on each entry:
-//  - style-src 'unsafe-inline'         : React inline `style={{...}}` attributes (no nonces in our build)
-//  - style-src fonts.googleapis        : the Google Fonts stylesheet linked from index.html
-//  - font-src fonts.gstatic            : the actual font files referenced by that stylesheet
-//  - img-src data:                     : SVG noise/mask textures used as CSS backgrounds and masks
-//  - frame-ancestors 'none'            : modern equivalent of X-Frame-Options: DENY
-// Telegram login is a top-level OAuth redirect (no widget script, no iframe), so it needs no CSP
-// allowances — navigating away to oauth.telegram.org is a normal navigation, not script/frame loading.
-private val CSP_POLICY = listOf(
-    "default-src 'self'",
-    "script-src 'self'",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' https://fonts.gstatic.com",
-    "img-src 'self' data:",
-    "connect-src 'self'",
-    "object-src 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-    "frame-ancestors 'none'",
-    "upgrade-insecure-requests",
-).joinToString("; ")
-
 @Configuration
 @EnableWebSecurity
 @EnableConfigurationProperties(PrometheusAuthProperties::class, AppProperties::class)
@@ -132,12 +110,13 @@ class SecurityConfiguration(
                 // By default, Spring Security disables caching by setting Cache-Control: no-cache, no-store, max-age=0, must-revalidate and Pragma: no-cache.
                 // This breaks caching of static assets, so we turn it off and rely on our own cache-control headers (defined in Nginx + Spring resource handlers).
                 cacheControl { disable() }
-                // Other security headers (HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, etc.)
-                // are set by Nginx in front of the app. CSP lives here because it depends on knowledge of
-                // the app's own asset graph.
-                contentSecurityPolicy {
-                    policyDirectives = CSP_POLICY
-                }
+                // All response security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options,
+                // Referrer-Policy, Permissions-Policy) are owned by Nginx in front of the app — see the
+                // `tasks` service `csp` value and security-headers.conf in the itayp_dev Ansible repo.
+                // CSP in particular *must* live there: Spring's HeaderWriterFilter never runs on the
+                // welcome-page / forwarded index.html responses (`/`, `/settings`, `/terms`, …), so the
+                // app layer cannot protect the SPA's HTML document — the response that matters most.
+                // Keeping CSP out of the app also avoids emitting a duplicate header behind Nginx.
             }
             cors {
                     val isDev = environment.acceptsProfiles(Profiles.of("dev"))
