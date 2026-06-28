@@ -82,6 +82,7 @@ class SecurityConfiguration(
                 authorize("/index.html", permitAll)
                 authorize("/robots.txt", permitAll)
                 authorize("/sitemap.xml", permitAll)
+                authorize("/BingSiteAuth.xml", permitAll)
                 authorize("/assets/**", permitAll)
                 authorize("/favicon.ico", permitAll)
                 authorize("/api/auth/me", permitAll)
