@@ -5,6 +5,7 @@ import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.jpa.BacklogTaskCategoryEntity
 import dev.itayp.tasker.jpa.BacklogTaskEntity
 import dev.itayp.tasker.jpa.BacklogTaskTagEntity
+import dev.itayp.tasker.jpa.UserEntity
 import dev.itayp.tasker.jpa.UserSettingsEntity
 import dev.itayp.tasker.model.CategoryColor
 import dev.itayp.tasker.model.TagColor
@@ -30,7 +31,7 @@ import java.util.UUID
  * Designed for the encryption-migration flow: an account exports on the old build,
  * the DB is wiped, the user re-authenticates on the new build, then calls import.
  * The new account starts with auto-seeded defaults; import wipes those and writes
- * the exported state into the new userId. Format spec: `docs/export-format-v1.md`.
+ * the exported state into the new userId. Format spec: `docs/export-format-v3.md`.
  */
 @Service
 class AccountImportService(
@@ -78,11 +79,7 @@ class AccountImportService(
             IllegalStateException("Authenticated user $userId not found")
         }
         user.telegramFirstName = userCrypto.encrypt(userId, payload.user.telegramFirstName)
-        val normalisedEmail = payload.user.email?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
-        if (normalisedEmail != null) {
-            user.email = userCrypto.encrypt(userId, normalisedEmail)
-            user.emailHash = EmailHasher.hash(normalisedEmail)
-        }
+        val emailOutcome = importEmail(userId, user, payload.user.email)
         userRepository.save(user)
 
         // Step 6: settings — load the auto-created row and overwrite in place.
@@ -114,59 +111,94 @@ class AccountImportService(
             userSettingsRepository.save(settings)
         }
 
-        log.info("Imported account for user {}: {}", userId, totals)
-        return totals
+        val summary = totals.copy(
+            emailImported = emailOutcome == EmailImportOutcome.IMPORTED,
+            emailSkipReason = emailOutcome.skipReason,
+        )
+        log.info("Imported account for user {}: {}", userId, summary)
+        return summary
+    }
+
+    /**
+     * Email is *identity*, not portable content: it backs the unique `email_hash` handle and a
+     * login method. Adopting the exported email is only safe on a fresh account that has no email
+     * of its own and where no other account already holds that address. Otherwise we keep the
+     * importing account's own email and report why, rather than clobbering identity or 500-ing on
+     * the unique constraint. (No `auth_identities` row is created here — `emailVerifiedAt` stays
+     * null and the user re-verifies to turn it into a login method.)
+     */
+    private fun importEmail(userId: UUID, user: UserEntity, rawEmail: String?): EmailImportOutcome {
+        val normalisedEmail = rawEmail?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
+            ?: return EmailImportOutcome.NONE
+        val hash = EmailHasher.hash(normalisedEmail)
+        return when {
+            // Already this account's email (re-import of own export): nothing to do, not a skip.
+            user.emailHash == hash -> EmailImportOutcome.NONE
+            // Account already carries a different email — don't overwrite its own identity.
+            user.emailHash != null -> EmailImportOutcome.SKIPPED_ACCOUNT_HAS_EMAIL
+            // Address belongs to another live account — adopting it would hijack their login.
+            userRepository.findByEmailHash(hash)?.let { it.id != userId } == true ->
+                EmailImportOutcome.SKIPPED_TAKEN
+            else -> {
+                user.email = userCrypto.encrypt(userId, normalisedEmail)
+                user.emailHash = hash
+                EmailImportOutcome.IMPORTED
+            }
+        }
     }
 
     /**
      * Writes one exported board's categories/tags/tasks into [boardId] (which already exists, freshly
-     * seeded). Wipes the seeded categories first, then rebuilds with old→new id remapping. Returns
-     * the per-board counts so the caller can aggregate across all imported boards.
+     * seeded). Wipes the seeded categories first, then rebuilds; tasks resolve their category/tags
+     * by position in the exported arrays (v3). Returns the per-board counts so the caller can
+     * aggregate across all imported boards.
      */
     private fun importBoardContent(boardId: UUID, board: BoardExport): ImportSummary {
-        // Wipe the auto-seeded defaults. The account is verified empty, so nothing references them.
+        // Clear the seeded tutorial tasks first: they reference the default categories, so they must go
+        // before the category wipe below (flush so the row deletes hit the DB ahead of the bulk delete).
+        // isEmptyForImport guarantees the only tasks here are tutorial ones.
+        val tutorialTasks = taskRepository.findAllByBoardIdAndTutorialTrue(boardId)
+        if (tutorialTasks.isNotEmpty()) {
+            taskRepository.deleteAll(tutorialTasks)
+            taskRepository.flush()
+        }
+
+        // Wipe the auto-seeded default categories; nothing references them once tutorial tasks are gone.
         categoryRepository.deleteAllByBoardId(boardId)
 
-        // Categories — keep an old→new UUID map so task FKs can be retargeted.
-        val categoryIdMap = HashMap<String, UUID>(board.categories.size)
-        for (cat in board.categories) {
+        // Categories — saved in export order so tasks can resolve them by position (v3).
+        val categoriesByIndex = board.categories.map { cat ->
             val swatch = runCatching { CategoryColor.valueOf(cat.swatchId.uppercase()) }
                 .getOrElse { throw IllegalArgumentException("Unknown category swatchId: ${cat.swatchId}") }
-            val saved = categoryRepository.save(BacklogTaskCategoryEntity().apply {
+            categoryRepository.save(BacklogTaskCategoryEntity().apply {
                 this.boardId = boardId
                 this.label = cat.label
                 this.swatchId = swatch
             })
-            categoryIdMap[cat.id] = saved.id!!
         }
 
-        // Tags — same id-map pattern; keep the entities so tasks can attach them without a re-read.
-        val tagsByOldId = HashMap<String, BacklogTaskTagEntity>(board.tags.size)
-        for (tag in board.tags) {
+        // Tags — same positional scheme; keep the entities so tasks can attach them without a re-read.
+        val tagsByIndex = board.tags.map { tag ->
             val color = runCatching { TagColor.valueOf(tag.colorId.uppercase()) }
                 .getOrElse { throw IllegalArgumentException("Unknown tag colorId: ${tag.colorId}") }
-            val saved = tagRepository.save(BacklogTaskTagEntity().apply {
+            tagRepository.save(BacklogTaskTagEntity().apply {
                 this.boardId = boardId
                 this.label = tag.label
                 this.colorId = color
                 this.description = tag.description
             })
-            tagsByOldId[tag.id] = saved
         }
 
-        // Tasks. Encrypt sensitive fields under this board's DEK, translate FKs, parse dates.
-        // The exported `assignee` (a cross-account user id) is deliberately dropped on import: it's
-        // meaningless in the importing account's board, which is created fresh with the importer as
-        // sole OWNER (see docs/export-format-v2.md). Tasks come in unassigned.
+        // Tasks. Encrypt sensitive fields under this board's DEK, resolve category/tag positions,
+        // parse dates. Cross-account assignment isn't carried over: the board is created fresh with
+        // the importer as sole OWNER (see docs/export-format-v3.md), so tasks come in unassigned.
         for (task in board.tasks) {
-            val newCategoryId = categoryIdMap[task.categoryId]
-                ?: throw IllegalArgumentException("Task ${task.id} references unknown categoryId ${task.categoryId}")
-            val category = categoryRepository.findByIdAndBoardId(newCategoryId, boardId)
-                ?: error("Category $newCategoryId was just persisted but cannot be loaded")
+            val category = categoriesByIndex.getOrNull(task.categoryIndex)
+                ?: throw IllegalArgumentException("Task references out-of-range categoryIndex ${task.categoryIndex}")
 
-            val tagEntities = task.tagIds.map { oldId ->
-                tagsByOldId[oldId]
-                    ?: throw IllegalArgumentException("Task ${task.id} references unknown tagId $oldId")
+            val tagEntities = task.tagIndexes.map { idx ->
+                tagsByIndex.getOrNull(idx)
+                    ?: throw IllegalArgumentException("Task references out-of-range tagIndex $idx")
             }
 
             val status = parseEnum<TaskStatus>("status", task.status)
@@ -185,7 +217,7 @@ class AccountImportService(
                 this.tags = tagEntities.toMutableSet()
                 this.sortKey = task.sortKey
                 this.createdAt = parseInstant("createdAt", task.createdAt)
-                    ?: throw IllegalArgumentException("Task ${task.id} has invalid createdAt: ${task.createdAt}")
+                    ?: throw IllegalArgumentException("Task '${task.title}' has invalid createdAt: ${task.createdAt}")
                 this.updatedAt = parseInstant("updatedAt", task.updatedAt)
                 this.rescheduleCount = 0
                 this.lastScheduledInSessionId = null
@@ -217,15 +249,35 @@ class AccountImportService(
     }
 
     companion object {
-        const val SUPPORTED_FORMAT_VERSION = 2
+        const val SUPPORTED_FORMAT_VERSION = 3
     }
+}
+
+/** Outcome of trying to adopt the exported email onto the importing account. */
+private enum class EmailImportOutcome(val skipReason: String?) {
+    /** No email in the export, or it already matches the account's own — nothing reported. */
+    NONE(null),
+    /** Exported email written onto the account. */
+    IMPORTED(null),
+    /** Account already had its own (different) email; kept it. */
+    SKIPPED_ACCOUNT_HAS_EMAIL("ACCOUNT_HAS_EMAIL"),
+    /** Exported email already belongs to another account; kept the importer's own. */
+    SKIPPED_TAKEN("TAKEN"),
 }
 
 data class ImportSummary(
     val categories: Int,
     val tags: Int,
     val tasks: Int,
+    /** True when the exported email was adopted onto the account. */
+    val emailImported: Boolean = false,
+    /**
+     * Stable reason code when the exported email was *not* imported (`ACCOUNT_HAS_EMAIL` | `TAKEN`),
+     * or null when there was nothing to report. The frontend maps it to a human message.
+     */
+    val emailSkipReason: String? = null,
 ) {
+    // Only board counts aggregate; email outcome is user-level and set once at the end of import.
     operator fun plus(other: ImportSummary) =
         ImportSummary(categories + other.categories, tags + other.tags, tasks + other.tasks)
 }

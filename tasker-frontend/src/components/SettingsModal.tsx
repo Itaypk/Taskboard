@@ -5,10 +5,11 @@ import { AiUsageMeter } from './AiUsageMeter';
 import { CategoryEditor } from './CategoryEditor';
 import { TagEditor } from './TagEditor';
 import { ConnectedAccounts } from './ConnectedAccounts';
+import { ImportResultDialog, type ImportResult } from './ImportResultDialog';
 import { HelpTip } from './HelpTip';
 import { Tabs } from './Tabs';
 import { Toggle } from './Toggle';
-import { createCategory, updateCategory, deleteCategory, updateTag, deleteTag, updateUserSettings, fetchSettingsOptions, deleteAccount, exportAccount, importAccount, requestEmailVerification } from '../api';
+import { createCategory, updateCategory, deleteCategory, updateTag, deleteTag, updateUserSettings, fetchSettingsOptions, deleteAccount, exportAccount, importAccount, requestEmailVerification, ApiError } from '../api';
 import type { ImportSummary } from '../api';
 import type { SettingsTab } from '../taskLink';
 
@@ -78,7 +79,7 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
   const [deleting, setDeleting] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [importMessage, setImportMessage] = useState<string | null>(null);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const [emailInput, setEmailInput] = useState(settings.email ?? '');
   const [verificationSent, setVerificationSent] = useState(false);
@@ -225,7 +226,7 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
   };
 
   const handleImportClick = () => {
-    setImportMessage(null);
+    setImportResult(null);
     importInputRef.current?.click();
   };
 
@@ -235,31 +236,36 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
     e.target.value = '';
     if (!file) return;
     setImporting(true);
-    setImportMessage(null);
+    setImportResult(null);
     try {
       const text = await file.text();
       let payload: unknown;
       try {
         payload = JSON.parse(text);
       } catch {
-        setImportMessage('That file is not valid JSON.');
+        setImportResult({ kind: 'error', message: 'That file is not valid JSON.' });
         return;
       }
       const summary: ImportSummary = await importAccount(payload);
-      setImportMessage(
-        `Imported ${summary.tasks} task${summary.tasks === 1 ? '' : 's'}, ` +
-        `${summary.tags} tag${summary.tags === 1 ? '' : 's'}, ` +
-        `${summary.categories} categor${summary.categories === 1 ? 'y' : 'ies'}. Reloading…`
-      );
-      // Hard reload so the rest of the app re-fetches against the freshly populated account.
-      setTimeout(() => window.location.reload(), 800);
+      setImportResult({ kind: 'success', summary });
     } catch (err: unknown) {
       console.error('Import failed', err);
-      const message = err instanceof Error ? err.message : 'Import failed.';
-      setImportMessage(message);
+      // ApiError.userMessage carries the server's detailed reason (e.g. the 409 conflict text);
+      // its .message is just "HTTP 409 …", so prefer userMessage when present.
+      const message = err instanceof ApiError ? err.userMessage
+        : err instanceof Error ? err.message
+        : 'Import failed.';
+      setImportResult({ kind: 'error', message });
     } finally {
       setImporting(false);
     }
+  };
+
+  const handleImportResultClose = () => {
+    const wasSuccess = importResult?.kind === 'success';
+    setImportResult(null);
+    // Hard reload so the rest of the app re-fetches against the freshly populated account.
+    if (wasSuccess) window.location.reload();
   };
 
   const handleDeleteConfirmed = async () => {
@@ -472,9 +478,6 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
                     style={{ display: 'none' }}
                     onChange={handleImportFile}
                   />
-                  {importMessage && (
-                    <p className="danger-zone__confirm-text" role="status">{importMessage}</p>
-                  )}
                   {deleteConfirm ? (
                     <div className="danger-zone__confirm">
                       <span className="danger-zone__confirm-text">This will permanently delete your account and all data. There's no undo.</span>
@@ -647,6 +650,7 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
           </button>
         </div>
       </div>
+      <ImportResultDialog result={importResult} onClose={handleImportResultClose} />
     </div>
   );
 }

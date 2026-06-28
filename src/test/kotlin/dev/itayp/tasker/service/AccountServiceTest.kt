@@ -57,7 +57,7 @@ class AccountServiceTest {
     private val tagId: UUID = UUID.fromString("00000000-0000-0000-0000-0000000000d1")
 
     @Test
-    fun `exportAccount emits formatVersion 2 and all v2 fields`() {
+    fun `exportAccount emits formatVersion 3 and all v3 fields`() {
         val workCategory = BacklogTaskCategoryEntity().apply {
             id = categoryId
             this.boardId = this@AccountServiceTest.boardId
@@ -134,13 +134,26 @@ class AccountServiceTest {
         )
         whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
         whenever(settingsRepository.findById(userId)).thenReturn(Optional.of(settings))
+        // A seeded tutorial task shares the board; export must exclude it (no decrypt stub for it,
+        // since it's filtered out before the mapping that would decrypt its title).
+        val tutorialTask = BacklogTaskEntity().apply {
+            id = UUID.randomUUID()
+            this.boardId = this@AccountServiceTest.boardId
+            title = "tutorial card".toByteArray()
+            status = TaskStatus.TODO
+            category = workCategory
+            sortKey = "z9"
+            createdAt = Instant.parse("2026-05-01T12:00:00Z")
+            tutorial = true
+        }
+
         whenever(categoryRepository.findAllByBoardId(boardId)).thenReturn(listOf(workCategory))
         whenever(tagRepository.findAllByBoardId(boardId)).thenReturn(listOf(urgentTag))
-        whenever(taskRepository.findAllByBoardIdOrderBySortKeyAsc(boardId)).thenReturn(listOf(task))
+        whenever(taskRepository.findAllByBoardIdOrderBySortKeyAsc(boardId)).thenReturn(listOf(task, tutorialTask))
 
         val result = service.exportAccount(userId)
 
-        assertEquals(2, result.formatVersion)
+        assertEquals(3, result.formatVersion)
 
         assertEquals("alice@example.com", result.user.email)
         assertEquals("Alice", result.user.telegramFirstName)
@@ -156,11 +169,14 @@ class AccountServiceTest {
         val board = result.boards[0]
         assertEquals("My tasks", board.name)
         assertEquals("OWNER", board.role)
-        assertEquals(1, board.tasks.size)
+        assertEquals(1, board.tasks.size) // tutorial task excluded; only the real one is exported
         assertEquals("2026-05-20", board.tasks[0].relevantFrom)
         assertEquals("Work", board.categories[0].label)
         assertEquals("sunshine", board.categories[0].swatchId)
         assertEquals("coral", board.tags[0].colorId)
+        // v3: tasks reference category/tags by position in the board arrays.
+        assertEquals(0, board.tasks[0].categoryIndex)
+        assertEquals(listOf(0), board.tasks[0].tagIndexes)
     }
 
     @Test
@@ -195,9 +211,46 @@ class AccountServiceTest {
 
         val result = service.exportAccount(userId)
 
-        assertEquals(2, result.formatVersion)
+        assertEquals(3, result.formatVersion)
         assertNull(result.settings)
         assertNull(result.user.email)
         assertNull(result.boards[0].tasks[0].relevantFrom)
+    }
+
+    @Test
+    fun `isEmptyForImport treats an account holding only tutorial tasks as importable`() {
+        val tutorialTask = BacklogTaskEntity().apply {
+            id = UUID.randomUUID()
+            this.boardId = this@AccountServiceTest.boardId
+            status = TaskStatus.TODO
+            tutorial = true
+        }
+        val defaultCategories = UserService.DEFAULT_CATEGORIES.map { (label, swatch) ->
+            BacklogTaskCategoryEntity().apply {
+                this.boardId = this@AccountServiceTest.boardId
+                this.label = label
+                this.swatchId = swatch
+            }
+        }
+        whenever(boardMembershipService.listBoardIds(userId)).thenReturn(listOf(boardId))
+        whenever(taskRepository.findAllByBoardIdOrderBySortKeyAsc(boardId)).thenReturn(listOf(tutorialTask))
+        whenever(tagRepository.findAllByBoardId(boardId)).thenReturn(emptyList())
+        whenever(categoryRepository.findAllByBoardId(boardId)).thenReturn(defaultCategories)
+
+        assertEquals(true, service.isEmptyForImport(userId))
+    }
+
+    @Test
+    fun `isEmptyForImport rejects an account holding a real task`() {
+        val realTask = BacklogTaskEntity().apply {
+            id = UUID.randomUUID()
+            this.boardId = this@AccountServiceTest.boardId
+            status = TaskStatus.TODO
+            tutorial = false
+        }
+        whenever(boardMembershipService.listBoardIds(userId)).thenReturn(listOf(boardId))
+        whenever(taskRepository.findAllByBoardIdOrderBySortKeyAsc(boardId)).thenReturn(listOf(realTask))
+
+        assertEquals(false, service.isEmptyForImport(userId))
     }
 }

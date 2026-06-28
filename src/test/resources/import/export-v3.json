@@ -1,8 +1,7 @@
 {
-    "formatVersion": 2,
+    "formatVersion": 3,
     "exportedAt": "2026-05-25T17:47:45.557984442Z",
     "user": {
-        "id": "731e4883-304d-49d2-b0a8-fd71553a903b",
         "telegramUsername": null,
         "telegramFirstName": null,
         "email": null,
@@ -25,54 +24,19 @@
             "name": "My tasks",
             "role": "OWNER",
             "categories": [
-                {
-                    "id": "57133102-6861-4260-a418-825cac014ec8",
-                    "label": "Work",
-                    "swatchId": "sunshine"
-                },
-                {
-                    "id": "51463fa8-6826-4b75-9069-dda251f945c5",
-                    "label": "Personal",
-                    "swatchId": "blossom"
-                },
-                {
-                    "id": "22b0a3bc-a0e6-4c08-8bd6-45e3cdb599c7",
-                    "label": "Ideas",
-                    "swatchId": "mint"
-                },
-                {
-                    "id": "7ba8ff2a-5d8d-4df6-b8de-a431e7db1c7e",
-                    "label": "Home",
-                    "swatchId": "sky"
-                },
-                {
-                    "id": "c990bc78-7e28-459e-9877-4c1f6947ba33",
-                    "label": "Errands",
-                    "swatchId": "lilac"
-                },
-                {
-                    "id": "ecc0314c-6cf7-46e9-ab68-0b760ba0ac03",
-                    "label": "Other Stuff",
-                    "swatchId": "peach"
-                }
+                { "label": "Work", "swatchId": "sunshine" },
+                { "label": "Personal", "swatchId": "blossom" },
+                { "label": "Ideas", "swatchId": "mint" },
+                { "label": "Home", "swatchId": "sky" },
+                { "label": "Errands", "swatchId": "lilac" },
+                { "label": "Other Stuff", "swatchId": "peach" }
             ],
             "tags": [
-                {
-                    "id": "15221eda-f499-4c58-a352-0ac7e861c2d9",
-                    "label": "Nice Work!",
-                    "colorId": "lemon",
-                    "description": null
-                },
-                {
-                    "id": "34ffcb94-d7aa-4cba-91dc-625c45d60757",
-                    "label": "Sports",
-                    "colorId": "rose",
-                    "description": null
-                }
+                { "label": "Nice Work!", "colorId": "lemon", "description": null },
+                { "label": "Sports", "colorId": "rose", "description": null }
             ],
             "tasks": [
                 {
-                    "id": "ff6a62d7-ac50-4c0b-969e-4f48cd27d969",
                     "title": "Prepare weekly team update",
                     "description": null,
                     "url": null,
@@ -80,15 +44,14 @@
                     "deadline": null,
                     "estimatedMinutes": 30,
                     "status": "todo",
-                    "categoryId": "57133102-6861-4260-a418-825cac014ec8",
-                    "tagIds": [],
+                    "categoryIndex": 0,
+                    "tagIndexes": [],
                     "sortKey": "8I",
                     "createdAt": "2026-05-25T17:45:30.718665Z",
                     "updatedAt": null,
                     "relevantFrom": null
                 },
                 {
-                    "id": "5f4554f0-64b9-4425-9030-1a5b61cbefd0",
                     "title": "Review open pull requests",
                     "description": null,
                     "url": null,
@@ -96,15 +59,14 @@
                     "deadline": null,
                     "estimatedMinutes": null,
                     "status": "todo",
-                    "categoryId": "57133102-6861-4260-a418-825cac014ec8",
-                    "tagIds": [],
+                    "categoryIndex": 0,
+                    "tagIndexes": [],
                     "sortKey": "@b",
                     "createdAt": "2026-05-25T17:45:30.718665Z",
                     "updatedAt": null,
                     "relevantFrom": null
                 },
                 {
-                    "id": "0f90f08b-2c29-4206-b1e0-64170207e53e",
                     "title": "Write Q2 retrospective notes",
                     "description": null,
                     "url": null,
@@ -112,15 +74,14 @@
                     "deadline": null,
                     "estimatedMinutes": null,
                     "status": "todo",
-                    "categoryId": "57133102-6861-4260-a418-825cac014ec8",
-                    "tagIds": [],
+                    "categoryIndex": 0,
+                    "tagIndexes": [],
                     "sortKey": "I",
                     "createdAt": "2026-05-25T17:45:30.718665Z",
                     "updatedAt": null,
                     "relevantFrom": null
                 },
                 {
-                    "id": "69950cb7-c712-4228-8f0e-a29c543fa9cd",
                     "title": "Book dentist appointment",
                     "description": null,
                     "url": null,
@@ -128,17 +89,14 @@
                     "deadline": "2026-06-08",
                     "estimatedMinutes": null,
                     "status": "todo",
-                    "categoryId": "51463fa8-6826-4b75-9069-dda251f945c5",
-                    "tagIds": [
-                        "15221eda-f499-4c58-a352-0ac7e861c2d9"
-                    ],
+                    "categoryIndex": 1,
+                    "tagIndexes": [0],
                     "sortKey": "QI",
                     "createdAt": "2026-05-25T17:45:30.718665Z",
                     "updatedAt": "2026-05-25T17:47:23.257754Z",
                     "relevantFrom": null
                 },
                 {
-                    "id": "b68fee31-5bdd-4765-b697-ae17168cf5a2",
                     "title": "Read that book I keep putting off",
                     "description": null,
                     "url": null,
@@ -146,15 +104,14 @@
                     "deadline": null,
                     "estimatedMinutes": null,
                     "status": "todo",
-                    "categoryId": "51463fa8-6826-4b75-9069-dda251f945c5",
-                    "tagIds": [],
+                    "categoryIndex": 1,
+                    "tagIndexes": [],
                     "sortKey": "Yb",
                     "createdAt": "2026-05-25T17:45:30.718665Z",
                     "updatedAt": null,
                     "relevantFrom": null
                 },
                 {
-                    "id": "4eadb8b1-69a8-4afd-97c6-36ce675d6c9f",
                     "title": "Fix the dripping tap in the kitchen",
                     "description": null,
                     "url": null,
@@ -162,15 +119,14 @@
                     "deadline": null,
                     "estimatedMinutes": null,
                     "status": "todo",
-                    "categoryId": "7ba8ff2a-5d8d-4df6-b8de-a431e7db1c7e",
-                    "tagIds": [],
+                    "categoryIndex": 3,
+                    "tagIndexes": [],
                     "sortKey": "b",
                     "createdAt": "2026-05-25T17:45:30.718665Z",
                     "updatedAt": null,
                     "relevantFrom": null
                 },
                 {
-                    "id": "29bb15de-d929-4b60-a37e-676f45852540",
                     "title": "Order replacement light bulbs",
                     "description": null,
                     "url": null,
@@ -178,15 +134,14 @@
                     "deadline": null,
                     "estimatedMinutes": null,
                     "status": "done",
-                    "categoryId": "7ba8ff2a-5d8d-4df6-b8de-a431e7db1c7e",
-                    "tagIds": [],
+                    "categoryIndex": 3,
+                    "tagIndexes": [],
                     "sortKey": "jI",
                     "createdAt": "2026-05-25T17:45:30.718665Z",
                     "updatedAt": null,
                     "relevantFrom": null
                 },
                 {
-                    "id": "2fe6bdcd-65ac-45ec-8540-3a7321734f33",
                     "title": "Go for a 30-min run",
                     "description": null,
                     "url": null,
@@ -194,10 +149,8 @@
                     "deadline": null,
                     "estimatedMinutes": 35,
                     "status": "todo",
-                    "categoryId": "ecc0314c-6cf7-46e9-ab68-0b760ba0ac03",
-                    "tagIds": [
-                        "34ffcb94-d7aa-4cba-91dc-625c45d60757"
-                    ],
+                    "categoryIndex": 5,
+                    "tagIndexes": [1],
                     "sortKey": "rb",
                     "createdAt": "2026-05-25T17:45:30.718665Z",
                     "updatedAt": "2026-05-25T17:47:32.169174Z",

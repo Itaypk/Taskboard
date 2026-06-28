@@ -74,6 +74,7 @@ class PostgresIntegrationTest(
     @Autowired val backlogTaskService: BacklogTaskService,
     @Autowired val jdbc: JdbcTemplate,
     @Autowired val objectMapper: ObjectMapper,
+    @Autowired val tutorialSeeder: dev.itayp.tasker.service.TutorialSeeder,
 ) {
 
     @Test
@@ -264,10 +265,9 @@ class PostgresIntegrationTest(
         val boardId = boardMembershipService.resolveDefaultBoard(userId)
 
         val payload = AccountExportResponse(
-            formatVersion = 2,
+            formatVersion = 3,
             exportedAt = Instant.parse("2026-05-25T12:00:00Z").toString(),
             user = UserExport(
-                id = "old-uuid",
                 telegramUsername = null,
                 telegramFirstName = "Alice",
                 email = null,
@@ -279,14 +279,13 @@ class PostgresIntegrationTest(
                     name = "My tasks",
                     role = "OWNER",
                     categories = listOf(
-                        CategoryExport(id = "cat-1", label = "Imported Work", swatchId = "sky"),
+                        CategoryExport(label = "Imported Work", swatchId = "sky"),
                     ),
                     tags = listOf(
-                        TagExport(id = "tag-1", label = "urgent", colorId = "coral", description = null),
+                        TagExport(label = "urgent", colorId = "coral", description = null),
                     ),
                     tasks = listOf(
                         TaskExport(
-                            id = "task-1",
                             title = "ENCRYPT-CHECK-12345",
                             description = "secret notes",
                             url = null,
@@ -294,8 +293,8 @@ class PostgresIntegrationTest(
                             deadline = null,
                             estimatedMinutes = 30,
                             status = "todo",
-                            categoryId = "cat-1",
-                            tagIds = listOf("tag-1"),
+                            categoryIndex = 0,
+                            tagIndexes = listOf(0),
                             sortKey = "a",
                             createdAt = Instant.parse("2026-05-01T12:00:00Z").toString(),
                             updatedAt = null,
@@ -330,10 +329,10 @@ class PostgresIntegrationTest(
     }
 
     @Test
-    fun `account import of export v2 populates tasks and stores ciphertext in title column`() {
-        val json = ClassPathResource("import/export-v2.json").getContentAsString(StandardCharsets.UTF_8)
+    fun `account import of export v3 populates tasks and stores ciphertext in title column`() {
+        val json = ClassPathResource("import/export-v3.json").getContentAsString(StandardCharsets.UTF_8)
         val payload = objectMapper.readValue(json, AccountExportResponse::class.java)
-        assertThat(payload.formatVersion).isEqualTo(2)
+        assertThat(payload.formatVersion).isEqualTo(3)
         assertThat(payload.boards[0].tasks).hasSize(8)
         assertThat(payload.boards[0].categories).hasSize(6)
 
@@ -363,6 +362,61 @@ class PostgresIntegrationTest(
             assertThat(String(bytes, StandardCharsets.UTF_8))
                 .doesNotContain("Prepare weekly team update")
         }
+    }
+
+    @Test
+    fun `import wipes the seeded tutorial tasks and succeeds on an otherwise-fresh account`() {
+        val userId = UUID.randomUUID()
+        userAuthService.ensureDevUser(userId, telegramId = System.nanoTime())
+        val boardId = boardMembershipService.resolveDefaultBoard(userId)
+        // Seed the tutorial backlog the way a brand-new account gets it.
+        tutorialSeeder.seed(userId)
+        assertThat(taskRepository.findAllByBoardIdAndTutorialTrue(boardId)).isNotEmpty()
+        // Tutorial tasks alone must not block import.
+        assertThat(accountService.isEmptyForImport(userId)).isTrue()
+
+        val payload = AccountExportResponse(
+            formatVersion = 3,
+            exportedAt = Instant.parse("2026-05-25T12:00:00Z").toString(),
+            user = UserExport(telegramUsername = null, telegramFirstName = null, email = null, createdAt = null),
+            settings = null,
+            boards = listOf(
+                BoardExport(
+                    name = "My tasks",
+                    role = "OWNER",
+                    categories = listOf(CategoryExport(label = "Imported", swatchId = "sky")),
+                    tags = emptyList(),
+                    tasks = listOf(
+                        TaskExport(
+                            title = "Real imported task",
+                            description = null,
+                            url = null,
+                            priority = null,
+                            deadline = null,
+                            estimatedMinutes = null,
+                            status = "todo",
+                            categoryIndex = 0,
+                            tagIndexes = emptyList(),
+                            sortKey = "a",
+                            createdAt = Instant.parse("2026-05-01T12:00:00Z").toString(),
+                            updatedAt = null,
+                            relevantFrom = null,
+                        )
+                    ),
+                )
+            ),
+        )
+
+        // The FK from tutorial tasks to the default categories must not trip the category wipe.
+        val summary = accountImportService.import(userId, payload)
+        assertThat(summary.tasks).isEqualTo(1)
+
+        // Tutorial tasks are gone; only the imported task remains.
+        assertThat(taskRepository.findAllByBoardIdAndTutorialTrue(boardId)).isEmpty()
+        val remaining = taskRepository.findAllByBoardIdOrderBySortKeyAsc(boardId)
+        assertThat(remaining).singleElement().satisfies({
+            assertThat(boardCrypto.decrypt(boardId, it.title)).isEqualTo("Real imported task")
+        })
     }
 
     @Test

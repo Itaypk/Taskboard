@@ -168,6 +168,9 @@ class AccountService(
      * the import flow to reject a 409 attempt to import on top of existing user data:
      * import wipes the seeded categories and overwrites settings, so anything else is
      * work the user did and we must not clobber it.
+     *
+     * Seeded **tutorial** tasks don't count as user data — they ship on every fresh account and
+     * import clears them anyway, so an account that still has its tutorial backlog is importable.
      */
     @Transactional(readOnly = true)
     fun isEmptyForImport(userId: UUID): Boolean {
@@ -176,7 +179,8 @@ class AccountService(
         val boardIds = boardMembershipService.listBoardIds(userId)
         if (boardIds.size != 1) return false
         val boardId = boardIds.single()
-        if (taskRepository.findAllByBoardIdOrderBySortKeyAsc(boardId).isNotEmpty()) return false
+        // Only real (non-tutorial) tasks block import; the seeded tutorial backlog is wiped on import.
+        if (taskRepository.findAllByBoardIdOrderBySortKeyAsc(boardId).any { !it.tutorial }) return false
         if (tagRepository.findAllByBoardId(boardId).isNotEmpty()) return false
         val expected = UserService.DEFAULT_CATEGORIES.toSet()
         val actual = categoryRepository.findAllByBoardId(boardId).mapNotNull { entity ->
@@ -197,20 +201,22 @@ class AccountService(
         val boards = boardService.listBoardsForUser(userId).map { board ->
             val categories = categoryRepository.findAllByBoardId(board.id)
             val tags = tagRepository.findAllByBoardId(board.id)
-            val tasks = taskRepository.findAllByBoardIdOrderBySortKeyAsc(board.id)
+            // Seeded tutorial tasks teach the product; they aren't the user's own data, so exclude them.
+            val tasks = taskRepository.findAllByBoardIdOrderBySortKeyAsc(board.id).filterNot { it.tutorial }
+            // v3 references categories/tags by position, so tasks resolve their FKs through these maps.
+            val categoryIndexById = categories.withIndex().associate { (i, c) -> c.id to i }
+            val tagIndexById = tags.withIndex().associate { (i, t) -> t.id to i }
             BoardExport(
                 name = board.name,
                 role = board.role.name,
                 categories = categories.map {
                     CategoryExport(
-                        id = it.id.toString(),
                         label = it.label ?: "",
                         swatchId = it.swatchId?.name?.lowercase() ?: "",
                     )
                 },
                 tags = tags.map {
                     TagExport(
-                        id = it.id.toString(),
                         label = it.label ?: "",
                         colorId = it.colorId?.name?.lowercase() ?: "",
                         description = it.description,
@@ -218,7 +224,6 @@ class AccountService(
                 },
                 tasks = tasks.map { task ->
                     TaskExport(
-                        id = task.id.toString(),
                         title = boardCrypto.decrypt(board.id, task.title) ?: "",
                         description = boardCrypto.decrypt(board.id, task.description),
                         url = task.url,
@@ -226,23 +231,21 @@ class AccountService(
                         deadline = task.deadline?.toString(),
                         estimatedMinutes = task.estimatedMinutes,
                         status = task.status?.name?.lowercase() ?: "",
-                        categoryId = task.category?.id?.toString() ?: "",
-                        tagIds = task.tags.map { it.id.toString() },
+                        categoryIndex = categoryIndexById[task.category?.id] ?: 0,
+                        tagIndexes = task.tags.mapNotNull { tagIndexById[it.id] },
                         sortKey = task.sortKey ?: "",
                         createdAt = task.createdAt?.toString() ?: "",
                         updatedAt = task.updatedAt?.toString(),
                         relevantFrom = task.relevantFrom?.toString(),
-                        assignee = task.assigneeUserId?.toString(),
                     )
                 },
             )
         }
 
         return AccountExportResponse(
-            formatVersion = 2,
+            formatVersion = 3,
             exportedAt = Instant.now().toString(),
             user = UserExport(
-                id = user.id.toString(),
                 telegramUsername = user.telegramUsername,
                 telegramFirstName = userCrypto.decrypt(userId, user.telegramFirstName),
                 email = userCrypto.decrypt(userId, user.email),

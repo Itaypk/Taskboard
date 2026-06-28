@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import jakarta.validation.Valid
 import org.slf4j.LoggerFactory
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
@@ -85,5 +86,18 @@ class AccountController(
         log.info("Account import rejected due to state conflict: {}", ex.message)
         return ResponseEntity.status(HttpStatus.CONFLICT)
             .body(mapOf("error" to (ex.message ?: "Account is not eligible for import")))
+    }
+
+    /**
+     * Safety net for a unique-constraint clash during import (e.g. an email already held by another
+     * account that the service's own guard somehow missed). Map to 409 with a generic message
+     * rather than leaking a raw DB error as a 500. We don't echo the constraint detail — it can
+     * carry another user's email hash.
+     */
+    @ExceptionHandler(DataIntegrityViolationException::class)
+    fun handleDataIntegrity(ex: DataIntegrityViolationException): ResponseEntity<Map<String, String>> {
+        log.warn("Account import hit a data-integrity violation", ex)
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(mapOf("error" to "Import conflicts with existing data and could not be completed."))
     }
 }
