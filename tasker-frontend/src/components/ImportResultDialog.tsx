@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import styles from './ImportResultDialog.module.css';
 import type { ImportSummary } from '../api';
 
 export type ImportResult =
@@ -45,34 +46,29 @@ export function ImportResultDialog({ result, onClose }: ImportResultDialogProps)
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        className="modal"
+        className={`modal ${styles.dialog}`}
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="import-result-title"
         aria-describedby="import-result-body"
-        style={{ width: 380 }}
       >
         <div className="modal__header">
           <span className="modal__title" id="import-result-title">{title}</span>
         </div>
-        <div className="modal__body" style={{ gap: 8, paddingBottom: 8 }} id="import-result-body">
+        <div className={`modal__body ${styles.body}`} id="import-result-body">
           {success ? (
             <>
-              <p style={{ margin: 0, fontSize: 14, lineHeight: 1.55, color: 'var(--ink-soft)' }}>
+              <p className={styles.text}>
                 Imported {plural(result.summary.tasks, 'task', 'tasks')},{' '}
                 {plural(result.summary.tags, 'tag', 'tags')}, and{' '}
                 {result.summary.categories === 1 ? '1 category' : `${result.summary.categories} categories`}.
               </p>
               {emailNote && (
-                <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: 'var(--ink-soft)' }}>
-                  {emailNote}
-                </p>
+                <p className={styles.note}>{emailNote}</p>
               )}
             </>
           ) : (
-            <p style={{ margin: 0, fontSize: 14, lineHeight: 1.55, color: 'var(--ink-soft)' }}>
-              {result.message}
-            </p>
+            <p className={styles.text}>{result.message}</p>
           )}
         </div>
         <div className="modal__footer">
