@@ -123,6 +123,7 @@ Frontend (from `tasker-frontend/`):
 npm run dev     # Vite dev server
 npm run build   # tsc -b && vite build (also runs via Gradle)
 npm run lint
+npm run test    # vitest run
 ```
 
 ## Production deployment
@@ -163,6 +164,8 @@ Startup fails fast if any of the database, data-encryption, or Prometheus creden
 
 ## Testing
 
+Backend:
+
 - **Unit tests** — Mockito + JUnit 5 for services (`BacklogTaskServiceTest`, `TelegramOidcServiceTest`, `UserAuthServiceTest`).
 - **Controller slice tests** — `@WebMvcTest` + `SecurityConfiguration` so auth + CSRF behavior is exercised (`AuthControllerTest`, `BacklogTaskControllerTest`).
 - **Integration tests** — `@SpringBootTest(RANDOM_PORT)` with `TestRestTemplate` for real session-cookie reuse, CSRF enforcement, and prod-profile gating (`SecurityIntegrationTest`).
@@ -176,3 +179,19 @@ For specific tests:
 ```bash
 ./gradlew --info test --tests dev.itayp.tasker.channel.email.EmailIntegrationTest
 ```
+
+Frontend (`tasker-frontend/`):
+
+- **Vitest** + **React Testing Library** + `@testing-library/jest-dom`, jsdom environment. Config lives in `vite.config.ts`'s `test` field; the setup file is `src/setupTests.ts`. Test files are co-located next to the file under test as `Foo.test.tsx` — see `src/NotFoundPage.test.tsx` for the baseline shape. Coverage is minimal so far; add tests alongside new/changed code as you go.
+
+```bash
+npm run test    # vitest run
+```
+
+## Continuous integration
+
+Every pull request to `main` runs [`.github/workflows/gradle.yml`](.github/workflows/gradle.yml):
+
+- `frontend` job — `npm ci`, `npm run lint`, `npm run test`, `npm run build`, all in `tasker-frontend/`.
+- `build` job — `./gradlew build` (compiles, runs backend tests, bundles the frontend into the JAR).
+- `dependency-submission` job — submits the Gradle dependency graph for Dependabot alerts.
