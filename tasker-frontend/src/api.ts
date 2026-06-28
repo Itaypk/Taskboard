@@ -507,4 +507,6 @@ export interface ImportSummary {
 }
 
 export const importAccount = (payload: unknown): Promise<ImportSummary> =>
-    apiRequest('/account/import', { method: 'POST', ...jsonBody(payload) });
+    // Suppress the global error toast: the import result dialog surfaces success and failure itself,
+    // so a toast would just duplicate (and out-shout) the dialog's detailed message.
+    apiRequest('/account/import', { method: 'POST', ...jsonBody(payload) }, { emitErrors: false });

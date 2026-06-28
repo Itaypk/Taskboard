@@ -83,9 +83,20 @@ turns an adopted email into a login method.
 `emailImported` / `emailSkipReason` report the email outcome above. The frontend shows the result —
 counts and any email note — in a modal dialog, on both success and failure.
 
+## Tutorial tasks
+
+The seeded **tutorial** backlog (`backlog_task.tutorial = true`) is product onboarding, not the
+user's own data:
+
+- **Export excludes it** — only real tasks are emitted.
+- **Import ignores and clears it** — an account that still has its tutorial tasks (but no real
+  tasks) counts as "fresh" and is importable; import deletes the tutorial tasks before writing the
+  imported content onto the default board.
+
 ## Import preconditions & everything else
 
-Import preconditions (fresh account only, 409 otherwise), the per-board wipe-and-rebuild, board
+Import preconditions (fresh account — only the seeded default board, default categories, no real
+tasks, no tags; 409 otherwise), the per-board wipe-and-rebuild, board
 DEK re-encryption of task `title`/`description`, dropped fields (LLM data, planning state, session
 rows), and whole-import rollback-on-error are all **unchanged from v2** — see
 `docs/export-format-v2.md`.

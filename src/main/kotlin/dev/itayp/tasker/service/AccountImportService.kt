@@ -154,7 +154,16 @@ class AccountImportService(
      * aggregate across all imported boards.
      */
     private fun importBoardContent(boardId: UUID, board: BoardExport): ImportSummary {
-        // Wipe the auto-seeded defaults. The account is verified empty, so nothing references them.
+        // Clear the seeded tutorial tasks first: they reference the default categories, so they must go
+        // before the category wipe below (flush so the row deletes hit the DB ahead of the bulk delete).
+        // isEmptyForImport guarantees the only tasks here are tutorial ones.
+        val tutorialTasks = taskRepository.findAllByBoardIdAndTutorialTrue(boardId)
+        if (tutorialTasks.isNotEmpty()) {
+            taskRepository.deleteAll(tutorialTasks)
+            taskRepository.flush()
+        }
+
+        // Wipe the auto-seeded default categories; nothing references them once tutorial tasks are gone.
         categoryRepository.deleteAllByBoardId(boardId)
 
         // Categories — saved in export order so tasks can resolve them by position (v3).

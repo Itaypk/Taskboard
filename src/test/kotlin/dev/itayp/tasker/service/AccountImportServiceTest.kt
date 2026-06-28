@@ -121,6 +121,27 @@ class AccountImportServiceTest {
     }
 
     @Test
+    fun `wipes the seeded tutorial tasks before importing onto the default board`() {
+        val payload = exportPayload(
+            categories = listOf(CategoryExport(label = "Work", swatchId = "sunshine")),
+        )
+        stubFreshAccount()
+        val tutorialTask = BacklogTaskEntity().apply { id = UUID.randomUUID(); this.boardId = boardId; tutorial = true }
+        whenever(taskRepository.findAllByBoardIdAndTutorialTrue(boardId)).thenReturn(listOf(tutorialTask))
+        whenever(categoryRepository.save(any<BacklogTaskCategoryEntity>())).thenAnswer { inv ->
+            (inv.arguments[0] as BacklogTaskCategoryEntity).apply { id = id ?: UUID.randomUUID() }
+        }
+        whenever(userRepository.findById(userId)).thenReturn(Optional.of(UserEntity().apply { id = userId }))
+
+        service.import(userId, payload)
+
+        // Tutorial rows are removed (and flushed) before the category wipe so their FK doesn't trip.
+        verify(taskRepository).deleteAll(listOf(tutorialTask))
+        verify(taskRepository).flush()
+        verify(categoryRepository).deleteAllByBoardId(boardId)
+    }
+
+    @Test
     fun `rejects an unsupported formatVersion`() {
         val payload = exportPayload().copy(formatVersion = 1)
         // Version check runs before any repository interaction, so no other stubs needed.

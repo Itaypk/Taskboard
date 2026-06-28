@@ -9,7 +9,7 @@ import { ImportResultDialog, type ImportResult } from './ImportResultDialog';
 import { HelpTip } from './HelpTip';
 import { Tabs } from './Tabs';
 import { Toggle } from './Toggle';
-import { createCategory, updateCategory, deleteCategory, updateTag, deleteTag, updateUserSettings, fetchSettingsOptions, deleteAccount, exportAccount, importAccount, requestEmailVerification } from '../api';
+import { createCategory, updateCategory, deleteCategory, updateTag, deleteTag, updateUserSettings, fetchSettingsOptions, deleteAccount, exportAccount, importAccount, requestEmailVerification, ApiError } from '../api';
 import type { ImportSummary } from '../api';
 import type { SettingsTab } from '../taskLink';
 
@@ -250,7 +250,11 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
       setImportResult({ kind: 'success', summary });
     } catch (err: unknown) {
       console.error('Import failed', err);
-      const message = err instanceof Error ? err.message : 'Import failed.';
+      // ApiError.userMessage carries the server's detailed reason (e.g. the 409 conflict text);
+      // its .message is just "HTTP 409 …", so prefer userMessage when present.
+      const message = err instanceof ApiError ? err.userMessage
+        : err instanceof Error ? err.message
+        : 'Import failed.';
       setImportResult({ kind: 'error', message });
     } finally {
       setImporting(false);
