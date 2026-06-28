@@ -32,6 +32,7 @@ A few things to consider while working on the project:
 - `compose.yaml` — Postgres service for local dev. `spring-boot-docker-compose` starts it automatically on `bootRun`.
 - `docs/SPEC.md` — product spec (source of truth for intent).
 - `tools/` — ad-hoc asset-prep scripts (background removal, bottom-gap leveling, WebP conversion). See `tools/README.md` for the "add a new board mascot" workflow.
+- `.github/workflows/gradle.yml` — PR verification (triggers on PRs to `main`): a `frontend` job (`npm ci` + `lint` + `test` + `build` in `tasker-frontend/`), the backend `build` job (`./gradlew build` — compiles, runs backend tests, bundles the frontend), and a `dependency-submission` job for Dependabot. Keep both the frontend job and the backend job green — neither subsumes the other (Gradle's `buildFrontend` task runs `npm run build` as a side effect, but never `lint` or `test`).
 
 ## Web environment note
 
@@ -48,7 +49,8 @@ Backend (run from repo root):
 Frontend (run from `tasker-frontend/`, only needed for fast iteration with HMR):
 - `npm run dev` — Vite dev server on `:5173`. You'll need a reverse proxy or CORS for it to talk to the backend on `:8080`; in most workflows it's simpler to just `./gradlew bootRun` and edit through the bundled build.
 - `npm run build` — `tsc -b && vite build` (also runs via Gradle).
-- `npm run lint` — ESLint.
+- `npm run lint` — ESLint. Zero warnings/errors is the baseline CI gate — fix lint issues rather than disabling rules wholesale (an `eslint-disable` for a specific, justified line is fine; see `WeeklyPlanDrawer.tsx`'s `set-state-in-effect` disable for the convention).
+- `npm run test` — Vitest (`vitest run`).
 
 ## Auth model (important — affects every new endpoint)
 
@@ -172,3 +174,4 @@ The web UI is currently English-only. Emails and Telegram communications are ful
 - Integration tests: `@SpringBootTest(webEnvironment = RANDOM_PORT)` + `@AutoConfigureTestRestTemplate` + `@ActiveProfiles("dev"|"prod")`. See `SecurityIntegrationTest` — covers cookie reuse, CSRF enforcement, and prod-profile gating of dev-login.
 - **Postgres integration tests**: use `@ContextConfiguration(initializers = [AbstractIntegrationTest.Initializer::class])` together with `@ActiveProfiles("prod")`. The `Initializer` starts a shared TestContainers `PostgreSQLContainer` and injects its coordinates into the Spring environment before the context refreshes. See `PostgresIntegrationTest` — validates health/liveness endpoints and JPA CRUD against real Postgres. `SecurityIntegrationProdProfileTest` also uses the initializer because the prod profile requires a live datasource.
 - Time-dependent code (`UserAuthService`, `EmailLoginService`, …) takes a `Clock` — tests inject `Clock.fixed(...)`. (Telegram id_token freshness is enforced by the JWT `exp`/`nbf` validators, not a `Clock`.)
+- **Frontend** (`tasker-frontend/`): Vitest + React Testing Library + `@testing-library/jest-dom`, jsdom environment — config is the `test` field in `vite.config.ts`, setup file `src/setupTests.ts` (imports `@testing-library/jest-dom/vitest` for the matcher types/assertions). Co-locate test files next to what they cover, named `Foo.test.tsx` (no `__tests__` directory convention) — see `src/NotFoundPage.test.tsx` for the baseline shape. Coverage is intentionally minimal today (CI just needs lint + build + test to stay green); grow it incrementally alongside new/changed frontend code rather than backfilling all at once.
