@@ -1,11 +1,7 @@
 import { useEffect, useRef } from 'react';
 import styles from './ImportResultDialog.module.css';
 import { plural } from '../utils';
-import type { ImportSummary } from '../api';
-
-export type ImportResult =
-  | { kind: 'success'; summary: ImportSummary }
-  | { kind: 'error'; message: string };
+import type { ImportErrorCategory, ImportResult } from './importResult';
 
 interface ImportResultDialogProps {
   result: ImportResult | null;
@@ -13,9 +9,36 @@ interface ImportResultDialogProps {
   onClose: () => void;
 }
 
+/** Public contact address (same as the ToS). Used for the "Contact support" link on hard failures. */
+const SUPPORT_EMAIL = 'hello@backlog.fyi';
+
 const EMAIL_SKIP_MESSAGES: Record<string, string> = {
   ACCOUNT_HAS_EMAIL: 'Your account already has an email, so the one in the file was not imported.',
   TAKEN: 'The email in the file belongs to another account, so it was not imported. Your current email is unchanged.',
+};
+
+/** Plain-language copy per error category. `support` toggles the "Contact support" mailto link. */
+const ERROR_COPY: Record<ImportErrorCategory, { title: string; body: string; support: boolean }> = {
+  CORRUPTED_FILE: {
+    title: 'This file couldn’t be imported',
+    body: 'The file doesn’t look like a valid Backlog export. Make sure you’re importing a file you exported from Backlog, unchanged.',
+    support: true,
+  },
+  UNSUPPORTED_VERSION: {
+    title: 'Unsupported export version',
+    body: 'This file was made by a different version of Backlog. Export your data again from this version, then import it.',
+    support: true,
+  },
+  ACCOUNT_NOT_EMPTY: {
+    title: 'Import needs an empty account',
+    body: 'You can only import into an account that has no tasks of its own. Start with a fresh account, then import.',
+    support: false,
+  },
+  INTERNAL_ERROR: {
+    title: 'Something went wrong on our end',
+    body: 'The import couldn’t be completed. Please try again in a moment.',
+    support: true,
+  },
 };
 
 export function ImportResultDialog({ result, onClose }: ImportResultDialogProps) {
@@ -34,7 +57,8 @@ export function ImportResultDialog({ result, onClose }: ImportResultDialogProps)
   if (!result) return null;
 
   const success = result.kind === 'success';
-  const title = success ? 'Import complete' : 'Import failed';
+  const errorCopy = result.kind === 'error' ? ERROR_COPY[result.category] : undefined;
+  const title = success ? 'Import complete' : errorCopy!.title;
   const emailNote = success ? EMAIL_SKIP_MESSAGES[result.summary.emailSkipReason ?? ''] : undefined;
 
   return (
@@ -65,7 +89,18 @@ export function ImportResultDialog({ result, onClose }: ImportResultDialogProps)
               )}
             </>
           ) : (
-            <p className={styles.text}>{result.message}</p>
+            <>
+              <p className={styles.text}>{errorCopy!.body}</p>
+              {result.detail && <p className={styles.detail}>{result.detail}</p>}
+              {errorCopy!.support && (
+                <p className={styles.note}>
+                  Still stuck?{' '}
+                  <a className="link-btn" href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('Backlog import problem')}`}>
+                    Contact support
+                  </a>
+                </p>
+              )}
+            </>
           )}
         </div>
         <div className="modal__footer">

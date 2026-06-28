@@ -4,6 +4,8 @@ import dev.itayp.tasker.config.SecurityConfiguration
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.AccountImportService
 import dev.itayp.tasker.service.AccountService
+import dev.itayp.tasker.service.ImportErrorCategory
+import dev.itayp.tasker.service.ImportException
 import dev.itayp.tasker.service.ImportSummary
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
@@ -91,9 +93,9 @@ class AccountControllerImportTest(@Autowired val mockMvc: MockMvc) {
     }
 
     @Test
-    fun `POST import returns 409 when service reports the account is not empty`() {
+    fun `POST import returns 409 and ACCOUNT_NOT_EMPTY when the account is not empty`() {
         whenever(accountImportService.import(eq(userId), any()))
-            .thenThrow(IllegalStateException("Account already has user data"))
+            .thenThrow(ImportException(ImportErrorCategory.ACCOUNT_NOT_EMPTY, "Account already has user data"))
 
         mockMvc.perform(
             post("/api/v1/account/import")
@@ -104,12 +106,13 @@ class AccountControllerImportTest(@Autowired val mockMvc: MockMvc) {
         )
             .andExpect(status().isConflict)
             .andExpect(jsonPath("$.error").value("Account already has user data"))
+            .andExpect(jsonPath("$.code").value("ACCOUNT_NOT_EMPTY"))
     }
 
     @Test
-    fun `POST import returns 400 on unsupported formatVersion`() {
+    fun `POST import returns 400 and UNSUPPORTED_VERSION on a version mismatch`() {
         whenever(accountImportService.import(eq(userId), any()))
-            .thenThrow(IllegalArgumentException("Unsupported export formatVersion: 99 (expected 3)"))
+            .thenThrow(ImportException(ImportErrorCategory.UNSUPPORTED_VERSION, "Unsupported export formatVersion: 99 (expected 3)"))
 
         mockMvc.perform(
             post("/api/v1/account/import")
@@ -120,10 +123,28 @@ class AccountControllerImportTest(@Autowired val mockMvc: MockMvc) {
         )
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.error").value("Unsupported export formatVersion: 99 (expected 3)"))
+            .andExpect(jsonPath("$.code").value("UNSUPPORTED_VERSION"))
     }
 
     @Test
-    fun `POST import returns 409 on a data-integrity violation instead of leaking a 500`() {
+    fun `POST import returns 400 and CORRUPTED_FILE on a content validation error`() {
+        whenever(accountImportService.import(eq(userId), any()))
+            .thenThrow(IllegalArgumentException("Unknown category swatchId: not-a-color"))
+
+        mockMvc.perform(
+            post("/api/v1/account/import")
+                .with(authentication(auth))
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(minimalPayload)
+        )
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.error").value("Unknown category swatchId: not-a-color"))
+            .andExpect(jsonPath("$.code").value("CORRUPTED_FILE"))
+    }
+
+    @Test
+    fun `POST import returns 409 and INTERNAL_ERROR on a data-integrity violation instead of leaking a 500`() {
         whenever(accountImportService.import(eq(userId), any()))
             .thenThrow(DataIntegrityViolationException("uq_users_email_hash"))
 
@@ -136,5 +157,6 @@ class AccountControllerImportTest(@Autowired val mockMvc: MockMvc) {
         )
             .andExpect(status().isConflict)
             .andExpect(jsonPath("$.error").value("Import conflicts with existing data and could not be completed."))
+            .andExpect(jsonPath("$.code").value("INTERNAL_ERROR"))
     }
 }

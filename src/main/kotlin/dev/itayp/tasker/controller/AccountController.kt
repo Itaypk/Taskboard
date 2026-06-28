@@ -4,6 +4,8 @@ import dev.itayp.tasker.model.response.AccountExportResponse
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.AccountImportService
 import dev.itayp.tasker.service.AccountService
+import dev.itayp.tasker.service.ImportErrorCategory
+import dev.itayp.tasker.service.ImportException
 import dev.itayp.tasker.service.ImportSummary
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -66,38 +68,48 @@ class AccountController(
     }
 
     /**
-     * `require(...)` failures in import service surface as 400; the bean-validation
-     * layer already catches malformed payloads before this. We re-log at INFO since
-     * a rejected import is a user-facing event, not a server fault.
+     * A categorized import rejection. The body carries both the technical [ImportException.message]
+     * (for the dialog's secondary line and our logs) and a stable `code` the frontend maps to a
+     * plain-language headline. The category also picks the HTTP status.
+     */
+    @ExceptionHandler(ImportException::class)
+    fun handleImportException(ex: ImportException): ResponseEntity<Map<String, String>> {
+        val status = when (ex.category) {
+            ImportErrorCategory.UNSUPPORTED_VERSION,
+            ImportErrorCategory.CORRUPTED_FILE -> HttpStatus.BAD_REQUEST
+            ImportErrorCategory.ACCOUNT_NOT_EMPTY -> HttpStatus.CONFLICT
+            ImportErrorCategory.INTERNAL_ERROR -> HttpStatus.INTERNAL_SERVER_ERROR
+        }
+        log.info("Account import rejected ({}): {}", ex.category, ex.message)
+        return ResponseEntity.status(status)
+            .body(mapOf("error" to (ex.message ?: "Import failed"), "code" to ex.category.name))
+    }
+
+    /**
+     * Content-validation failures inside the import service still throw plain [IllegalArgumentException]
+     * (unknown swatch/colour, out-of-range index, bad date, invalid settings). They all mean the same
+     * thing to a user — the file can't be read — so map them to the `CORRUPTED_FILE` category.
      */
     @ExceptionHandler(IllegalArgumentException::class)
     fun handleBadImport(ex: IllegalArgumentException): ResponseEntity<Map<String, String>> {
         log.info("Account import rejected as malformed: {}", ex.message)
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-            .body(mapOf("error" to (ex.message ?: "Invalid import payload")))
-    }
-
-    /**
-     * `check(...)` failure means the account already holds non-default data —
-     * mapped to 409 so the frontend can surface a precise message.
-     */
-    @ExceptionHandler(IllegalStateException::class)
-    fun handleConflict(ex: IllegalStateException): ResponseEntity<Map<String, String>> {
-        log.info("Account import rejected due to state conflict: {}", ex.message)
-        return ResponseEntity.status(HttpStatus.CONFLICT)
-            .body(mapOf("error" to (ex.message ?: "Account is not eligible for import")))
+            .body(mapOf("error" to (ex.message ?: "Invalid import payload"), "code" to ImportErrorCategory.CORRUPTED_FILE.name))
     }
 
     /**
      * Safety net for a unique-constraint clash during import (e.g. an email already held by another
      * account that the service's own guard somehow missed). Map to 409 with a generic message
      * rather than leaking a raw DB error as a 500. We don't echo the constraint detail — it can
-     * carry another user's email hash.
+     * carry another user's email hash. Tagged `INTERNAL_ERROR` so the UI offers a support link.
      */
     @ExceptionHandler(DataIntegrityViolationException::class)
     fun handleDataIntegrity(ex: DataIntegrityViolationException): ResponseEntity<Map<String, String>> {
         log.warn("Account import hit a data-integrity violation", ex)
         return ResponseEntity.status(HttpStatus.CONFLICT)
-            .body(mapOf("error" to "Import conflicts with existing data and could not be completed."))
+            .body(mapOf(
+                "error" to "Import conflicts with existing data and could not be completed.",
+                "code" to ImportErrorCategory.INTERNAL_ERROR.name,
+            ))
     }
 }

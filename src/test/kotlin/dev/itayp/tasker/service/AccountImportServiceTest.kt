@@ -145,14 +145,16 @@ class AccountImportServiceTest {
     fun `rejects an unsupported formatVersion`() {
         val payload = exportPayload().copy(formatVersion = 1)
         // Version check runs before any repository interaction, so no other stubs needed.
-        assertFailsWith<IllegalArgumentException> { service.import(userId, payload) }
+        val ex = assertFailsWith<ImportException> { service.import(userId, payload) }
+        assertEquals(ImportErrorCategory.UNSUPPORTED_VERSION, ex.category)
         verify(categoryRepository, never()).deleteAllByBoardId(any())
     }
 
     @Test
     fun `rejects when account is not empty`() {
         whenever(accountService.isEmptyForImport(userId)).thenReturn(false)
-        assertFailsWith<IllegalStateException> { service.import(userId, exportPayload()) }
+        val ex = assertFailsWith<ImportException> { service.import(userId, exportPayload()) }
+        assertEquals(ImportErrorCategory.ACCOUNT_NOT_EMPTY, ex.category)
         verify(categoryRepository, never()).deleteAllByBoardId(any())
     }
 

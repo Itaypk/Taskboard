@@ -51,14 +51,21 @@ class AccountImportService(
 
     @Transactional
     fun import(userId: UUID, payload: AccountExportResponse): ImportSummary {
-        require(payload.formatVersion == SUPPORTED_FORMAT_VERSION) {
-            "Unsupported export formatVersion: ${payload.formatVersion} (expected $SUPPORTED_FORMAT_VERSION)"
+        if (payload.formatVersion != SUPPORTED_FORMAT_VERSION) {
+            throw ImportException(
+                ImportErrorCategory.UNSUPPORTED_VERSION,
+                "Unsupported export formatVersion: ${payload.formatVersion} (expected $SUPPORTED_FORMAT_VERSION)",
+            )
         }
-        require(payload.boards.isNotEmpty()) {
-            "Import payload must contain at least one board"
+        // A well-formed export always has at least one board; an empty list is a corrupted file.
+        if (payload.boards.isEmpty()) {
+            throw ImportException(ImportErrorCategory.CORRUPTED_FILE, "Import payload must contain at least one board")
         }
-        check(accountService.isEmptyForImport(userId)) {
-            "Account already has user data; import is only valid on a fresh account"
+        if (!accountService.isEmptyForImport(userId)) {
+            throw ImportException(
+                ImportErrorCategory.ACCOUNT_NOT_EMPTY,
+                "Account already has user data; import is only valid on a fresh account",
+            )
         }
 
         // The first exported board reuses the account's existing default board (isEmptyForImport
