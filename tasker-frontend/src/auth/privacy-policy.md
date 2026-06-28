@@ -117,4 +117,4 @@ Continued use of the service means you accept the updated policy.
 
 ## 13. Contact
 
-For any questions, data requests, or deletion requests, contact the project owner.
+For any questions, data requests, or deletion requests, contact the project owner at [{{SUPPORT_EMAIL}}](mailto:{{SUPPORT_EMAIL}}).

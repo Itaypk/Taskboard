@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import styles from './ImportResultDialog.module.css';
 import { plural } from '../utils';
+import { SUPPORT_EMAIL } from '../config';
 import type { ImportErrorCategory, ImportResult } from './importResult';
 
 interface ImportResultDialogProps {
@@ -8,9 +9,6 @@ interface ImportResultDialogProps {
   /** Called when the dialog is dismissed. On a successful import the caller reloads the app. */
   onClose: () => void;
 }
-
-/** Public contact address (same as the ToS). Used for the "Contact support" link on hard failures. */
-const SUPPORT_EMAIL = 'hello@backlog.fyi';
 
 const EMAIL_SKIP_MESSAGES: Record<string, string> = {
   ACCOUNT_HAS_EMAIL: 'Your account already has an email, so the one in the file was not imported.',

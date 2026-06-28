@@ -1,9 +1,15 @@
 import { Link } from 'react-router-dom';
 import { useEffect } from 'react';
 import MarkdownRenderer from '../components/MarkdownRenderer';
+import { SUPPORT_EMAIL } from '../config';
 import tosContent from './tos.md?raw';
 import ppContent from './privacy-policy.md?raw';
 import styles from './PolicyPage.module.css';
+
+/** Fill build-time placeholders (e.g. the support email) into the raw policy markdown. */
+function fillPlaceholders(md: string): string {
+    return md.replaceAll('{{SUPPORT_EMAIL}}', SUPPORT_EMAIL);
+}
 
 interface PolicyPageProps {
     title: string;
@@ -31,9 +37,9 @@ function PolicyPage({ title, body }: PolicyPageProps) {
 }
 
 export function TermsPage() {
-    return <PolicyPage title="Terms of Service" body={tosContent} />;
+    return <PolicyPage title="Terms of Service" body={fillPlaceholders(tosContent)} />;
 }
 
 export function PrivacyPage() {
-    return <PolicyPage title="Privacy Policy" body={ppContent} />;
+    return <PolicyPage title="Privacy Policy" body={fillPlaceholders(ppContent)} />;
 }
