@@ -11,6 +11,7 @@ import org.mockito.kotlin.eq
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
@@ -40,9 +41,9 @@ class AccountControllerImportTest(@Autowired val mockMvc: MockMvc) {
 
     private val minimalPayload = """
         {
-          "formatVersion": 2,
+          "formatVersion": 3,
           "exportedAt": "2026-05-25T12:00:00Z",
-          "user": { "id": "old", "telegramUsername": null, "telegramFirstName": null, "email": null, "createdAt": null },
+          "user": { "telegramUsername": null, "telegramFirstName": null, "email": null, "createdAt": null },
           "settings": null,
           "boards": [
             { "name": "My tasks", "role": "OWNER", "categories": [], "tags": [], "tasks": [] }
@@ -108,16 +109,32 @@ class AccountControllerImportTest(@Autowired val mockMvc: MockMvc) {
     @Test
     fun `POST import returns 400 on unsupported formatVersion`() {
         whenever(accountImportService.import(eq(userId), any()))
-            .thenThrow(IllegalArgumentException("Unsupported export formatVersion: 99 (expected 2)"))
+            .thenThrow(IllegalArgumentException("Unsupported export formatVersion: 99 (expected 3)"))
 
         mockMvc.perform(
             post("/api/v1/account/import")
                 .with(authentication(auth))
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(minimalPayload.replace("\"formatVersion\": 2", "\"formatVersion\": 99"))
+                .content(minimalPayload.replace("\"formatVersion\": 3", "\"formatVersion\": 99"))
         )
             .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.error").value("Unsupported export formatVersion: 99 (expected 2)"))
+            .andExpect(jsonPath("$.error").value("Unsupported export formatVersion: 99 (expected 3)"))
+    }
+
+    @Test
+    fun `POST import returns 409 on a data-integrity violation instead of leaking a 500`() {
+        whenever(accountImportService.import(eq(userId), any()))
+            .thenThrow(DataIntegrityViolationException("uq_users_email_hash"))
+
+        mockMvc.perform(
+            post("/api/v1/account/import")
+                .with(authentication(auth))
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(minimalPayload)
+        )
+            .andExpect(status().isConflict)
+            .andExpect(jsonPath("$.error").value("Import conflicts with existing data and could not be completed."))
     }
 }

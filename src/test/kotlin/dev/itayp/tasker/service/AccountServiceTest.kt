@@ -57,7 +57,7 @@ class AccountServiceTest {
     private val tagId: UUID = UUID.fromString("00000000-0000-0000-0000-0000000000d1")
 
     @Test
-    fun `exportAccount emits formatVersion 2 and all v2 fields`() {
+    fun `exportAccount emits formatVersion 3 and all v3 fields`() {
         val workCategory = BacklogTaskCategoryEntity().apply {
             id = categoryId
             this.boardId = this@AccountServiceTest.boardId
@@ -140,7 +140,7 @@ class AccountServiceTest {
 
         val result = service.exportAccount(userId)
 
-        assertEquals(2, result.formatVersion)
+        assertEquals(3, result.formatVersion)
 
         assertEquals("alice@example.com", result.user.email)
         assertEquals("Alice", result.user.telegramFirstName)
@@ -161,6 +161,9 @@ class AccountServiceTest {
         assertEquals("Work", board.categories[0].label)
         assertEquals("sunshine", board.categories[0].swatchId)
         assertEquals("coral", board.tags[0].colorId)
+        // v3: tasks reference category/tags by position in the board arrays.
+        assertEquals(0, board.tasks[0].categoryIndex)
+        assertEquals(listOf(0), board.tasks[0].tagIndexes)
     }
 
     @Test
@@ -195,7 +198,7 @@ class AccountServiceTest {
 
         val result = service.exportAccount(userId)
 
-        assertEquals(2, result.formatVersion)
+        assertEquals(3, result.formatVersion)
         assertNull(result.settings)
         assertNull(result.user.email)
         assertNull(result.boards[0].tasks[0].relevantFrom)

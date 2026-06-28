@@ -1,5 +1,9 @@
 # Account Export Format v2
 
+> **Superseded by `docs/export-format-v3.md`.** v3 drops internal database ids from the wire
+> format (tasks reference category/tags by position) and adds a stricter email-import rule. The
+> live code emits and accepts **v3 only**. This document is kept for historical context.
+
 This specifies the JSON produced by `GET /api/v1/account/export` and consumed by
 `POST /api/v1/account/import` for the **board-sharing migration**. It supersedes
 `docs/export-format-v1.md` (which bridged the encryption migration). Read v1 first — **v2 is v1

@@ -8,7 +8,6 @@ import dev.itayp.tasker.jpa.BacklogTaskTagEntity
 import dev.itayp.tasker.jpa.UserEntity
 import dev.itayp.tasker.model.BoardRole
 import dev.itayp.tasker.model.BoardSummary
-import dev.itayp.tasker.model.CategoryColor
 import dev.itayp.tasker.model.response.AccountExportResponse
 import dev.itayp.tasker.model.response.BoardExport
 import dev.itayp.tasker.model.response.CategoryExport
@@ -85,12 +84,10 @@ class AccountImportServiceTest {
 
     @Test
     fun `happy path imports categories, tags, and tasks with translated FKs and encrypted payloads`() {
-        val oldCatId = "11111111-1111-1111-1111-111111111111"
-        val oldTagId = "22222222-2222-2222-2222-222222222222"
         val payload = exportPayload(
-            categories = listOf(CategoryExport(id = oldCatId, label = "Work", swatchId = "sunshine")),
-            tags = listOf(TagExport(id = oldTagId, label = "urgent", colorId = "coral", description = "fast")),
-            tasks = listOf(taskExport(categoryId = oldCatId, tagIds = listOf(oldTagId), title = "Buy bread")),
+            categories = listOf(CategoryExport(label = "Work", swatchId = "sunshine")),
+            tags = listOf(TagExport(label = "urgent", colorId = "coral", description = "fast")),
+            tasks = listOf(taskExport(categoryIndex = 0, tagIndexes = listOf(0), title = "Buy bread")),
         )
         stubFreshAccount()
         // Repos return the entity they were given but with a new id assigned, mimicking JPA save.
@@ -99,14 +96,6 @@ class AccountImportServiceTest {
         }
         whenever(tagRepository.save(any<BacklogTaskTagEntity>())).thenAnswer { invocation ->
             (invocation.arguments[0] as BacklogTaskTagEntity).apply { id = id ?: UUID.randomUUID() }
-        }
-        whenever(categoryRepository.findByIdAndBoardId(any(), any())).thenAnswer { invocation ->
-            BacklogTaskCategoryEntity().apply {
-                this.id = invocation.arguments[0] as UUID
-                this.boardId = invocation.arguments[1] as UUID
-                this.label = "Work"
-                this.swatchId = CategoryColor.SUNSHINE
-            }
         }
         whenever(taskRepository.save(any<BacklogTaskEntity>())).thenAnswer { invocation ->
             (invocation.arguments[0] as BacklogTaskEntity).apply { id = id ?: UUID.randomUUID() }
@@ -147,10 +136,10 @@ class AccountImportServiceTest {
     }
 
     @Test
-    fun `rejects a task referencing an unknown category id`() {
+    fun `rejects a task referencing an out-of-range category index`() {
         val payload = exportPayload(
-            categories = listOf(CategoryExport(id = "cat-1", label = "Work", swatchId = "sunshine")),
-            tasks = listOf(taskExport(categoryId = "missing-cat", title = "Orphan")),
+            categories = listOf(CategoryExport(label = "Work", swatchId = "sunshine")),
+            tasks = listOf(taskExport(categoryIndex = 5, title = "Orphan")),
         )
         stubFreshAccount()
         whenever(categoryRepository.save(any<BacklogTaskCategoryEntity>())).thenAnswer { invocation ->
@@ -162,17 +151,16 @@ class AccountImportServiceTest {
     @Test
     fun `rejects an unknown swatchId enum value`() {
         val payload = exportPayload(
-            categories = listOf(CategoryExport(id = "cat-1", label = "Work", swatchId = "not-a-color")),
+            categories = listOf(CategoryExport(label = "Work", swatchId = "not-a-color")),
         )
         stubFreshAccount()
         assertFailsWith<IllegalArgumentException> { service.import(userId, payload) }
     }
 
     @Test
-    fun `restores email and emailHash but leaves emailVerifiedAt null`() {
+    fun `adopts the exported email on a fresh account, leaving emailVerifiedAt null`() {
         val payload = exportPayload().copy(
             user = UserExport(
-                id = "old-uuid",
                 telegramUsername = "alice",
                 telegramFirstName = "Alice",
                 email = "Alice@Example.COM",
@@ -183,7 +171,7 @@ class AccountImportServiceTest {
         whenever(userRepository.findById(userId)).thenReturn(Optional.of(UserEntity().apply { id = userId }))
         whenever(userRepository.save(any<UserEntity>())).thenAnswer { it.arguments[0] as UserEntity }
 
-        service.import(userId, payload)
+        val summary = service.import(userId, payload)
 
         val captor = argumentCaptor<UserEntity>()
         verify(userRepository).save(captor.capture())
@@ -191,28 +179,73 @@ class AccountImportServiceTest {
         assertEquals("alice@example.com", crypto.decrypt(userId, saved.email))
         assertEquals(EmailHasher.hash("alice@example.com"), saved.emailHash)
         assertNull(saved.emailVerifiedAt, "verification status must not be restored")
+        assertTrue(summary.emailImported)
+        assertNull(summary.emailSkipReason)
+    }
+
+    @Test
+    fun `keeps own email and reports a skip when the account already has a different email`() {
+        val payload = exportPayload().copy(
+            user = UserExport(telegramUsername = null, telegramFirstName = null, email = "new@example.com", createdAt = null),
+        )
+        stubFreshAccount()
+        val existingHash = EmailHasher.hash("existing@example.com")
+        whenever(userRepository.findById(userId))
+            .thenReturn(Optional.of(UserEntity().apply { id = userId; emailHash = existingHash }))
+        whenever(userRepository.save(any<UserEntity>())).thenAnswer { it.arguments[0] as UserEntity }
+
+        val summary = service.import(userId, payload)
+
+        val captor = argumentCaptor<UserEntity>()
+        verify(userRepository).save(captor.capture())
+        // The account's own email hash is untouched — the exported email was not adopted.
+        assertEquals(existingHash, captor.firstValue.emailHash)
+        assertEquals(false, summary.emailImported)
+        assertEquals("ACCOUNT_HAS_EMAIL", summary.emailSkipReason)
+    }
+
+    @Test
+    fun `keeps own email and reports a skip when the exported email belongs to another account`() {
+        val payload = exportPayload().copy(
+            user = UserExport(telegramUsername = null, telegramFirstName = null, email = "taken@example.com", createdAt = null),
+        )
+        stubFreshAccount()
+        whenever(userRepository.findById(userId)).thenReturn(Optional.of(UserEntity().apply { id = userId }))
+        // Another live account already holds this address.
+        val otherUserId = UUID.fromString("00000000-0000-0000-0000-0000000000cc")
+        whenever(userRepository.findByEmailHash(EmailHasher.hash("taken@example.com")))
+            .thenReturn(UserEntity().apply { id = otherUserId })
+        whenever(userRepository.save(any<UserEntity>())).thenAnswer { it.arguments[0] as UserEntity }
+
+        val summary = service.import(userId, payload)
+
+        val captor = argumentCaptor<UserEntity>()
+        verify(userRepository).save(captor.capture())
+        assertNull(captor.firstValue.emailHash, "must not claim another account's email hash")
+        assertEquals(false, summary.emailImported)
+        assertEquals("TAKEN", summary.emailSkipReason)
     }
 
     @Test
     fun `imports multiple boards, reusing the default board and creating the rest`() {
         val secondBoardId = UUID.fromString("00000000-0000-0000-0000-0000000000b1")
         val payload = AccountExportResponse(
-            formatVersion = 2,
+            formatVersion = 3,
             exportedAt = Instant.parse("2026-05-25T12:00:00Z").toString(),
-            user = UserExport(id = "old", telegramUsername = null, telegramFirstName = null, email = null, createdAt = null),
+            user = UserExport(telegramUsername = null, telegramFirstName = null, email = null, createdAt = null),
             settings = null,
             boards = listOf(
                 BoardExport(
                     name = "My tasks", role = "OWNER",
-                    categories = listOf(CategoryExport(id = "c0", label = "Work", swatchId = "sunshine")),
+                    categories = listOf(CategoryExport(label = "Work", swatchId = "sunshine")),
                     tags = emptyList(),
-                    tasks = listOf(taskExport(categoryId = "c0", title = "A")),
+                    tasks = listOf(taskExport(categoryIndex = 0, title = "A")),
                 ),
                 BoardExport(
                     name = "Side", role = "OWNER",
-                    categories = listOf(CategoryExport(id = "c1", label = "Home", swatchId = "sky")),
+                    categories = listOf(CategoryExport(label = "Home", swatchId = "sky")),
                     tags = emptyList(),
-                    tasks = listOf(taskExport(categoryId = "c1", title = "B")),
+                    tasks = listOf(taskExport(categoryIndex = 0, title = "B")),
                 ),
             ),
         )
@@ -224,14 +257,6 @@ class AccountImportServiceTest {
         )
         whenever(categoryRepository.save(any<BacklogTaskCategoryEntity>())).thenAnswer { inv ->
             (inv.arguments[0] as BacklogTaskCategoryEntity).apply { id = id ?: UUID.randomUUID() }
-        }
-        whenever(categoryRepository.findByIdAndBoardId(any(), any())).thenAnswer { inv ->
-            BacklogTaskCategoryEntity().apply {
-                this.id = inv.arguments[0] as UUID
-                this.boardId = inv.arguments[1] as UUID
-                this.label = "x"
-                this.swatchId = CategoryColor.SUNSHINE
-            }
         }
         whenever(taskRepository.save(any<BacklogTaskEntity>())).thenAnswer { it.arguments[0] }
         whenever(userRepository.findById(userId)).thenReturn(Optional.of(UserEntity().apply { id = userId }))
@@ -259,19 +284,18 @@ class AccountImportServiceTest {
         tasks: List<TaskExport> = emptyList(),
         settings: SettingsExport? = null,
     ) = AccountExportResponse(
-        formatVersion = 2,
+        formatVersion = 3,
         exportedAt = Instant.parse("2026-05-25T12:00:00Z").toString(),
-        user = UserExport(id = "old-uuid", telegramUsername = "alice", telegramFirstName = "Alice", email = null, createdAt = null),
+        user = UserExport(telegramUsername = "alice", telegramFirstName = "Alice", email = null, createdAt = null),
         settings = settings,
         boards = listOf(BoardExport(name = "My tasks", role = "OWNER", categories = categories, tags = tags, tasks = tasks)),
     )
 
     private fun taskExport(
-        categoryId: String,
-        tagIds: List<String> = emptyList(),
+        categoryIndex: Int,
+        tagIndexes: List<Int> = emptyList(),
         title: String = "Task",
     ) = TaskExport(
-        id = UUID.randomUUID().toString(),
         title = title,
         description = null,
         url = null,
@@ -279,8 +303,8 @@ class AccountImportServiceTest {
         deadline = null,
         estimatedMinutes = null,
         status = "todo",
-        categoryId = categoryId,
-        tagIds = tagIds,
+        categoryIndex = categoryIndex,
+        tagIndexes = tagIndexes,
         sortKey = "a",
         createdAt = Instant.parse("2026-05-01T12:00:00Z").toString(),
         updatedAt = null,
