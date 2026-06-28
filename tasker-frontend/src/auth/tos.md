@@ -130,4 +130,4 @@ Continued use of the service means you accept the updated terms.
 
 ## 15. Contact
 
-If you have questions or requests (data export, deletion, etc.), contact the project owner at [hello@backlog.fyi](mailto:hello@backlog.fyi).
+If you have questions or requests (data export, deletion, etc.), contact the project owner at [{{SUPPORT_EMAIL}}](mailto:{{SUPPORT_EMAIL}}).

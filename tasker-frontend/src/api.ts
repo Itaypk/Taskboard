@@ -34,8 +34,10 @@ export class ApiError extends Error {
     readonly userMessage: string;
     /** Per-field reasons for a 400 validation failure, when the server sent a ProblemDetail with `errors`. */
     readonly fieldErrors?: ApiFieldError[];
+    /** Stable machine-readable error code, when the server sent one (e.g. import `code`). */
+    readonly code?: string;
 
-    constructor(opts: { status: number; statusText: string; path: string; userMessage: string; fieldErrors?: ApiFieldError[] }) {
+    constructor(opts: { status: number; statusText: string; path: string; userMessage: string; fieldErrors?: ApiFieldError[]; code?: string }) {
         super(`HTTP ${opts.status} ${opts.statusText}: ${opts.path}`);
         this.name = 'ApiError';
         this.status = opts.status;
@@ -43,6 +45,7 @@ export class ApiError extends Error {
         this.path = opts.path;
         this.userMessage = opts.userMessage;
         this.fieldErrors = opts.fieldErrors;
+        this.code = opts.code;
     }
 }
 
@@ -75,6 +78,18 @@ async function extractMessage(res: Response, fallback: string): Promise<string> 
         /* fall through */
     }
     return fallback;
+}
+
+// Our endpoints may include a stable machine-readable `code` alongside the human `error` message.
+async function extractCode(res: Response): Promise<string | undefined> {
+    const ct = res.headers.get('Content-Type') ?? '';
+    if (!ct.includes('json')) return undefined;
+    try {
+        const body = await res.clone().json() as Record<string, unknown>;
+        return typeof body.code === 'string' && body.code.length > 0 ? body.code : undefined;
+    } catch {
+        return undefined;
+    }
 }
 
 // RFC 7807 ProblemDetail carries our per-field validation reasons in the `errors` extension property.
@@ -137,8 +152,9 @@ async function handle<T>(res: Response, path: string, opts: { jsonOnEmpty?: T; e
         const fallback = defaultMessageFor(res.status, res.statusText);
         const message = await extractMessage(res, fallback);
         const fieldErrors = await extractFieldErrors(res);
+        const code = await extractCode(res);
         if (emitErrors) emitError({ message, status: res.status, path });
-        throw new ApiError({ status: res.status, statusText: res.statusText, path, userMessage: message, fieldErrors });
+        throw new ApiError({ status: res.status, statusText: res.statusText, path, userMessage: message, fieldErrors, code });
     }
     if (res.status === 204) return (opts.jsonOnEmpty as T) ?? (undefined as T);
     return res.json() as Promise<T>;

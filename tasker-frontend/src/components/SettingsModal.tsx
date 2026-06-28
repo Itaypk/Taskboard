@@ -5,11 +5,12 @@ import { AiUsageMeter } from './AiUsageMeter';
 import { CategoryEditor } from './CategoryEditor';
 import { TagEditor } from './TagEditor';
 import { ConnectedAccounts } from './ConnectedAccounts';
-import { ImportResultDialog, type ImportResult } from './ImportResultDialog';
+import { ImportResultDialog } from './ImportResultDialog';
+import { categorizeImportError, type ImportResult } from './importResult';
 import { HelpTip } from './HelpTip';
 import { Tabs } from './Tabs';
 import { Toggle } from './Toggle';
-import { createCategory, updateCategory, deleteCategory, updateTag, deleteTag, updateUserSettings, fetchSettingsOptions, deleteAccount, exportAccount, importAccount, requestEmailVerification, ApiError } from '../api';
+import { createCategory, updateCategory, deleteCategory, updateTag, deleteTag, updateUserSettings, fetchSettingsOptions, deleteAccount, exportAccount, importAccount, requestEmailVerification } from '../api';
 import type { ImportSummary } from '../api';
 import type { SettingsTab } from '../taskLink';
 
@@ -243,19 +244,15 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
       try {
         payload = JSON.parse(text);
       } catch {
-        setImportResult({ kind: 'error', message: 'That file is not valid JSON.' });
+        // We can't even parse the file locally — it's a corrupted/unsupported file.
+        setImportResult({ kind: 'error', category: 'CORRUPTED_FILE', detail: 'The file is not valid JSON.' });
         return;
       }
       const summary: ImportSummary = await importAccount(payload);
       setImportResult({ kind: 'success', summary });
     } catch (err: unknown) {
       console.error('Import failed', err);
-      // ApiError.userMessage carries the server's detailed reason (e.g. the 409 conflict text);
-      // its .message is just "HTTP 409 …", so prefer userMessage when present.
-      const message = err instanceof ApiError ? err.userMessage
-        : err instanceof Error ? err.message
-        : 'Import failed.';
-      setImportResult({ kind: 'error', message });
+      setImportResult({ kind: 'error', ...categorizeImportError(err) });
     } finally {
       setImporting(false);
     }

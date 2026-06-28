@@ -20,3 +20,15 @@
   line-height: 1.5;
   color: var(--ink-soft);
 }
+
+/* The raw, technical error message — shown smaller and muted under the friendly headline. */
+.detail {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ink-soft);
+  background: var(--paper-surface-2, rgba(0, 0, 0, 0.04));
+  border-radius: 4px;
+  word-break: break-word;
+}
