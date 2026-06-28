@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import styles from './ImportResultDialog.module.css';
+import { plural } from '../utils';
 import type { ImportSummary } from '../api';
 
 export type ImportResult =
@@ -10,10 +11,6 @@ interface ImportResultDialogProps {
   result: ImportResult | null;
   /** Called when the dialog is dismissed. On a successful import the caller reloads the app. */
   onClose: () => void;
-}
-
-function plural(n: number, one: string, many: string): string {
-  return `${n} ${n === 1 ? one : many}`;
 }
 
 const EMAIL_SKIP_MESSAGES: Record<string, string> = {
