@@ -50,7 +50,7 @@ dependencies {
 	implementation("org.liquibase:liquibase-core")
 	implementation("io.micrometer:micrometer-registry-prometheus:1.17.0")
 	implementation("net.logstash.logback:logstash-logback-encoder:9.0")
-	implementation("com.github.jknack:handlebars:4.5.1")
+	implementation("com.github.jknack:handlebars:4.5.2")
 	implementation("org.telegram:telegrambots-springboot-longpolling-starter:10.0.0")
 	implementation("org.telegram:telegrambots-client:10.0.0")
 	runtimeOnly("com.h2database:h2")
