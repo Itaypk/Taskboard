@@ -31,6 +31,7 @@ export function MoveTaskModal({
   }, [open, onClose]);
 
   // Reset the picker each time the modal opens for a new task.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (open) {
       setSelectedBoardId(null);
@@ -62,6 +63,7 @@ export function MoveTaskModal({
       .finally(() => { if (!cancelled) setLoadingCategories(false); });
     return () => { cancelled = true; };
   }, [selectedBoardId, currentCategoryLabel]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const canMove = !!selectedBoardId && !!selectedCategoryId && !loadingCategories;
 
