@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>/add Dev Console</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: ui-monospace, SFMono-Regular, "Cascadia Code", "Fira Code", monospace;
+      font-size: 14px;
+      background: #0d1117;
+      color: #e6edf3;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 12px 20px;
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    header h1 { font-size: 14px; font-weight: 600; color: #f0f6fc; }
+    header a { color: #58a6ff; text-decoration: none; font-size: 12px; }
+    header a:hover { text-decoration: underline; }
+
+    #status-badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: 500;
+      background: #21262d;
+      color: #8b949e;
+      border: 1px solid #30363d;
+    }
+    #status-badge.logged-in { background: #0d2b1b; color: #3fb950; border-color: #238636; }
+    #status-badge.active    { background: #0c1f3f; color: #58a6ff; border-color: #1f6feb; }
+    #status-badge.ended     { background: #2b1c0e; color: #e3b341; border-color: #9e6a03; }
+    #status-badge.error     { background: #2b1018; color: #f85149; border-color: #6e1a1a; }
+
+    #phase-label { margin-left: auto; font-size: 11px; color: #8b949e; }
+
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      max-width: 760px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 16px;
+      gap: 12px;
+    }
+
+    button {
+      font-family: inherit;
+      font-size: 13px;
+      padding: 8px 14px;
+      border-radius: 6px;
+      border: 1px solid #30363d;
+      background: #21262d;
+      color: #e6edf3;
+      cursor: pointer;
+    }
+    button:hover:not(:disabled) { background: #30363d; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    button.primary { background: #238636; border-color: #2ea043; }
+    button.primary:hover:not(:disabled) { background: #2ea043; }
+    button.danger { background: #2b1018; border-color: #6e1a1a; color: #f85149; }
+
+    #setup, #start-panel { display: flex; gap: 8px; align-items: center; }
+    #log {
+      font-size: 12px;
+      color: #8b949e;
+      min-height: 18px;
+    }
+    #log.error { color: #f85149; }
+
+    #chat {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 12px;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+    }
+
+    .msg {
+      max-width: 85%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      white-space: pre-wrap;
+      line-height: 1.5;
+    }
+    .msg.assistant { background: #21262d; align-self: flex-start; }
+    .msg.user      { background: #1f6feb; align-self: flex-end; color: white; }
+    .msg.system    { background: transparent; color: #8b949e; font-style: italic; align-self: center; font-size: 12px; }
+
+    .choice-options { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+    .choice-options button { font-size: 12px; padding: 6px 10px; }
+
+    #reply-row {
+      display: flex;
+      gap: 8px;
+      align-items: stretch;
+    }
+    #reply-row input {
+      flex: 1;
+      font-family: inherit;
+      font-size: 13px;
+      padding: 9px 12px;
+      border-radius: 6px;
+      border: 1px solid #30363d;
+      background: #0d1117;
+      color: #e6edf3;
+    }
+    #reply-row input:focus { outline: none; border-color: #58a6ff; }
+    #reply-row input:disabled { opacity: 0.45; }
+
+    .spinner {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      margin-right: 6px;
+      border: 2px solid #30363d;
+      border-top-color: #58a6ff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>/add Dev Console</h1>
+    <span id="status-badge">not logged in</span>
+    <span id="phase-label"></span>
+    <a href="/dev-planning.html">→ planning console</a>
+  </header>
+  <main>
+    <div id="setup">
+      <button id="btn-setup" class="primary">Login + seed</button>
+      <span id="log"></span>
+    </div>
+
+    <div id="start-panel" style="display:none">
+      <input id="initial-text" placeholder='Describe what to capture, or leave blank for "/add" with no text' style="flex:1;font-family:inherit;font-size:13px;padding:9px 12px;border-radius:6px;border:1px solid #30363d;background:#0d1117;color:#e6edf3" />
+      <button id="btn-start" class="primary">Start /add</button>
+    </div>
+
+    <div id="chat" style="display:none"></div>
+
+    <div id="reply-row" style="display:none">
+      <input id="reply-text" placeholder="Type a free-text reply (or tap an option above)…" autocomplete="off" />
+      <button id="btn-send">Send</button>
+      <button id="btn-abandon" class="danger">Abandon</button>
+    </div>
+  </main>
+
+  <script>
+    let busy = false;
+    let active = false;
+
+    function csrf() {
+      const m = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
+      return m ? decodeURIComponent(m[1]) : '';
+    }
+
+    async function api(method, path, body) {
+      const opts = {
+        method,
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrf() },
+      };
+      if (body !== undefined) opts.body = JSON.stringify(body);
+      const r = await fetch(path, opts);
+      if (!r.ok) throw new Error(method + ' ' + path + ' → ' + r.status + ' ' + r.statusText);
+      if (r.status === 204) return null;
+      return r.json();
+    }
+
+    function setStatus(label, cls) {
+      const el = document.getElementById('status-badge');
+      el.textContent = label;
+      el.className = cls || '';
+    }
+
+    function setPhase(phase) {
+      document.getElementById('phase-label').textContent = phase ? 'state: ' + phase : '';
+    }
+
+    function logSpinner(text) {
+      const el = document.getElementById('log');
+      el.className = '';
+      el.textContent = '';
+      const s = document.createElement('span');
+      s.className = 'spinner';
+      el.appendChild(s);
+      el.appendChild(document.createTextNode(text));
+    }
+    function logText(text)  { const el = document.getElementById('log'); el.className = '';      el.textContent = text; }
+    function logError(text) { const el = document.getElementById('log'); el.className = 'error'; el.textContent = '✗ ' + text; }
+
+    function setBusy(v) {
+      busy = v;
+      document.querySelectorAll('button').forEach(b => { b.disabled = v; });
+      document.getElementById('reply-text').disabled = v;
+      document.getElementById('initial-text').disabled = v;
+    }
+
+    function addBubble(role, text) {
+      const el = document.createElement('div');
+      el.className = 'msg ' + role;
+      el.textContent = text;
+      document.getElementById('chat').appendChild(el);
+      scrollChat();
+      return el;
+    }
+
+    function scrollChat() {
+      const c = document.getElementById('chat');
+      c.scrollTop = c.scrollHeight;
+    }
+
+    function renderAssistantMessages(messages) {
+      for (const m of messages) {
+        if (m.type === 'text') {
+          addBubble('assistant', m.text);
+        } else if (m.type === 'choice') {
+          const wrap = addBubble('assistant', m.text);
+          if (m.options && m.options.length) {
+            const row = document.createElement('div');
+            row.className = 'choice-options';
+            for (const opt of m.options) {
+              const b = document.createElement('button');
+              b.className = 'btn-choice';
+              b.textContent = opt.label;
+              b.dataset.optionId = opt.id;
+              b.addEventListener('click', () => sendReply({ optionId: opt.id, text: opt.label }));
+              row.appendChild(b);
+            }
+            wrap.appendChild(row);
+          }
+        }
+      }
+    }
+
+    async function setup() {
+      setBusy(true);
+      try {
+        logSpinner('Logging in as dev user…');
+        await api('POST', '/api/auth/dev-login');
+        setStatus('logged in', 'logged-in');
+        logSpinner('Seeding backlog (idempotent)…');
+        const seed = await api('POST', '/api/dev/planning/seed');
+        logText(seed.seeded
+          ? 'Seeded ' + seed.existingTaskCount + ' demo tasks.'
+          : 'Backlog already has ' + seed.existingTaskCount + ' tasks.');
+        document.getElementById('setup').style.display = 'none';
+        document.getElementById('start-panel').style.display = 'flex';
+        document.getElementById('initial-text').focus();
+      } catch (e) {
+        logError(e.message);
+        setStatus('error', 'error');
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function start() {
+      const text = document.getElementById('initial-text').value.trim();
+      setBusy(true);
+      try {
+        document.getElementById('chat').textContent = '';
+        document.getElementById('chat').style.display = 'flex';
+        document.getElementById('reply-row').style.display = 'flex';
+        if (text) addBubble('user', '/add ' + text);
+        else addBubble('user', '/add');
+        const data = await api('POST', '/api/dev/quickadd/start', { text: text || null });
+        renderAssistantMessages(data.messages);
+        setPhase(data.phase);
+        active = data.phase !== 'Ended';
+        setStatus(active ? 'active' : 'ended', active ? 'active' : 'ended');
+        if (!active) addBubble('system', '— flow ended —');
+        logText('');
+      } catch (e) {
+        logError(e.message);
+        setStatus('error', 'error');
+      } finally {
+        setBusy(false);
+        document.getElementById('reply-text').focus();
+      }
+    }
+
+    async function sendReply(payload) {
+      if (!active || busy) return;
+      setBusy(true);
+      try {
+        if (payload.text) addBubble('user', payload.text);
+        const data = await api('POST', '/api/dev/quickadd/reply', payload);
+        renderAssistantMessages(data.messages);
+        setPhase(data.phase);
+        active = data.phase !== 'Ended';
+        setStatus(active ? 'active' : 'ended', active ? 'active' : 'ended');
+        if (!active) addBubble('system', '— flow ended —');
+      } catch (e) {
+        logError(e.message);
+        setStatus('error', 'error');
+      } finally {
+        setBusy(false);
+        document.getElementById('reply-text').value = '';
+        document.getElementById('reply-text').focus();
+      }
+    }
+
+    async function abandon() {
+      setBusy(true);
+      try {
+        await api('POST', '/api/dev/quickadd/abandon');
+        addBubble('system', '— abandoned —');
+        active = false;
+        setStatus('ended', 'ended');
+        setPhase('');
+      } catch (e) {
+        logError(e.message);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    document.getElementById('btn-setup').addEventListener('click', setup);
+    document.getElementById('btn-start').addEventListener('click', start);
+    document.getElementById('btn-send').addEventListener('click', () => {
+      const t = document.getElementById('reply-text').value.trim();
+      if (t) sendReply({ text: t });
+    });
+    document.getElementById('btn-abandon').addEventListener('click', abandon);
+    document.getElementById('initial-text').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !busy) { e.preventDefault(); start(); }
+    });
+    document.getElementById('reply-text').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !busy) {
+        e.preventDefault();
+        const t = document.getElementById('reply-text').value.trim();
+        if (t) sendReply({ text: t });
+      }
+    });
+  </script>
+</body>
+</html>
