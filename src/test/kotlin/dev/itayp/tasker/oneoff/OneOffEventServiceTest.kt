@@ -86,13 +86,14 @@ class OneOffEventServiceTest {
         val created = service.createEvents(userId, boardId, drafts)
 
         verify(boardMembershipService).requireMember(userId, boardId)
-        assertEquals(2, created.size)
-        assertEquals("Parent-teacher conference", created[0].title)
-        assertEquals("School auditorium", created[0].location)
-        assertEquals(start1, created[0].startsAt)
-        assertTrue(created[0].icalUid.isNotBlank())
-        assertTrue(created[1].icalUid.isNotBlank())
-        assertTrue(created[0].icalUid != created[1].icalUid)
+        assertEquals(2, created.events.size)
+        assertTrue(created.invitesScheduled)
+        assertEquals("Parent-teacher conference", created.events[0].title)
+        assertEquals("School auditorium", created.events[0].location)
+        assertEquals(start1, created.events[0].startsAt)
+        assertTrue(created.events[0].icalUid.isNotBlank())
+        assertTrue(created.events[1].icalUid.isNotBlank())
+        assertTrue(created.events[0].icalUid != created.events[1].icalUid)
 
         val invitesCaptor = argumentCaptor<List<OneOffEventInviteDispatcher.Invite>>()
         verify(inviteDispatcher).dispatch(invitesCaptor.capture())
@@ -101,7 +102,7 @@ class OneOffEventServiceTest {
         assertEquals("user@example.com", invites[0].userEmail)
         assertEquals("scheduling@backlog.fyi", invites[0].organizerEmail)
         assertEquals("Backlog.fyi", invites[0].organizerName)
-        assertEquals(created[0].icalUid, invites[0].event.icalUid)
+        assertEquals(created.events[0].icalUid, invites[0].event.icalUid)
     }
 
     @Test
@@ -124,7 +125,8 @@ class OneOffEventServiceTest {
             ),
         )
 
-        assertEquals(1, created.size)
+        assertEquals(1, created.events.size)
+        assertEquals(false, created.invitesScheduled)
         verify(repository).saveAll(any<List<OneOffEventEntity>>())
         verify(inviteDispatcher, never()).dispatch(any())
     }
@@ -170,7 +172,8 @@ class OneOffEventServiceTest {
     @Test
     fun `createEvents short-circuits on an empty draft list`() {
         val created = service.createEvents(userId, boardId, emptyList())
-        assertEquals(0, created.size)
+        assertEquals(0, created.events.size)
+        assertEquals(false, created.invitesScheduled)
         verify(boardMembershipService, never()).requireMember(any(), any())
         verify(repository, never()).saveAll(any<List<OneOffEventEntity>>())
         verify(inviteDispatcher, never()).dispatch(any())
