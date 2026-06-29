@@ -70,11 +70,11 @@ data class EventDraft(
 ```
 
 Prompt changes (`task-suggestion/system-clarify.md`,
-`quickadd-user.md`): teach the model a third shape alongside `Draft` /
-`Clarify` — a `items` array where each entry is `{kind: "task", ...}` or
-`{kind: "event", ...}`. Keep the existing single-task shape working as a
-shorthand (one-item task) so we don't churn every test. The clarify branch
-is untouched.
+`quickadd-user.md`): replace the single-task draft shape with an `items`
+array where each entry is `{kind: "task", ...}` or `{kind: "event", ...}`.
+A single-task draft becomes a one-item array. No backwards-compat shorthand
+— the test fixtures get updated; the simpler code and tighter prompt are
+worth the churn. The clarify branch is untouched.
 
 Validation (`QuickAddFlow.validate`): for event items, parse ISO timestamps,
 reject ones in the past beyond some grace (~1 hour), default `end` to
@@ -90,18 +90,17 @@ New table `one_off_event` (new Liquibase changeset, next integer id):
 | id              | UUID PK              |                                        |
 | user_id         | UUID FK users(id)    |                                        |
 | board_id        | UUID FK boards(id)   | resolved default board, same as tasks  |
-| title           | LONGVARCHAR (enc.)   | encrypted under user DEK (sensitive)   |
+| title           | LONGVARCHAR          | encrypted under user DEK               |
 | starts_at       | TIMESTAMPTZ          |                                        |
 | ends_at         | TIMESTAMPTZ          |                                        |
-| location        | LONGVARCHAR (enc.) ? | encrypted                              |
-| notes           | LONGVARCHAR (enc.) ? | encrypted                              |
+| location        | LONGVARCHAR NULL     | encrypted under user DEK               |
+| notes           | LONGVARCHAR NULL     | encrypted under user DEK               |
 | ical_uid        | VARCHAR(128)         | stable UID emitted in the iCal invite  |
 | created_at      | TIMESTAMPTZ          |                                        |
 | cancelled_at    | TIMESTAMPTZ NULL     | for future "cancel" flow               |
 
-Confirm with @itay during implementation: encrypt title/location/notes? The
-title at least is the same sensitivity tier as task titles, which **are**
-encrypted, so yes — match the task convention.
+Title, location, and notes are encrypted under the user's DEK — same
+sensitivity tier as task titles, which already use this convention.
 
 JPA entity + Spring Data repository, mirroring `BacklogTaskEntity` /
 `BacklogTaskRepository`. No update endpoint in v1 (see "Editing").
@@ -153,19 +152,42 @@ Wire a backend endpoint `GET /api/v1/plans/{week}/external-events` (or
 extend the existing weekly-plan payload) that returns one-off events whose
 `starts_at` falls inside the requested ISO week. Read-only.
 
-Frontend renders them in that section with a one-line disclaimer:
-"Showing events created here. Other calendar entries aren't synced yet."
-Clicking an event is a no-op in v1 (or routes to a future detail/cancel
-modal).
+Frontend renders them in that section as-is — no disclaimer; the user
+created them, so they already know what they're looking at. Clicking an
+event is a no-op in v1 (or routes to a future detail/cancel modal).
 
-### 6. Metrics
+### 6. Planning assistant context
+
+`StubCalendarWindowProvider.describeWindow` currently returns the
+placeholder "User has not connected their calendar; assume no fixed
+commitments are known." Replace the stub with a real provider that lists
+one-off events whose `starts_at` falls inside the requested window:
+
+```
+Known events on the user's calendar (partial — only events created
+through Backlog.fyi; the user's other calendar entries are not visible):
+- Wed Mar 12, 19:30–20:30 IDT — Parent-teacher conference (school auditorium)
+- ...
+```
+
+The "partial" note belongs **here**, in the prompt, not in the drawer —
+the assistant needs to know its view is incomplete so it doesn't
+confidently propose time blocks that collide with the user's other
+commitments. When the list is empty, fall back to today's placeholder
+string so the prompt shape is unchanged.
+
+This feeds straight into `WeeklyPlanningPromptAssembler` via the existing
+`calendar_window` template variable — no prompt template churn, just a
+new provider implementation behind the same interface.
+
+### 7. Metrics
 
 - `tasker.quickadd.outcome{result, item_kind}` — extend the existing
   counter with `item_kind=task|event|mixed` so we can see the split.
 - Reuse `tasker.email.sent{purpose=scheduling, outcome=…}` — already wired
   by the existing invite path.
 
-### 7. Tests
+### 8. Tests
 
 - `TaskSuggestionAgentTest`: a couple of fixtures where the model returns
   an event item, a mixed batch, and the legacy single-task shape (regression).
@@ -202,6 +224,8 @@ worth doing once the v1 has bedded in.
    the storage and email piece in isolation, behind a dev-only endpoint.
 2. AI outcome widening + prompt changes + card rendering.
 3. Planner drawer read-only listing.
-4. (Later) Cancel button in the drawer.
-5. (Later) Per-item Adjust, edit-from-drawer, recurrence — only if real
+4. Replace `StubCalendarWindowProvider` so the planning assistant sees the
+   user's one-off events (with the "partial" caveat in the prompt).
+5. (Later) Cancel button in the drawer.
+6. (Later) Per-item Adjust, edit-from-drawer, recurrence — only if real
    usage demands it.
