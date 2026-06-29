@@ -1,6 +1,6 @@
 package dev.itayp.tasker.capture
 
-import dev.itayp.tasker.channel.ChannelFormatter
+import dev.itayp.tasker.channel.MessageFormatter
 import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ChoiceOption
@@ -348,7 +348,7 @@ class QuickAddFlow(
     private fun renderTaskBlock(
         draft: TaskDraft,
         categories: List<BacklogTaskCategory>,
-        f: ChannelFormatter,
+        f: MessageFormatter,
         locale: Locale,
     ): String {
         val categoryLabel = draft.categoryId
@@ -377,7 +377,7 @@ class QuickAddFlow(
 
     private fun renderEventBlock(
         draft: EventDraft,
-        f: ChannelFormatter,
+        f: MessageFormatter,
         locale: Locale,
         zone: ZoneId,
     ): String {
