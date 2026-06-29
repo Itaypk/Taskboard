@@ -1,8 +1,8 @@
 package dev.itayp.tasker.capture
 
+import dev.itayp.tasker.planning.CapturedItem
 import dev.itayp.tasker.planning.ClarifyOption
 import dev.itayp.tasker.planning.ClarificationExchange
-import dev.itayp.tasker.planning.TaskDraft
 import java.time.Instant
 
 /**
@@ -12,19 +12,20 @@ import java.time.Instant
  *
  * `originalRequest` and `clarifications` are threaded through every state so a later free-text
  * adjustment can be re-drafted with the full context of what the user originally asked for and any
- * clarifying answers they already gave.
+ * clarifying answers they already gave. Each capture carries a list of [CapturedItem]s — a single
+ * request may produce one or several tasks and/or one-off events.
  */
 sealed interface QuickAddState {
     val createdAt: Instant
 
-    /** Opened by a bare `/add` with no text: waiting for the user to describe the task. */
+    /** Opened by a bare `/add` with no text: waiting for the user to describe the capture. */
     data class AwaitingDescription(
         override val createdAt: Instant,
     ) : QuickAddState
 
     /** A draft card is shown; the user can Save, Cancel, Adjust, or type a free-text adjustment. */
     data class AwaitingConfirmation(
-        val draft: TaskDraft,
+        val items: List<CapturedItem>,
         val originalRequest: String,
         val clarifications: List<ClarificationExchange>,
         override val createdAt: Instant,
@@ -32,7 +33,7 @@ sealed interface QuickAddState {
 
     /** The user tapped "Adjust"; waiting for them to say what to change. */
     data class AwaitingAdjustment(
-        val draft: TaskDraft,
+        val items: List<CapturedItem>,
         val originalRequest: String,
         val clarifications: List<ClarificationExchange>,
         override val createdAt: Instant,
@@ -64,7 +65,7 @@ sealed interface PendingOp {
 
     data class Revise(
         override val originalRequest: String,
-        val draft: TaskDraft,
+        val items: List<CapturedItem>,
         val instruction: String,
         override val clarifications: List<ClarificationExchange>,
     ) : PendingOp

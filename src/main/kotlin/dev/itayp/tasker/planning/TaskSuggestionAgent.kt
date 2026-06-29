@@ -105,20 +105,20 @@ class TaskSuggestionAgent(
         userId = userId,
         request = request,
         adjustment = null,
-        previousDraft = null,
+        previousItems = null,
         clarifications = clarifications,
         mustDraft = mustDraft,
     )
 
     /**
-     * Quick-add revision: re-draft [previousDraft] given a free-text [instruction] (and any prior
+     * Quick-add revision: re-draft [previousItems] given a free-text [instruction] (and any prior
      * clarification Q&A). May itself ask a clarifying question when the instruction is ambiguous,
      * unless [mustDraft] forces a draft.
      */
     fun quickAddRevise(
         userId: UUID,
         request: String,
-        previousDraft: TaskDraft,
+        previousItems: List<CapturedItem>,
         instruction: String,
         clarifications: List<ClarificationExchange> = emptyList(),
         mustDraft: Boolean = false,
@@ -126,7 +126,7 @@ class TaskSuggestionAgent(
         userId = userId,
         request = request,
         adjustment = instruction,
-        previousDraft = previousDraft,
+        previousItems = previousItems,
         clarifications = clarifications,
         mustDraft = mustDraft,
     )
@@ -135,7 +135,7 @@ class TaskSuggestionAgent(
         userId: UUID,
         request: String,
         adjustment: String?,
-        previousDraft: TaskDraft?,
+        previousItems: List<CapturedItem>?,
         clarifications: List<ClarificationExchange>,
         mustDraft: Boolean,
     ): SuggestionOutcome {
@@ -156,8 +156,14 @@ class TaskSuggestionAgent(
         val userMessage = promptTemplateLoader.load("task-suggestion/quickadd-user.md").render(mapOf(
             "request" to request,
             "adjustment_block" to (adjustment?.let { "\nThe user then asked to adjust the draft: $it\n" } ?: ""),
-            "previous_draft_block" to (previousDraft?.let {
-                "\nThe current draft to revise (JSON):\n${objectMapper.writeValueAsString(it)}\n"
+            "previous_draft_block" to (previousItems?.takeIf { it.isNotEmpty() }?.let {
+                val rendered = it.map { item ->
+                    when (item) {
+                        is CapturedItem.Task -> mapOf("kind" to "task") + objectMapper.convertValue(item.draft, Map::class.java)
+                        is CapturedItem.Event -> mapOf("kind" to "event") + objectMapper.convertValue(item.draft, Map::class.java)
+                    }
+                }
+                "\nThe current items to revise (JSON):\n${objectMapper.writeValueAsString(rendered)}\n"
             } ?: ""),
             "prior_qa_block" to renderClarifications(clarifications),
             "today" to today.format(DateTimeFormatter.ISO_LOCAL_DATE),
@@ -194,22 +200,14 @@ class TaskSuggestionAgent(
                 val label = opt.label?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
                 ClarifyOption(id = opt.id?.takeIf { it.isNotBlank() } ?: label, label = label)
             }
-            SuggestionOutcome.Clarify(question = question, options = options)
-        } else if (!parsed.title.isNullOrBlank()) {
-            SuggestionOutcome.Draft(
-                TaskDraft(
-                    title = parsed.title,
-                    description = parsed.description,
-                    categoryId = parsed.categoryId,
-                    priority = parsed.priority,
-                    deadline = parsed.deadline,
-                    estimatedMinutes = parsed.estimatedMinutes,
-                    tags = parsed.tags,
-                )
-            )
-        } else {
-            log.warn("quick-add output had neither a clarify question nor a task title")
+            return@runCatching SuggestionOutcome.Clarify(question = question, options = options)
+        }
+        val items = parsed.items.orEmpty().mapNotNull { it.toCapturedItem() }
+        if (items.isEmpty()) {
+            log.warn("quick-add output had neither a clarify question nor any captured items")
             SuggestionOutcome.Unparseable
+        } else {
+            SuggestionOutcome.Draft(items = items)
         }
     }.getOrElse {
         log.warn("quick-add could not parse sub-agent output: {}", it.message)
@@ -260,9 +258,13 @@ data class TaskDraft(
     val tags: List<TagArg> = emptyList(),
 )
 
-/** The result of a quick-add drafting/revision call: a draft, a clarifying question, or a parse failure. */
+/**
+ * The result of a quick-add drafting/revision call: a non-empty list of captured items, a single
+ * clarifying question, or a parse failure. A "draft" outcome can mix tasks and events — the user's
+ * request determines what comes out.
+ */
 sealed interface SuggestionOutcome {
-    data class Draft(val draft: TaskDraft) : SuggestionOutcome
+    data class Draft(val items: List<CapturedItem>) : SuggestionOutcome
     data class Clarify(val question: String, val options: List<ClarifyOption>) : SuggestionOutcome
     data object Unparseable : SuggestionOutcome
 }
@@ -273,13 +275,20 @@ data class ClarifyOption(val id: String, val label: String)
 data class ClarificationExchange(val question: String, val answer: String)
 
 /**
- * Loose binding of the quick-add sub-agent's two possible JSON shapes (a task draft or a
- * `clarify` object). All fields are optional so a response of either shape deserializes; the
- * agent then decides which shape it actually was.
+ * Loose binding of the quick-add sub-agent's two possible JSON shapes (an `items` array of typed
+ * captured items or a `clarify` object). All fields are optional so a response of either shape
+ * deserializes; the agent then decides which shape it actually was.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 private data class QuickAddRaw(
     val clarify: ClarifyRaw? = null,
+    val items: List<CapturedItemRaw>? = null,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+private data class CapturedItemRaw(
+    val kind: String? = null,
+    // Task fields
     val title: String? = null,
     val description: String? = null,
     @JsonProperty("category_id") val categoryId: String? = null,
@@ -287,7 +296,35 @@ private data class QuickAddRaw(
     val deadline: String? = null,
     @JsonProperty("estimated_minutes") val estimatedMinutes: Int? = null,
     val tags: List<TagArg> = emptyList(),
-)
+    // Event-only fields
+    val start: String? = null,
+    val end: String? = null,
+    val location: String? = null,
+    val notes: String? = null,
+) {
+    fun toCapturedItem(): CapturedItem? {
+        val k = kind?.lowercase()
+        if (title.isNullOrBlank()) return null
+        return when (k) {
+            "event" -> {
+                val s = start?.takeIf { it.isNotBlank() } ?: return null
+                CapturedItem.Event(EventDraft(title = title, startIso = s, endIso = end, location = location, notes = notes))
+            }
+            "task", null -> CapturedItem.Task(
+                TaskDraft(
+                    title = title,
+                    description = description,
+                    categoryId = categoryId,
+                    priority = priority,
+                    deadline = deadline,
+                    estimatedMinutes = estimatedMinutes,
+                    tags = tags,
+                ),
+            )
+            else -> null
+        }
+    }
+}
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 private data class ClarifyRaw(

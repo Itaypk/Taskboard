@@ -33,11 +33,11 @@ class OneOffEventService(
 ) {
     private val log = LoggerFactory.getLogger(OneOffEventService::class.java)
 
-    fun createEvents(userId: UUID, boardId: UUID, drafts: List<OneOffEventDraft>): List<OneOffEvent> {
-        if (drafts.isEmpty()) return emptyList()
+    fun createEvents(userId: UUID, boardId: UUID, drafts: List<OneOffEventDraft>): CreatedEvents {
+        if (drafts.isEmpty()) return CreatedEvents(emptyList(), invitesScheduled = false)
         val saved = writer.persist(userId, boardId, drafts)
-        scheduleInvites(userId, saved)
-        return saved
+        val scheduled = scheduleInvites(userId, saved)
+        return CreatedEvents(saved, invitesScheduled = scheduled)
     }
 
     @Transactional(readOnly = true)
@@ -46,12 +46,12 @@ class OneOffEventService(
             .findAllByUserIdAndStartsAtBetweenAndCancelledAtIsNullOrderByStartsAtAsc(userId, weekStart, weekEnd)
             .map { it.toDomain(boardCrypto) }
 
-    private fun scheduleInvites(userId: UUID, events: List<OneOffEvent>) {
-        if (events.isEmpty()) return
+    private fun scheduleInvites(userId: UUID, events: List<OneOffEvent>): Boolean {
+        if (events.isEmpty()) return false
         val ctx = inviteDeliveryResolver.resolveEmailContext(userId)
         if (ctx == null) {
             log.debug("Skipping one-off event invites for user {}: no eligible email channel", userId)
-            return
+            return false
         }
         val zone = runCatching { ZoneId.of(userSettingsService.getOrCreate(userId).timeZone) }
             .getOrDefault(ZoneId.of("UTC"))
@@ -66,8 +66,12 @@ class OneOffEventService(
             )
         }
         inviteDispatcher.dispatch(invites)
+        return true
     }
 }
+
+/** Outcome of [OneOffEventService.createEvents]: the persisted rows plus whether invites were scheduled. */
+data class CreatedEvents(val events: List<OneOffEvent>, val invitesScheduled: Boolean)
 
 @Service
 class OneOffEventWriter(

@@ -36,8 +36,8 @@ class DevOneOffEventController(
     ): ResponseEntity<CreateOneOffEventsResponse> {
         val boardId = boardMembershipService.resolveDefaultBoard(principal.userId)
         val drafts = request.events.map { it.toDraft() }
-        val created = oneOffEventService.createEvents(principal.userId, boardId, drafts)
-        return ResponseEntity.ok(CreateOneOffEventsResponse(created.map { it.toView() }))
+        val result = oneOffEventService.createEvents(principal.userId, boardId, drafts)
+        return ResponseEntity.ok(CreateOneOffEventsResponse(result.events.map { it.toView() }))
     }
 }
 
