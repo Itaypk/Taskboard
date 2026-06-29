@@ -1,12 +1,18 @@
 package dev.itayp.tasker.capture
 
+import dev.itayp.tasker.channel.MessageFormatter
 import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ChoiceOption
 import dev.itayp.tasker.channel.ConversationChannel
+import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.TaskPriority
+import dev.itayp.tasker.oneoff.OneOffEventDraft
+import dev.itayp.tasker.oneoff.OneOffEventService
+import dev.itayp.tasker.planning.CapturedItem
 import dev.itayp.tasker.planning.ClarifyOption
 import dev.itayp.tasker.planning.ClarificationExchange
+import dev.itayp.tasker.planning.EventDraft
 import dev.itayp.tasker.planning.SuggestionOutcome
 import dev.itayp.tasker.planning.TaskDraft
 import dev.itayp.tasker.planning.TaskSuggestionAgent
@@ -20,25 +26,35 @@ import org.slf4j.LoggerFactory
 import org.springframework.context.MessageSource
 import org.springframework.stereotype.Service
 import java.time.Clock
+import java.time.DateTimeException
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.OffsetDateTime
+import java.time.ZoneId
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import java.util.Locale
 import java.util.UUID
 
 /**
- * Channel-agnostic "/add" quick-capture flow: drafts a task from a free-text request, shows a
- * confirmation card with Save / Adjust / Cancel, folds free-text adjustments back into a revised
- * draft, and — for genuinely vague input — surfaces up to [MAX_CLARIFY_ROUNDS] bounded clarifying
- * questions before forcing a best-guess draft. Every model call is a single-turn sub-agent call
- * (draft / revise); the turn-taking here is a deterministic state machine, not an LLM conversation.
+ * Channel-agnostic "/add" quick-capture flow. Drafts one or more items (tasks and/or one-off
+ * calendar events) from a free-text request, shows a confirmation card with Save / Adjust /
+ * Cancel, folds free-text adjustments back into a revised draft, and — for genuinely vague input —
+ * surfaces up to [MAX_CLARIFY_ROUNDS] bounded clarifying questions before forcing a best-guess
+ * draft. Every model call is a single-turn sub-agent call (draft / revise); the turn-taking here
+ * is a deterministic state machine, not an LLM conversation.
  *
  * The flow holds no state of its own: callers pass the current [QuickAddState] in and store the
  * returned one (or clear it when null is returned). A channel-specific registry owns that storage
- * and the idle TTL. Renders happen through the supplied [ConversationChannel], so the same flow can
- * back Telegram today and a web surface later.
+ * and the idle TTL. Renders happen through the supplied [ConversationChannel], so the same flow
+ * can back Telegram today and a web surface later.
  */
 @Service
 class QuickAddFlow(
     private val suggestionAgent: TaskSuggestionAgent,
     private val backlogTaskService: BacklogTaskService,
+    private val oneOffEventService: OneOffEventService,
     private val boardMembershipService: BoardMembershipService,
     private val categoryService: BacklogTaskCategoryService,
     private val userSettingsService: UserSettingsService,
@@ -94,7 +110,7 @@ class QuickAddFlow(
     ): QuickAddState? {
         if (inbound is ChannelInbound.Selection) {
             return when (inbound.optionId) {
-                OPTION_SAVE -> { save(userId, channel, state.draft); null }
+                OPTION_SAVE -> { save(userId, channel, state.items); null }
                 OPTION_CANCEL -> {
                     count("cancelled")
                     channel.send(ChannelMessage.Text(msg(userId, "quickadd.cancelled")))
@@ -102,14 +118,14 @@ class QuickAddFlow(
                 }
                 OPTION_ADJUST -> {
                     channel.send(ChannelMessage.Text(msg(userId, "quickadd.adjust.prompt")))
-                    QuickAddState.AwaitingAdjustment(state.draft, state.originalRequest, state.clarifications, now())
+                    QuickAddState.AwaitingAdjustment(state.items, state.originalRequest, state.clarifications, now())
                 }
-                else -> { reRenderCard(userId, channel, state.draft); state }
+                else -> { renderCard(userId, channel, state.items); state }
             }
         }
         val text = (inbound as? ChannelInbound.Text)?.text?.trim().orEmpty()
         if (text.isBlank()) return state
-        return applyAdjustment(userId, channel, state.draft, state.originalRequest, state.clarifications, text)
+        return applyAdjustment(userId, channel, state.items, state.originalRequest, state.clarifications, text)
     }
 
     private fun onAdjustment(
@@ -123,7 +139,7 @@ class QuickAddFlow(
             channel.send(ChannelMessage.Text(msg(userId, "quickadd.adjust.prompt")))
             return state
         }
-        return applyAdjustment(userId, channel, state.draft, state.originalRequest, state.clarifications, text)
+        return applyAdjustment(userId, channel, state.items, state.originalRequest, state.clarifications, text)
     }
 
     private fun onClarification(
@@ -153,8 +169,8 @@ class QuickAddFlow(
                 o to suggestionAgent.quickAddDraft(userId, op.originalRequest, newClarifications, mustDraft)
             }
             is PendingOp.Revise -> {
-                val o = PendingOp.Revise(op.originalRequest, op.draft, op.instruction, newClarifications)
-                o to suggestionAgent.quickAddRevise(userId, op.originalRequest, op.draft, op.instruction, newClarifications, mustDraft)
+                val o = PendingOp.Revise(op.originalRequest, op.items, op.instruction, newClarifications)
+                o to suggestionAgent.quickAddRevise(userId, op.originalRequest, op.items, op.instruction, newClarifications, mustDraft)
             }
         }
         return renderOutcome(userId, channel, newOp, outcome, clarifyRound = state.rounds + 1)
@@ -163,14 +179,14 @@ class QuickAddFlow(
     private fun applyAdjustment(
         userId: UUID,
         channel: ConversationChannel,
-        draft: TaskDraft,
+        items: List<CapturedItem>,
         originalRequest: String,
         clarifications: List<ClarificationExchange>,
         instruction: String,
     ): QuickAddState? {
         channel.indicateTyping()
-        val op = PendingOp.Revise(originalRequest, draft, instruction, clarifications)
-        val outcome = suggestionAgent.quickAddRevise(userId, originalRequest, draft, instruction, clarifications, mustDraft = false)
+        val op = PendingOp.Revise(originalRequest, items, instruction, clarifications)
+        val outcome = suggestionAgent.quickAddRevise(userId, originalRequest, items, instruction, clarifications, mustDraft = false)
         return renderOutcome(userId, channel, op, outcome, clarifyRound = 1)
     }
 
@@ -182,9 +198,15 @@ class QuickAddFlow(
         clarifyRound: Int,
     ): QuickAddState? = when (outcome) {
         is SuggestionOutcome.Draft -> {
-            val validated = validate(userId, outcome.draft)
-            renderCard(userId, channel, validated)
-            QuickAddState.AwaitingConfirmation(validated, op.originalRequest, op.clarifications, now())
+            val validated = validateItems(userId, outcome.items)
+            if (validated.isEmpty()) {
+                log.warn("quick-add validated to no items; abandoning capture")
+                channel.send(ChannelMessage.Text(msg(userId, "quickadd.unparseable")))
+                null
+            } else {
+                renderCard(userId, channel, validated)
+                QuickAddState.AwaitingConfirmation(validated, op.originalRequest, op.clarifications, now())
+            }
         }
         is SuggestionOutcome.Clarify -> {
             if (clarifyRound > MAX_CLARIFY_ROUNDS) {
@@ -205,59 +227,143 @@ class QuickAddFlow(
         }
     }
 
-    private fun save(userId: UUID, channel: ConversationChannel, draft: TaskDraft) {
-        if (draft.categoryId.isNullOrBlank()) {
-            log.warn("quick-add save aborted: draft had no category")
+    private fun save(userId: UUID, channel: ConversationChannel, items: List<CapturedItem>) {
+        val tasks = items.filterIsInstance<CapturedItem.Task>().map { it.draft }
+        val events = items.filterIsInstance<CapturedItem.Event>().map { it.draft }
+
+        if (tasks.any { it.categoryId.isNullOrBlank() }) {
+            log.warn("quick-add save aborted: a task draft had no category")
             channel.send(ChannelMessage.Text(msg(userId, "quickadd.failed")))
             return
         }
-        runCatching {
+
+        val savedTitles = mutableListOf<String>()
+        var invitesSkipped = false
+
+        val result = runCatching {
             val boardId = boardMembershipService.resolveDefaultBoard(userId)
-            backlogTaskService.createTask(userId, boardId, draft.toCreateBacklogTaskRequest())
-        }.onSuccess { created ->
+            for (task in tasks) {
+                val created = backlogTaskService.createTask(userId, boardId, task.toCreateBacklogTaskRequest())
+                savedTitles += created.title
+            }
+            if (events.isNotEmpty()) {
+                val created = oneOffEventService.createEvents(userId, boardId, events.map { it.toOneOffEventDraft() })
+                savedTitles += created.events.map { it.title }
+                invitesSkipped = !created.invitesScheduled
+            }
+        }
+
+        result.onSuccess {
             count("saved")
-            log.debug("quick-add created backlog task {}", created.id)
-            channel.send(ChannelMessage.Text(msg(userId, "quickadd.saved", channel.formatter.escape(created.title))))
+            log.debug("quick-add created {} item(s)", savedTitles.size)
+            val joined = savedTitles.joinToString(", ") { channel.formatter.escape(it) }
+            channel.send(ChannelMessage.Text(msg(userId, "quickadd.saved", joined)))
+            if (invitesSkipped) {
+                channel.send(ChannelMessage.Text(msg(userId, "quickadd.event.invite_skipped")))
+            }
         }.onFailure { e ->
             log.warn("quick-add save failed: {}", e.message)
             channel.send(ChannelMessage.Text(msg(userId, "quickadd.failed")))
         }
     }
 
-    /** Drops fields the model may have malformed so the card shows exactly what will be saved. */
-    private fun validate(userId: UUID, draft: TaskDraft): TaskDraft {
+    /**
+     * Drops fields the model may have malformed so the card shows exactly what will be saved. For
+     * events, parses ISO timestamps, defaults a missing/invalid end to start + 60min, and silently
+     * drops events whose start is unparseable or far in the past (the agent should have asked).
+     */
+    private fun validateItems(userId: UUID, items: List<CapturedItem>): List<CapturedItem> {
+        if (items.isEmpty()) return emptyList()
         val categories = categoryService.getAllForUser(userId)
-        val resolvedCategory = draft.categoryId
-            ?.let { id -> categories.firstOrNull { it.id.toString() == id } }
-            ?: categories.firstOrNull()
-        val priority = draft.priority?.lowercase()?.takeIf { it in TaskPriority.allowedValues }
-        val deadline = draft.deadline?.takeIf { DEADLINE_REGEX.matches(it) }
-        val estimate = draft.estimatedMinutes?.takeIf { it > 0 }
-        return draft.copy(
-            categoryId = resolvedCategory?.id?.toString(),
-            priority = priority,
-            deadline = deadline,
-            estimatedMinutes = estimate,
+        val zone = userZone(userId)
+        val nowInstant = clock.instant()
+        return items.mapNotNull { item ->
+            when (item) {
+                is CapturedItem.Task -> {
+                    val resolvedCategory = item.draft.categoryId
+                        ?.let { id -> categories.firstOrNull { it.id.toString() == id } }
+                        ?: categories.firstOrNull()
+                    val priority = item.draft.priority?.lowercase()?.takeIf { it in TaskPriority.allowedValues }
+                    val deadline = item.draft.deadline?.takeIf { DEADLINE_REGEX.matches(it) }
+                    val estimate = item.draft.estimatedMinutes?.takeIf { it > 0 }
+                    CapturedItem.Task(
+                        item.draft.copy(
+                            categoryId = resolvedCategory?.id?.toString(),
+                            priority = priority,
+                            deadline = deadline,
+                            estimatedMinutes = estimate,
+                        ),
+                    )
+                }
+                is CapturedItem.Event -> {
+                    val start = parseDateTime(item.draft.startIso, zone)
+                    if (start == null) {
+                        log.warn("quick-add dropping event '{}': unparseable start", item.draft.title)
+                        return@mapNotNull null
+                    }
+                    if (start.toInstant().isBefore(nowInstant.minusSeconds(PAST_GRACE_SECONDS))) {
+                        log.warn("quick-add dropping event '{}': start is in the past", item.draft.title)
+                        return@mapNotNull null
+                    }
+                    val parsedEnd = item.draft.endIso?.let { parseDateTime(it, zone) }
+                    val end = if (parsedEnd == null || !parsedEnd.isAfter(start)) {
+                        start.plusMinutes(DEFAULT_EVENT_MINUTES)
+                    } else {
+                        parsedEnd
+                    }
+                    CapturedItem.Event(
+                        item.draft.copy(
+                            startIso = start.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+                            endIso = end.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    private fun renderCard(userId: UUID, channel: ConversationChannel, items: List<CapturedItem>) {
+        val f = channel.formatter
+        val locale = locale(userId)
+        val zone = userZone(userId)
+        val categories = categoryService.getAllForUser(userId)
+        val blocks = items.map { item ->
+            when (item) {
+                is CapturedItem.Task -> renderTaskBlock(item.draft, categories, f, locale)
+                is CapturedItem.Event -> renderEventBlock(item.draft, f, locale, zone)
+            }
+        }
+        channel.send(
+            ChannelMessage.Choice(
+                prompt = blocks.joinToString("\n\n"),
+                options = listOf(
+                    ChoiceOption(OPTION_SAVE, msg(userId, "quickadd.button.save")),
+                    ChoiceOption(OPTION_ADJUST, msg(userId, "quickadd.button.adjust")),
+                    ChoiceOption(OPTION_CANCEL, msg(userId, "quickadd.button.cancel")),
+                ),
+            )
         )
     }
 
-    private fun reRenderCard(userId: UUID, channel: ConversationChannel, draft: TaskDraft) =
-        renderCard(userId, channel, draft)
-
-    private fun renderCard(userId: UUID, channel: ConversationChannel, draft: TaskDraft) {
-        val f = channel.formatter
-        val locale = locale(userId)
+    private fun renderTaskBlock(
+        draft: TaskDraft,
+        categories: List<BacklogTaskCategory>,
+        f: MessageFormatter,
+        locale: Locale,
+    ): String {
         val categoryLabel = draft.categoryId
-            ?.let { id -> categoryService.getAllForUser(userId).firstOrNull { it.id.toString() == id }?.label }
+            ?.let { id -> categories.firstOrNull { it.id.toString() == id }?.label }
 
         val meta = buildList {
             categoryLabel?.let { add("🗂 ${f.escape(it)}") }
             draft.priority?.let { add("❗${f.escape(priorityLabel(it, locale))}") }
             draft.deadline?.let { add("📅 ${f.escape(it)}") }
-            draft.estimatedMinutes?.let { add("⏱ ${f.escape(messageSource.getMessage("quickadd.card.estimate", arrayOf(it), locale))}") }
+            draft.estimatedMinutes?.let {
+                add("⏱ ${f.escape(messageSource.getMessage("quickadd.card.estimate", arrayOf(it), locale))}")
+            }
         }.joinToString("  ")
 
-        val body = buildString {
+        return buildString {
             append("➕ ").append(f.bold(draft.title))
             if (meta.isNotEmpty()) append("\n").append(meta)
             draft.tags.takeIf { it.isNotEmpty() }?.let { tags ->
@@ -267,17 +373,28 @@ class QuickAddFlow(
                 append("\n").append(f.italic(truncate(desc)))
             }
         }
+    }
 
-        channel.send(
-            ChannelMessage.Choice(
-                prompt = body,
-                options = listOf(
-                    ChoiceOption(OPTION_SAVE, msg(userId, "quickadd.button.save")),
-                    ChoiceOption(OPTION_ADJUST, msg(userId, "quickadd.button.adjust")),
-                    ChoiceOption(OPTION_CANCEL, msg(userId, "quickadd.button.cancel")),
-                ),
-            )
-        )
+    private fun renderEventBlock(
+        draft: EventDraft,
+        f: MessageFormatter,
+        locale: Locale,
+        zone: ZoneId,
+    ): String {
+        val start = parseDateTime(draft.startIso, zone)
+        val end = draft.endIso?.let { parseDateTime(it, zone) }
+        val whenLine = if (start != null) formatEventTime(start, end, locale, zone) else f.escape(draft.startIso)
+
+        return buildString {
+            append("📅 ").append(f.bold(draft.title))
+            append("\n🕒 ").append(f.escape(whenLine))
+            draft.location?.takeIf { it.isNotBlank() }?.let { loc ->
+                append("\n📍 ").append(f.escape(loc))
+            }
+            draft.notes?.takeIf { it.isNotBlank() }?.let { notes ->
+                append("\n").append(f.italic(truncate(notes)))
+            }
+        }
     }
 
     private fun renderClarify(
@@ -306,10 +423,48 @@ class QuickAddFlow(
 
     private fun locale(userId: UUID): Locale = userSettingsService.getLocale(userId)
 
+    private fun userZone(userId: UUID): ZoneId =
+        runCatching { ZoneId.of(userSettingsService.getOrCreate(userId).timeZone) }
+            .getOrDefault(ZoneId.of("UTC"))
+
     private fun msg(userId: UUID, key: String, vararg args: Any): String =
         messageSource.getMessage(key, args, locale(userId))
 
     private fun now() = clock.instant()
+
+    /**
+     * Parse the model's ISO-8601 datetime. The model is instructed to include a numeric offset,
+     * but we tolerate a missing one by attaching the user's zone — a "5pm tomorrow" with no offset
+     * shouldn't tank the whole capture.
+     */
+    private fun parseDateTime(iso: String, zone: ZoneId): ZonedDateTime? {
+        return runCatching { OffsetDateTime.parse(iso).atZoneSameInstant(zone) }
+            .recoverCatching { LocalDateTime.parse(iso).atZone(zone) }
+            .recoverCatching { LocalDate.parse(iso).atStartOfDay(zone) }
+            .getOrElse { e ->
+                if (e is DateTimeException) null else throw e
+            }
+    }
+
+    private fun formatEventTime(start: ZonedDateTime, end: ZonedDateTime?, locale: Locale, zone: ZoneId): String {
+        val dateTimeFmt = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT).withLocale(locale)
+        val timeFmt = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale)
+        val startStr = dateTimeFmt.format(start)
+        return if (end == null) {
+            startStr
+        } else if (end.toLocalDate() == start.toLocalDate()) {
+            "$startStr – ${timeFmt.format(end)} ${zone.id}"
+        } else {
+            "$startStr – ${dateTimeFmt.format(end)} ${zone.id}"
+        }
+    }
+
+    private fun EventDraft.toOneOffEventDraft(): OneOffEventDraft {
+        // Validated upstream — both ISO strings are guaranteed to parse with an offset.
+        val start = OffsetDateTime.parse(startIso).toInstant()
+        val end = OffsetDateTime.parse(requireNotNull(endIso)).toInstant()
+        return OneOffEventDraft(title = title, startsAt = start, endsAt = end, location = location, notes = notes)
+    }
 
     companion object {
         /** Maximum clarifying questions the agent may ask before it must produce a best-guess draft. */
@@ -322,5 +477,8 @@ class QuickAddFlow(
 
         private val DEADLINE_REGEX = Regex("""^\d{4}-\d{2}-\d{2}$""")
         private const val DESCRIPTION_PREVIEW = 200
+        private const val DEFAULT_EVENT_MINUTES = 60L
+        /** Allow events that start up to this many seconds ago — guards against tiny clock-skew drops. */
+        private const val PAST_GRACE_SECONDS = 3600L
     }
 }

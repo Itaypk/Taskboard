@@ -95,16 +95,58 @@ class TaskSuggestionAgentTest {
     }
 
     @Test
-    fun `quickAddDraft parses a task draft`() {
+    fun `quickAddDraft parses an items array with a single task`() {
         val categoryId = UUID.randomUUID()
         whenever(aiClient.chat(any(), any())).thenReturn(
-            chatResponse("""{"title":"Buy milk","category_id":"$categoryId","priority":"low","tags":[]}"""),
+            chatResponse(
+                """{"items":[{"kind":"task","title":"Buy milk","category_id":"$categoryId","priority":"low","tags":[]}]}"""
+            ),
         )
 
         val outcome = agent.quickAddDraft(userId, "buy milk")
 
         val draft = assertIs<SuggestionOutcome.Draft>(outcome)
-        assertEquals("Buy milk", draft.draft.title)
+        val task = assertIs<CapturedItem.Task>(draft.items.single())
+        assertEquals("Buy milk", task.draft.title)
+    }
+
+    @Test
+    fun `quickAddDraft parses an event item with start, end and location`() {
+        whenever(aiClient.chat(any(), any())).thenReturn(
+            chatResponse(
+                """{"items":[{"kind":"event","title":"Parent-teacher conference",
+                   "start":"2026-07-15T19:30:00+03:00","end":"2026-07-15T20:30:00+03:00",
+                   "location":"School auditorium"}]}"""
+            ),
+        )
+
+        val outcome = agent.quickAddDraft(userId, "ptc next wed 7:30pm")
+
+        val draft = assertIs<SuggestionOutcome.Draft>(outcome)
+        val event = assertIs<CapturedItem.Event>(draft.items.single())
+        assertEquals("Parent-teacher conference", event.draft.title)
+        assertEquals("2026-07-15T19:30:00+03:00", event.draft.startIso)
+        assertEquals("School auditorium", event.draft.location)
+    }
+
+    @Test
+    fun `quickAddDraft parses a mixed batch of an event and a task`() {
+        val categoryId = UUID.randomUUID()
+        whenever(aiClient.chat(any(), any())).thenReturn(
+            chatResponse(
+                """{"items":[
+                  {"kind":"event","title":"PTC","start":"2026-07-15T19:30:00+03:00"},
+                  {"kind":"task","title":"Prep questions","category_id":"$categoryId","tags":[]}
+                ]}"""
+            ),
+        )
+
+        val outcome = agent.quickAddDraft(userId, "ptc wed + prep questions")
+
+        val draft = assertIs<SuggestionOutcome.Draft>(outcome)
+        assertEquals(2, draft.items.size)
+        assertIs<CapturedItem.Event>(draft.items[0])
+        assertIs<CapturedItem.Task>(draft.items[1])
     }
 
     @Test

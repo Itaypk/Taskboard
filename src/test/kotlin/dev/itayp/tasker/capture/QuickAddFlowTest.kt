@@ -6,8 +6,15 @@ import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.CategoryColor
+import dev.itayp.tasker.model.UserSettings
+import dev.itayp.tasker.oneoff.CreatedEvents
+import dev.itayp.tasker.oneoff.OneOffEvent
+import dev.itayp.tasker.oneoff.OneOffEventDraft
+import dev.itayp.tasker.oneoff.OneOffEventService
+import dev.itayp.tasker.planning.CapturedItem
 import dev.itayp.tasker.planning.ClarifyOption
 import dev.itayp.tasker.planning.ClarificationExchange
+import dev.itayp.tasker.planning.EventDraft
 import dev.itayp.tasker.planning.SuggestionOutcome
 import dev.itayp.tasker.planning.TaskDraft
 import dev.itayp.tasker.planning.TaskSuggestionAgent
@@ -42,6 +49,7 @@ class QuickAddFlowTest {
 
     private val suggestionAgent: TaskSuggestionAgent = mock()
     private val backlogTaskService: BacklogTaskService = mock()
+    private val oneOffEventService: OneOffEventService = mock()
     private val boardMembershipService: BoardMembershipService = mock()
     private val categoryService: BacklogTaskCategoryService = mock()
     private val userSettingsService: UserSettingsService = mock()
@@ -54,7 +62,7 @@ class QuickAddFlowTest {
     }
 
     private val flow = QuickAddFlow(
-        suggestionAgent, backlogTaskService, boardMembershipService, categoryService,
+        suggestionAgent, backlogTaskService, oneOffEventService, boardMembershipService, categoryService,
         userSettingsService, messageSource, meterRegistry, clock,
     )
 
@@ -65,16 +73,42 @@ class QuickAddFlowTest {
     @BeforeEach
     fun stub() {
         whenever(userSettingsService.getLocale(userId)).thenReturn(Locale.ENGLISH)
+        whenever(userSettingsService.getOrCreate(userId)).thenReturn(userSettings())
         whenever(categoryService.getAllForUser(userId)).thenReturn(
             listOf(BacklogTaskCategory(categoryId, boardId, "Groceries", CategoryColor.MINT)),
         )
         whenever(boardMembershipService.resolveDefaultBoard(userId)).thenReturn(boardId)
     }
 
+    private fun userSettings() = UserSettings(
+        userId = userId,
+        displayName = null,
+        contextBlock = null,
+        timeZone = "UTC",
+        preferredLanguage = "en",
+        calendarInviteEmail = false,
+        gender = null,
+        agentDescription = null,
+        planningCron = null,
+        weekStartDay = null,
+        autoArchiveDays = null,
+    )
+
     private fun channel() = BufferedConversationChannel()
 
-    private fun draft(title: String = "Buy milk") =
+    private fun taskDraft(title: String = "Buy milk") =
         TaskDraft(title = title, categoryId = categoryId.toString(), priority = "medium")
+
+    private fun taskItem(title: String = "Buy milk"): CapturedItem.Task = CapturedItem.Task(taskDraft(title))
+
+    private fun eventItem(
+        title: String = "Parent-teacher conference",
+        start: String = "2026-07-15T19:30:00Z",
+        end: String? = "2026-07-15T20:30:00Z",
+        location: String? = "School auditorium",
+    ): CapturedItem.Event = CapturedItem.Event(
+        EventDraft(title = title, startIso = start, endIso = end, location = location)
+    )
 
     @Test
     fun `bare add asks for a description`() {
@@ -88,12 +122,13 @@ class QuickAddFlowTest {
     @Test
     fun `add with text drafts a task and shows a confirmation card`() {
         whenever(suggestionAgent.quickAddDraft(eq(userId), eq("buy milk"), any(), eq(false)))
-            .thenReturn(SuggestionOutcome.Draft(draft()))
+            .thenReturn(SuggestionOutcome.Draft(listOf(taskItem())))
         val channel = channel()
 
         val state = flow.begin(userId, channel, "buy milk")
 
-        assertIs<QuickAddState.AwaitingConfirmation>(state)
+        val confirmation = assertIs<QuickAddState.AwaitingConfirmation>(state)
+        assertEquals(1, confirmation.items.size)
         val card = channel.drain().single()
         assertIs<ChannelMessage.Choice>(card)
         assertTrue(card.prompt.contains("Buy milk"))
@@ -104,55 +139,145 @@ class QuickAddFlowTest {
     }
 
     @Test
-    fun `save persists the draft and ends the flow`() {
-        val created: BacklogTask = mock()
-        whenever(created.id).thenReturn(UUID.randomUUID())
-        whenever(created.title).thenReturn("Buy milk")
-        whenever(backlogTaskService.createTask(eq(userId), eq(boardId), any())).thenReturn(created)
+    fun `add captures a mixed batch of one task and one event`() {
+        whenever(suggestionAgent.quickAddDraft(eq(userId), any(), any(), eq(false)))
+            .thenReturn(SuggestionOutcome.Draft(listOf(eventItem(), taskItem("Prep questions"))))
+        val channel = channel()
 
-        val state = QuickAddState.AwaitingConfirmation(draft(), "buy milk", emptyList(), clock.instant())
+        val state = flow.begin(userId, channel, "parent-teacher conference Wed 7:30pm + prep questions")
+
+        val confirmation = assertIs<QuickAddState.AwaitingConfirmation>(state)
+        assertEquals(2, confirmation.items.size)
+        val card = assertIs<ChannelMessage.Choice>(channel.drain().single())
+        assertTrue(card.prompt.contains("Parent-teacher conference"))
+        assertTrue(card.prompt.contains("Prep questions"))
+    }
+
+    @Test
+    fun `save persists tasks and events and ends the flow`() {
+        val createdTask: BacklogTask = mock()
+        whenever(createdTask.id).thenReturn(UUID.randomUUID())
+        whenever(createdTask.title).thenReturn("Prep questions")
+        whenever(backlogTaskService.createTask(eq(userId), eq(boardId), any())).thenReturn(createdTask)
+        val createdEvent = OneOffEvent(
+            id = UUID.randomUUID(),
+            userId = userId,
+            boardId = boardId,
+            title = "Parent-teacher conference",
+            startsAt = Instant.parse("2026-07-15T19:30:00Z"),
+            endsAt = Instant.parse("2026-07-15T20:30:00Z"),
+            location = "School auditorium",
+            notes = null,
+            icalUid = "uid-1",
+            cancelledAt = null,
+        )
+        whenever(oneOffEventService.createEvents(eq(userId), eq(boardId), any()))
+            .thenReturn(CreatedEvents(listOf(createdEvent), invitesScheduled = true))
+
+        val state = QuickAddState.AwaitingConfirmation(
+            items = listOf(eventItem(), taskItem("Prep questions")),
+            originalRequest = "ptc + prep",
+            clarifications = emptyList(),
+            createdAt = clock.instant(),
+        )
         val channel = channel()
 
         val next = flow.handleInbound(userId, channel, state, ChannelInbound.Selection(QuickAddFlow.OPTION_SAVE))
 
         assertNull(next)
         verify(backlogTaskService).createTask(eq(userId), eq(boardId), check {
-            assertEquals("Buy milk", it.title)
-            assertEquals(categoryId.toString(), it.categoryId)
+            assertEquals("Prep questions", it.title)
+        })
+        verify(oneOffEventService).createEvents(eq(userId), eq(boardId), check<List<OneOffEventDraft>> {
+            assertEquals(1, it.size)
+            assertEquals("Parent-teacher conference", it[0].title)
         })
         assertEquals(1.0, meterRegistry.counter("tasker.quickadd.outcome", "result", "saved").count())
+        val sent = channel.drain()
+        // One "Added: ..." message; no invite-skipped warning when invitesScheduled is true.
+        assertEquals(1, sent.size)
+        val saved = assertIs<ChannelMessage.Text>(sent.single())
+        assertTrue(saved.text.contains("Parent-teacher conference"))
+        assertTrue(saved.text.contains("Prep questions"))
+    }
+
+    @Test
+    fun `save surfaces an invite-skipped warning when the user has no calendar-invite channel`() {
+        val createdEvent = OneOffEvent(
+            id = UUID.randomUUID(),
+            userId = userId,
+            boardId = boardId,
+            title = "Flight",
+            startsAt = Instant.parse("2026-08-01T05:00:00Z"),
+            endsAt = Instant.parse("2026-08-01T09:00:00Z"),
+            location = null,
+            notes = null,
+            icalUid = "uid-2",
+            cancelledAt = null,
+        )
+        whenever(oneOffEventService.createEvents(eq(userId), eq(boardId), any()))
+            .thenReturn(CreatedEvents(listOf(createdEvent), invitesScheduled = false))
+
+        val state = QuickAddState.AwaitingConfirmation(
+            items = listOf(eventItem(title = "Flight", location = null)),
+            originalRequest = "flight",
+            clarifications = emptyList(),
+            createdAt = clock.instant(),
+        )
+        val channel = channel()
+
+        flow.handleInbound(userId, channel, state, ChannelInbound.Selection(QuickAddFlow.OPTION_SAVE))
+
+        val sent = channel.drain().filterIsInstance<ChannelMessage.Text>()
+        // First message is the "Added: ..." line; second is the invite-skipped warning.
+        assertEquals(2, sent.size)
+        assertTrue(sent[0].text.contains("Flight"))
+        // The warning text comes from messages.properties — non-empty is enough here.
+        assertTrue(sent[1].text.isNotBlank())
     }
 
     @Test
     fun `cancel ends the flow without saving`() {
-        val state = QuickAddState.AwaitingConfirmation(draft(), "buy milk", emptyList(), clock.instant())
+        val state = QuickAddState.AwaitingConfirmation(
+            items = listOf(taskItem()),
+            originalRequest = "buy milk",
+            clarifications = emptyList(),
+            createdAt = clock.instant(),
+        )
         val channel = channel()
 
         val next = flow.handleInbound(userId, channel, state, ChannelInbound.Selection(QuickAddFlow.OPTION_CANCEL))
 
         assertNull(next)
         verify(backlogTaskService, never()).createTask(any(), any(), any())
+        verify(oneOffEventService, never()).createEvents(any(), any(), any())
         assertEquals(1.0, meterRegistry.counter("tasker.quickadd.outcome", "result", "cancelled").count())
     }
 
     @Test
     fun `free text on the card is treated as an adjustment`() {
         whenever(suggestionAgent.quickAddRevise(eq(userId), eq("buy milk"), any(), eq("make it oat milk"), any(), eq(false)))
-            .thenReturn(SuggestionOutcome.Draft(draft("Buy oat milk")))
-        val state = QuickAddState.AwaitingConfirmation(draft(), "buy milk", emptyList(), clock.instant())
+            .thenReturn(SuggestionOutcome.Draft(listOf(taskItem("Buy oat milk"))))
+        val state = QuickAddState.AwaitingConfirmation(
+            items = listOf(taskItem()),
+            originalRequest = "buy milk",
+            clarifications = emptyList(),
+            createdAt = clock.instant(),
+        )
         val channel = channel()
 
         val next = flow.handleInbound(userId, channel, state, ChannelInbound.Text("make it oat milk"))
 
         val confirmation = assertIs<QuickAddState.AwaitingConfirmation>(next)
-        assertEquals("Buy oat milk", confirmation.draft.title)
+        val task = assertIs<CapturedItem.Task>(confirmation.items.single())
+        assertEquals("Buy oat milk", task.draft.title)
     }
 
     @Test
     fun `vague input asks a clarifying question, then drafts from the answer`() {
         whenever(suggestionAgent.quickAddDraft(eq(userId), eq("fix it"), any(), eq(false)))
             .thenReturn(SuggestionOutcome.Clarify("Which area?", listOf(ClarifyOption("home", "Home"), ClarifyOption("work", "Work"))))
-            .thenReturn(SuggestionOutcome.Draft(draft("Fix the kitchen sink")))
+            .thenReturn(SuggestionOutcome.Draft(listOf(taskItem("Fix the kitchen sink"))))
         val channel = channel()
 
         val clarifying = flow.begin(userId, channel, "fix it")
@@ -160,10 +285,8 @@ class QuickAddFlowTest {
         val state = assertIs<QuickAddState.AwaitingClarification>(clarifying)
         assertEquals(1, state.rounds)
         val q = assertIs<ChannelMessage.Choice>(channel.drain().single())
-        // Options are normalised to short ids and gain a "let me explain" escape.
         assertEquals(listOf("o0", "o1", QuickAddFlow.OPTION_EXPLAIN), q.options.map { it.id })
 
-        // Answering the first (id "o0" → "Home") folds the Q&A into the next drafting call.
         val answered = flow.handleInbound(userId, channel(), state, ChannelInbound.Selection("o0"))
 
         assertIs<QuickAddState.AwaitingConfirmation>(answered)
@@ -182,12 +305,11 @@ class QuickAddFlowTest {
             createdAt = clock.instant(),
         )
         whenever(suggestionAgent.quickAddDraft(eq(userId), eq("fix it"), any(), eq(true)))
-            .thenReturn(SuggestionOutcome.Draft(draft("Fix the sink")))
+            .thenReturn(SuggestionOutcome.Draft(listOf(taskItem("Fix the sink"))))
 
         val next = flow.handleInbound(userId, channel(), state, ChannelInbound.Text("the kitchen"))
 
         assertIs<QuickAddState.AwaitingConfirmation>(next)
-        // Must have called the agent in must-draft mode (mustDraft = true).
         verify(suggestionAgent).quickAddDraft(eq(userId), eq("fix it"), any(), eq(true))
     }
 
@@ -201,5 +323,33 @@ class QuickAddFlowTest {
 
         assertNull(next)
         assertIs<ChannelMessage.Text>(channel.drain().single())
+    }
+
+    @Test
+    fun `event whose start is in the past is dropped during validation`() {
+        // 2026-06-11 is "today" per the fixed clock; this event is well in the past.
+        whenever(suggestionAgent.quickAddDraft(any(), any(), any(), any()))
+            .thenReturn(SuggestionOutcome.Draft(listOf(eventItem(start = "2025-01-01T10:00:00Z", end = "2025-01-01T11:00:00Z"))))
+        val channel = channel()
+
+        val next = flow.begin(userId, channel, "old event")
+
+        // The single dropped event leaves nothing to confirm — flow ends with unparseable.
+        assertNull(next)
+        assertIs<ChannelMessage.Text>(channel.drain().single())
+    }
+
+    @Test
+    fun `event with no end time validates with a default 60-minute duration`() {
+        whenever(suggestionAgent.quickAddDraft(any(), any(), any(), any()))
+            .thenReturn(SuggestionOutcome.Draft(listOf(eventItem(start = "2026-07-15T19:30:00Z", end = null))))
+        val channel = channel()
+
+        val state = flow.begin(userId, channel, "ptc")
+
+        val confirmation = assertIs<QuickAddState.AwaitingConfirmation>(state)
+        val event = assertIs<CapturedItem.Event>(confirmation.items.single())
+        // endIso is populated with start + 60min (formatted with offset).
+        assertTrue(event.draft.endIso?.startsWith("2026-07-15T20:30") == true)
     }
 }
