@@ -148,14 +148,25 @@ mechanical.
 
 ### 5. Planner drawer integration
 
-Existing weekly plan drawer has a section for external/calendar items.
-Wire a backend endpoint `GET /api/v1/plans/{week}/external-events` (or
-extend the existing weekly-plan payload) that returns one-off events whose
-`starts_at` falls inside the requested ISO week. Read-only.
+New endpoint `GET /api/v1/plans/week/{weekStart}/events` returns one-off
+events whose `starts_at` falls inside the user's local ISO week starting
+at `weekStart`. Read-only. **Independent of plan presence** — events
+surface as soon as the user captures them, even on weeks that haven't
+been planned yet. (We chose a sibling endpoint over extending the plan
+payload precisely because the plan endpoint returns 204 for unplanned
+weeks; a payload extension would have hidden events there.)
 
-Frontend renders them in that section as-is — no disclaimer; the user
-created them, so they already know what they're looking at. Clicking an
-event is a no-op in v1 (or routes to a future detail/cancel modal).
+Frontend (`WeeklyPlanDrawer`) fetches events alongside the plan whenever
+the viewed week changes and renders them in a new `EventsSection`
+component, shown both when a plan is present and when the week's empty
+state is rendered. No disclaimer; the user created them, so they already
+know what they're looking at. Clicking an event is a no-op in v1 (or
+routes to a future detail/cancel modal).
+
+The week-boundary math lives in `OneOffEventService.listForLocalWeek`,
+which resolves the user's timezone so the Sun–Sat window in their local
+calendar maps to the right instant range (important when one of those
+local days straddles UTC midnight).
 
 ### 6. Planning assistant context
 

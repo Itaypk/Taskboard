@@ -157,6 +157,22 @@ data class PlanTaskResponse(
     val notes: String?,
 )
 
+/**
+ * A one-off calendar event captured through /add. Surfaced in the weekly plan drawer so the user
+ * can see what they've already locked into the week — independent of whether a plan has been
+ * finalized for that week yet.
+ */
+data class OneOffEventResponse(
+    val id: String,
+    val title: String,
+    /** ISO instant. */
+    val startsAt: String,
+    /** ISO instant. */
+    val endsAt: String,
+    val location: String?,
+    val notes: String?,
+)
+
 data class CategoryResponse(val id: String, val label: String, val swatchId: String)
 
 data class TagResponse(val id: String, val label: String, val colorId: String, val usageCount: Int)

@@ -136,3 +136,37 @@
   color: var(--ink-ghost);
   text-decoration: line-through;
 }
+
+.eventList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.eventItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: var(--r);
+}
+
+.eventTitle {
+  font-family: var(--font-serif);
+  font-size: 14px;
+  color: var(--ink);
+  line-height: 1.35;
+}
+
+.eventMeta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-ghost);
+  letter-spacing: 0.04em;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}

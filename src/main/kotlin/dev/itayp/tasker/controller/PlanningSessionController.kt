@@ -3,10 +3,12 @@ package dev.itayp.tasker.controller
 import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.model.request.AddToPlanRequest
 import dev.itayp.tasker.model.response.CurrentPlanResponse
+import dev.itayp.tasker.model.response.OneOffEventResponse
 import dev.itayp.tasker.model.response.PlanSummaryResponse
 import dev.itayp.tasker.model.response.PlanTaskResponse
 import dev.itayp.tasker.model.response.TimeSlotResponse
 import dev.itayp.tasker.model.response.toResponse
+import dev.itayp.tasker.oneoff.OneOffEventService
 import dev.itayp.tasker.planning.PlannedTaskRepository
 import dev.itayp.tasker.planning.PlannedTaskSlotRepository
 import dev.itayp.tasker.planning.PlanFinalizationService
@@ -37,6 +39,7 @@ class PlanningSessionController(
     private val plannedTaskRepository: PlannedTaskRepository,
     private val plannedTaskSlotRepository: PlannedTaskSlotRepository,
     private val planFinalizationService: PlanFinalizationService,
+    private val oneOffEventService: OneOffEventService,
     private val userCrypto: UserCryptoService,
 ) {
 
@@ -62,6 +65,27 @@ class PlanningSessionController(
             ?: return ResponseEntity.noContent().build()
         return ResponseEntity.ok(buildPlanResponse(principal.userId, session))
     }
+
+    /**
+     * One-off calendar events whose start falls inside the user's local ISO week beginning at
+     * [weekStart]. Independent of whether a plan exists for that week — events are surfaced as
+     * soon as the user captures them. Read-only.
+     */
+    @GetMapping("/plans/week/{weekStart}/events")
+    fun getEventsForWeek(
+        @AuthenticationPrincipal principal: TaskerPrincipal,
+        @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) weekStart: LocalDate,
+    ): List<OneOffEventResponse> =
+        oneOffEventService.listForLocalWeek(principal.userId, weekStart).map { event ->
+            OneOffEventResponse(
+                id = event.id.toString(),
+                title = event.title,
+                startsAt = event.startsAt.toString(),
+                endsAt = event.endsAt.toString(),
+                location = event.location,
+                notes = event.notes,
+            )
+        }
 
     /**
      * Lightweight index of the user's finalized plans (no task bodies), most recent week first. Lets

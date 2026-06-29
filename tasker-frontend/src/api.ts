@@ -1,4 +1,4 @@
-import type { Task, Category, Tag, UserSettings, SettingsOptions, CurrentPlan, TimeSlot, Stats, AiUsage } from './types';
+import type { Task, Category, Tag, UserSettings, SettingsOptions, CurrentPlan, OneOffEvent, TimeSlot, Stats, AiUsage } from './types';
 
 const BASE = '/api/v1';
 
@@ -317,6 +317,10 @@ export const fetchCurrentPlan = (): Promise<CurrentPlan | null> =>
 /** The finalized plan for a specific week (ISO week-start date), or null if that week was never planned. */
 export const fetchPlanForWeek = (weekStart: string): Promise<CurrentPlan | null> =>
     fetchPlanAt(`${BASE}/plans/week/${weekStart}`);
+
+/** One-off events whose start falls in the user's local ISO week beginning at [weekStart]. Independent of plan presence. */
+export const fetchEventsForWeek = (weekStart: string): Promise<OneOffEvent[]> =>
+    apiRequest(`/plans/week/${weekStart}/events`);
 
 /** Lightweight summary of a finalized weekly plan, used to drive the drawer's week navigation. */
 export interface PlanSummary {

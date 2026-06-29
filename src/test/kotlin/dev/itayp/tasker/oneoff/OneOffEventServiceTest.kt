@@ -15,11 +15,13 @@ import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.time.Clock
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneOffset
 import java.util.Locale
 import java.util.UUID
@@ -167,6 +169,28 @@ class OneOffEventServiceTest {
             )
         }
         verify(repository, never()).saveAll(any<List<OneOffEventEntity>>())
+    }
+
+    @Test
+    fun `listForLocalWeek converts the user's local week to the right instant range`() {
+        // User in IDT (UTC+3): the local week Sun 2026-07-12 → Sun 2026-07-19 starts at 00:00 IDT,
+        // which is 21:00 UTC on the previous day. The repo must see that instant range, not 00:00 UTC.
+        whenever(userSettingsService.getOrCreate(userId)).thenReturn(userSettings(timeZone = "Asia/Jerusalem"))
+        whenever(
+            repository.findAllByUserIdAndStartsAtBetweenAndCancelledAtIsNullOrderByStartsAtAsc(
+                eq(userId), any(), any(),
+            )
+        ).thenReturn(emptyList())
+
+        service.listForLocalWeek(userId, LocalDate.parse("2026-07-12"))
+
+        val fromCaptor = argumentCaptor<Instant>()
+        val toCaptor = argumentCaptor<Instant>()
+        verify(repository).findAllByUserIdAndStartsAtBetweenAndCancelledAtIsNullOrderByStartsAtAsc(
+            eq(userId), fromCaptor.capture(), toCaptor.capture(),
+        )
+        assertEquals(Instant.parse("2026-07-11T21:00:00Z"), fromCaptor.firstValue)
+        assertEquals(Instant.parse("2026-07-18T21:00:00Z"), toCaptor.firstValue)
     }
 
     @Test
