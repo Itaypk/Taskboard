@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        One-off calendar events captured through the /add quick-capture flow. Materialised as a
+        calendar invitation email when created; the user's calendar client owns the editable copy.
+        Stored locally so the weekly plan drawer can list them and the planning assistant can see
+        what's already on the user's calendar for the planning window.
+
+        title/location/notes are encrypted under the board's DEK (same convention as backlog_task).
+        ical_uid is the stable UID emitted on the iCal invite; reusing it on a future CANCEL message
+        is how a calendar client knows to retract the event in place.
+    -->
+    <changeSet id="010-one-off-event" author="tasker">
+        <createTable tableName="one_off_event">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_one_off_event_user" references="users(id)"/>
+            </column>
+            <column name="board_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_one_off_event_board" references="board(id)"/>
+            </column>
+            <!-- Encrypted under the board's DEK. -->
+            <column name="title" type="BYTEA">
+                <constraints nullable="false"/>
+            </column>
+            <!-- Encrypted under the board's DEK. -->
+            <column name="location" type="BYTEA">
+                <constraints nullable="true"/>
+            </column>
+            <!-- Encrypted under the board's DEK. -->
+            <column name="notes" type="BYTEA">
+                <constraints nullable="true"/>
+            </column>
+            <column name="starts_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ends_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ical_uid" type="VARCHAR(128)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="cancelled_at" type="TIMESTAMP">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="one_off_event" indexName="idx_one_off_event_user_starts_at">
+            <column name="user_id"/>
+            <column name="starts_at"/>
+        </createIndex>
+
+        <createIndex tableName="one_off_event" indexName="idx_one_off_event_board_starts_at">
+            <column name="board_id"/>
+            <column name="starts_at"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

@@ -90,17 +90,18 @@ New table `one_off_event` (new Liquibase changeset, next integer id):
 | id              | UUID PK              |                                        |
 | user_id         | UUID FK users(id)    |                                        |
 | board_id        | UUID FK boards(id)   | resolved default board, same as tasks  |
-| title           | LONGVARCHAR          | encrypted under user DEK               |
+| title           | LONGVARCHAR          | encrypted under board's DEK               |
 | starts_at       | TIMESTAMPTZ          |                                        |
 | ends_at         | TIMESTAMPTZ          |                                        |
-| location        | LONGVARCHAR NULL     | encrypted under user DEK               |
-| notes           | LONGVARCHAR NULL     | encrypted under user DEK               |
+| location        | LONGVARCHAR NULL     | encrypted under board's DEK               |
+| notes           | LONGVARCHAR NULL     | encrypted under board's DEK               |
 | ical_uid        | VARCHAR(128)         | stable UID emitted in the iCal invite  |
 | created_at      | TIMESTAMPTZ          |                                        |
 | cancelled_at    | TIMESTAMPTZ NULL     | for future "cancel" flow               |
 
-Title, location, and notes are encrypted under the user's DEK — same
-sensitivity tier as task titles, which already use this convention.
+Title, location, and notes are encrypted under the **board's** DEK — same
+sensitivity tier as task titles, which use this convention (board-owned
+content, since events are board-scoped).
 
 JPA entity + Spring Data repository, mirroring `BacklogTaskEntity` /
 `BacklogTaskRepository`. No update endpoint in v1 (see "Editing").
