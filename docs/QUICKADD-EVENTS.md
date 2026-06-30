@@ -170,10 +170,10 @@ local days straddles UTC midnight).
 
 ### 6. Planning assistant context
 
-`StubCalendarWindowProvider.describeWindow` currently returns the
-placeholder "User has not connected their calendar; assume no fixed
-commitments are known." Replace the stub with a real provider that lists
-one-off events whose `starts_at` falls inside the requested window:
+`OneOffEventCalendarWindowProvider` replaces the old stub: it queries
+`OneOffEventService.listForWeek` for events whose `starts_at` falls in
+the planning window and renders them, in the user's timezone and locale,
+into the `calendar_window` template variable. The shape:
 
 ```
 Known events on the user's calendar (partial — only events created
@@ -185,12 +185,13 @@ through Backlog.fyi; the user's other calendar entries are not visible):
 The "partial" note belongs **here**, in the prompt, not in the drawer —
 the assistant needs to know its view is incomplete so it doesn't
 confidently propose time blocks that collide with the user's other
-commitments. When the list is empty, fall back to today's placeholder
-string so the prompt shape is unchanged.
+commitments. When the list is empty, the provider falls back to the
+prior placeholder string so the prompt shape is unchanged.
 
 This feeds straight into `WeeklyPlanningPromptAssembler` via the existing
 `calendar_window` template variable — no prompt template churn, just a
-new provider implementation behind the same interface.
+new provider implementation behind the same `CalendarWindowProvider`
+interface.
 
 ### 7. Metrics
 
@@ -236,8 +237,8 @@ worth doing once the v1 has bedded in.
    the storage and email piece in isolation, behind a dev-only endpoint.
 2. AI outcome widening + prompt changes + card rendering.
 3. Planner drawer read-only listing.
-4. Replace `StubCalendarWindowProvider` so the planning assistant sees the
-   user's one-off events (with the "partial" caveat in the prompt).
+4. Replace the stub `CalendarWindowProvider` so the planning assistant sees
+   the user's one-off events (with the "partial" caveat in the prompt).
 5. (Later) Cancel button in the drawer.
 6. (Later) Per-item Adjust, edit-from-drawer, recurrence — only if real
    usage demands it.
