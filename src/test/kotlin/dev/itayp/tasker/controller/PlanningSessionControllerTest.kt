@@ -60,6 +60,9 @@ class PlanningSessionControllerTest(@Autowired val mockMvc: MockMvc) {
     lateinit var planFinalizationService: PlanFinalizationService
 
     @MockitoBean
+    lateinit var oneOffEventService: dev.itayp.tasker.oneoff.OneOffEventService
+
+    @MockitoBean
     lateinit var userCryptoService: UserCryptoService
 
     private val userId = UUID.fromString("00000000-0000-0000-0000-000000000099")

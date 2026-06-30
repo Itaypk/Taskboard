@@ -89,6 +89,16 @@ export interface CurrentPlan {
   weekEnd: string;
 }
 
+/** A one-off calendar event captured through /add, surfaced in the weekly plan drawer. */
+export interface OneOffEvent {
+  id: string;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  location?: string | null;
+  notes?: string | null;
+}
+
 export type TaskFilter = 'todo' | 'plan' | 'done' | 'all';
 
 export interface LanguageOption {

@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.util.UUID
 
@@ -45,6 +46,20 @@ class OneOffEventService(
         repository
             .findAllByUserIdAndStartsAtBetweenAndCancelledAtIsNullOrderByStartsAtAsc(userId, weekStart, weekEnd)
             .map { it.toDomain(boardCrypto) }
+
+    /**
+     * Events whose start falls inside the user's local ISO week starting at [weekStart]. Resolves
+     * the user's timezone so a Sun–Sat window in their local calendar maps to the right instant
+     * range — important when one of those local days straddles UTC midnight.
+     */
+    @Transactional(readOnly = true)
+    fun listForLocalWeek(userId: UUID, weekStart: LocalDate): List<OneOffEvent> {
+        val zone = runCatching { ZoneId.of(userSettingsService.getOrCreate(userId).timeZone) }
+            .getOrDefault(ZoneId.of("UTC"))
+        val from = weekStart.atStartOfDay(zone).toInstant()
+        val to = weekStart.plusDays(7).atStartOfDay(zone).toInstant()
+        return listForWeek(userId, from, to)
+    }
 
     private fun scheduleInvites(userId: UUID, events: List<OneOffEvent>): Boolean {
         if (events.isEmpty()) return false

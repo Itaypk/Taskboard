@@ -4,6 +4,7 @@ import {
   fetchPlanningEntry,
   fetchPlanningTranscript,
   fetchPlanForWeek,
+  fetchEventsForWeek,
   fetchPlans,
   startPlanning,
   replyPlanning,
@@ -14,9 +15,10 @@ import {
   type PlanSummary,
   type RenderedMessage,
 } from '../api';
-import type { CurrentPlan } from '../types';
+import type { CurrentPlan, OneOffEvent } from '../types';
 import MarkdownRenderer from './MarkdownRenderer';
 import { ConfirmDialog } from './ConfirmDialog';
+import { EventsSection } from './EventsSection';
 import { PlanDetails } from './PlanDetails';
 import styles from './WeeklyPlanDrawer.module.css';
 
@@ -57,6 +59,10 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
   const [otherPlan, setOtherPlan] = useState<CurrentPlan | null>(null);
   const [otherPlanWeek, setOtherPlanWeek] = useState<string | null>(null);
   const [planLoading, setPlanLoading] = useState(false);
+  // One-off events for the currently-viewed week (fetched independently of the plan, so they
+  // surface even when the week has no finalized plan).
+  const [events, setEvents] = useState<OneOffEvent[]>([]);
+  const [eventsWeek, setEventsWeek] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<Turn[]>([]);
   const [phase, setPhase] = useState<string>('');
@@ -146,6 +152,18 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
       .catch(() => { setOtherPlan(null); setOtherPlanWeek(week); })
       .finally(() => setPlanLoading(false));
   }, [thisWeekStart]);
+
+  // Fetch one-off events whenever the viewed week changes. Independent of the plan fetch above so
+  // events still surface on weeks the user hasn't planned.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (!viewedWeekStart) { setEvents([]); setEventsWeek(null); return; }
+    if (eventsWeek === viewedWeekStart) return;
+    fetchEventsForWeek(viewedWeekStart)
+      .then(es => { setEvents(es); setEventsWeek(viewedWeekStart); })
+      .catch(() => { setEvents([]); setEventsWeek(viewedWeekStart); });
+  }, [viewedWeekStart, eventsWeek]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const applyTurn = useCallback((turn: PlanningTurn) => {
     setSessionId(turn.sessionId);
@@ -322,12 +340,18 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
               {planLoading ? (
                 <p className={styles.entryHint}>Loading…</p>
               ) : viewedPlan ? (
-                <PlanDetails plan={viewedPlan} onTaskClick={onTaskClick} onTaskContextMenu={onTaskContextMenu} />
+                <>
+                  <PlanDetails plan={viewedPlan} onTaskClick={onTaskClick} onTaskContextMenu={onTaskContextMenu} />
+                  <EventsSection events={events} />
+                </>
               ) : (
-                <div className={styles.empty}>
-                  <p className={styles.emptyTitle}>No plan for this week.</p>
-                  <p className={styles.emptyHint}>Plan it with the assistant below, or start a session on Telegram.</p>
-                </div>
+                <>
+                  <div className={styles.empty}>
+                    <p className={styles.emptyTitle}>No plan for this week.</p>
+                    <p className={styles.emptyHint}>Plan it with the assistant below, or start a session on Telegram.</p>
+                  </div>
+                  <EventsSection events={events} />
+                </>
               )}
               <OverviewActions
                 entry={entry}

@@ -194,8 +194,9 @@ OpenRouter as configured in `application.yaml`).
 
 - **Pre-session reconciliation**: status sweep over previously agreed tasks (mark
   done/not done with inline buttons) before the assistant kicks in.
-- **Real calendar reads**: `StubCalendarWindowProvider` returns a placeholder string;
-  swap in a Google Calendar implementation behind the same interface.
+- **Real (Google) calendar reads**: `OneOffEventCalendarWindowProvider` surfaces one-off
+  events captured through `/add` with a "partial" caveat in the prompt; a Google Calendar
+  implementation could replace or extend it behind the same `CalendarWindowProvider` interface.
 - **Post-session summarizer prompt**: today the `submit_plan.summary` is what we store.
   A separate, focused summarization prompt could replace it later.
 - **Persisted orchestrator state**: in-memory; rebuild across pod restart will require
