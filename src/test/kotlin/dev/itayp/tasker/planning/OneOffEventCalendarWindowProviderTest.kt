@@ -61,18 +61,21 @@ class OneOffEventCalendarWindowProviderTest {
 
         val result = provider.describeWindow(userId, from, to)
 
-        assertTrue(result.startsWith(OneOffEventCalendarWindowProvider.PARTIAL_NOTICE)) {
-            "Expected partial notice prefix, got: $result"
-        }
+        assertTrue(
+            result.startsWith(OneOffEventCalendarWindowProvider.PARTIAL_NOTICE),
+            "Expected partial notice prefix, got: $result",
+        )
         // First event is rendered in IDT (UTC+3): 16:30Z → 19:30 local, 17:30Z → 20:30 local.
-        assertTrue(result.contains("19:30–20:30 Asia/Jerusalem — Parent-teacher conference (School auditorium)")) {
-            "Missing first event line, got: $result"
-        }
+        assertTrue(
+            result.contains("19:30–20:30 Asia/Jerusalem — Parent-teacher conference (School auditorium)"),
+            "Missing first event line, got: $result",
+        )
         // Second event has no location — no parenthesised suffix.
-        assertTrue(result.contains("10:00–11:00 Asia/Jerusalem — Dentist")) {
-            "Missing second event line, got: $result"
-        }
-        assertTrue(!result.contains("Dentist (")) { "Dentist should have no location suffix" }
+        assertTrue(
+            result.contains("10:00–11:00 Asia/Jerusalem — Dentist"),
+            "Missing second event line, got: $result",
+        )
+        assertTrue(!result.contains("Dentist ("), "Dentist should have no location suffix")
     }
 
     private fun event(title: String, startUtc: String, endUtc: String, location: String?) = OneOffEvent(
