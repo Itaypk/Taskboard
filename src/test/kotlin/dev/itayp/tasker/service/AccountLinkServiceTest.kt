@@ -58,6 +58,7 @@ class AccountLinkServiceTest {
         assertThat(identity.firstValue.provider).isEqualTo(AuthProvider.TELEGRAM)
         assertThat(identity.firstValue.providerUserId).isEqualTo("42")
         verify(eventPublisher).publishEvent(UserPlanningScheduleChangedEvent(userId))
+        verify(eventPublisher).publishEvent(TelegramLinkedEvent(userId))
     }
 
     @Test

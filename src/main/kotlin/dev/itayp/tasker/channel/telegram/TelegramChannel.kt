@@ -116,18 +116,21 @@ class TelegramChannel(
             else -> return
         }
 
+        val channel = TelegramConversationChannel(chatId, telegramClient)
+
+        // /start is the standard first-contact command and must work before any account exists —
+        // always English, since a brand-new user has no language preference yet.
+        if (inbound is ChannelInbound.Text && isStartCommand(inbound.text)) {
+            channel.send(ChannelMessage.Text(messageSource.getMessage("command.start", null, Locale.ENGLISH)))
+            return
+        }
+
         val user = userRepository.findByTelegramId(telegramUserId)
         if (user == null) {
-            telegramClient.execute(
-                SendMessage.builder()
-                    .chatId(chatId)
-                    .text("Please sign up at backlog.fyi to use the planner.")
-                    .build()
-            )
+            channel.send(ChannelMessage.Text("Please sign up at backlog.fyi to use the planner."))
             return
         }
         val userId = user.id!!
-        val channel = TelegramConversationChannel(chatId, telegramClient)
 
         if (inbound is ChannelInbound.Text && inbound.text.startsWith("/")) {
             // A new command always supersedes an in-progress quick-add capture (latest intent wins).
@@ -213,6 +216,10 @@ class TelegramChannel(
             sessionRegistry.remove(chatId)
         }
     }
+
+    /** Recognizes "/start", "/start@BotName", and deep-link forms like "/start payload". */
+    private fun isStartCommand(text: String): Boolean =
+        text.removePrefix("/").substringBefore(" ").substringBefore("@").lowercase() == "start"
 
     private fun resolveWeekStartForSelection(
         userId: java.util.UUID,

@@ -64,6 +64,8 @@ class AccountLinkService(
         })
         // A push channel now exists; re-register the planning cron that was skipped while channel-less.
         eventPublisher.publishEvent(UserPlanningScheduleChangedEvent(userId))
+        // First-time link only (not AlreadyLinked): greet the user on their new channel, after commit.
+        eventPublisher.publishEvent(TelegramLinkedEvent(userId))
         log.info("Linked telegram identity to user {}", userId)
         return LinkResult.Success
     }
@@ -99,6 +101,9 @@ class AccountLinkService(
         return UnlinkResult.Success
     }
 }
+
+/** Published (after commit) when a user connects Telegram for the first time, to send a welcome. */
+data class TelegramLinkedEvent(val userId: UUID)
 
 sealed interface LinkResult {
     data object Success : LinkResult

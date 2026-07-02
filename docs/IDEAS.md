@@ -20,7 +20,6 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Persisted calendar invite SEQUENCE counter. Plan-revise updates re-send same-time slot edits (label/title/notes) with a fixed `SEQUENCE:1`. A second same-slot edit in a later session sends `SEQUENCE:1` again, which strict calendar clients may not re-apply. Persisting a per-slot revision counter (incremented on each update) would make repeated updates robust. Low priority: time moves go through cancel + fresh invite, which is unaffected.
 - Currently, a single task is tied to a single time-block; would we like to change that, so that a single task might have mutiple (or zero) time blocks attached?
 - Add a search functionality in the "All" tasks tab.
-- Telegram: implement a `/start` command; send introduction to users.
 - Sort options: sort by deadline, other custom sorts? UX question: would users lose their custom sort data if they sort by date?  
 
 ## UI - Tasks
