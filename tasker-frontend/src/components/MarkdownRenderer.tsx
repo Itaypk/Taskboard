@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type SyntheticEvent } from 'react';
 import { marked } from 'marked';
 import markedBidi from 'marked-bidi';
 import DOMPurify from 'dompurify';
@@ -49,6 +49,10 @@ function renderMarkdown(markdown: string): string {
     }
 }
 
+function stopEventIfLink(e: SyntheticEvent) {
+    if ((e.target as HTMLElement).closest('a')) e.stopPropagation();
+}
+
 function MarkdownRenderer({ content, maxLength, showExpandButton = true }: MarkdownRendererProps) {
     const [isExpanded, setIsExpanded] = useState(false);
 
@@ -61,6 +65,11 @@ function MarkdownRenderer({ content, maxLength, showExpandButton = true }: Markd
         <div className="markdown-renderer-wrapper">
             <div
                 className="markdown-content"
+                // A note usually renders inside a clickable, drag-enabled card. Mirror the URL-field
+                // link button (PostItNote): swallow pointerdown + click when they originate inside a
+                // link, so following it neither starts a drag nor fires the card's open handler.
+                onPointerDown={stopEventIfLink}
+                onClick={stopEventIfLink}
                 dangerouslySetInnerHTML={{ __html: renderMarkdown(displayContent) }}
             />
             {needsTruncation && showExpandButton && (

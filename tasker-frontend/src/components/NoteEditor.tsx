@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Extension } from '@tiptap/core';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { Markdown } from '@tiptap/markdown';
@@ -7,13 +8,38 @@ import { TaskList } from '@tiptap/extension-task-list';
 import { TaskItem } from '@tiptap/extension-task-item';
 import { Table, TableRow, TableCell, TableHeader } from '@tiptap/extension-table';
 import {
-  BoldIcon, ItalicIcon, HeadingIcon, BulletListIcon, OrderedListIcon, ChecklistIcon,
+  BoldIcon, ItalicIcon, BulletListIcon, OrderedListIcon, ChecklistIcon,
   IndentIcon, OutdentIcon, LinkIcon, MarkdownIcon, RichTextIcon,
 } from './NoteEditorIcons';
 import styles from './NoteEditor.module.css';
 
 // Mirrors the backend @field:Size cap on the task description.
 const MAX_LENGTH = 5000;
+
+// Render every block with dir="auto" so the browser picks LTR/RTL per block from its first
+// strong character — no button needed. `dir` is a DOM-only attribute; the Markdown serializer
+// ignores it, so it never leaks into stored content.
+const AutoTextDirection = Extension.create({
+  name: 'autoTextDirection',
+  addGlobalAttributes() {
+    return [
+      {
+        types: [
+          'paragraph', 'heading', 'blockquote',
+          'bulletList', 'orderedList', 'listItem', 'taskList', 'taskItem',
+          'tableHeader', 'tableCell',
+        ],
+        attributes: {
+          dir: {
+            default: 'auto',
+            renderHTML: attrs => ({ dir: attrs.dir ?? 'auto' }),
+            parseHTML: el => el.getAttribute('dir') || 'auto',
+          },
+        },
+      },
+    ];
+  },
+});
 
 interface NoteEditorProps {
   value: string;
@@ -49,6 +75,7 @@ function NoteEditor({ value, onChange, placeholder, error, disabled }: NoteEdito
       TableHeader,
       TableCell,
       Placeholder.configure({ placeholder: placeholder ?? '' }),
+      AutoTextDirection,
       Markdown,
     ],
     editable: !disabled,
@@ -119,8 +146,6 @@ function NoteEditor({ value, onChange, placeholder, error, disabled }: NoteEdito
               onClick={() => editor.chain().focus().toggleBold().run()}><BoldIcon /></ToolbarButton>
             <ToolbarButton label="Italic" active={editor.isActive('italic')} disabled={disabled}
               onClick={() => editor.chain().focus().toggleItalic().run()}><ItalicIcon /></ToolbarButton>
-            <ToolbarButton label="Heading" active={editor.isActive('heading', { level: 2 })} disabled={disabled}
-              onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}><HeadingIcon /></ToolbarButton>
             <span className={styles.divider} aria-hidden="true" />
             <ToolbarButton label="Bulleted list" active={editor.isActive('bulletList')} disabled={disabled}
               onClick={() => editor.chain().focus().toggleBulletList().run()}><BulletListIcon /></ToolbarButton>
