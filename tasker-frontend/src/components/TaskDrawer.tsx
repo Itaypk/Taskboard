@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense, lazy } from 'react';
 import type { Task, Tag, TagColorId, Category } from '../types';
 import { TAG_PALETTE, PAPER_SWATCHES } from '../types';
 import { ApiError, type BoardMember } from '../api';
@@ -7,6 +7,10 @@ import { TagEditModal } from './TagEditModal';
 import { Autocomplete } from './Autocomplete';
 import { generateId, formatRelative } from '../utils';
 import { resolveTaskLink, linkLabel } from '../taskLink';
+
+// Lazy so the TipTap/ProseMirror bundle only loads when a drawer is actually opened, keeping
+// it out of the initial app chunk (the drawer is always mounted, just hidden via CSS).
+const NoteEditor = lazy(() => import('./NoteEditor'));
 
 interface TaskDrawerProps {
   task: Task | null;
@@ -328,14 +332,19 @@ export function TaskDrawer({
 
           <div className="field">
             <label className="field__label">Description</label>
-            <textarea
-              className={`field__textarea${errors.description ? ' field__input--error' : ''}`}
-              value={form.description}
-              onChange={e => { setForm(f => ({ ...f, description: e.target.value })); clearError('description'); }}
-              placeholder="Optional notes, context…"
-              rows={3}
-              aria-invalid={errors.description ? true : undefined}
-            />
+            {open ? (
+              <Suspense fallback={<div className="field__textarea" aria-busy="true" style={{ minHeight: 96 }} />}>
+                <NoteEditor
+                  value={form.description ?? ''}
+                  onChange={md => { setForm(f => ({ ...f, description: md })); clearError('description'); }}
+                  placeholder="Optional notes, context…"
+                  error={!!errors.description}
+                  disabled={readOnly}
+                />
+              </Suspense>
+            ) : (
+              <div className="field__textarea" style={{ minHeight: 96 }} />
+            )}
             {errors.description && <p className="field__error">{errors.description}</p>}
           </div>
 

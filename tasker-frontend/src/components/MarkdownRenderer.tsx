@@ -1,9 +1,18 @@
-import { useState } from 'react';
+import { useState, type SyntheticEvent } from 'react';
 import { marked } from 'marked';
 import markedBidi from 'marked-bidi';
 import DOMPurify from 'dompurify';
 
 marked.use(markedBidi());
+
+// Open note links in a new tab (like the dedicated URL field), safely. Runs as the last
+// per-node step, so target/rel survive sanitization without widening ALLOWED_ATTR.
+DOMPurify.addHook('afterSanitizeAttributes', node => {
+  if (node.tagName === 'A') {
+    node.setAttribute('target', '_blank');
+    node.setAttribute('rel', 'noopener noreferrer');
+  }
+});
 
 interface MarkdownRendererProps {
     content: string;
@@ -40,6 +49,10 @@ function renderMarkdown(markdown: string): string {
     }
 }
 
+function stopEventIfLink(e: SyntheticEvent) {
+    if ((e.target as HTMLElement).closest('a')) e.stopPropagation();
+}
+
 function MarkdownRenderer({ content, maxLength, showExpandButton = true }: MarkdownRendererProps) {
     const [isExpanded, setIsExpanded] = useState(false);
 
@@ -52,6 +65,11 @@ function MarkdownRenderer({ content, maxLength, showExpandButton = true }: Markd
         <div className="markdown-renderer-wrapper">
             <div
                 className="markdown-content"
+                // A note usually renders inside a clickable, drag-enabled card. Mirror the URL-field
+                // link button (PostItNote): swallow pointerdown + click when they originate inside a
+                // link, so following it neither starts a drag nor fires the card's open handler.
+                onPointerDown={stopEventIfLink}
+                onClick={stopEventIfLink}
                 dangerouslySetInnerHTML={{ __html: renderMarkdown(displayContent) }}
             />
             {needsTruncation && showExpandButton && (
