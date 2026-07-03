@@ -18,6 +18,7 @@ import { PostItNote, type AssigneeChipInfo } from './components/PostItNote';
 import { TaskDrawer } from './components/TaskDrawer';
 import { SettingsModal } from './components/SettingsModal';
 import { BoardFilter } from './components/BoardFilter';
+import { SortMenu } from './components/SortMenu';
 import { BrandBoard } from './components/BrandBoard';
 import { BoardNameDialog } from './components/BoardNameDialog';
 import { WeeklyPlanDrawer } from './components/WeeklyPlanDrawer';
@@ -33,8 +34,11 @@ import { DEFAULT_SETTINGS } from './data';
 import { fetchBoards, createBoard, fetchTasks, fetchCategories, fetchUserSettings, fetchTags, updateTag, fetchCurrentPlan, fetchSync, createTask, updateTask, deleteTask, duplicateTask, moveTaskToBoard, reorderTask, removeTaskFromPlan, clearTutorialTasks, addTaskToPlan, fetchMembers, setTaskAssignee, type TaskStatusFilter, type Board, type BoardMember } from './api';
 import { UpdateBanner } from './components/UpdateBanner';
 import type { Task, UserSettings, Tag, CurrentPlan, TaskFilter } from './types';
+import { sortTasks, isSortMode, type SortMode } from './sort';
 
 const ACTIVE_BOARD_KEY = 'backlog.activeBoardId';
+// Sort mode is a per-board view preference (per device); the manual order itself lives server-side.
+const SORT_MODE_KEY = 'backlog.sortMode:';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { resolveTaskLink, settingsTabFromPath } from './taskLink';
 import { useAuth } from './auth/AuthContext';
@@ -138,6 +142,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const [error, setError]             = useState<string | null>(null);
   const [draggingId, setDraggingId]   = useState<string | null>(null);
   const [filter, setFilter]           = useState<TaskFilter>('todo');
+  const [sortModeByBoard, setSortModeByBoard] = useState<Record<string, SortMode>>({});
   const [showArchived, setShowArchived] = useState(false);
   const [archivedTasks, setArchivedTasks] = useState<Task[]>([]);
   const [currentPlan, setCurrentPlan]  = useState<CurrentPlan | null>(null);
@@ -297,16 +302,28 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   }, [loading, drawerOpen, fetchStatus, activeBoardId]);
   const selectedTask = tasks.find(t => t.id === selectedId) ?? null;
 
-  const sortedTasks = useMemo(
-    () => [...tasks].sort((a, b) => a.sortKey < b.sortKey ? -1 : a.sortKey > b.sortKey ? 1 : 0),
-    [tasks],
-  );
+  // Sort mode is a per-board view preference. It's kept in an in-memory map (so a change re-renders)
+  // that lazily seeds from localStorage the first time a board is viewed — no set-state-in-effect.
+  const sortMode: SortMode = useMemo(() => {
+    if (!activeBoardId) return 'none';
+    if (activeBoardId in sortModeByBoard) return sortModeByBoard[activeBoardId];
+    const stored = localStorage.getItem(SORT_MODE_KEY + activeBoardId);
+    return isSortMode(stored) ? stored : 'none';
+  }, [activeBoardId, sortModeByBoard]);
+
+  const changeSortMode = useCallback((mode: SortMode) => {
+    if (!activeBoardId) return;
+    localStorage.setItem(SORT_MODE_KEY + activeBoardId, mode);
+    setSortModeByBoard(prev => ({ ...prev, [activeBoardId]: mode }));
+  }, [activeBoardId]);
+
+  const sortedTasks = useMemo(() => sortTasks(tasks, sortMode), [tasks, sortMode]);
 
   const planId = currentPlan?.id ?? null;
-  const sortedArchivedTasks = useMemo(
-    () => [...archivedTasks].sort((a, b) => a.sortKey < b.sortKey ? -1 : a.sortKey > b.sortKey ? 1 : 0),
-    [archivedTasks],
-  );
+  const sortedArchivedTasks = useMemo(() => sortTasks(archivedTasks, sortMode), [archivedTasks, sortMode]);
+
+  // Hand-reorder only makes sense against the manual order; a field sort suspends drag.
+  const canReorder = sortMode === 'none';
   const visibleTasks = useMemo(() => {
     const base = sortedTasks.filter(t => {
       if (t.id === leavingId) return true;
@@ -540,6 +557,8 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
 
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     setDraggingId(null);
+    // Reorder is disabled under a field sort; the notes aren't draggable, but guard defensively.
+    if (sortMode !== 'none') return;
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
@@ -576,7 +595,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
       console.error('Failed to reorder task', e);
       fetchTasks(activeBoardId, fetchStatus).then(setTasks).catch(() => {});
     }
-  }, [visibleIds, visibleTasks, fetchStatus, activeBoardId]);
+  }, [visibleIds, visibleTasks, fetchStatus, activeBoardId, sortMode]);
 
   const handleDragCancel = () => setDraggingId(null);
 
@@ -666,6 +685,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
           onCreate={() => setBoardCreateOpen(true)}
           onOpenSettings={() => setBoardSettingsOpen(true)}
         />
+        <SortMenu value={sortMode} onChange={changeSortMode} />
         <BoardFilter
           value={filter}
           onChange={(f) => {
@@ -732,6 +752,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
                     leaving={leavingId === task.id}
                     inCurrentPlan={planId !== null && task.lastScheduledInSessionId === planId}
                     assignee={resolveAssignee(task)}
+                    draggable={canReorder}
                     onClick={() => { setIsCreating(false); setSelectedId(task.id); }}
                     onContextMenu={e => setContextMenu({ x: e.clientX, y: e.clientY, taskId: task.id, inPlan: planId !== null && task.lastScheduledInSessionId === planId })}
                     onFollowLink={() => followTaskLink(task)}
