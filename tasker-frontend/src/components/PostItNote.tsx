@@ -20,6 +20,8 @@ interface PostItNoteProps {
   leaving?: boolean;
   inCurrentPlan?: boolean;
   assignee?: AssigneeChipInfo | null;
+  /** When false, hand-reorder is off (a non-custom sort is active) — the drag handle is hidden. */
+  draggable?: boolean;
   onClick: () => void;
   onContextMenu?: (e: React.MouseEvent) => void;
   /** Follows the task's link field (external/internal/action); only wired when the task has a link. */
@@ -34,6 +36,7 @@ export function PostItNote({
   leaving = false,
   inCurrentPlan = false,
   assignee = null,
+  draggable = true,
   onClick,
   onContextMenu,
   onFollowLink,
@@ -52,7 +55,7 @@ export function PostItNote({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: task.id });
+  } = useSortable({ id: task.id, disabled: !draggable });
 
   const classNames = [
     'note',
@@ -161,9 +164,11 @@ export function PostItNote({
 
       <span className="note__curl" aria-hidden />
 
-      <span className="note__drag-handle" aria-hidden title="Drag to reorder">
-        ⠿
-      </span>
+      {draggable && (
+        <span className="note__drag-handle" aria-hidden title="Drag to reorder">
+          ⠿
+        </span>
+      )}
 
       {onContextMenu && (
         <button
