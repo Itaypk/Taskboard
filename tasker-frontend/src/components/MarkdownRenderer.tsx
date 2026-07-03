@@ -5,6 +5,15 @@ import DOMPurify from 'dompurify';
 
 marked.use(markedBidi());
 
+// Open note links in a new tab (like the dedicated URL field), safely. Runs as the last
+// per-node step, so target/rel survive sanitization without widening ALLOWED_ATTR.
+DOMPurify.addHook('afterSanitizeAttributes', node => {
+  if (node.tagName === 'A') {
+    node.setAttribute('target', '_blank');
+    node.setAttribute('rel', 'noopener noreferrer');
+  }
+});
+
 interface MarkdownRendererProps {
     content: string;
     maxLength?: number;
