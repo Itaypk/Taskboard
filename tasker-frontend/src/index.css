@@ -1343,6 +1343,8 @@ input[type="number"] { -moz-appearance: textfield; }
 }
 
 @media (max-width: 600px) {
+  /* Tighter column gap so the switcher + controls + action buttons fit one row on small phones. */
+  .header { gap: 12px 10px; padding: 16px 20px 10px; }
   .logo-tape { font-size: 18px; padding: 5px 16px 6px; }
   .new-note-btn { width: 46px; height: 46px; font-size: 18px; }
   .board { padding: 20px 18px 96px; column-width: 220px; column-gap: 20px; }

@@ -19,6 +19,19 @@ function SharedBadge({ count }: { count: number }) {
   return <span className={styles.sharedBadge} title={`${count} members`} aria-label={`${count} members`}>{count}</span>;
 }
 
+/**
+ * Compact board label for the mobile header, where the full name would push the action buttons
+ * onto a second row. First letters of the first two words ("My tasks" → "MT"), or the first two
+ * letters of a single-word name ("Work" → "WO").
+ */
+function boardInitials(name: string | undefined): string {
+  if (!name) return '—';
+  const words = name.trim().split(/\s+/).filter(w => /[\p{L}\p{N}]/u.test(w[0] ?? ''));
+  if (words.length === 0) return name.trim().slice(0, 2).toUpperCase() || '—';
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
+}
+
 function ChevronIcon() {
   return (
     <svg className={styles.chev} width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -80,9 +93,11 @@ export function BrandBoard({
           onClick={() => setOpen(o => !o)}
           aria-haspopup="menu"
           aria-expanded={open}
+          aria-label={activeBoard ? `Current board: ${activeBoard.name}. Switch board` : 'Switch board'}
           title={activeBoard?.name ?? 'Switch board'}
         >
           <span className={styles.labelName}>{activeBoard?.name ?? 'Board'}</span>
+          <span className={styles.labelInitials} aria-hidden>{boardInitials(activeBoard?.name)}</span>
           {activeBoard && <SharedBadge count={activeBoard.memberCount} />}
           <ChevronIcon />
         </button>

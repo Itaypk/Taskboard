@@ -58,6 +58,13 @@
   white-space: nowrap;
 }
 
+/* Initials shown only on mobile (see the ≤600px block); hidden on wider screens. */
+.labelInitials {
+  display: none;
+  flex: none;
+  letter-spacing: 0.02em;
+}
+
 .chev {
   flex: none;
   color: var(--ink-ghost);
@@ -67,9 +74,13 @@
 
 /* Mobile: drop the wordmark, keep the switcher as a standalone flat pill so it
    shares the top row with the action buttons. */
+/* Mobile: drop the wordmark and collapse the board name to initials, so the switcher, sort and
+   compact toggle share the top row with the action buttons instead of pushing them onto a second. */
 @media (max-width: 600px) {
   .tape { display: none; }
-  .label { width: auto; max-width: 48vw; }
+  .label { width: auto; min-width: 54px; padding-inline: 12px; }
+  .labelName { display: none; }
+  .labelInitials { display: inline; }
 }
 
 /* ── Dropdown (unchanged from the original BoardSwitcher) ───────── */
