@@ -15,8 +15,8 @@ interface UserMenuProps {
 function UserProfileIcon() {
   return (
       <svg width="18" height="18" viewBox="0 0 18 18" fill="none"
-           stroke="currentColor" stroke-width="1.3"
-           stroke-linecap="round" stroke-linejoin="round">
+           stroke="currentColor" strokeWidth="1.3"
+           strokeLinecap="round" strokeLinejoin="round">
           <circle cx="9" cy="6.5" r="2.3"></circle>
           <path d="M4.2 13.2
            C4.2 11 6.6 9.8 9 9.8
