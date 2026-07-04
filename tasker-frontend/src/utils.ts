@@ -52,6 +52,26 @@ export function rotationFromId(id: string, max = 2.6): number {
   return (n * 2 - 1) * max;
 }
 
+/**
+ * One-line plain-text teaser of a markdown note, used for the compact list's preview row.
+ * Deliberately crude — strips the common markdown markers rather than parsing, since the result
+ * is a single truncated line, not rendered content.
+ */
+export function notePreview(markdown: string): string {
+  return markdown
+    .replace(/```[\s\S]*?```/g, ' ')            // fenced code blocks
+    .replace(/`([^`]+)`/g, '$1')                // inline code
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')      // images
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')    // links → their text
+    .replace(/^\s{0,3}#{1,6}\s+/gm, '')         // headings
+    .replace(/^\s*>\s?/gm, '')                  // blockquotes
+    .replace(/^\s*[-*+]\s+/gm, '')              // bullet markers
+    .replace(/^\s*\d+\.\s+/gm, '')              // ordered markers
+    .replace(/[*_~#]/g, '')                     // stray emphasis/heading marks
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export function formatRelative(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;

@@ -48,6 +48,11 @@
                        0 2px 4px rgba(40, 28, 10, 0.12);
   --shadow-note-hover: 0 20px 34px -8px rgba(40, 28, 10, 0.30),
                        0 4px 8px rgba(40, 28, 10, 0.14);
+  /* Soft lift for compact-view strips floating on the wall (see TaskLine). */
+  --shadow-strip:      0 7px 15px -6px rgba(40, 28, 10, 0.28),
+                       0 1.5px 3px rgba(40, 28, 10, 0.14);
+  --shadow-strip-hi:   0 16px 30px -9px rgba(40, 28, 10, 0.34),
+                       0 4px 7px rgba(40, 28, 10, 0.16);
   --shadow-drawer:     -16px 0 48px rgba(40, 28, 10, 0.22);
   --shadow-modal:      0 32px 72px rgba(40, 28, 10, 0.28),
                        0 8px 24px rgba(40, 28, 10, 0.14);
@@ -256,6 +261,17 @@ input[type="number"] { -moz-appearance: textfield; }
 
 .board--list .note {
   margin-bottom: 0;
+}
+
+/* Compact view: a loose vertical pile of category-tinted strips (TaskLine). Narrower than the
+   pinboard — a stack reads better constrained than stretched across the full board width. */
+.board--stack {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  max-width: 760px;
+  column-width: auto;
+  padding-top: 20px;
 }
 
 .board--empty {

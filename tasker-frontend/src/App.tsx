@@ -13,8 +13,11 @@ import {
   SortableContext,
   arrayMove,
   rectSortingStrategy,
+  verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { PostItNote, type AssigneeChipInfo } from './components/PostItNote';
+import { TaskLine } from './components/TaskLine';
+import { ViewToggle } from './components/ViewToggle';
 import { TaskDrawer } from './components/TaskDrawer';
 import { SettingsModal } from './components/SettingsModal';
 import { BoardFilter } from './components/BoardFilter';
@@ -33,12 +36,14 @@ import { BoardSettingsModal } from './components/BoardSettingsModal';
 import { DEFAULT_SETTINGS } from './data';
 import { fetchBoards, createBoard, fetchTasks, fetchCategories, fetchUserSettings, fetchTags, updateTag, fetchCurrentPlan, fetchSync, createTask, updateTask, deleteTask, duplicateTask, moveTaskToBoard, reorderTask, removeTaskFromPlan, clearTutorialTasks, addTaskToPlan, fetchMembers, setTaskAssignee, type TaskStatusFilter, type Board, type BoardMember } from './api';
 import { UpdateBanner } from './components/UpdateBanner';
-import type { Task, UserSettings, Tag, CurrentPlan, TaskFilter } from './types';
+import type { Task, UserSettings, Tag, CurrentPlan, TaskFilter, ViewMode } from './types';
 import { sortTasks, isSortMode, type SortMode } from './sort';
 
 const ACTIVE_BOARD_KEY = 'backlog.activeBoardId';
 // Sort mode is a per-board view preference (per device); the manual order itself lives server-side.
 const SORT_MODE_KEY = 'backlog.sortMode:';
+// Board vs. compact view is likewise a per-board, per-device preference.
+const VIEW_MODE_KEY = 'backlog.viewMode:';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { resolveTaskLink, settingsTabFromPath } from './taskLink';
 import { useAuth } from './auth/AuthContext';
@@ -143,6 +148,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const [draggingId, setDraggingId]   = useState<string | null>(null);
   const [filter, setFilter]           = useState<TaskFilter>('todo');
   const [sortModeByBoard, setSortModeByBoard] = useState<Record<string, SortMode>>({});
+  const [viewModeByBoard, setViewModeByBoard] = useState<Record<string, ViewMode>>({});
   const [showArchived, setShowArchived] = useState(false);
   const [archivedTasks, setArchivedTasks] = useState<Task[]>([]);
   const [currentPlan, setCurrentPlan]  = useState<CurrentPlan | null>(null);
@@ -315,6 +321,19 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
     if (!activeBoardId) return;
     localStorage.setItem(SORT_MODE_KEY + activeBoardId, mode);
     setSortModeByBoard(prev => ({ ...prev, [activeBoardId]: mode }));
+  }, [activeBoardId]);
+
+  // View mode mirrors the sort-mode pattern: an in-memory map that lazily seeds from localStorage.
+  const viewMode: ViewMode = useMemo(() => {
+    if (!activeBoardId) return 'board';
+    if (activeBoardId in viewModeByBoard) return viewModeByBoard[activeBoardId];
+    return localStorage.getItem(VIEW_MODE_KEY + activeBoardId) === 'compact' ? 'compact' : 'board';
+  }, [activeBoardId, viewModeByBoard]);
+
+  const changeViewMode = useCallback((mode: ViewMode) => {
+    if (!activeBoardId) return;
+    localStorage.setItem(VIEW_MODE_KEY + activeBoardId, mode);
+    setViewModeByBoard(prev => ({ ...prev, [activeBoardId]: mode }));
   }, [activeBoardId]);
 
   const sortedTasks = useMemo(() => sortTasks(tasks, sortMode), [tasks, sortMode]);
@@ -686,6 +705,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
           onOpenSettings={() => setBoardSettingsOpen(true)}
         />
         <SortMenu value={sortMode} onChange={changeSortMode} />
+        <ViewToggle value={viewMode} onChange={changeViewMode} />
         <BoardFilter
           value={filter}
           onChange={(f) => {
@@ -737,27 +757,32 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
             onDragEnd={handleDragEnd}
             onDragCancel={handleDragCancel}
           >
-            <SortableContext items={visibleIds} strategy={rectSortingStrategy}>
+            <SortableContext
+              items={visibleIds}
+              strategy={viewMode === 'compact' ? verticalListSortingStrategy : rectSortingStrategy}
+            >
               <div
-                className="board board--list"
+                className={viewMode === 'compact' ? 'board board--stack' : 'board board--list'}
                 role="list"
                 aria-label="Task list"
                 data-dragging={draggingId ? 'true' : undefined}
               >
-                {visibleTasks.map((task) => (
-                  <PostItNote
-                    key={task.id}
-                    task={task}
-                    category={categoryById.get(task.categoryId)}
-                    leaving={leavingId === task.id}
-                    inCurrentPlan={planId !== null && task.lastScheduledInSessionId === planId}
-                    assignee={resolveAssignee(task)}
-                    draggable={canReorder}
-                    onClick={() => { setIsCreating(false); setSelectedId(task.id); }}
-                    onContextMenu={e => setContextMenu({ x: e.clientX, y: e.clientY, taskId: task.id, inPlan: planId !== null && task.lastScheduledInSessionId === planId })}
-                    onFollowLink={() => followTaskLink(task)}
-                  />
-                ))}
+                {visibleTasks.map((task) => {
+                  const props = {
+                    task,
+                    category: categoryById.get(task.categoryId),
+                    leaving: leavingId === task.id,
+                    inCurrentPlan: planId !== null && task.lastScheduledInSessionId === planId,
+                    assignee: resolveAssignee(task),
+                    draggable: canReorder,
+                    onClick: () => { setIsCreating(false); setSelectedId(task.id); },
+                    onContextMenu: (e: React.MouseEvent) => setContextMenu({ x: e.clientX, y: e.clientY, taskId: task.id, inPlan: planId !== null && task.lastScheduledInSessionId === planId }),
+                    onFollowLink: () => followTaskLink(task),
+                  };
+                  return viewMode === 'compact'
+                    ? <TaskLine key={task.id} {...props} />
+                    : <PostItNote key={task.id} {...props} />;
+                })}
               </div>
             </SortableContext>
           </DndContext>

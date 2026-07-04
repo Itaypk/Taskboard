@@ -101,6 +101,9 @@ export interface OneOffEvent {
 
 export type TaskFilter = 'todo' | 'plan' | 'done' | 'all';
 
+/** How the board renders: the pinboard of full post-its, or the compact stack of tinted strips. */
+export type ViewMode = 'board' | 'compact';
+
 export interface LanguageOption {
   code: string;
   label: string;
