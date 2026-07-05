@@ -1,0 +1,39 @@
+/* Paper-pill icon button, matching SortMenu's trigger so the two controls read as one family. */
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  color: var(--ink-soft);
+  border-radius: 999px;
+  border: 1px solid var(--paper-border);
+  background: var(--paper-surface);
+  box-shadow: 0 1px 2px rgba(40, 28, 10, 0.06);
+  transition: background var(--t), color var(--t), border-color var(--t), box-shadow var(--t), transform var(--t);
+}
+.trigger:hover {
+  color: var(--ink);
+  border-color: var(--paper-border-2);
+  transform: translateY(-1px);
+}
+.trigger:focus-visible {
+  outline: 2px solid var(--stamp);
+  outline-offset: 2px;
+}
+
+/* Goes dark while the compact view is active — the same signal SortMenu uses for an active sort. */
+.triggerActive {
+  background: var(--ink);
+  color: var(--paper-surface);
+  border-color: var(--ink);
+  box-shadow: 0 4px 12px rgba(40, 28, 10, 0.22);
+}
+.triggerActive:hover {
+  color: var(--paper-surface);
+  border-color: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trigger:hover { transform: none; }
+}
