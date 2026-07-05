@@ -2,8 +2,7 @@
 
 This doc describes how a weekly planning conversation runs end-to-end. It complements
 [`SPEC.md`](./SPEC.md) (product vision) and [`MEMORY-MODEL.md`](./MEMORY-MODEL.md)
-(prompt-assembly and cross-session memory). Pre-session reconciliation (status sweep on
-previously agreed tasks) and Telegram outbound are intentionally out of scope here.
+(prompt-assembly and cross-session memory). Telegram outbound is intentionally out of scope here.
 
 ## State machine
 
@@ -13,8 +12,18 @@ START
   └─► Channel emits Choice("how's your week?", [light/normal/heavy/skip])
 AWAITING_CAPACITY
   └─► On user reply (Selection or free text) → record capacity hint
+RECONCILE (only if last week's plan has unfinished, past-due tasks)
+  └─► PlanningReconciliationService.findUnfinishedTasks(userId, weekStart): tasks from the
+      most recent completed plan whose latest slot has passed and are still TODO.
+  └─► AWAITING_RECONCILE_REPLY: a deterministic Choice per task (no LLM) —
+      [mark done / carry over / return to queue / archive], served one at a time.
+        • done    → BacklogTaskService.markDone
+        • archive → BacklogTaskService.archive
+        • carry   → collected and injected into the assistant's context
+        • queue   → left as-is in the backlog
+  └─► When the queue drains, proceed to ASSEMBLE_PROMPT with the carried-over tasks.
 ASSEMBLE_PROMPT
-  └─► WeeklyPlanningPromptAssembler.assembleSystemPrompt(userId, capacity)
+  └─► WeeklyPlanningPromptAssembler.assembleSystemPrompt(userId, capacity, …, carriedOver)
   └─► AiConversationManager.startConversation(config with the planning toolset
       registered: say, ask_choice, submit_plan)
   └─► Send a kickoff user message ("Let's start. Capacity: ...") so the assistant gets
@@ -192,8 +201,6 @@ OpenRouter as configured in `application.yaml`).
 
 ## Out of scope for v1 (with hooks left in place)
 
-- **Pre-session reconciliation**: status sweep over previously agreed tasks (mark
-  done/not done with inline buttons) before the assistant kicks in.
 - **Real (Google) calendar reads**: `OneOffEventCalendarWindowProvider` surfaces one-off
   events captured through `/add` with a "partial" caveat in the prompt; a Google Calendar
   implementation could replace or extend it behind the same `CalendarWindowProvider` interface.

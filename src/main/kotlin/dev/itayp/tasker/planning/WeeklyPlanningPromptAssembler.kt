@@ -45,6 +45,7 @@ class WeeklyPlanningPromptAssembler(
         capacityHint: String,
         weekStart: LocalDate,
         formatter: MessageFormatter,
+        carriedOver: List<UnfinishedPlannedTask> = emptyList(),
     ): String {
         val settings = userSettingsService.getOrCreate(userId)
         val displayName = settings.displayName?.takeIf { it.isNotBlank() } ?: "there"
@@ -72,6 +73,7 @@ class WeeklyPlanningPromptAssembler(
                 ?: "No personal context shared yet."),
             "previous_session_summary" to (previousSummary ?: "No previous session on record."),
             "task_change_summary" to renderDiff(diff),
+            "carried_over_tasks" to renderCarriedOver(carriedOver),
             "urgent_tasks" to renderTaskList(selection.urgent, selection.alreadyPlanned, selection.alreadyScheduled, selection.boardNames),
             "stale_tasks" to renderTaskList(selection.stale, selection.alreadyPlanned, selection.alreadyScheduled, selection.boardNames),
             "categories" to renderCategoriesForBoards(userId, boards),
@@ -91,9 +93,10 @@ class WeeklyPlanningPromptAssembler(
         ))
     }
 
-    fun renderKickoff(capacityHint: String): String =
+    fun renderKickoff(capacityHint: String, carriedOver: List<UnfinishedPlannedTask> = emptyList()): String =
         templateLoader.load("weekly-planning/kickoff-message.md").render(mapOf(
             "capacity_hint" to capacityHint.ifBlank { "Not stated." },
+            "carried_over_note" to renderCarriedOverNote(carriedOver),
         ))
 
     /**
@@ -252,6 +255,23 @@ class WeeklyPlanningPromptAssembler(
                 }
             }
         }
+    }
+
+    /**
+     * The carry-over section for the system prompt: tasks the user, in the reconciliation sweep,
+     * explicitly asked to pull into this week. Rendered like the candidate lists (`[id] title`) so the
+     * model has a real `task_id` to schedule and submit.
+     */
+    private fun renderCarriedOver(tasks: List<UnfinishedPlannedTask>): String {
+        if (tasks.isEmpty()) return "_(none)_"
+        return tasks.joinToString("\n") { "- [${it.taskId}] ${it.title}" }
+    }
+
+    /** A short kickoff note naming the carried-over tasks by title (ids stay out of the user-facing turn). */
+    private fun renderCarriedOverNote(tasks: List<UnfinishedPlannedTask>): String {
+        if (tasks.isEmpty()) return ""
+        val titles = tasks.joinToString(", ") { it.title }
+        return " The user chose to carry these unfinished tasks into this week: $titles."
     }
 
     private fun renderDiff(diff: TaskChangeSummary): String {
