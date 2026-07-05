@@ -30,7 +30,7 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Task list Markdown (subtasks) checkboxes - makes it possible to check directly from the main screen
 - Filter chips can still wrap on very small screens even after the "Week" shortening. If it keeps bugging us, consider a segmented control or horizontally-scrollable chip row on mobile.
 - Board management: custom board color pin marker (the member count pin)?
-- Bullet lists (sub-tasks): better display; better way to create them (Markdown doesn't work for everyone).
+- Center pill bar on mobile; consider dropping the "done" pill.
 
 ## Assistant - Mid-week response
 - When texting the assistant out of the blue, respond with the correct context. 
