@@ -70,10 +70,12 @@ class WebPlanningController(
         val messages = if (conversationId != null) {
             transcriptService.reconstruct(conversationId)
         } else {
-            // Still awaiting the capacity reply — no conversation yet; re-render the capacity question.
-            orchestrator.capacityChoice(sessionId, MarkdownMessageFormatter)
-                ?.let { listOf(TranscriptMessage.assistant(it)) }
-                ?: emptyList()
+            // No AI conversation yet: the session is either awaiting the capacity reply or in the
+            // pre-session reconciliation sweep. Re-render whichever question is currently pending so a
+            // reloaded browser can continue (neither is part of the AI transcript).
+            val pending = orchestrator.pendingReconcileChoice(sessionId)
+                ?: orchestrator.capacityChoice(sessionId, MarkdownMessageFormatter)
+            pending?.let { listOf(TranscriptMessage.assistant(it)) } ?: emptyList()
         }
         return PlanningTranscriptResponse(sessionId, phase.name, messages)
     }

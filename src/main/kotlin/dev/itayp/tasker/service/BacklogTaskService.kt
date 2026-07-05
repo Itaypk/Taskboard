@@ -129,6 +129,38 @@ class BacklogTaskService(
         return updateTask(userId, task.boardId, id, request)
     }
 
+    /**
+     * Archives a task on whichever of the user's boards it lives on — the user-scoped bridge behind
+     * the planning-reconciliation "archive it" action (the channel reply layer doesn't know the
+     * board). Symmetric to [markDone]: idempotent (already-archived is a no-op), returns null when the
+     * task no longer exists, and routes through [updateTask] so access checks and change events fire
+     * on the same path as the UI. Archive is the reversible delete — there is no hard delete.
+     */
+    @Transactional
+    fun archive(userId: UUID, id: UUID): BacklogTask? {
+        val boardIds = boardMembershipService.listBoardIds(userId)
+        val entity = if (boardIds.isEmpty()) null else backlogTaskRepository.findByIdAndBoardIdIn(id, boardIds)
+        if (entity == null) {
+            log.warn("archive: task {} not found for user {}", id, userId)
+            return null
+        }
+        val task = entity.toDomain(boardCrypto)
+        if (task.status == TaskStatus.ARCHIVED) return task
+        val request = UpdateBacklogTaskRequest(
+            title = task.title,
+            description = task.description,
+            url = task.url,
+            priority = task.priority?.name?.lowercase(),
+            deadline = task.deadline?.toString(),
+            estimatedMinutes = task.estimatedMinutes,
+            status = TaskStatus.ARCHIVED.name.lowercase(),
+            categoryId = task.category.id.toString(),
+            tags = task.tags.map { TagInput(it.id.toString(), it.label, it.colorId.name.lowercase()) },
+            relevantFrom = task.relevantFrom?.toString(),
+        )
+        return updateTask(userId, task.boardId, id, request)
+    }
+
     @Transactional(readOnly = true)
     fun getTasksScheduledInSession(userId: UUID, sessionId: UUID): List<BacklogTask> {
         val boardIds = boardMembershipService.listBoardIds(userId)

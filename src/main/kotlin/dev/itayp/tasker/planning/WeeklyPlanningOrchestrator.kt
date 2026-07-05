@@ -13,6 +13,7 @@ import dev.itayp.tasker.channel.ChoiceOption
 import dev.itayp.tasker.channel.ConversationChannel
 import dev.itayp.tasker.channel.MessageFormatter
 import dev.itayp.tasker.planning.dto.AgreedPlan
+import dev.itayp.tasker.service.BacklogTaskService
 import dev.itayp.tasker.service.UserSettingsService
 import com.fasterxml.jackson.annotation.JsonProperty
 import org.slf4j.LoggerFactory
@@ -45,6 +46,8 @@ class WeeklyPlanningOrchestrator(
     private val planSubmissionInbox: PlanSubmissionInbox,
     private val planningToolContext: PlanningToolContext,
     private val plannedTaskService: PlannedTaskService,
+    private val reconciliationService: PlanningReconciliationService,
+    private val backlogTaskService: BacklogTaskService,
     private val toolRegistry: ToolRegistry,
     private val objectMapper: ObjectMapper,
     private val messageSource: MessageSource,
@@ -65,6 +68,7 @@ class WeeklyPlanningOrchestrator(
             userId = userId,
             conversationId = null,
             capacityHint = null,
+            weekStart = weekStart,
         )
         val settings = userSettingsService.getOrCreate(userId)
         val locale = Locale.forLanguageTag(settings.preferredLanguage)
@@ -81,6 +85,7 @@ class WeeklyPlanningOrchestrator(
             ?: throw IllegalStateException("No active orchestrator state for session $sessionId")
         return when (current.phase) {
             Phase.AWAITING_CAPACITY -> handleCapacityReply(sessionId, current, inbound, channel)
+            Phase.AWAITING_RECONCILE_REPLY -> handleReconcileReply(sessionId, current, inbound, channel)
             Phase.CONVERSING -> {
                 val text = inboundAsText(inbound)
                 channel.indicateTyping()
@@ -180,9 +185,44 @@ class WeeklyPlanningOrchestrator(
             is ChannelInbound.Text -> inbound.text
         }
 
-        val weekStart = planningSessionService.findById(current.userId, sessionId)?.weekStart
+        val weekStart = current.weekStart
+            ?: planningSessionService.findById(current.userId, sessionId)?.weekStart
             ?: error("Planning session $sessionId is missing weekStart")
-        val systemPrompt = promptAssembler.assembleSystemPrompt(current.userId, capacity, weekStart, channel.formatter)
+        val withCapacity = current.copy(capacityHint = capacity, weekStart = weekStart)
+
+        // Pre-session reconciliation: sweep last week's unfinished tasks before the AI kicks in.
+        // No LLM here — a deterministic multiple-choice queue owned by the orchestrator.
+        val unfinished = reconciliationService.findUnfinishedTasks(current.userId, weekStart)
+        if (unfinished.isEmpty()) {
+            return beginConversation(sessionId, withCapacity, channel)
+        }
+
+        val locale = userSettingsService.getLocale(current.userId)
+        val queue = unfinished.map { buildReconcileItem(it, locale, channel.formatter) }
+        log.debug("Session {}: reconciling {} unfinished task(s) before planning", sessionId, queue.size)
+        state[sessionId] = withCapacity.copy(
+            phase = Phase.AWAITING_RECONCILE_REPLY,
+            pendingReconcile = queue,
+        )
+        channel.send(queue.first().message)
+        return Phase.AWAITING_RECONCILE_REPLY
+    }
+
+    /**
+     * Starts the AI planning conversation once capacity is known and any reconciliation sweep has
+     * drained. Threads the carried-over tasks (from reconciliation) into both the system prompt and
+     * the kickoff so the assistant leads with them.
+     */
+    private fun beginConversation(
+        sessionId: UUID,
+        current: OrchestratorState,
+        channel: ConversationChannel,
+    ): Phase {
+        val weekStart = current.weekStart ?: error("Session $sessionId reached conversation without a weekStart")
+        val capacity = current.capacityHint ?: "Not stated."
+        val systemPrompt = promptAssembler.assembleSystemPrompt(
+            current.userId, capacity, weekStart, channel.formatter, current.carriedOver,
+        )
         log.trace("Weekly planning system prompt for session {}:\n{}", sessionId, systemPrompt)
 
         val conversationId = aiConversationManager.startConversation(
@@ -198,14 +238,88 @@ class WeeklyPlanningOrchestrator(
         state[sessionId] = current.copy(
             phase = Phase.CONVERSING,
             conversationId = conversationId,
-            capacityHint = capacity,
+            pendingReconcile = emptyList(),
         )
 
-        val kickoff = promptAssembler.renderKickoff(capacity).trim()
+        val kickoff = promptAssembler.renderKickoff(capacity, current.carriedOver).trim()
         channel.indicateTyping()
         val outcome = aiConversationManager.sendMessage(conversationId, kickoff)
         processOutcome(sessionId, outcome, channel)
         return state[sessionId]?.phase ?: Phase.DONE
+    }
+
+    // ── Reconciliation (pre-session sweep of last week's unfinished tasks) ----------------
+
+    private fun handleReconcileReply(
+        sessionId: UUID,
+        current: OrchestratorState,
+        inbound: ChannelInbound,
+        channel: ConversationChannel,
+    ): Phase {
+        val pending = current.pendingReconcile.toMutableList()
+        check(pending.isNotEmpty()) { "AWAITING_RECONCILE_REPLY with empty queue for $sessionId" }
+        val head = pending.removeAt(0)
+
+        val action = when (inbound) {
+            is ChannelInbound.Selection -> inbound.optionId
+            // Free text at a fixed-choice question: leave the task in the backlog (the safe no-op).
+            is ChannelInbound.Text -> RECONCILE_QUEUE
+        }
+        val carriedOver = current.carriedOver.toMutableList()
+        applyReconcileAction(current.userId, head, action, carriedOver)
+
+        val next = current.copy(pendingReconcile = pending, carriedOver = carriedOver)
+        if (pending.isNotEmpty()) {
+            state[sessionId] = next
+            channel.send(pending.first().message)
+            return Phase.AWAITING_RECONCILE_REPLY
+        }
+        return beginConversation(sessionId, next, channel)
+    }
+
+    private fun applyReconcileAction(
+        userId: UUID,
+        item: ReconcileItem,
+        action: String,
+        carriedOver: MutableList<UnfinishedPlannedTask>,
+    ) {
+        when (action) {
+            RECONCILE_DONE -> backlogTaskService.markDone(userId, item.taskId)
+            RECONCILE_ARCHIVE -> backlogTaskService.archive(userId, item.taskId)
+            RECONCILE_CARRY -> carriedOver.add(UnfinishedPlannedTask(item.taskId, item.title))
+            // RECONCILE_QUEUE and anything unexpected: leave the task as-is in the backlog.
+            else -> Unit
+        }
+        log.debug("Reconciled planned task {} with action '{}'", item.taskId, action)
+    }
+
+    private fun buildReconcileItem(
+        task: UnfinishedPlannedTask,
+        locale: Locale,
+        formatter: MessageFormatter,
+    ): ReconcileItem {
+        val prompt = messageSource.getMessage(
+            "planning.reconcile.question", arrayOf(formatter.bold(task.title)), locale,
+        )
+        val options = listOf(
+            ChoiceOption(RECONCILE_DONE, messageSource.getMessage("planning.reconcile.option.done", null, locale)),
+            ChoiceOption(RECONCILE_CARRY, messageSource.getMessage("planning.reconcile.option.carry", null, locale)),
+            ChoiceOption(RECONCILE_QUEUE, messageSource.getMessage("planning.reconcile.option.queue", null, locale)),
+            ChoiceOption(RECONCILE_ARCHIVE, messageSource.getMessage("planning.reconcile.option.archive", null, locale)),
+        )
+        return ReconcileItem(task.taskId, task.title, ChannelMessage.Choice(prompt, options), options)
+    }
+
+    /**
+     * Re-renders the reconciliation question currently awaiting an answer, so a web client that
+     * reloaded mid-sweep can re-show it (like [capacityChoice], these questions aren't part of the AI
+     * transcript). The stored message already has the channel's formatting baked in. Returns null when
+     * the session isn't in the reconciliation phase.
+     */
+    fun pendingReconcileChoice(sessionId: UUID): ChannelMessage.Choice? {
+        val current = state[sessionId] ?: return null
+        if (current.phase != Phase.AWAITING_RECONCILE_REPLY) return null
+        return current.pendingReconcile.firstOrNull()?.message
     }
 
     // ── Turn outcome dispatch ------------------------------------------------------------
@@ -472,15 +586,28 @@ class WeeklyPlanningOrchestrator(
         is ChannelInbound.Selection -> inbound.freeText ?: inbound.optionId
     }
 
-    enum class Phase { AWAITING_CAPACITY, CONVERSING, AWAITING_INTERACTIVE_REPLY, DONE }
+    enum class Phase { AWAITING_CAPACITY, AWAITING_RECONCILE_REPLY, CONVERSING, AWAITING_INTERACTIVE_REPLY, DONE }
 
     data class OrchestratorState(
         val phase: Phase,
         val userId: UUID,
         val conversationId: UUID?,
         val capacityHint: String?,
+        val weekStart: LocalDate? = null,
         val agreedPlan: AgreedPlan? = null,
         val pendingInteractive: List<PendingInteractive> = emptyList(),
+        /** Reconciliation questions still awaiting an answer, in order (head = currently shown). */
+        val pendingReconcile: List<ReconcileItem> = emptyList(),
+        /** Tasks the user chose to carry over during reconciliation, fed to the assistant's context. */
+        val carriedOver: List<UnfinishedPlannedTask> = emptyList(),
+    )
+
+    /** A single pre-session reconciliation question plus the task and options it binds to. */
+    data class ReconcileItem(
+        val taskId: UUID,
+        val title: String,
+        val message: ChannelMessage.Choice,
+        val options: List<ChoiceOption>,
     )
 
     data class PendingInteractive(
@@ -509,6 +636,12 @@ class WeeklyPlanningOrchestrator(
         const val CONVERSATION_TYPE = "weekly_planning"
         const val SAY_TOOL_NAME = "say"
         const val ESCAPE_OPTION_ID = "discuss"
+
+        // Reconciliation-choice option ids (stable; bound in handleReconcileReply / applyReconcileAction).
+        const val RECONCILE_DONE = "done"
+        const val RECONCILE_CARRY = "carry"
+        const val RECONCILE_QUEUE = "queue"
+        const val RECONCILE_ARCHIVE = "archive"
 
         // Canonical English labels used as capacity context for the LLM (language-independent).
         private val CAPACITY_EN_LABELS = mapOf(
