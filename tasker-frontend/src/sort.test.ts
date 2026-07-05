@@ -66,6 +66,32 @@ describe('sortTasks', () => {
     expect(ids(sortTasks(tasks, 'title'))).toEqual(['a', 'b', 'c']);
   });
 
+  it('longest sorts by estimate descending and pushes unestimated tasks last', () => {
+    const tasks = [
+      task({ id: 'none', sortKey: 'a' }),
+      task({ id: 'short', estimatedMinutes: 15, sortKey: 'b' }),
+      task({ id: 'long', estimatedMinutes: 120, sortKey: 'c' }),
+    ];
+    expect(ids(sortTasks(tasks, 'longest'))).toEqual(['long', 'short', 'none']);
+  });
+
+  it('shortest sorts by estimate ascending but still keeps unestimated tasks last', () => {
+    const tasks = [
+      task({ id: 'none', sortKey: 'a' }),
+      task({ id: 'long', estimatedMinutes: 120, sortKey: 'b' }),
+      task({ id: 'short', estimatedMinutes: 15, sortKey: 'c' }),
+    ];
+    expect(ids(sortTasks(tasks, 'shortest'))).toEqual(['short', 'long', 'none']);
+  });
+
+  it('equal estimates fall through to priority (the lead tiebreaker)', () => {
+    const tasks = [
+      task({ id: 'low', estimatedMinutes: 30, priority: 'low', sortKey: 'a' }),
+      task({ id: 'high', estimatedMinutes: 30, priority: 'high', sortKey: 'b' }),
+    ];
+    expect(ids(sortTasks(tasks, 'longest'))).toEqual(['high', 'low']);
+  });
+
   it('breaks a full tie with the manual sortKey order', () => {
     // Identical on every field key → only sortKey separates them.
     const common = { priority: 'high' as const, deadline: '2026-07-04', createdAt: '2026-01-01T00:00:00Z', title: 'same' };
@@ -82,7 +108,7 @@ describe('sortTasks', () => {
 
 describe('isSortMode', () => {
   it('accepts known modes and rejects everything else', () => {
-    for (const m of ['none', 'deadline', 'priority', 'created', 'title'] as SortMode[]) {
+    for (const m of ['none', 'deadline', 'priority', 'created', 'title', 'longest', 'shortest'] as SortMode[]) {
       expect(isSortMode(m)).toBe(true);
     }
     expect(isSortMode('custom')).toBe(false);

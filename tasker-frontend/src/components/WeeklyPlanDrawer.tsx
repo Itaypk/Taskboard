@@ -282,6 +282,13 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
 
   const weekEnd = viewedWeekStart ? isoWeekEnd(viewedWeekStart) : null;
 
+  // Where the viewed week sits relative to today's week — gates which planning actions make sense.
+  // Past weeks can't be planned; while looking ahead, "plan this week" is a backward step, so it's hidden.
+  const weekRel: 'past' | 'current' | 'future' =
+    viewedWeekStart == null || thisWeekStart == null || viewedWeekStart === thisWeekStart
+      ? 'current'
+      : viewedWeekStart < thisWeekStart ? 'past' : 'future';
+
   return (
     <>
       <div className={`overlay${open ? ' overlay--open' : ''}`} onClick={onClose} />
@@ -348,7 +355,11 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
                 <>
                   <div className={styles.empty}>
                     <p className={styles.emptyTitle}>No plan for this week.</p>
-                    <p className={styles.emptyHint}>Plan it with the assistant below, or start a session on Telegram.</p>
+                    <p className={styles.emptyHint}>
+                      {weekRel === 'past'
+                        ? 'Planning is available for the current and upcoming weeks only.'
+                        : 'Plan it with the assistant below, or start a session on Telegram.'}
+                    </p>
                   </div>
                   <EventsSection events={events} />
                 </>
@@ -356,6 +367,7 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
               <OverviewActions
                 entry={entry}
                 viewedPlan={viewedPlan}
+                weekRel={weekRel}
                 loading={entryLoading}
                 busy={thinking}
                 onStart={planForWeek}
@@ -506,9 +518,11 @@ function AssistantBubble({ message, interactive, onChoose, onChip }: {
   );
 }
 
-function OverviewActions({ entry, viewedPlan, loading, busy, onStart, onRevise, onContinue, onAbandon }: {
+function OverviewActions({ entry, viewedPlan, weekRel, loading, busy, onStart, onRevise, onContinue, onAbandon }: {
   entry: PlanningEntry | null;
   viewedPlan: CurrentPlan | null;
+  /** The viewed week relative to today's week — decides which planning actions are offered. */
+  weekRel: 'past' | 'current' | 'future';
   loading: boolean;
   busy: boolean;
   onStart: (offset: 'CURRENT' | 'NEXT') => void;
@@ -546,8 +560,14 @@ function OverviewActions({ entry, viewedPlan, loading, busy, onStart, onRevise, 
     );
   }
 
+  // A past week can't be planned or revised — offer no planning actions for it.
+  if (weekRel === 'past') return null;
+
   // The viewed week's plan can be revised in place when it's finalized.
   const revisable = viewedPlan && viewedPlan.status === 'completed' ? viewedPlan.id : null;
+  // "Plan this week" targets the current week, so it's only relevant while viewing it; looking ahead,
+  // it would be a step backward. "Plan next week" stays available on both the current and future views.
+  const showPlanThisWeek = weekRel === 'current';
   return (
     <div className={styles.actions}>
       {aiHint}
@@ -556,10 +576,12 @@ function OverviewActions({ entry, viewedPlan, loading, busy, onStart, onRevise, 
           Revise this plan
         </button>
       )}
-      <button type="button" className={`${styles.entryBtn} ${revisable ? '' : styles.entryPrimary}`} disabled={busy || aiOff} onClick={() => onStart('CURRENT')}>
-        Plan this week<span className={styles.entryDates}>{formatRange(entry.thisWeek.weekStart, entry.thisWeek.weekEnd)}</span>
-      </button>
-      <button type="button" className={styles.entryBtn} disabled={busy || aiOff} onClick={() => onStart('NEXT')}>
+      {showPlanThisWeek && (
+        <button type="button" className={`${styles.entryBtn} ${revisable ? '' : styles.entryPrimary}`} disabled={busy || aiOff} onClick={() => onStart('CURRENT')}>
+          Plan this week<span className={styles.entryDates}>{formatRange(entry.thisWeek.weekStart, entry.thisWeek.weekEnd)}</span>
+        </button>
+      )}
+      <button type="button" className={`${styles.entryBtn} ${(!revisable && !showPlanThisWeek) ? styles.entryPrimary : ''}`} disabled={busy || aiOff} onClick={() => onStart('NEXT')}>
         Plan next week<span className={styles.entryDates}>{formatRange(entry.nextWeek.weekStart, entry.nextWeek.weekEnd)}</span>
       </button>
     </div>

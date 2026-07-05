@@ -5,7 +5,7 @@ import type { Task, Priority } from './types';
  * (the task `sortKey`). The field modes are non-destructive display transforms layered on top of it;
  * they never touch `sortKey`, so switching back to `none` restores the exact manual order.
  */
-export type SortMode = 'none' | 'priority' | 'deadline' | 'created' | 'title';
+export type SortMode = 'none' | 'priority' | 'deadline' | 'created' | 'title' | 'longest' | 'shortest';
 
 /** A field sort — every mode except the manual `none`. */
 export type SortField = Exclude<SortMode, 'none'>;
@@ -21,17 +21,21 @@ export const SORT_OPTIONS: readonly SortOption[] = [
   { id: 'priority', label: 'Priority' },
   { id: 'created',  label: 'Recently added' },
   { id: 'title',    label: 'A–Z' },
+  { id: 'longest',  label: 'Longest' },
+  { id: 'shortest', label: 'Shortest' },
 ];
 
 /**
- * Default precedence of the sort keys. Every field sort applies *all* of these — the user's choice
- * only decides which one leads; the rest follow in this order, then the manual `sortKey` breaks any
- * final tie. Sorting on several keys at once makes the result both stabler and more meaningful (e.g.
- * "by deadline" still orders same-day tasks by priority instead of leaving them arbitrary).
+ * Default precedence of the tiebreaker keys. Every field sort applies *all* of these after its lead
+ * key — the user's choice only decides which one leads; the rest follow in this order, then the
+ * manual `sortKey` breaks any final tie. Sorting on several keys at once makes the result both
+ * stabler and more meaningful (e.g. "by deadline" still orders same-day tasks by priority instead of
+ * leaving them arbitrary). The duration sorts (`longest`/`shortest`) are deliberately absent: they're
+ * two directions of one field, so they only ever lead and never serve as a shared tiebreaker.
  */
 const KEY_PRECEDENCE: readonly SortField[] = ['priority', 'deadline', 'created', 'title'];
 
-const ALL_MODES: readonly SortMode[] = ['none', ...KEY_PRECEDENCE];
+const ALL_MODES: readonly SortMode[] = ['none', ...KEY_PRECEDENCE, 'longest', 'shortest'];
 
 export function isSortMode(value: string | null): value is SortMode {
   return value != null && (ALL_MODES as readonly string[]).includes(value);
@@ -66,6 +70,9 @@ const KEY_COMPARATORS: Record<SortField, Comparator> = {
   // Newest first.
   created: (a, b) => b.createdAt.localeCompare(a.createdAt),
   title: (a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }),
+  // By estimated duration; tasks with no estimate sort last either way (nullsLast).
+  longest: (a, b) => nullsLast(a.estimatedMinutes, b.estimatedMinutes, (x, y) => y - x),
+  shortest: (a, b) => nullsLast(a.estimatedMinutes, b.estimatedMinutes, (x, y) => x - y),
 };
 
 function comparatorFor(mode: SortMode): Comparator {
