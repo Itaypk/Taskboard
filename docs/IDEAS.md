@@ -19,8 +19,7 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Fonts look bad in Hebrew (especially the header - serif - ones). Either choose one that support multilanguage, or use language-specific ones.
 - Persisted calendar invite SEQUENCE counter. Plan-revise updates re-send same-time slot edits (label/title/notes) with a fixed `SEQUENCE:1`. A second same-slot edit in a later session sends `SEQUENCE:1` again, which strict calendar clients may not re-apply. Persisting a per-slot revision counter (incremented on each update) would make repeated updates robust. Low priority: time moves go through cancel + fresh invite, which is unaffected.
 - Currently, a single task is tied to a single time-block; would we like to change that, so that a single task might have multiple (or zero) time blocks attached?
-- Add a search functionality. 
-- Assistant planning: need a way to carry-over tasks from one week to another.
+- Add a search functionality.
 - Let the assistant *propose* additions to the user context block at the end of a planning session
   (e.g. "want me to remember you prefer no work Tuesday evenings?"), with the user accepting/rejecting
   in the UI — keeps the user as sole editor while lowering the friction of growing the block over time.
@@ -31,7 +30,8 @@ The scope of the individual idea is varying - could be small UI improvements, or
 
 ## Auth & accounts
 - Add Google OAuth as a login provider — drops in as another `loginOrRegister('google', sub, …)`
-  caller + identity rows, no schema change needed.
+  caller + identity rows, no schema change needed. This is blocked till we have a dedicated Google 
+  account (rather not risk my personal account)
 - Retire the legacy `users.telegram_id` / `users.email_hash` columns once nothing reads them as a
   lookup key (identity resolution already goes through `auth_identities`).
 - Account-linking UX: linking an identity already owned by a different account is currently just
@@ -42,18 +42,14 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Add a real screenshot of the board and wire it as `og:image` / `twitter:image` (biggest legibility
   win for both humans and link-preview bots); also covers the missing Apple touch icon / 512×512 PNG
   for share sheets.
-- Footer: GitHub link, contact/about line (ToS/Privacy are already linked).
-- Optional: an FAQ (pricing, data handling, why Google Calendar, account deletion), a `/about` page,
-  and `llms.txt` for AI-agent friendliness.
+- Footer: GitHub link (if going with AGPL), contact/about line (ToS/Privacy are already linked).
+- Optional: an FAQ (data handling, why Google Calendar, account deletion), a `/about` page.
 - Accessibility pass on the login page: visible focus rings, WCAG AA contrast check on the body text,
   `<main>`/`<header>`/`<footer>` landmarks, alt text once the screenshot lands.
-- A one-liner explaining "why Telegram?" for new visitors confused that login goes through a chat app.
 
 ## Board sharing follow-ups
 - No per-board planner fairness caps yet — a busy shared board could in principle crowd out a
   quiet one in the candidate pool (see `docs/BOARD-MODEL.md`).
-- Shared-board export/import doesn't reconstruct membership: export emits every board you belong
-  to with your role, but import always recreates you as sole `OWNER` of each.
 - No viewer/commenter role tier or per-task permissions beyond the assignee primitive — only add
   if real usage demands it.
 
