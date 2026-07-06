@@ -201,7 +201,7 @@ class OneOffEventServiceTest {
         this.id = eventId
         this.userId = this@OneOffEventServiceTest.userId
         this.boardId = this@OneOffEventServiceTest.boardId
-        this.title = boardCrypto.encrypt(boardId, "Dentist")
+        this.title = boardCrypto.encrypt(this@OneOffEventServiceTest.boardId, "Dentist")
         this.startsAt = startsAt
         this.endsAt = startsAt.plusSeconds(3600)
         this.icalUid = "ical-uid-1"
