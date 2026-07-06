@@ -24,9 +24,6 @@ The scope of the individual idea is varying - could be small UI improvements, or
   (e.g. "want me to remember you prefer no work Tuesday evenings?"), with the user accepting/rejecting
   in the UI — keeps the user as sole editor while lowering the friction of growing the block over time.
   See the "Soft extension" note in `docs/MEMORY-MODEL.md`.
-- One-off calendar events (`/add`): cancelling a not-yet-started event from the planner drawer is
-  done (sets `cancelled_at`, fires a `METHOD:CANCEL` calendar email). Still open: per-item Adjust /
-  edit-from-drawer / recurrence if usage demands it.
 
 ## Auth & accounts
 - Add Google OAuth as a login provider — drops in as another `loginOrRegister('google', sub, …)`
