@@ -21,7 +21,7 @@ Incomplete, but functional:
 - **Backend**: Kotlin 2.3 + Spring Boot 4.0 on JVM 25, Spring Data JPA, Spring Security 7, Liquibase.
 - **Database**: Postgres in dev/prod, H2 for tests and in-memory dev.
 - **Frontend**: React 19 + TypeScript + Vite 8, bundled into the backend at build time and served same-origin.
-- **Auth**: multiple providers resolved through an `auth_identities` table (Telegram HMAC, email magic-link, demo, dev) → `HttpSession` cookie (`SameSite=Lax`, `HttpOnly`, `Secure` in prod). `TaskerPrincipal` carries only `userId`, so the session layer is provider-agnostic. Prometheus scraper uses HTTP Basic Auth on a separate stateless filter chain. See [`docs/AUTH-DECOUPLING.md`](docs/AUTH-DECOUPLING.md).
+- **Auth**: multiple providers resolved through an `auth_identities` table (Telegram HMAC, email magic-link, demo, dev) → `HttpSession` cookie (`SameSite=Lax`, `HttpOnly`, `Secure` in prod). `TaskerPrincipal` carries only `userId`, so the session layer is provider-agnostic. Prometheus scraper uses HTTP Basic Auth on a separate stateless filter chain. See [`docs/archive/AUTH-DECOUPLING.md`](docs/archive/AUTH-DECOUPLING.md).
 - **Observability**: Micrometer + Prometheus registry; health probes for liveness/readiness; structured JSON log rotation via Logstash encoder (prod profile).
 
 ## Getting started

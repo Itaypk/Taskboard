@@ -1,7 +1,8 @@
 # AI Assistant Memory Model
 
 Design for what the weekly-planner AI "remembers" across turns and across sessions.
-Status: design doc — no code yet. See `SPEC.md` for the broader product context.
+Status: implemented (the three stores below are all live). See `SPEC.md` for the broader product
+context. The "soft extension" idea at the end is not built — tracked in `IDEAS.md`.
 
 ## Goals & non-goals
 
@@ -98,17 +99,10 @@ messages       = current_session.messages              // full transcript so far
 The current session's transcript is sent as-is — no truncation, no summarization mid-session.
 The spec already commits to this ("conversations are short enough for this to be practical").
 
-## Soft extension: assistant-proposed context edits
+## Soft extension: assistant-proposed context edits (not built)
 
-At the end of a session, let the assistant *propose* additions to the user context block, e.g.
-"Want me to remember you prefer no work Tuesday evenings?". The user accepts/rejects in the UI;
-on accept, the suggested line is appended to their context block.
-
-This keeps the user as the sole editor while lowering the friction of growing the block over
-time. Implementation-wise it's a small structured field on `PlanningSession`
-(`proposed_context_additions: text[]?`) plus a UI affordance — no separate table.
-
-Worth doing only after the basic loop works; flag it as v1.1.
+Idea for a v1.1: let the assistant *propose* additions to the user context block at the end of a
+session rather than requiring the user to edit it by hand. See `IDEAS.md` for the sketch.
 
 ## What we are explicitly *not* building
 

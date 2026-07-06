@@ -1,7 +1,7 @@
 # Account Export Format v3
 
 This specifies the JSON produced by `GET /api/v1/account/export` and consumed by
-`POST /api/v1/account/import`. It supersedes `docs/export-format-v2.md`. Read v2 first — **v3 is
+`POST /api/v1/account/import`. It supersedes `docs/archive/export-format-v2.md`. Read v2 first — **v3 is
 v2 with internal database ids removed from the wire format**, plus a stricter email-import rule.
 Per-field semantics defer to v2 (and through it, v1) wherever unchanged.
 
@@ -99,7 +99,7 @@ Import preconditions (fresh account — only the seeded default board, default c
 tasks, no tags; 409 otherwise), the per-board wipe-and-rebuild, board
 DEK re-encryption of task `title`/`description`, dropped fields (LLM data, planning state, session
 rows), and whole-import rollback-on-error are all **unchanged from v2** — see
-`docs/export-format-v2.md`.
+`docs/archive/export-format-v2.md`.
 
 A unique-constraint violation that somehow slips past the email guard is mapped to HTTP 409 with a
 generic message (no raw DB error, which can carry another user's email hash), not a 500.
