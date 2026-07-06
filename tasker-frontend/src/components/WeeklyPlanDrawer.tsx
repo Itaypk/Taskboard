@@ -165,6 +165,10 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
   }, [viewedWeekStart, eventsWeek]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
+  const handleEventCancelled = useCallback((eventId: string) => {
+    setEvents(prev => prev.filter(e => e.id !== eventId));
+  }, []);
+
   const applyTurn = useCallback((turn: PlanningTurn) => {
     setSessionId(turn.sessionId);
     setPhase(turn.phase);
@@ -349,7 +353,7 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
               ) : viewedPlan ? (
                 <>
                   <PlanDetails plan={viewedPlan} onTaskClick={onTaskClick} onTaskContextMenu={onTaskContextMenu} />
-                  <EventsSection events={events} />
+                  <EventsSection events={events} onCancelled={handleEventCancelled} />
                 </>
               ) : (
                 <>
@@ -361,7 +365,7 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
                         : 'Plan it with the assistant below, or start a session on Telegram.'}
                     </p>
                   </div>
-                  <EventsSection events={events} />
+                  <EventsSection events={events} onCancelled={handleEventCancelled} />
                 </>
               )}
               <OverviewActions

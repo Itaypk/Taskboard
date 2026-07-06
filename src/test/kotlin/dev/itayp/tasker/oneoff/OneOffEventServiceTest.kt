@@ -193,6 +193,96 @@ class OneOffEventServiceTest {
         assertEquals(Instant.parse("2026-07-18T21:00:00Z"), toCaptor.firstValue)
     }
 
+    // ── cancelEvent ──────────────────────────────────────────────────────────
+
+    private val eventId: UUID = UUID.fromString("00000000-0000-0000-0000-0000000000e0")
+
+    // Build the title bytes directly rather than through the boardCrypto mock: when anEntity is
+    // evaluated inside a whenever(...).thenReturn(...), a nested mock call trips Mockito's
+    // UnfinishedStubbingException. The noop decrypt is just bytes.toString(UTF_8), so this round-trips.
+    private fun anEntity(startsAt: Instant, cancelledAt: Instant? = null) = OneOffEventEntity().apply {
+        this.id = eventId
+        this.userId = this@OneOffEventServiceTest.userId
+        this.boardId = this@OneOffEventServiceTest.boardId
+        this.title = "Dentist".toByteArray(Charsets.UTF_8)
+        this.startsAt = startsAt
+        this.endsAt = startsAt.plusSeconds(3600)
+        this.icalUid = "ical-uid-1"
+        this.createdAt = Instant.parse("2026-06-01T00:00:00Z")
+        this.cancelledAt = cancelledAt
+    }
+
+    @Test
+    fun `cancelEvent soft-cancels a future event and dispatches a cancellation`() {
+        // clock is 2026-07-01T12:00:00Z; this event starts well after.
+        whenever(repository.findByIdAndUserId(eventId, userId)).thenReturn(anEntity(Instant.parse("2026-08-01T09:00:00Z")))
+        whenever(repository.save(any<OneOffEventEntity>())).thenAnswer { it.arguments[0] }
+        whenever(inviteDeliveryResolver.resolveEmailContext(userId)).thenReturn(
+            InviteDeliveryResolver.EmailContext(email = "user@example.com", locale = Locale.ENGLISH)
+        )
+        whenever(userSettingsService.getOrCreate(userId)).thenReturn(userSettings("Asia/Jerusalem"))
+
+        val outcome = service.cancelEvent(userId, eventId)
+
+        assertTrue(outcome is CancelOutcome.Cancelled)
+        val savedCaptor = argumentCaptor<OneOffEventEntity>()
+        verify(repository).save(savedCaptor.capture())
+        assertEquals(Instant.parse("2026-07-01T12:00:00Z"), savedCaptor.firstValue.cancelledAt)
+
+        val invitesCaptor = argumentCaptor<List<OneOffEventInviteDispatcher.Invite>>()
+        verify(inviteDispatcher).dispatchCancellations(invitesCaptor.capture())
+        assertEquals("ical-uid-1", invitesCaptor.firstValue.single().event.icalUid)
+    }
+
+    @Test
+    fun `cancelEvent still cancels when there is no eligible email channel, skipping the email`() {
+        whenever(repository.findByIdAndUserId(eventId, userId)).thenReturn(anEntity(Instant.parse("2026-08-01T09:00:00Z")))
+        whenever(repository.save(any<OneOffEventEntity>())).thenAnswer { it.arguments[0] }
+        whenever(inviteDeliveryResolver.resolveEmailContext(userId)).thenReturn(null)
+
+        val outcome = service.cancelEvent(userId, eventId)
+
+        assertTrue(outcome is CancelOutcome.Cancelled)
+        verify(repository).save(any<OneOffEventEntity>())
+        verify(inviteDispatcher, never()).dispatchCancellations(any())
+    }
+
+    @Test
+    fun `cancelEvent rejects an event that has already started`() {
+        // starts one second before the fixed clock — already triggered.
+        whenever(repository.findByIdAndUserId(eventId, userId)).thenReturn(anEntity(Instant.parse("2026-07-01T11:59:59Z")))
+
+        val outcome = service.cancelEvent(userId, eventId)
+
+        assertTrue(outcome is CancelOutcome.AlreadyStarted)
+        verify(repository, never()).save(any<OneOffEventEntity>())
+        verify(inviteDispatcher, never()).dispatchCancellations(any())
+    }
+
+    @Test
+    fun `cancelEvent treats an already-cancelled event as an idempotent no-op`() {
+        whenever(repository.findByIdAndUserId(eventId, userId)).thenReturn(
+            anEntity(Instant.parse("2026-08-01T09:00:00Z"), cancelledAt = Instant.parse("2026-06-15T00:00:00Z"))
+        )
+
+        val outcome = service.cancelEvent(userId, eventId)
+
+        assertTrue(outcome is CancelOutcome.AlreadyCancelled)
+        verify(repository, never()).save(any<OneOffEventEntity>())
+        verify(inviteDispatcher, never()).dispatchCancellations(any())
+    }
+
+    @Test
+    fun `cancelEvent returns NotFound when the event isn't the user's`() {
+        whenever(repository.findByIdAndUserId(eventId, userId)).thenReturn(null)
+
+        val outcome = service.cancelEvent(userId, eventId)
+
+        assertTrue(outcome is CancelOutcome.NotFound)
+        verify(repository, never()).save(any<OneOffEventEntity>())
+        verify(inviteDispatcher, never()).dispatchCancellations(any())
+    }
+
     @Test
     fun `createEvents short-circuits on an empty draft list`() {
         val created = service.createEvents(userId, boardId, emptyList())

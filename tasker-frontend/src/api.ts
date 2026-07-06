@@ -322,6 +322,10 @@ export const fetchPlanForWeek = (weekStart: string): Promise<CurrentPlan | null>
 export const fetchEventsForWeek = (weekStart: string): Promise<OneOffEvent[]> =>
     apiRequest(`/plans/week/${weekStart}/events`);
 
+/** Cancels a not-yet-started one-off event (soft-delete + calendar cancellation email). 409 if it already started. */
+export const cancelEvent = (eventId: string): Promise<void> =>
+    apiRequest(`/plans/events/${eventId}/cancel`, { method: 'POST' });
+
 /** Lightweight summary of a finalized weekly plan, used to drive the drawer's week navigation. */
 export interface PlanSummary {
     id: string;

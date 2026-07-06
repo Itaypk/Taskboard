@@ -32,26 +32,46 @@ class OneOffEventInviteDispatcher(
     fun dispatch(invites: List<Invite>) {
         for (invite in invites) {
             runCatching {
-                val event = invite.event
                 calendarInvitationComposer.sendInvitation(
                     to = listOf(invite.userEmail),
-                    event = CalendarEvent(
-                        uid = event.icalUid,
-                        title = event.title,
-                        description = event.notes,
-                        start = event.startsAt.atZone(invite.zone),
-                        end = event.endsAt.atZone(invite.zone),
-                        location = event.location,
-                        organizerEmail = invite.organizerEmail,
-                        organizerName = invite.organizerName,
-                        attendeeEmails = listOf(invite.userEmail),
-                        locale = invite.locale,
-                        sequence = 0,
-                    ),
+                    event = invite.toCalendarEvent(sequence = 0),
                 )
             }.onFailure { e ->
                 log.error("Failed to send one-off event invite for event {}: {}", invite.event.id, e.message)
             }
         }
     }
+
+    /**
+     * Sends `METHOD:CANCEL` emails for cancelled events. Reuses the event's stable `icalUid` so the
+     * user's calendar client matches the cancellation to the block it previously accepted. Fired
+     * after the cancellation commits; a failure here is logged, never rolled back.
+     */
+    @Async
+    fun dispatchCancellations(invites: List<Invite>) {
+        for (invite in invites) {
+            runCatching {
+                calendarInvitationComposer.sendCancellation(
+                    to = listOf(invite.userEmail),
+                    event = invite.toCalendarEvent(sequence = 1),
+                )
+            }.onFailure { e ->
+                log.error("Failed to send one-off event cancellation for event {}: {}", invite.event.id, e.message)
+            }
+        }
+    }
+
+    private fun Invite.toCalendarEvent(sequence: Int) = CalendarEvent(
+        uid = event.icalUid,
+        title = event.title,
+        description = event.notes,
+        start = event.startsAt.atZone(zone),
+        end = event.endsAt.atZone(zone),
+        location = event.location,
+        organizerEmail = organizerEmail,
+        organizerName = organizerName,
+        attendeeEmails = listOf(userEmail),
+        locale = locale,
+        sequence = sequence,
+    )
 }

@@ -41,6 +41,41 @@ class OneOffEventService(
         return CreatedEvents(saved, invitesScheduled = scheduled)
     }
 
+    /**
+     * Cancels a not-yet-started one-off event: soft-deletes it (`cancelled_at`) and — when the
+     * write actually flips a live row — dispatches a `METHOD:CANCEL` calendar email so the block
+     * disappears from the user's calendar. The write runs in [OneOffEventWriter.cancel] (its own
+     * proxied transaction); dispatch fires *after* that commits, mirroring the create path, so an
+     * email failure never rolls back the cancellation.
+     */
+    fun cancelEvent(userId: UUID, eventId: UUID): CancelOutcome {
+        val outcome = writer.cancel(userId, eventId)
+        if (outcome is CancelOutcome.Cancelled) dispatchCancellation(userId, outcome.event)
+        return outcome
+    }
+
+    private fun dispatchCancellation(userId: UUID, event: OneOffEvent) {
+        val ctx = inviteDeliveryResolver.resolveEmailContext(userId)
+        if (ctx == null) {
+            log.debug("Skipping one-off event cancellation email for user {}: no eligible email channel", userId)
+            return
+        }
+        val zone = runCatching { ZoneId.of(userSettingsService.getOrCreate(userId).timeZone) }
+            .getOrDefault(ZoneId.of("UTC"))
+        inviteDispatcher.dispatchCancellations(
+            listOf(
+                OneOffEventInviteDispatcher.Invite(
+                    event = event,
+                    userEmail = ctx.email,
+                    organizerEmail = emailProperties.scheduling.from,
+                    organizerName = emailProperties.scheduling.fromName,
+                    locale = ctx.locale,
+                    zone = zone,
+                ),
+            ),
+        )
+    }
+
     @Transactional(readOnly = true)
     fun listForWeek(userId: UUID, weekStart: Instant, weekEnd: Instant): List<OneOffEvent> =
         repository
@@ -88,6 +123,21 @@ class OneOffEventService(
 /** Outcome of [OneOffEventService.createEvents]: the persisted rows plus whether invites were scheduled. */
 data class CreatedEvents(val events: List<OneOffEvent>, val invitesScheduled: Boolean)
 
+/** Result of a cancel attempt — the controller maps each case to an HTTP status. */
+sealed interface CancelOutcome {
+    /** No such event owned by this user. */
+    data object NotFound : CancelOutcome
+
+    /** Already cancelled — idempotent no-op (no second cancellation email). */
+    data object AlreadyCancelled : CancelOutcome
+
+    /** The event has already started; a triggered event can't be cancelled. */
+    data object AlreadyStarted : CancelOutcome
+
+    /** The row was flipped to cancelled; [event] is the just-cancelled plaintext view. */
+    data class Cancelled(val event: OneOffEvent) : CancelOutcome
+}
+
 @Service
 class OneOffEventWriter(
     private val repository: OneOffEventRepository,
@@ -120,6 +170,23 @@ class OneOffEventWriter(
         val persisted = repository.saveAll(entities)
         log.info("Created {} one-off event(s) on board {}", persisted.size, boardId)
         return persisted.map { it.toDomain(boardCrypto) }
+    }
+
+    /**
+     * Loads, guards, and soft-cancels the event in a single transaction so the start-time check and
+     * the write can't race a concurrent cancel. Returns a [CancelOutcome] the caller inspects to
+     * decide whether to dispatch the cancellation email.
+     */
+    @Transactional
+    fun cancel(userId: UUID, eventId: UUID): CancelOutcome {
+        val entity = repository.findByIdAndUserId(eventId, userId) ?: return CancelOutcome.NotFound
+        if (entity.cancelledAt != null) return CancelOutcome.AlreadyCancelled
+        val now = Instant.now(clock)
+        if (!requireNotNull(entity.startsAt).isAfter(now)) return CancelOutcome.AlreadyStarted
+        entity.cancelledAt = now
+        val saved = repository.save(entity)
+        log.info("Cancelled one-off event {}", eventId)
+        return CancelOutcome.Cancelled(saved.toDomain(boardCrypto))
     }
 }
 
