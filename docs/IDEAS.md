@@ -49,6 +49,14 @@ The scope of the individual idea is varying - could be small UI improvements, or
   `<main>`/`<header>`/`<footer>` landmarks, alt text once the screenshot lands.
 - A one-liner explaining "why Telegram?" for new visitors confused that login goes through a chat app.
 
+## Board sharing follow-ups
+- No per-board planner fairness caps yet — a busy shared board could in principle crowd out a
+  quiet one in the candidate pool (see `docs/BOARD-MODEL.md`).
+- Shared-board export/import doesn't reconstruct membership: export emits every board you belong
+  to with your role, but import always recreates you as sole `OWNER` of each.
+- No viewer/commenter role tier or per-task permissions beyond the assignee primitive — only add
+  if real usage demands it.
+
 ## Production hardening
 - Support/abuse contact address, referenced from ToS + Privacy.
 - Smoke test asserting `dev-login` actually 404s/401s in prod, rather than trusting the

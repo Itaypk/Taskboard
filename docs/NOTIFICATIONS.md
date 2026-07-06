@@ -315,8 +315,9 @@ advice/encouragement. Open questions before committing:
 - **Inbound routing.** A reminder reply would need to reach an AI conversation, which means an
   inbound-routing registry analogous to `TelegramSessionRegistry` (chat → active conversation) — the
   one genuinely new piece of plumbing, since 2b's button routing is stateless/DB-backed.
-- **Reschedule** in particular reopens the planner, which is still user-scoped today
-  (`docs/archive/BOARD-SHARING-PHASE1.md`).
+- **Reschedule** in particular reopens the planner. The planner's candidate selection already
+  spans a user's boards, but the planning session itself (and its slots) is deliberately
+  user-scoped, not board-scoped — see `docs/BOARD-MODEL.md`.
 - **Conversation lifetime / timeout** for an unanswered reminder, and how the conversation draws from
   the same AI budget/metering.
 
@@ -338,8 +339,8 @@ The cost/value ratio is the worst of any phase, and 2a + 2b already close all th
 - **Engineering cost — highest so far, and it regresses a core property.** The inbound-routing registry
   reintroduces in-memory, restart-fragile state into a feature whose whole design (queue + poller +
   stateless `rem:<code>:<id>` routing) was deliberately DB-backed and restart-safe — an architectural
-  regression, not just more code. Reschedule also reopens the user-scoped planner, colliding with the
-  deferred board-aware work (`docs/archive/BOARD-SHARING-PHASE1.md`). Plus conversation lifetime/timeout,
+  regression, not just more code. Reschedule also reopens the (deliberately) user-scoped planner
+  (`docs/BOARD-MODEL.md`). Plus conversation lifetime/timeout,
   multi-turn state, and AI-budget integration: effectively a second conversational agent, not a menu item.
 
 **Recommendation.** Defer pending real user signal. If more in-the-moment flexibility is wanted, two
