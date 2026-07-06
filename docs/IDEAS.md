@@ -21,6 +21,45 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Currently, a single task is tied to a single time-block; would we like to change that, so that a single task might have multiple (or zero) time blocks attached?
 - Add a search functionality. 
 - Assistant planning: need a way to carry-over tasks from one week to another.
+- Let the assistant *propose* additions to the user context block at the end of a planning session
+  (e.g. "want me to remember you prefer no work Tuesday evenings?"), with the user accepting/rejecting
+  in the UI — keeps the user as sole editor while lowering the friction of growing the block over time.
+  See the "Soft extension" note in `docs/MEMORY-MODEL.md`.
+- One-off calendar events (`/add`) are write-once today. Add a cancel button in the planner drawer
+  (sets `cancelled_at`, fires the existing cancellation dispatch), and consider per-item Adjust /
+  edit-from-drawer / recurrence if usage demands it.
+
+## Auth & accounts
+- Add Google OAuth as a login provider — drops in as another `loginOrRegister('google', sub, …)`
+  caller + identity rows, no schema change needed.
+- Retire the legacy `users.telegram_id` / `users.email_hash` columns once nothing reads them as a
+  lookup key (identity resolution already goes through `auth_identities`).
+- Account-linking UX: linking an identity already owned by a different account is currently just
+  refused (409). Decide if/how to offer a real merge flow, including how to re-prove ownership of
+  the other account before merging.
+
+## Landing page & SEO
+- Add a real screenshot of the board and wire it as `og:image` / `twitter:image` (biggest legibility
+  win for both humans and link-preview bots); also covers the missing Apple touch icon / 512×512 PNG
+  for share sheets.
+- Footer: GitHub link, contact/about line (ToS/Privacy are already linked).
+- Optional: an FAQ (pricing, data handling, why Google Calendar, account deletion), a `/about` page,
+  and `llms.txt` for AI-agent friendliness.
+- Accessibility pass on the login page: visible focus rings, WCAG AA contrast check on the body text,
+  `<main>`/`<header>`/`<footer>` landmarks, alt text once the screenshot lands.
+- A one-liner explaining "why Telegram?" for new visitors confused that login goes through a chat app.
+
+## Production hardening
+- Support/abuse contact address, referenced from ToS + Privacy.
+- Smoke test asserting `dev-login` actually 404s/401s in prod, rather than trusting the
+  `@Profile("dev")` annotation alone.
+- A cap on simultaneous unclaimed accounts (separate from the inactivity-based cleanup sweep, which
+  already exists).
+- Error tracking (Sentry / GlitchTip) — distinct from log collection: dedup, stacktraces, release
+  tagging.
+- A periodic backup *restore* drill, not just backups.
+- Graceful shutdown + readiness probe wired into the deploy pipeline so rollouts don't drop in-flight
+  requests.
 
 ## UI - Tasks
 - Work on tagline and satellite notes in the welcome page with better texts. See if we need to move a few things around 

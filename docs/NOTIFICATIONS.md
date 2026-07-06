@@ -316,7 +316,7 @@ advice/encouragement. Open questions before committing:
   inbound-routing registry analogous to `TelegramSessionRegistry` (chat → active conversation) — the
   one genuinely new piece of plumbing, since 2b's button routing is stateless/DB-backed.
 - **Reschedule** in particular reopens the planner, which is still user-scoped today
-  (`docs/BOARD-SHARING-PHASE1.md`).
+  (`docs/archive/BOARD-SHARING-PHASE1.md`).
 - **Conversation lifetime / timeout** for an unanswered reminder, and how the conversation draws from
   the same AI budget/metering.
 
@@ -339,7 +339,7 @@ The cost/value ratio is the worst of any phase, and 2a + 2b already close all th
   reintroduces in-memory, restart-fragile state into a feature whose whole design (queue + poller +
   stateless `rem:<code>:<id>` routing) was deliberately DB-backed and restart-safe — an architectural
   regression, not just more code. Reschedule also reopens the user-scoped planner, colliding with the
-  deferred board-aware work (`docs/BOARD-SHARING-PHASE1.md`). Plus conversation lifetime/timeout,
+  deferred board-aware work (`docs/archive/BOARD-SHARING-PHASE1.md`). Plus conversation lifetime/timeout,
   multi-turn state, and AI-budget integration: effectively a second conversational agent, not a menu item.
 
 **Recommendation.** Defer pending real user signal. If more in-the-moment flexibility is wanted, two
