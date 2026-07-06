@@ -17,6 +17,9 @@ interface EventsSectionProps {
  */
 export function EventsSection({ events, onCancelled }: EventsSectionProps) {
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  // Snapshot "now" once at mount — the future/past split only needs to be right when the drawer
+  // opens, and reading the clock during render is an impurity the lint rule (rightly) rejects.
+  const [now] = useState(() => Date.now());
 
   if (events.length === 0) return null;
 
@@ -27,8 +30,6 @@ export function EventsSection({ events, onCancelled }: EventsSectionProps) {
       .catch(() => { /* the global error toast already surfaced it; leave the event in place */ })
       .finally(() => setCancellingId(null));
   };
-
-  const now = Date.now();
 
   return (
     <section className={styles.section}>

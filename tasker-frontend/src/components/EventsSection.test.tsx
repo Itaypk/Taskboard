@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EventsSection } from './EventsSection';
 import type { OneOffEvent } from '../types';
@@ -26,6 +26,7 @@ const pastEvent: OneOffEvent = {
 
 describe('EventsSection', () => {
   afterEach(() => {
+    cleanup();
     cancelEvent.mockReset();
   });
 
