@@ -197,11 +197,14 @@ class OneOffEventServiceTest {
 
     private val eventId: UUID = UUID.fromString("00000000-0000-0000-0000-0000000000e0")
 
+    // Build the title bytes directly rather than through the boardCrypto mock: when anEntity is
+    // evaluated inside a whenever(...).thenReturn(...), a nested mock call trips Mockito's
+    // UnfinishedStubbingException. The noop decrypt is just bytes.toString(UTF_8), so this round-trips.
     private fun anEntity(startsAt: Instant, cancelledAt: Instant? = null) = OneOffEventEntity().apply {
         this.id = eventId
         this.userId = this@OneOffEventServiceTest.userId
         this.boardId = this@OneOffEventServiceTest.boardId
-        this.title = boardCrypto.encrypt(this@OneOffEventServiceTest.boardId, "Dentist")
+        this.title = "Dentist".toByteArray(Charsets.UTF_8)
         this.startsAt = startsAt
         this.endsAt = startsAt.plusSeconds(3600)
         this.icalUid = "ical-uid-1"
