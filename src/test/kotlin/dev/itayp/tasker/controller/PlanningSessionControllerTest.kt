@@ -269,4 +269,67 @@ class PlanningSessionControllerTest(@Autowired val mockMvc: MockMvc) {
                 .content("""{"startIso":"2026-04-28T09:00:00Z","endIso":"2026-04-28T10:00:00Z"}"""),
         ).andExpect(status().isNotFound)
     }
+
+    // ── POST /plans/events/{eventId}/cancel ──────────────────────────────────
+
+    @Test
+    fun `POST cancel event returns 204 when cancelled`() {
+        val eventId = UUID.fromString("00000000-0000-0000-0000-0000000000e1")
+        val event = dev.itayp.tasker.oneoff.OneOffEvent(
+            id = eventId, userId = userId, boardId = userId, title = "Dentist",
+            startsAt = Instant.parse("2026-08-01T09:00:00Z"), endsAt = Instant.parse("2026-08-01T10:00:00Z"),
+            location = null, notes = null, icalUid = "uid", cancelledAt = Instant.parse("2026-07-01T12:00:00Z"),
+        )
+        whenever(oneOffEventService.cancelEvent(userId, eventId))
+            .thenReturn(dev.itayp.tasker.oneoff.CancelOutcome.Cancelled(event))
+
+        mockMvc.perform(post("/api/v1/plans/events/$eventId/cancel").with(authentication(auth)).with(csrf()))
+            .andExpect(status().isNoContent)
+    }
+
+    @Test
+    fun `POST cancel event returns 204 when already cancelled`() {
+        val eventId = UUID.fromString("00000000-0000-0000-0000-0000000000e2")
+        whenever(oneOffEventService.cancelEvent(userId, eventId))
+            .thenReturn(dev.itayp.tasker.oneoff.CancelOutcome.AlreadyCancelled)
+
+        mockMvc.perform(post("/api/v1/plans/events/$eventId/cancel").with(authentication(auth)).with(csrf()))
+            .andExpect(status().isNoContent)
+    }
+
+    @Test
+    fun `POST cancel event returns 404 when not found`() {
+        val eventId = UUID.fromString("00000000-0000-0000-0000-0000000000e3")
+        whenever(oneOffEventService.cancelEvent(userId, eventId))
+            .thenReturn(dev.itayp.tasker.oneoff.CancelOutcome.NotFound)
+
+        mockMvc.perform(post("/api/v1/plans/events/$eventId/cancel").with(authentication(auth)).with(csrf()))
+            .andExpect(status().isNotFound)
+    }
+
+    @Test
+    fun `POST cancel event returns 409 when already started`() {
+        val eventId = UUID.fromString("00000000-0000-0000-0000-0000000000e4")
+        whenever(oneOffEventService.cancelEvent(userId, eventId))
+            .thenReturn(dev.itayp.tasker.oneoff.CancelOutcome.AlreadyStarted)
+
+        mockMvc.perform(post("/api/v1/plans/events/$eventId/cancel").with(authentication(auth)).with(csrf()))
+            .andExpect(status().isConflict)
+    }
+
+    @Test
+    fun `POST cancel event without csrf returns 403`() {
+        val eventId = UUID.fromString("00000000-0000-0000-0000-0000000000e5")
+
+        mockMvc.perform(post("/api/v1/plans/events/$eventId/cancel").with(authentication(auth)))
+            .andExpect(status().isForbidden)
+    }
+
+    @Test
+    fun `POST cancel event unauthenticated returns 401`() {
+        val eventId = UUID.fromString("00000000-0000-0000-0000-0000000000e6")
+
+        mockMvc.perform(post("/api/v1/plans/events/$eventId/cancel").with(csrf()))
+            .andExpect(status().isUnauthorized)
+    }
 }

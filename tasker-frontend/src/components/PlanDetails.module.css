@@ -148,10 +148,44 @@
 
 .eventItem {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: flex-start;
+  gap: 10px;
   padding: 8px 10px;
   border-radius: var(--r);
+}
+
+.eventBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.eventCancelBtn {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-ghost);
+  background: transparent;
+  border: 1px solid var(--paper-border);
+  border-radius: 999px;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: color var(--t), border-color var(--t), background var(--t);
+}
+
+.eventCancelBtn:hover:not(:disabled) {
+  color: #9a2f2f;
+  border-color: #d9a2a2;
+  background: rgba(154, 47, 47, 0.06);
+}
+
+.eventCancelBtn:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
 .eventTitle {

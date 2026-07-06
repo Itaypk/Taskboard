@@ -8,6 +8,7 @@ import dev.itayp.tasker.model.response.PlanSummaryResponse
 import dev.itayp.tasker.model.response.PlanTaskResponse
 import dev.itayp.tasker.model.response.TimeSlotResponse
 import dev.itayp.tasker.model.response.toResponse
+import dev.itayp.tasker.oneoff.CancelOutcome
 import dev.itayp.tasker.oneoff.OneOffEventService
 import dev.itayp.tasker.planning.PlannedTaskRepository
 import dev.itayp.tasker.planning.PlannedTaskSlotRepository
@@ -85,6 +86,23 @@ class PlanningSessionController(
                 location = event.location,
                 notes = event.notes,
             )
+        }
+
+    /**
+     * Cancels a one-off event captured through /add, before it starts: soft-deletes the row and
+     * sends a calendar cancellation so it drops off the user's calendar. 404 if it isn't the user's
+     * event, 409 if it has already started (a triggered event can't be cancelled). Cancelling an
+     * already-cancelled event is a no-op (204).
+     */
+    @PostMapping("/plans/events/{eventId}/cancel")
+    fun cancelEvent(
+        @AuthenticationPrincipal principal: TaskerPrincipal,
+        @PathVariable eventId: UUID,
+    ): ResponseEntity<Void> =
+        when (oneOffEventService.cancelEvent(principal.userId, eventId)) {
+            is CancelOutcome.Cancelled, CancelOutcome.AlreadyCancelled -> ResponseEntity.noContent().build()
+            CancelOutcome.NotFound -> ResponseEntity.notFound().build()
+            CancelOutcome.AlreadyStarted -> ResponseEntity.status(409).build()
         }
 
     /**
