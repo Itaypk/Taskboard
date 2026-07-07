@@ -14,10 +14,10 @@ This is a non-commercial solo side project. It is currently running in productio
 
 A few things to consider while working on the project:
 - As a solo project, we have full responsibility and full knowledge - do not ignore pre-existing issues. If you notice an issue that might be a bug, surface it in your response.
-- The number of active users is still very low, and they are all aware of the beta status. Consider the option of starting fresh (wiping the prod DB and re-seeding) rather than writing a complex
-  migration. This overrides the additive-only rule, but only when we explicitly decide to reset.
+- The number of active users is still very low, and they are all aware of the beta status. When absolutely necessary, breaking changes are not out of the question.
 - On production, the app runs as a single instance on an Ubuntu VPS. Short downtime is acceptable.
 - Deployment: legacy deploy script (./deploy.sh) was recently replaced with an Ansible playbook, maintained on a different repo. Do not deploy yourself unless specifically asked for.
+- When something stands out, consider the product perspective: flag cases where added complexity may not be justified or where user value is unclear—suggesting alternatives where it makes sense.
 
 ## Repo layout
 
@@ -88,7 +88,7 @@ All HTTP response security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-O
 
 ## Data model
 
-- **UUIDs everywhere**: user ids, task ids, category/tag ids. Stored as `UUID` columns with foreign keys to `users(id)`.
+- **UUIDs everywhere**: user ids, task ids, category/tag ids. Stored as `UUID` columns with foreign keys to `users(id)`. We are using UUIDv7 whenever possible, for better DB index performance.
 - **Auth tables**: `auth_identities` (changeset `005`) holds login identities — `(provider, provider_user_id)` unique, FK to `users(id)`. Profile/display data (Telegram username, encrypted email) stays on `users`; only the lookup *keys* live in `auth_identities`. `email_login_token` (changeset `006`) holds pending magic-link logins (email encrypted under the app KEK, `email_hash` as the non-secret handle). When deleting a user, clear `auth_identities` (and `email_login_token` is self-expiring) — see `AccountService.deleteUserData`. The legacy `users.telegram_id` / `users.email_hash` columns are still the source of profile state and are kept in sync, but identity *resolution* goes through `auth_identities`; retiring those columns is deferred (see `docs/archive/AUTH-DECOUPLING.md`; tracked in `docs/IDEAS.md`).
 - Liquibase runs on startup against H2 (dev/test) and Postgres (prod). `spring.jpa.hibernate.ddl-auto: validate` — Hibernate does **not** manage schema. The master changelog is `src/main/resources/db/changelog/db.changelog-master.xml`; additional changesets live under `src/main/resources/db/changelog/changesets/` and are wired in via `<include>`.
 - **The app is deployed against a real Postgres database, so migrations are additive only.** Never edit a previously-applied changeset (including `id="1"`) — add a new changeset with the next integer id instead. Renames, column-type changes, and drops must be done through new changesets that preserve existing data.
@@ -96,12 +96,12 @@ All HTTP response security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-O
 
 ## Stack notes that affect how you write code
 
-- **JVM 25** via Gradle toolchain (`build.gradle.kts`). `HELP.md` notes a past downgrade to 24 for Kotlin compat; check Kotlin 2.3.20's supported JVM targets before changing Java versions.
+- **JVM 25** via Gradle toolchain (`build.gradle.kts`). Never change Java version without explicit approval.
 - **Kotlin Spring plugins**: `kotlin-spring` (auto-opens Spring-managed classes) and `kotlin-jpa` with `allOpen` for `@Entity`, `@MappedSuperclass`, `@Embeddable`. Don't mark JPA entities `open` manually.
 - **Jackson**: uses `tools.jackson.module:jackson-module-kotlin` (Jackson 3.x, `tools.jackson` package), not `com.fasterxml.jackson.*`. Import accordingly.
 - **Handlebars**: uses Handlebars.java for AI prompts and email templates. Prompt templates live in `src/main/resources/prompts/`, emails under `src/main/resources/emails`. 
-- **Spring Boot 4.0.x**: several starter artifacts moved. Notable: `TestRestTemplate` lives in `org.springframework.boot.resttestclient` and requires `spring-boot-restclient` + `spring-boot-resttestclient` as `testImplementation` (already declared).
-- **LLM**: Spring AI is **not** the chosen approach. Use a thin, hand-rolled abstraction over the Claude API when the planner is built.
+- **Spring Boot 4.1.x**.
+- **LLM**: We use a thin, hand-rolled abstraction over the OpenRouter API. We are not using frameworks such as Spring AI.
 - **Databases**: H2 in-memory for dev (`application-dev.yaml`) and unit/slice tests. Postgres for prod (`application-prod.yaml`). Integration tests under `@ActiveProfiles("prod")` spin up a real Postgres instance via TestContainers (`AbstractIntegrationTest.Initializer`). Config is split across `application.yaml` (base), `application-dev.yaml`, and `application-prod.yaml`.
 - **Compiler flags**: `-Xjsr305=strict` (JSR-305 nullability → errors) and `-Xannotation-default-target=param-property` (Kotlin 2.x annotation target default). Keep nullability annotations honest.
 
@@ -156,6 +156,7 @@ All HTTP response security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-O
 
 Use the user's selected language and locale in the various communication channels (Telegram, email). We are using Spring's `MessageSource`, with message bundles (on `src/main/resources`).
 The web UI is currently English-only. Emails and Telegram communications are fully localized — keep it that way. 
+For gendered language (he, ar), always phrase messages in a gender-neutral way.
 
 ## Logging
 
