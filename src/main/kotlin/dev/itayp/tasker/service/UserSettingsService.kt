@@ -17,6 +17,18 @@ import java.util.UUID
 
 data class UserPlanningScheduleChangedEvent(val userId: UUID)
 
+/** Outcome of [UserSettingsService.appendToContextBlock]. */
+enum class AppendContextResult {
+    /** The addition was appended to the context block. */
+    APPENDED,
+
+    /** The addition would overflow the context-block cap; nothing was written. */
+    FULL,
+
+    /** The addition was blank; nothing was written. */
+    NO_OP,
+}
+
 @Service
 class UserSettingsService(
     private val settingsRepository: UserSettingsRepository,
@@ -25,6 +37,26 @@ class UserSettingsService(
 ) {
 
     fun getOrCreate(userId: UUID): UserSettings = toDomain(userId, fetchOrCreate(userId))
+
+    /**
+     * Appends a single line to the user's (user-authored) context block, separated from any existing
+     * content by a blank line. Backs the assistant's end-of-session "want me to remember this?" flow —
+     * the user is always the one who accepts before we call this. Enforces the same
+     * [CONTEXT_BLOCK_MAX_CHARS] soft cap as the settings form: if the addition wouldn't fit, nothing is
+     * written and [AppendContextResult.FULL] is returned so the caller can tell the user to trim it in
+     * Settings first. A blank addition is a no-op.
+     */
+    fun appendToContextBlock(userId: UUID, addition: String): AppendContextResult {
+        val trimmed = addition.trim()
+        if (trimmed.isEmpty()) return AppendContextResult.NO_OP
+        val entity = fetchOrCreate(userId)
+        val existing = userCrypto.decrypt(userId, entity.contextBlock)?.trimEnd().orEmpty()
+        val combined = if (existing.isEmpty()) trimmed else "$existing\n\n$trimmed"
+        if (combined.length > CONTEXT_BLOCK_MAX_CHARS) return AppendContextResult.FULL
+        entity.contextBlock = userCrypto.encrypt(userId, combined)
+        settingsRepository.save(entity)
+        return AppendContextResult.APPENDED
+    }
 
     fun update(userId: UUID, request: UpdateUserSettingsRequest): UserSettings {
         validateSettingsInput(
@@ -132,6 +164,9 @@ class UserSettingsService(
         )
 
     companion object {
+        /** Soft cap on the user context block, mirroring the settings form's `@Size(max)` on `contextBlock`. */
+        const val CONTEXT_BLOCK_MAX_CHARS = 4000
+
         val SUPPORTED_TIME_ZONES: List<String> = (
             ZoneId.getAvailableZoneIds()
                 .filter { it.contains('/') && !it.startsWith("Etc/") && !it.startsWith("SystemV/") } +

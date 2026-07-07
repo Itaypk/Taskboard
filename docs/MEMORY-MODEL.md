@@ -1,8 +1,8 @@
 # AI Assistant Memory Model
 
 Design for what the weekly-planner AI "remembers" across turns and across sessions.
-Status: implemented (the three stores below are all live). See `SPEC.md` for the broader product
-context. The "soft extension" idea at the end is not built — tracked in `IDEAS.md`.
+Status: implemented (the three stores below are all live, and the "soft extension" — assistant-proposed
+context edits — is now built). See `SPEC.md` for the broader product context.
 
 ## Goals & non-goals
 
@@ -30,8 +30,9 @@ Free-text facts the user maintains via the web UI settings page. Already called 
 - Dropped into the system prompt verbatim on every planning turn.
 - Examples: "I prefer deep work in the morning", "Tuesdays I leave early for pickup",
   "No work blocks after 8pm".
-- The user is the sole author. The LLM never writes here directly (see "Soft extension" below
-  for a proposed-edit flow that keeps the user authoritative).
+- The user is the sole author. The LLM never writes here directly — but at the end of a planning
+  session it may *propose* one durable line to append, which the user accepts or rejects inline
+  (see "Soft extension" below). Only an accepted proposal is written, so the user stays authoritative.
 
 **Why a free-text blob and not structured fields?** Hobby project, low volume, and the LLM
 consumes it as prose anyway. Structure would be premature.
@@ -99,10 +100,23 @@ messages       = current_session.messages              // full transcript so far
 The current session's transcript is sent as-is — no truncation, no summarization mid-session.
 The spec already commits to this ("conversations are short enough for this to be practical").
 
-## Soft extension: assistant-proposed context edits (not built)
+## Soft extension: assistant-proposed context edits (built)
 
-Idea for a v1.1: let the assistant *propose* additions to the user context block at the end of a
-session rather than requiring the user to edit it by hand. See `IDEAS.md` for the sketch.
+The assistant can *propose* one addition to the user context block at the end of a session rather than
+requiring the user to edit it by hand. Implementation:
+
+- The `submit_plan` tool carries an optional `context_suggestion` — a single durable, first-person
+  context line the model learned this session (prompt guidance: only when it's genuinely new, stable,
+  and not already in the block; otherwise omit).
+- After the plan is committed, the orchestrator asks a deterministic accept/reject question
+  (`AWAITING_CONTEXT_PROPOSAL_REPLY`, an orchestrator-owned Choice — not an LLM turn), which renders
+  natively on both web and Telegram. See `PLANNING-FLOW.md`.
+- Accepting appends the line to the block via `UserSettingsService.appendToContextBlock` (respecting
+  the ~4k-char cap); rejecting is a no-op. Nothing is persisted about a proposal that isn't accepted —
+  the question lives only in the in-memory session, so dropping off simply forgoes the addition.
+
+The user remains the sole author: nothing is written without an explicit accept, and the appended line
+is ordinary block text they can later edit or delete in Settings.
 
 ## What we are explicitly *not* building
 

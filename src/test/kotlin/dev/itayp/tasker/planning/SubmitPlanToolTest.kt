@@ -4,6 +4,7 @@ import dev.itayp.tasker.planning.dto.AgreedPlan
 import org.junit.jupiter.api.Test
 import tools.jackson.module.kotlin.jacksonObjectMapper
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class SubmitPlanToolTest {
@@ -65,6 +66,55 @@ class SubmitPlanToolTest {
 
         val plan = inbox.drain().single()
         assertEquals("All set — I've blocked Monday morning for the spec. Have a great week!", plan.message)
+    }
+
+    @Test
+    fun `parses the optional context suggestion when present`() {
+        inbox.begin()
+        val args = """
+        {
+          "tasks": [
+            {
+              "task_id": "11111111-1111-1111-1111-111111111111",
+              "title": "Write spec",
+              "slots": [
+                {"start_iso": "2026-05-04T09:00:00+02:00", "end_iso": "2026-05-04T11:00:00+02:00"}
+              ]
+            }
+          ],
+          "summary": "Agreed on the spec.",
+          "message": "Done!",
+          "context_suggestion": "I prefer not to schedule work on Tuesday evenings."
+        }
+        """.trimIndent()
+
+        tool.execute(args)
+
+        val plan = inbox.drain().single()
+        assertEquals("I prefer not to schedule work on Tuesday evenings.", plan.contextSuggestion)
+    }
+
+    @Test
+    fun `context suggestion defaults to null when omitted`() {
+        inbox.begin()
+        val args = """
+        {
+          "tasks": [
+            {
+              "task_id": "11111111-1111-1111-1111-111111111111",
+              "title": "Write spec",
+              "slots": [
+                {"start_iso": "2026-05-04T09:00:00+02:00", "end_iso": "2026-05-04T11:00:00+02:00"}
+              ]
+            }
+          ],
+          "summary": "Agreed on the spec."
+        }
+        """.trimIndent()
+
+        tool.execute(args)
+
+        assertNull(inbox.drain().single().contextSuggestion)
     }
 
     @Test

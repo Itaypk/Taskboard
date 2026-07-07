@@ -20,10 +20,6 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Persisted calendar invite SEQUENCE counter. Plan-revise updates re-send same-time slot edits (label/title/notes) with a fixed `SEQUENCE:1`. A second same-slot edit in a later session sends `SEQUENCE:1` again, which strict calendar clients may not re-apply. Persisting a per-slot revision counter (incremented on each update) would make repeated updates robust. Low priority: time moves go through cancel + fresh invite, which is unaffected.
 - Currently, a single task is tied to a single time-block; would we like to change that, so that a single task might have multiple (or zero) time blocks attached?
 - Add a search functionality.
-- Let the assistant *propose* additions to the user context block at the end of a planning session
-  (e.g. "want me to remember you prefer no work Tuesday evenings?"), with the user accepting/rejecting
-  in the UI — keeps the user as sole editor while lowering the friction of growing the block over time.
-  See the "Soft extension" note in `docs/MEMORY-MODEL.md`.
 
 ## Auth & accounts
 - Add Google OAuth as a login provider — drops in as another `loginOrRegister('google', sub, …)`

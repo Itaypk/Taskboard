@@ -12,11 +12,17 @@ import java.util.UUID
  * Carrying it on the submission (rather than relying on a separate `say` call in the same turn)
  * guarantees the session always ends with an acknowledgement, even when the model calls
  * `submit_plan` on its own.
+ *
+ * [contextSuggestion] is an optional, durable fact the assistant learned this session and proposes
+ * adding to the user's (user-authored) context block. When present, the orchestrator asks the user
+ * to accept or reject it after finalizing — the plan itself is committed regardless of the answer.
+ * Left blank/absent when there is nothing new worth remembering.
  */
 data class AgreedPlan(
     val tasks: List<AgreedPlanTask>,
     val summary: String,
     val message: String? = null,
+    @JsonProperty("context_suggestion") val contextSuggestion: String? = null,
 )
 
 data class AgreedPlanTask(

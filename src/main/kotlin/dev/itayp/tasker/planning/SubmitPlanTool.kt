@@ -80,6 +80,19 @@ class SubmitPlanTool(
                     "Write it in the user's language and warm tone — this is the last thing they see, " +
                     "so recap what was scheduled. Do NOT also send a separate `say`; this field replaces it.",
             ),
+            "context_suggestion" to mapOf(
+                "type" to "string",
+                "description" to """
+                    OPTIONAL. A single durable fact about the user — a stable preference, routine, or
+                    constraint — that you learned this session and that is worth remembering for future
+                    weeks. After finalizing, the user is asked to accept or reject adding it to their
+                    personal context. Include this ONLY when you genuinely learned something new and
+                    lasting that is NOT already covered by the user's context block above; omit the field
+                    otherwise (most sessions won't need it). Phrase it as one concise first-person context
+                    line in the user's language, e.g. "I prefer not to schedule work on Tuesday evenings."
+                    One fact only — not a recap of the week, not a task, not the plan summary.
+                """.trimIndent(),
+            ),
         ),
         "required" to listOf("tasks", "summary", "message"),
     )
@@ -93,9 +106,10 @@ class SubmitPlanTool(
         }
         inbox.record(plan)
         log.debug(
-            "submit_plan recorded plan: tasks={} hasMessage={}",
+            "submit_plan recorded plan: tasks={} hasMessage={} hasContextSuggestion={}",
             plan.tasks.size,
             !plan.message.isNullOrBlank(),
+            !plan.contextSuggestion.isNullOrBlank(),
         )
         return """{"ok": true, "tasks_recorded": ${plan.tasks.size}}"""
     }
