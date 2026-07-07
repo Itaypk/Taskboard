@@ -16,6 +16,7 @@ import org.mockito.kotlin.whenever
 import org.springframework.context.ApplicationEventPublisher
 import java.util.Optional
 import java.util.UUID
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 @ExtendWith(MockitoExtension::class)
@@ -89,5 +90,66 @@ class UserSettingsServiceTest {
         stubExisting(cron = "0 30 9 * * MON", tz = "UTC")
         service.update(userId, baseRequest(cron = "0 30 9 * * MON", tz = "Europe/London"))
         verify(eventPublisher).publishEvent(eq(UserPlanningScheduleChangedEvent(userId)))
+    }
+
+    // ── appendToContextBlock ────────────────────────────────────────────────────
+    // The noop crypto used here maps encrypt(s) -> s.toByteArray and decrypt(b) -> String(b),
+    // so a stored context block is just its UTF-8 bytes.
+
+    // Only findById is stubbed: appendToContextBlock ignores save()'s return, so leaving it unstubbed
+    // (returns null, harmlessly) keeps strict stubbing happy in the paths that never save.
+    private fun stubContext(existing: String?): UserSettingsEntity {
+        val entity = UserSettingsEntity().apply {
+            this.userId = this@UserSettingsServiceTest.userId
+            this.contextBlock = existing?.toByteArray(Charsets.UTF_8)
+        }
+        whenever(settingsRepository.findById(userId)).thenReturn(Optional.of(entity))
+        return entity
+    }
+
+    private fun UserSettingsEntity.contextText(): String? = contextBlock?.toString(Charsets.UTF_8)
+
+    @Test
+    fun `appendToContextBlock adds to an empty context`() {
+        val entity = stubContext(existing = null)
+
+        val result = service.appendToContextBlock(userId, "  I prefer mornings.  ")
+
+        assertEquals(AppendContextResult.APPENDED, result)
+        assertEquals("I prefer mornings.", entity.contextText())
+    }
+
+    @Test
+    fun `appendToContextBlock appends below existing content separated by a blank line`() {
+        val entity = stubContext(existing = "I leave early on Fridays.")
+
+        val result = service.appendToContextBlock(userId, "I prefer no work on Tuesday evenings.")
+
+        assertEquals(AppendContextResult.APPENDED, result)
+        assertEquals(
+            "I leave early on Fridays.\n\nI prefer no work on Tuesday evenings.",
+            entity.contextText(),
+        )
+    }
+
+    @Test
+    fun `appendToContextBlock returns FULL and writes nothing when the cap would overflow`() {
+        val existing = "x".repeat(UserSettingsService.CONTEXT_BLOCK_MAX_CHARS - 5)
+        val entity = stubContext(existing = existing)
+
+        val result = service.appendToContextBlock(userId, "way past the cap")
+
+        assertEquals(AppendContextResult.FULL, result)
+        assertEquals(existing, entity.contextText())
+        verify(settingsRepository, never()).save(any<UserSettingsEntity>())
+    }
+
+    @Test
+    fun `appendToContextBlock is a no-op for a blank addition`() {
+        val result = service.appendToContextBlock(userId, "   ")
+
+        assertEquals(AppendContextResult.NO_OP, result)
+        verify(settingsRepository, never()).save(any<UserSettingsEntity>())
+        verify(settingsRepository, never()).findById(any())
     }
 }

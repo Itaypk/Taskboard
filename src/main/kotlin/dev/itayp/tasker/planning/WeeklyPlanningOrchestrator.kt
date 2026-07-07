@@ -13,6 +13,7 @@ import dev.itayp.tasker.channel.ChoiceOption
 import dev.itayp.tasker.channel.ConversationChannel
 import dev.itayp.tasker.channel.MessageFormatter
 import dev.itayp.tasker.planning.dto.AgreedPlan
+import dev.itayp.tasker.service.AppendContextResult
 import dev.itayp.tasker.service.BacklogTaskService
 import dev.itayp.tasker.service.UserSettingsService
 import com.fasterxml.jackson.annotation.JsonProperty
@@ -31,7 +32,12 @@ import java.util.concurrent.ConcurrentHashMap
 /**
  * Drives the weekly planning interaction. State machine:
  *
- *   START → AWAITING_CAPACITY → CONVERSING ↔ AWAITING_INTERACTIVE_REPLY → DONE
+ *   START → AWAITING_CAPACITY → CONVERSING ↔ AWAITING_INTERACTIVE_REPLY
+ *         → [AWAITING_CONTEXT_PROPOSAL_REPLY] → DONE
+ *
+ * The optional AWAITING_CONTEXT_PROPOSAL_REPLY step runs only when `submit_plan` carried a
+ * `context_suggestion`: an orchestrator-owned accept/reject Choice for adding a durable fact to the
+ * user's context block. The plan is already committed by then, so the answer only affects the block.
  *
  * The model speaks via tools (`say`, `ask_choice`, `submit_plan`); the orchestrator
  * dispatches each call by [ToolKind], renders channel messages, queues interactive
@@ -94,6 +100,7 @@ class WeeklyPlanningOrchestrator(
                 state[sessionId]?.phase ?: Phase.DONE
             }
             Phase.AWAITING_INTERACTIVE_REPLY -> handleInteractiveReply(sessionId, current, inbound, channel)
+            Phase.AWAITING_CONTEXT_PROPOSAL_REPLY -> handleContextProposalReply(sessionId, current, inbound, channel)
             Phase.DONE -> Phase.DONE
         }
     }
@@ -392,6 +399,9 @@ class WeeklyPlanningOrchestrator(
         if (state[sessionId]?.phase == Phase.DONE) {
             // submit_plan carries its own farewell; render it unless the model already spoke via `say`.
             if (!sayRendered) renderClosingMessage(sessionId, channel)
+            // If the model proposed a context-block addition, ask the user to accept/reject it before
+            // the session truly ends. The plan is already committed; this only affects the context block.
+            maybeAskContextProposal(sessionId, channel)
             return
         }
 
@@ -537,6 +547,84 @@ class WeeklyPlanningOrchestrator(
         return objectMapper.writeValueAsString(payload) to isEscape
     }
 
+    // ── Context-block proposal (post-finalize "want me to remember this?") ---------------
+
+    /**
+     * After a plan is finalized, if the model proposed a durable fact for the user's context block,
+     * emit a deterministic accept/reject [ChannelMessage.Choice] and park the session in
+     * [Phase.AWAITING_CONTEXT_PROPOSAL_REPLY]. No LLM round-trip — the orchestrator owns this question,
+     * like the capacity and reconciliation prompts. A no-op (session stays DONE) when there's no
+     * suggestion.
+     */
+    private fun maybeAskContextProposal(sessionId: UUID, channel: ConversationChannel) {
+        val current = state[sessionId] ?: return
+        val suggestion = current.agreedPlan?.contextSuggestion?.takeIf { it.isNotBlank() } ?: return
+        log.debug("Session {}: assistant proposed a context-block addition; asking user", sessionId)
+        val locale = userSettingsService.getLocale(current.userId)
+        state[sessionId] = current.copy(
+            phase = Phase.AWAITING_CONTEXT_PROPOSAL_REPLY,
+            pendingContextProposal = suggestion,
+        )
+        channel.send(buildContextProposalChoice(suggestion, locale, channel.formatter))
+    }
+
+    private fun handleContextProposalReply(
+        sessionId: UUID,
+        current: OrchestratorState,
+        inbound: ChannelInbound,
+        channel: ConversationChannel,
+    ): Phase {
+        val suggestion = current.pendingContextProposal
+        val locale = userSettingsService.getLocale(current.userId)
+        // A fixed accept/reject question: only the explicit "accept" option adds the note. A decline
+        // or any free text is the safe no-op (mirrors the reconciliation queue's handling).
+        val accepted = inbound is ChannelInbound.Selection && inbound.optionId == CONTEXT_PROPOSAL_ACCEPT
+
+        val ackKey = when {
+            !accepted -> "planning.context_proposal.declined"
+            suggestion.isNullOrBlank() -> "planning.context_proposal.declined"
+            else -> when (userSettingsService.appendToContextBlock(current.userId, suggestion)) {
+                AppendContextResult.APPENDED -> "planning.context_proposal.accepted"
+                AppendContextResult.FULL -> "planning.context_proposal.full"
+                AppendContextResult.NO_OP -> "planning.context_proposal.declined"
+            }
+        }
+        log.debug("Session {}: context proposal resolved (accepted={})", sessionId, accepted)
+        channel.send(ChannelMessage.Text(messageSource.getMessage(ackKey, null, locale)))
+        state[sessionId] = current.copy(phase = Phase.DONE, pendingContextProposal = null)
+        return Phase.DONE
+    }
+
+    private fun buildContextProposalChoice(
+        suggestion: String,
+        locale: Locale,
+        formatter: MessageFormatter,
+    ): ChannelMessage.Choice {
+        val prompt = messageSource.getMessage(
+            "planning.context_proposal.question", arrayOf(formatter.italic(suggestion)), locale,
+        )
+        return ChannelMessage.Choice(
+            prompt = prompt,
+            options = listOf(
+                ChoiceOption(CONTEXT_PROPOSAL_ACCEPT, messageSource.getMessage("planning.context_proposal.accept", null, locale)),
+                ChoiceOption(CONTEXT_PROPOSAL_DECLINE, messageSource.getMessage("planning.context_proposal.decline", null, locale)),
+            ),
+        )
+    }
+
+    /**
+     * Re-renders the context-proposal question when the session is awaiting its answer, so a reloaded
+     * web client can continue (like [capacityChoice] / [pendingReconcileChoice], this question isn't
+     * part of the AI transcript). Returns null in any other phase.
+     */
+    fun pendingContextProposalChoice(sessionId: UUID, formatter: MessageFormatter): ChannelMessage.Choice? {
+        val current = state[sessionId] ?: return null
+        if (current.phase != Phase.AWAITING_CONTEXT_PROPOSAL_REPLY) return null
+        val suggestion = current.pendingContextProposal ?: return null
+        val locale = userSettingsService.getLocale(current.userId)
+        return buildContextProposalChoice(suggestion, locale, formatter)
+    }
+
     // ── Helpers --------------------------------------------------------------------------
 
     private fun buildCapacityPrompt(weekStart: LocalDate, locale: Locale, formatter: MessageFormatter): String {
@@ -586,7 +674,14 @@ class WeeklyPlanningOrchestrator(
         is ChannelInbound.Selection -> inbound.freeText ?: inbound.optionId
     }
 
-    enum class Phase { AWAITING_CAPACITY, AWAITING_RECONCILE_REPLY, CONVERSING, AWAITING_INTERACTIVE_REPLY, DONE }
+    enum class Phase {
+        AWAITING_CAPACITY,
+        AWAITING_RECONCILE_REPLY,
+        CONVERSING,
+        AWAITING_INTERACTIVE_REPLY,
+        AWAITING_CONTEXT_PROPOSAL_REPLY,
+        DONE,
+    }
 
     data class OrchestratorState(
         val phase: Phase,
@@ -600,6 +695,8 @@ class WeeklyPlanningOrchestrator(
         val pendingReconcile: List<ReconcileItem> = emptyList(),
         /** Tasks the user chose to carry over during reconciliation, fed to the assistant's context. */
         val carriedOver: List<UnfinishedPlannedTask> = emptyList(),
+        /** The context-block addition the assistant proposed at finalize, awaiting the user's accept/reject. */
+        val pendingContextProposal: String? = null,
     )
 
     /** A single pre-session reconciliation question plus the task and options it binds to. */
@@ -636,6 +733,10 @@ class WeeklyPlanningOrchestrator(
         const val CONVERSATION_TYPE = "weekly_planning"
         const val SAY_TOOL_NAME = "say"
         const val ESCAPE_OPTION_ID = "discuss"
+
+        // Context-proposal accept/reject option ids (bound in handleContextProposalReply).
+        const val CONTEXT_PROPOSAL_ACCEPT = "remember"
+        const val CONTEXT_PROPOSAL_DECLINE = "skip"
 
         // Reconciliation-choice option ids (stable; bound in handleReconcileReply / applyReconcileAction).
         const val RECONCILE_DONE = "done"

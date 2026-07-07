@@ -68,7 +68,11 @@ class WebPlanningController(
             ?: throw ResponseStatusException(HttpStatus.CONFLICT, "Planning session is no longer active")
         val conversationId = orchestrator.conversationId(sessionId)
         val messages = if (conversationId != null) {
-            transcriptService.reconstruct(conversationId)
+            val reconstructed = transcriptService.reconstruct(conversationId)
+            // The post-finalize context-block proposal is an orchestrator-owned Choice (not part of the
+            // AI transcript), so re-append it when the session is parked on that question.
+            val proposal = orchestrator.pendingContextProposalChoice(sessionId, MarkdownMessageFormatter)
+            if (proposal != null) reconstructed + TranscriptMessage.assistant(proposal) else reconstructed
         } else {
             // No AI conversation yet: the session is either awaiting the capacity reply or in the
             // pre-session reconciliation sweep. Re-render whichever question is currently pending so a

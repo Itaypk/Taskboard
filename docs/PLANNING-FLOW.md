@@ -40,6 +40,17 @@ SUBMITTED
   └─► SubmitPlanTool parses payload, drops it in PlanSubmissionInbox
   └─► Orchestrator drains inbox after the AI turn finishes, calls
       PlanningSessionService.completeSession(summary = plan.summary)
+  └─► If the plan carried a `context_suggestion`, the orchestrator renders the closing
+      message and then AWAITING_CONTEXT_PROPOSAL_REPLY (see below); otherwise → DONE.
+AWAITING_CONTEXT_PROPOSAL_REPLY (only if submit_plan included a context_suggestion)
+  └─► A deterministic accept/reject Choice (no LLM) asking whether to add the suggested
+      fact to the user's context block. Owned by the orchestrator like the capacity and
+      reconcile prompts — it is NOT part of the AI transcript.
+        • accept  → UserSettingsService.appendToContextBlock (respects the 4k cap)
+        • decline / free text → no-op
+  └─► Sends a short localized ack, then → DONE. The plan is already committed at SUBMITTED,
+      so dropping off here (closing the drawer, ignoring the Telegram buttons) only forgoes
+      the context addition; the plan stands.
 DONE
 ```
 
@@ -84,7 +95,7 @@ Recommended convention in the prompt: emit at most one `ask_choice` per turn unl
 follow-ups are independent (e.g. asking about Task A's slot, then Task B's slot, etc.).
 The orchestrator does not enforce this; ordering of the array is preserved.
 
-#### `submit_plan(tasks, summary)` — one-way, terminal
+#### `submit_plan(tasks, summary, message, context_suggestion?)` — one-way, terminal
 
 ```json
 {
@@ -96,13 +107,17 @@ The orchestrator does not enforce this; ordering of the array is preserved.
       "notes": "string (optional)"
     }
   ],
-  "summary": "human-readable recap stored as the session summary"
+  "summary": "human-readable recap stored as the session summary",
+  "message": "user-facing closing farewell",
+  "context_suggestion": "optional durable fact to propose adding to the user context block"
 }
 ```
 
 Drops the parsed payload into `PlanSubmissionInbox`. After the turn completes, the
-orchestrator calls `PlanningSessionService.completeSession(summary = plan.summary)` and
-moves to `DONE`. The structured task list lives in the conversation transcript; v1 does
+orchestrator calls `PlanningSessionService.completeSession(summary = plan.summary)`. If the
+model supplied a `context_suggestion`, the orchestrator asks the user to accept/reject it
+(the `AWAITING_CONTEXT_PROPOSAL_REPLY` step above) before reaching `DONE`; otherwise it goes
+straight to `DONE`. The structured task list lives in the conversation transcript; v1 does
 not add a new column for it.
 
 A typical farewell turn looks like `submit_plan(...)` + `say("Have a great week!")` in
