@@ -37,31 +37,36 @@ export function PlanDetails({ plan, onTaskClick, onTaskContextMenu }: PlanDetail
           <p className={styles.summaryMuted}>No tasks were scheduled in this plan.</p>
         ) : (
           <ul className={styles.taskList}>
-            {plan.tasks.map(task => (
-              <li key={task.id}>
-                <button
-                  type="button"
-                  className={styles.taskItem}
-                  onClick={() => onTaskClick(task.id)}
-                  onContextMenu={onTaskContextMenu ? e => { e.preventDefault(); onTaskContextMenu(e, task.id); } : undefined}
-                >
-                  <span
-                    className={`${styles.statusDot} ${task.status === 'done' ? styles.statusDotDone : styles.statusDotTodo}`}
-                    aria-label={task.status === 'done' ? 'Done' : 'To do'}
-                  />
-                  <span className={styles.taskContent}>
-                    <span className={`${styles.taskTitle} ${task.status === 'done' ? styles.taskTitleDone : ''}`}>
-                      {task.title}
-                    </span>
-                    {task.slots.length > 0 && (
-                      <span className={styles.taskSlot}>
-                        {formatTimeSlot(task.slots[0].startIso, task.slots[0].endIso)}
+            {plan.tasks.map(task => {
+              const isArchived = task.status === 'archived';
+              const isDone = task.status === 'done' || isArchived;
+              return (
+                <li key={task.id}>
+                  <button
+                    type="button"
+                    className={styles.taskItem}
+                    disabled={isArchived}
+                    onClick={isArchived ? undefined : () => onTaskClick(task.id)}
+                    onContextMenu={!isArchived && onTaskContextMenu ? e => { e.preventDefault(); onTaskContextMenu(e, task.id); } : undefined}
+                  >
+                    <span
+                      className={`${styles.statusDot} ${isDone ? styles.statusDotDone : styles.statusDotTodo}`}
+                      aria-label={isDone ? 'Done' : 'To do'}
+                    />
+                    <span className={styles.taskContent}>
+                      <span className={`${styles.taskTitle} ${isDone ? styles.taskTitleDone : ''}`}>
+                        {task.title}
                       </span>
-                    )}
-                  </span>
-                </button>
-              </li>
-            ))}
+                      {task.slots.length > 0 && (
+                        <span className={styles.taskSlot}>
+                          {formatTimeSlot(task.slots[0].startIso, task.slots[0].endIso)}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
