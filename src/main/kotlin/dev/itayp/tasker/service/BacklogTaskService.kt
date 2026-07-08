@@ -14,6 +14,7 @@ import dev.itayp.tasker.model.request.TagInput
 import dev.itayp.tasker.model.request.UpdateBacklogTaskRequest
 import dev.itayp.tasker.planning.BacklogTaskChangeService
 import dev.itayp.tasker.planning.PlanWatermarkService
+import dev.itayp.tasker.planning.TaskCompletionCancellationService
 import dev.itayp.tasker.repository.BacklogTaskCategoryRepository
 import dev.itayp.tasker.repository.BacklogTaskRepository
 import dev.itayp.tasker.repository.BacklogTaskTagRepository
@@ -31,6 +32,9 @@ import java.util.UUID
 
 private const val REBALANCE_KEY_LENGTH_THRESHOLD = 50
 
+/** Statuses meaning the task's originally-scheduled time block will never happen. */
+private val TERMINAL_STATUSES = setOf(TaskStatus.DONE, TaskStatus.ARCHIVED)
+
 @Service
 class BacklogTaskService(
     private val backlogTaskRepository: BacklogTaskRepository,
@@ -43,6 +47,7 @@ class BacklogTaskService(
     private val boardCrypto: BoardCryptoService,
     private val userRepository: UserRepository,
     private val clock: Clock,
+    private val taskCompletionCancellationService: TaskCompletionCancellationService,
 ) {
     private val log = LoggerFactory.getLogger(BacklogTaskService::class.java)
 
@@ -277,6 +282,14 @@ class BacklogTaskService(
         // bump so field edits (title/description/tags/…) surface to a polling board tab.
         taskChangeService.recordStatusChange(boardId, userId, saved.id!!, request.title, previousStatus, newStatus)
         taskChangeService.bumpWatermark(boardId)
+        // Completing or archiving a task ahead of its scheduled time block(s) — done or no longer
+        // planned for that time either way — makes any still-pending reminder and calendar invite for
+        // it stale. Cancel them, mirroring what a plan revision does for a dropped slot.
+        if (newStatus in TERMINAL_STATUSES && previousStatus !in TERMINAL_STATUSES) {
+            entity.lastScheduledInSessionId?.let { sessionId ->
+                taskCompletionCancellationService.cancelUpcomingSlots(userId, sessionId, id)
+            }
+        }
         return saved.toDomain(boardCrypto)
     }
 

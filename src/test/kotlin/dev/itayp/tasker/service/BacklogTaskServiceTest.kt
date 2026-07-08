@@ -14,6 +14,7 @@ import dev.itayp.tasker.model.request.TagInput
 import dev.itayp.tasker.model.request.UpdateBacklogTaskRequest
 import dev.itayp.tasker.planning.BacklogTaskChangeService
 import dev.itayp.tasker.planning.PlanWatermarkService
+import dev.itayp.tasker.planning.TaskCompletionCancellationService
 import dev.itayp.tasker.repository.BacklogTaskCategoryRepository
 import dev.itayp.tasker.repository.BacklogTaskRepository
 import dev.itayp.tasker.repository.BacklogTaskTagRepository
@@ -49,6 +50,7 @@ class BacklogTaskServiceTest {
     @Mock private lateinit var boardMembershipService: BoardMembershipService
     @Mock private lateinit var userRepository: UserRepository
     @Mock private lateinit var clock: Clock
+    @Mock private lateinit var taskCompletionCancellationService: TaskCompletionCancellationService
 
     private val boardCrypto = noopBoardCryptoService()
 
@@ -64,6 +66,7 @@ class BacklogTaskServiceTest {
             boardCrypto,
             userRepository,
             clock,
+            taskCompletionCancellationService,
         )
     }
 
@@ -282,6 +285,109 @@ class BacklogTaskServiceTest {
         assertEquals("New Title", existingEntity.title?.toString(Charsets.UTF_8))
         assertEquals(TaskStatus.DONE, existingEntity.status)
         assertNotNull(existingEntity.updatedAt)
+    }
+
+    @Test
+    fun `updateTask cancels upcoming slots when task is completed and it has a scheduled session`() {
+        val taskId = UUID.randomUUID()
+        val catId = UUID.randomUUID()
+        val sessionId = UUID.randomUUID()
+        val existingEntity = taskEntity(categoryEntity(), id = taskId, lastScheduledInSessionId = sessionId)
+        whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(existingEntity)
+        whenever(categoryRepository.findByIdAndBoardId(catId, boardId)).thenReturn(categoryEntity(id = catId))
+        whenever(tagRepository.findAllByBoardId(boardId)).thenReturn(emptyList())
+        stubSaveTask(existingEntity)
+
+        service.updateTask(userId, boardId, taskId, UpdateBacklogTaskRequest(
+            title = "Title",
+            status = "done",
+            categoryId = catId.toString(),
+        ))
+
+        verify(taskCompletionCancellationService).cancelUpcomingSlots(userId, sessionId, taskId)
+    }
+
+    @Test
+    fun `updateTask does not cancel slots when task is completed without a scheduled session`() {
+        val taskId = UUID.randomUUID()
+        val catId = UUID.randomUUID()
+        val existingEntity = taskEntity(categoryEntity(), id = taskId)
+        whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(existingEntity)
+        whenever(categoryRepository.findByIdAndBoardId(catId, boardId)).thenReturn(categoryEntity(id = catId))
+        whenever(tagRepository.findAllByBoardId(boardId)).thenReturn(emptyList())
+        stubSaveTask(existingEntity)
+
+        service.updateTask(userId, boardId, taskId, UpdateBacklogTaskRequest(
+            title = "Title",
+            status = "done",
+            categoryId = catId.toString(),
+        ))
+
+        verify(taskCompletionCancellationService, never()).cancelUpcomingSlots(any(), any(), any())
+    }
+
+    @Test
+    fun `updateTask does not cancel slots when an already-done task is re-saved`() {
+        val taskId = UUID.randomUUID()
+        val catId = UUID.randomUUID()
+        val sessionId = UUID.randomUUID()
+        val existingEntity = taskEntity(categoryEntity(), id = taskId, lastScheduledInSessionId = sessionId)
+        existingEntity.status = TaskStatus.DONE
+        whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(existingEntity)
+        whenever(categoryRepository.findByIdAndBoardId(catId, boardId)).thenReturn(categoryEntity(id = catId))
+        whenever(tagRepository.findAllByBoardId(boardId)).thenReturn(emptyList())
+        stubSaveTask(existingEntity)
+
+        service.updateTask(userId, boardId, taskId, UpdateBacklogTaskRequest(
+            title = "Title still done",
+            status = "done",
+            categoryId = catId.toString(),
+        ))
+
+        verify(taskCompletionCancellationService, never()).cancelUpcomingSlots(any(), any(), any())
+    }
+
+    @Test
+    fun `updateTask cancels upcoming slots when task is archived and it has a scheduled session`() {
+        val taskId = UUID.randomUUID()
+        val catId = UUID.randomUUID()
+        val sessionId = UUID.randomUUID()
+        val existingEntity = taskEntity(categoryEntity(), id = taskId, lastScheduledInSessionId = sessionId)
+        whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(existingEntity)
+        whenever(categoryRepository.findByIdAndBoardId(catId, boardId)).thenReturn(categoryEntity(id = catId))
+        whenever(tagRepository.findAllByBoardId(boardId)).thenReturn(emptyList())
+        stubSaveTask(existingEntity)
+
+        service.updateTask(userId, boardId, taskId, UpdateBacklogTaskRequest(
+            title = "Title",
+            status = "archived",
+            categoryId = catId.toString(),
+        ))
+
+        verify(taskCompletionCancellationService).cancelUpcomingSlots(userId, sessionId, taskId)
+    }
+
+    @Test
+    fun `updateTask does not cancel slots again when moving from done to archived`() {
+        val taskId = UUID.randomUUID()
+        val catId = UUID.randomUUID()
+        val sessionId = UUID.randomUUID()
+        val existingEntity = taskEntity(categoryEntity(), id = taskId, lastScheduledInSessionId = sessionId)
+        existingEntity.status = TaskStatus.DONE
+        whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(existingEntity)
+        whenever(categoryRepository.findByIdAndBoardId(catId, boardId)).thenReturn(categoryEntity(id = catId))
+        whenever(tagRepository.findAllByBoardId(boardId)).thenReturn(emptyList())
+        stubSaveTask(existingEntity)
+
+        service.updateTask(userId, boardId, taskId, UpdateBacklogTaskRequest(
+            title = "Title",
+            status = "archived",
+            categoryId = catId.toString(),
+        ))
+
+        // Already cancelled when the task first went DONE — moving between terminal statuses shouldn't
+        // dispatch a second round of cancellations.
+        verify(taskCompletionCancellationService, never()).cancelUpcomingSlots(any(), any(), any())
     }
 
     @Test
@@ -634,6 +740,7 @@ class BacklogTaskServiceTest {
         id: UUID = UUID.randomUUID(),
         title: String = "Task",
         sortKey: String = SortKeyGenerator.INITIAL,
+        lastScheduledInSessionId: UUID? = null,
     ) = BacklogTaskEntity().apply {
         this.id = id
         this.boardId = this@BacklogTaskServiceTest.boardId
@@ -644,5 +751,6 @@ class BacklogTaskServiceTest {
         this.sortKey = sortKey
         this.createdAt = Instant.now()
         this.updatedAt = null
+        this.lastScheduledInSessionId = lastScheduledInSessionId
     }
 }

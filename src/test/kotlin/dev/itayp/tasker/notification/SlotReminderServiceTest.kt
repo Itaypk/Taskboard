@@ -83,6 +83,19 @@ class SlotReminderServiceTest {
     }
 
     @Test
+    fun `cancelForTask cancels the pending reminder for each given slot`() {
+        val slots = listOf(
+            AgreedTimeSlot(startIso = "2026-05-13T10:00:00Z", endIso = "2026-05-13T11:00:00Z"),
+            AgreedTimeSlot(startIso = "2026-05-14T10:00:00Z", endIso = "2026-05-14T11:00:00Z"),
+        )
+
+        service.cancelForTask(sessionId, taskId, slots)
+
+        verify(repository).cancelPending(sessionId, taskId, "2026-05-13T10:00:00Z")
+        verify(repository).cancelPending(sessionId, taskId, "2026-05-14T10:00:00Z")
+    }
+
+    @Test
     fun `slot whose reminder time is already in the past is not queued`() {
         // start 08:05 → fireAt 07:50, before now (08:00).
         val current = listOf(task(AgreedTimeSlot(startIso = "2026-05-13T08:05:00Z", endIso = "2026-05-13T09:00:00Z")))

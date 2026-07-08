@@ -12,6 +12,7 @@ import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.util.*
+import kotlin.test.assertEquals
 
 @ExtendWith(MockitoExtension::class)
 class PlannedTaskServiceTest {
@@ -40,6 +41,38 @@ class PlannedTaskServiceTest {
             this.title = "title".toByteArray(Charsets.UTF_8)
             this.position = position
         }
+
+    // ── findTaskInSession ────────────────────────────────────────────────────
+
+    @Test
+    fun `findTaskInSession returns the task's slots when it is planned in the session`() {
+        val ptId = UUID.randomUUID()
+        val existing = savedEntity(id = ptId, backlogTaskId = taskId1)
+        whenever(plannedTaskRepository.findBySessionIdAndBacklogTaskId(sessionId, taskId1)).thenReturn(existing)
+        whenever(plannedTaskSlotRepository.findAllByPlannedTaskIdIn(listOf(ptId))).thenReturn(
+            listOf(
+                PlannedTaskSlotEntity().apply {
+                    this.plannedTaskId = ptId
+                    this.startIso = slot.startIso
+                    this.endIso = slot.endIso
+                },
+            ),
+        )
+
+        val result = service.findTaskInSession(userId, sessionId, taskId1)
+
+        assertEquals(taskId1, result?.taskId)
+        assertEquals(listOf(slot), result?.slots)
+    }
+
+    @Test
+    fun `findTaskInSession returns null when the task is not planned in the session`() {
+        whenever(plannedTaskRepository.findBySessionIdAndBacklogTaskId(sessionId, taskId1)).thenReturn(null)
+
+        val result = service.findTaskInSession(userId, sessionId, taskId1)
+
+        assertEquals(null, result)
+    }
 
     // ── persist ──────────────────────────────────────────────────────────────
 

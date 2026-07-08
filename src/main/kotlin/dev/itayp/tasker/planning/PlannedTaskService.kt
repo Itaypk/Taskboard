@@ -44,6 +44,21 @@ class PlannedTaskService(
         }
     }
 
+    /** Looks up a single planned task's slots within [sessionId], or null if it isn't planned there. */
+    @Transactional(readOnly = true)
+    fun findTaskInSession(userId: UUID, sessionId: UUID, backlogTaskId: UUID): AgreedPlanTask? {
+        val task = plannedTaskRepository.findBySessionIdAndBacklogTaskId(sessionId, backlogTaskId) ?: return null
+        val slots = plannedTaskSlotRepository.findAllByPlannedTaskIdIn(listOf(task.id!!)).map { slot ->
+            AgreedTimeSlot(startIso = slot.startIso ?: "", endIso = slot.endIso ?: "", label = slot.label)
+        }
+        return AgreedPlanTask(
+            taskId = backlogTaskId,
+            title = userCrypto.decrypt(userId, task.title).orEmpty(),
+            notes = userCrypto.decrypt(userId, task.notes),
+            slots = slots,
+        )
+    }
+
     @Transactional
     fun persist(sessionId: UUID, userId: UUID, tasks: List<AgreedPlanTask>) {
         val existing = plannedTaskRepository.findAllBySessionIdOrderByPosition(sessionId)
