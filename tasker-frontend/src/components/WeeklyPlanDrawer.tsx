@@ -298,7 +298,7 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
       <div className={`overlay${open ? ' overlay--open' : ''}`} onClick={onClose} />
       <aside
         className={`drawer${open ? ' drawer--open' : ''}`}
-        aria-hidden={!open}
+        inert={!open}
         role="dialog"
         aria-modal="true"
         aria-label="Weekly plan"
