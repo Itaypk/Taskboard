@@ -243,7 +243,7 @@ export function TaskDrawer({
       <div className={`overlay${open ? ' overlay--open' : ''}`} onClick={onClose} />
       <aside
         className={`drawer${open ? ' drawer--open' : ''}`}
-        aria-hidden={!open}
+        inert={!open}
         role="dialog"
         aria-modal="true"
         aria-label={isNew ? 'New task' : 'Task details'}
