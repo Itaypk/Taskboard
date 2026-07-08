@@ -9,10 +9,11 @@ import java.time.OffsetDateTime
 import java.util.UUID
 
 /**
- * When a task with an assigned time block is completed ahead of that block, its reminders and
- * calendar invitation are no longer needed. This mirrors what a plan revision already does for a
- * slot that's dropped from the plan ([PlanFinalizationService.applyPlan]), but is triggered by task
- * completion instead of a new agreed plan — so it re-uses the same cancellation primitives
+ * When a task with an assigned time block is marked done or archived ahead of that block, its
+ * reminders and calendar invitation are no longer needed — either way, the block's original purpose
+ * won't happen. This mirrors what a plan revision already does for a slot that's dropped from the
+ * plan ([PlanFinalizationService.applyPlan]), but is triggered by the task leaving active status
+ * instead of a new agreed plan — so it re-uses the same cancellation primitives
  * ([SlotReminderService], [PlanInviteDispatcher]) rather than the slot-diffing machinery, since only
  * one task's still-planned slots are involved. Slots that already started are left alone; there's
  * nothing to cancel once a block is underway or past.

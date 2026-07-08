@@ -348,6 +348,49 @@ class BacklogTaskServiceTest {
     }
 
     @Test
+    fun `updateTask cancels upcoming slots when task is archived and it has a scheduled session`() {
+        val taskId = UUID.randomUUID()
+        val catId = UUID.randomUUID()
+        val sessionId = UUID.randomUUID()
+        val existingEntity = taskEntity(categoryEntity(), id = taskId, lastScheduledInSessionId = sessionId)
+        whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(existingEntity)
+        whenever(categoryRepository.findByIdAndBoardId(catId, boardId)).thenReturn(categoryEntity(id = catId))
+        whenever(tagRepository.findAllByBoardId(boardId)).thenReturn(emptyList())
+        stubSaveTask(existingEntity)
+
+        service.updateTask(userId, boardId, taskId, UpdateBacklogTaskRequest(
+            title = "Title",
+            status = "archived",
+            categoryId = catId.toString(),
+        ))
+
+        verify(taskCompletionCancellationService).cancelUpcomingSlots(userId, sessionId, taskId)
+    }
+
+    @Test
+    fun `updateTask does not cancel slots again when moving from done to archived`() {
+        val taskId = UUID.randomUUID()
+        val catId = UUID.randomUUID()
+        val sessionId = UUID.randomUUID()
+        val existingEntity = taskEntity(categoryEntity(), id = taskId, lastScheduledInSessionId = sessionId)
+        existingEntity.status = TaskStatus.DONE
+        whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(existingEntity)
+        whenever(categoryRepository.findByIdAndBoardId(catId, boardId)).thenReturn(categoryEntity(id = catId))
+        whenever(tagRepository.findAllByBoardId(boardId)).thenReturn(emptyList())
+        stubSaveTask(existingEntity)
+
+        service.updateTask(userId, boardId, taskId, UpdateBacklogTaskRequest(
+            title = "Title",
+            status = "archived",
+            categoryId = catId.toString(),
+        ))
+
+        // Already cancelled when the task first went DONE — moving between terminal statuses shouldn't
+        // dispatch a second round of cancellations.
+        verify(taskCompletionCancellationService, never()).cancelUpcomingSlots(any(), any(), any())
+    }
+
+    @Test
     fun `updateTask throws when task not found`() {
         val taskId = UUID.randomUUID()
         whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(null)
