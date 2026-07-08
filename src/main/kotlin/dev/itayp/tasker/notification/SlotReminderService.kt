@@ -2,6 +2,7 @@ package dev.itayp.tasker.notification
 
 import dev.itayp.tasker.planning.PlanSlotDiffer
 import dev.itayp.tasker.planning.dto.AgreedPlanTask
+import dev.itayp.tasker.planning.dto.AgreedTimeSlot
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -68,6 +69,20 @@ class SlotReminderService(
         if (created > 0 || cancelled > 0) {
             log.debug("Slot reminders synced for user {}: created={} cancelled={}", userId, created, cancelled)
         }
+    }
+
+    /**
+     * Cancels any still-pending reminder for [slots] of [taskId] within [sessionId] — used when a task
+     * is completed ahead of its scheduled block(s), so a stale "your block starts soon" nudge doesn't
+     * arrive for something already done.
+     */
+    @Transactional
+    fun cancelForTask(sessionId: UUID, taskId: UUID, slots: List<AgreedTimeSlot>): Int {
+        val cancelled = slots.sumOf { slot -> repository.cancelPending(sessionId, taskId, slot.startIso) }
+        if (cancelled > 0) {
+            log.debug("Cancelled {} pending reminder(s) for completed task in session {}", cancelled, sessionId)
+        }
+        return cancelled
     }
 
     /**

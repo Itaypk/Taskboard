@@ -14,6 +14,7 @@ import dev.itayp.tasker.model.request.TagInput
 import dev.itayp.tasker.model.request.UpdateBacklogTaskRequest
 import dev.itayp.tasker.planning.BacklogTaskChangeService
 import dev.itayp.tasker.planning.PlanWatermarkService
+import dev.itayp.tasker.planning.TaskCompletionCancellationService
 import dev.itayp.tasker.repository.BacklogTaskCategoryRepository
 import dev.itayp.tasker.repository.BacklogTaskRepository
 import dev.itayp.tasker.repository.BacklogTaskTagRepository
@@ -43,6 +44,7 @@ class BacklogTaskService(
     private val boardCrypto: BoardCryptoService,
     private val userRepository: UserRepository,
     private val clock: Clock,
+    private val taskCompletionCancellationService: TaskCompletionCancellationService,
 ) {
     private val log = LoggerFactory.getLogger(BacklogTaskService::class.java)
 
@@ -277,6 +279,14 @@ class BacklogTaskService(
         // bump so field edits (title/description/tags/…) surface to a polling board tab.
         taskChangeService.recordStatusChange(boardId, userId, saved.id!!, request.title, previousStatus, newStatus)
         taskChangeService.bumpWatermark(boardId)
+        // Completing a task ahead of its scheduled time block(s) makes any still-pending reminder and
+        // calendar invite for it stale — cancel them, mirroring what a plan revision does for a
+        // dropped slot.
+        if (newStatus == TaskStatus.DONE && previousStatus != TaskStatus.DONE) {
+            entity.lastScheduledInSessionId?.let { sessionId ->
+                taskCompletionCancellationService.cancelUpcomingSlots(userId, sessionId, id)
+            }
+        }
         return saved.toDomain(boardCrypto)
     }
 
