@@ -78,4 +78,8 @@ class BacklogTaskEntity {
     /** Part of the seeded tutorial backlog: immutable (client-side), one-click clearable, excluded from the engagement signal. */
     @Column(name = "tutorial", nullable = false)
     var tutorial: Boolean = false
+
+    /** User opt-out: when true the task is withheld from every AI-assistant read path (planner slate, backlog search, quick-add sampling). Independent of priority. */
+    @Column(name = "hidden_from_assistant", nullable = false)
+    var hiddenFromAssistant: Boolean = false
 }

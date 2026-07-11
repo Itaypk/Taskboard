@@ -143,6 +143,8 @@ data class TaskResponse(
     val assigneeUserId: String?,
     /** True for seeded tutorial tasks: the client hides edit affordances and offers a one-click "clear tutorial". */
     val tutorial: Boolean,
+    /** True when the user has excluded this task from the AI assistant's context. */
+    val hiddenFromAssistant: Boolean,
 )
 
 data class TimeSlotResponse(
@@ -195,6 +197,7 @@ fun BacklogTask.toResponse() = TaskResponse(
     relevantFrom = relevantFrom?.toString(),
     assigneeUserId = assigneeUserId?.toString(),
     tutorial = tutorial,
+    hiddenFromAssistant = hiddenFromAssistant,
 )
 
 fun BacklogTaskCategory.toResponse() = CategoryResponse(

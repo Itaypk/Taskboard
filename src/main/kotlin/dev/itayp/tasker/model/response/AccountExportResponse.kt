@@ -116,4 +116,6 @@ data class TaskExport(
     val updatedAt: String?,
     @field:Pattern(regexp = "^$|^\\d{4}-\\d{2}-\\d{2}$")
     val relevantFrom: String?,
+    /** Whether the task is excluded from the AI assistant's context. Defaults to false for older exports. */
+    val hiddenFromAssistant: Boolean = false,
 )

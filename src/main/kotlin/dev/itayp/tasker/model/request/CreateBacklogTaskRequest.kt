@@ -30,4 +30,6 @@ data class CreateBacklogTaskRequest(
     @field:Size(max = 64)
     @field:Pattern(regexp = "^$|^\\d{4}-\\d{2}-\\d{2}$", message = "Available-from must be a valid date.")
     val relevantFrom: String? = null,
+    /** Opt the task out of the AI assistant's context (planner slate, backlog search, quick-add sampling). */
+    val hiddenFromAssistant: Boolean = false,
 )

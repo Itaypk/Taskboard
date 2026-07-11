@@ -106,6 +106,21 @@ class BacklogTaskServiceTest {
     }
 
     @Test
+    fun `getTasksAcrossBoards drops tasks hidden from the assistant`() {
+        whenever(boardMembershipService.listBoardIds(userId)).thenReturn(listOf(boardId))
+        whenever(backlogTaskRepository.findAllByBoardIdInAndStatusNotOrderBySortKeyAsc(
+            listOf(boardId), TaskStatus.ARCHIVED,
+        )).thenReturn(listOf(
+            taskEntity(categoryEntity(), title = "Visible"),
+            taskEntity(categoryEntity(), title = "Hidden", hiddenFromAssistant = true),
+        ))
+
+        val result = service.getTasksAcrossBoards(userId, null)
+
+        assertEquals(listOf("Visible"), result.map { it.title })
+    }
+
+    @Test
     fun `findTask resolves a task on any of the user's boards`() {
         val taskId = UUID.randomUUID()
         whenever(boardMembershipService.listBoardIds(userId)).thenReturn(listOf(boardId))
@@ -741,6 +756,7 @@ class BacklogTaskServiceTest {
         title: String = "Task",
         sortKey: String = SortKeyGenerator.INITIAL,
         lastScheduledInSessionId: UUID? = null,
+        hiddenFromAssistant: Boolean = false,
     ) = BacklogTaskEntity().apply {
         this.id = id
         this.boardId = this@BacklogTaskServiceTest.boardId
@@ -752,5 +768,6 @@ class BacklogTaskServiceTest {
         this.createdAt = Instant.now()
         this.updatedAt = null
         this.lastScheduledInSessionId = lastScheduledInSessionId
+        this.hiddenFromAssistant = hiddenFromAssistant
     }
 }

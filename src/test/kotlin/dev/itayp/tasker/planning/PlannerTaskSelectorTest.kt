@@ -249,6 +249,20 @@ class PlannerTaskSelectorTest {
     }
 
     @Test
+    fun `excludes tasks hidden from the assistant`() {
+        val visible = task(title = "visible", priority = TaskPriority.HIGH)
+        val hidden = task(title = "hidden", priority = TaskPriority.HIGH, hiddenFromAssistant = true)
+        whenever(backlogTaskRepository.findAllByBoardIdInAndStatusOrderBySortKeyAsc(listOf(boardId), TaskStatus.TODO))
+            .thenReturn(listOf(visible, hidden))
+        whenever(plannedTaskRepository.findAllByUserIdAndBacklogTaskIdIn(any(), any())).thenReturn(emptyList())
+
+        val result = select()
+
+        val titles = (result.urgent + result.stale).map { it.title }.toSet()
+        assertEquals(setOf("visible"), titles)
+    }
+
+    @Test
     fun `relevantFrom filter uses the caller-provided today, not UTC clock`() {
         // Simulate a user in UTC+12 where local "today" is 2026-05-02 while UTC clock reads 2026-05-01.
         val localToday = LocalDate.parse("2026-05-02")
@@ -351,6 +365,7 @@ class PlannerTaskSelectorTest {
         updatedAt: Instant? = null,
         relevantFrom: LocalDate? = null,
         assignee: UUID? = null,
+        hiddenFromAssistant: Boolean = false,
     ): BacklogTaskEntity = BacklogTaskEntity().apply {
         this.id = UUID.randomUUID()
         this.boardId = this@PlannerTaskSelectorTest.boardId
@@ -366,6 +381,7 @@ class PlannerTaskSelectorTest {
         this.rescheduleCount = rescheduleCount
         this.relevantFrom = relevantFrom
         this.assigneeUserId = assignee
+        this.hiddenFromAssistant = hiddenFromAssistant
     }
 
     private fun plannedTask(backlogTaskId: UUID): PlannedTaskEntity = PlannedTaskEntity().apply {

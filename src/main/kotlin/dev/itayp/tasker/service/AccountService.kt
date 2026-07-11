@@ -237,6 +237,7 @@ class AccountService(
                         createdAt = task.createdAt?.toString() ?: "",
                         updatedAt = task.updatedAt?.toString(),
                         relevantFrom = task.relevantFrom?.toString(),
+                        hiddenFromAssistant = task.hiddenFromAssistant,
                     )
                 },
             )

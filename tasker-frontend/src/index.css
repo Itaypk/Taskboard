@@ -931,8 +931,23 @@ input[type="number"] { -moz-appearance: textfield; }
   color: var(--ink-ghost);
 }
 
-/* One-click "popular tags" row in the task drawer: each chip is a bare button wrapping a washi tape. */
-.tape-quickadd { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; }
+/* One-click "popular tags" picker in the task drawer: a labelled strip, set off from the applied
+   tapes above by a hairline rule. Each chip is a bare button wrapping a washi tape; the chips read
+   as "not yet pressed down" (faded) until hovered, to distinguish them from the applied tapes. */
+.tape-quickadd {
+  align-self: stretch;
+  padding-top: 12px;
+  border-top: 1px dashed var(--paper-border-2);
+}
+.tape-quickadd__label {
+  display: block;
+  margin-bottom: 8px;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--ink-ghost);
+}
+.tape-quickadd__row { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; }
 .tape-quickadd__chip {
   background: none;
   border: none;
@@ -940,11 +955,28 @@ input[type="number"] { -moz-appearance: textfield; }
   cursor: pointer;
   line-height: 0;
   border-radius: 3px;
+  opacity: 0.55;
   transition: transform var(--t), opacity var(--t);
 }
-.tape-quickadd__chip:hover { transform: translateY(-1px); }
+.tape-quickadd__chip:hover { transform: translateY(-1px); opacity: 1; }
 .tape-quickadd__chip:active { transform: translateY(0); opacity: 0.85; }
-.tape-quickadd__chip:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.tape-quickadd__chip:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; opacity: 1; }
+.tape-quickadd__more {
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  cursor: pointer;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--ink-soft);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+  transition: color var(--t);
+}
+.tape-quickadd__more:hover { color: var(--ink); }
+.tape-quickadd__more:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 3px; }
 
 .tag-form {
   display: flex;

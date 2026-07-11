@@ -5,6 +5,8 @@ import { ApiError, type BoardMember } from '../api';
 import { WashiTape } from './WashiTape';
 import { TagEditModal } from './TagEditModal';
 import { Autocomplete } from './Autocomplete';
+import { Toggle } from './Toggle';
+import { HelpTip } from './HelpTip';
 import { generateId, formatRelative } from '../utils';
 import { resolveTaskLink, linkLabel } from '../taskLink';
 
@@ -22,6 +24,8 @@ interface TaskDrawerProps {
   /** Board members for the assignee picker; only non-empty on shared (>1 member) boards. */
   members: BoardMember[];
   currentUserId: string | null;
+  /** Whether the user has the AI assistant enabled; the "hide from assistant" control is pointless (and hidden) when off. */
+  aiEnabled: boolean;
   onClose: () => void;
   onSave: (task: Omit<Task, 'sortKey'>) => void | Promise<void>;
   onDelete: (id: string) => void;
@@ -83,11 +87,12 @@ function makeEmpty(defaultCategoryId: string | null): FormState {
     status: 'todo',
     categoryId: defaultCategoryId ?? '',
     tags: [],
+    hiddenFromAssistant: false,
   };
 }
 
 export function TaskDrawer({
-  task, isNew, open, categories, availableTags, defaultCategoryId, members, currentUserId,
+  task, isNew, open, categories, availableTags, defaultCategoryId, members, currentUserId, aiEnabled,
   onClose, onSave, onDelete, onMarkDone, onMarkTodo, onSetAssignee, onUpdateTag, onFollowLink,
 }: TaskDrawerProps) {
   const [form, setForm] = useState<FormState>(makeEmpty(defaultCategoryId));
@@ -96,6 +101,7 @@ export function TaskDrawer({
   const [tagColorId, setTagColorId] = useState<TagColorId>('sage');
   const [tagId, setTagId] = useState<string | null>(null);
   const [editingTagIndex, setEditingTagIndex] = useState<number | null>(null);
+  const [tagsExpanded, setTagsExpanded] = useState(false);
   const [formKey, setFormKey] = useState<string | null>(null);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -117,11 +123,13 @@ export function TaskDrawer({
         status: task.status,
         categoryId: task.categoryId,
         tags: [...task.tags],
+        hiddenFromAssistant: task.hiddenFromAssistant ?? false,
       } : makeEmpty(defaultCategoryId));
       setShowTagForm(false);
       setTagLabel('');
       setTagId(null);
       setEditingTagIndex(null);
+      setTagsExpanded(false);
     }
   }
 
@@ -441,18 +449,31 @@ export function TaskDrawer({
 
               {form.tags.length < 3 && !showTagForm && tagSuggestions.length > 0 && (
                 <div className="tape-quickadd">
-                  {tagSuggestions.map(t => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      className="tape-quickadd__chip"
-                      onClick={() => addExistingTag(t)}
-                      aria-label={`Add tag ${t.label}`}
-                      title={`Add ${t.label}`}
-                    >
-                      <WashiTape tag={t} idSeed={'sugg-' + t.id} />
-                    </button>
-                  ))}
+                  <span className="tape-quickadd__label">Add from your tags</span>
+                  <div className="tape-quickadd__row">
+                    {(tagsExpanded ? tagSuggestions : tagSuggestions.slice(0, 3)).map(t => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        className="tape-quickadd__chip"
+                        onClick={() => addExistingTag(t)}
+                        aria-label={`Add tag ${t.label}`}
+                        title={`Add ${t.label}`}
+                      >
+                        <WashiTape tag={t} idSeed={'sugg-' + t.id} />
+                      </button>
+                    ))}
+                    {tagSuggestions.length > 3 && (
+                      <button
+                        type="button"
+                        className="tape-quickadd__more"
+                        onClick={() => setTagsExpanded(v => !v)}
+                        aria-expanded={tagsExpanded}
+                      >
+                        {tagsExpanded ? 'Show less' : `+${tagSuggestions.length - 3} more`}
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -534,6 +555,20 @@ export function TaskDrawer({
               })()}
             </div>
           </div>
+
+          {aiEnabled && (
+            <div className="field">
+              <label className="field__label">
+                Visibility
+                <HelpTip text="When hidden, this task is left out of the planning assistant's suggestions and search. It still appears on your board as usual." />
+              </label>
+              <Toggle
+                checked={form.hiddenFromAssistant ?? false}
+                onChange={next => setForm(f => ({ ...f, hiddenFromAssistant: next }))}
+                label="Hide from assistant"
+              />
+            </div>
+          )}
           </fieldset>
         </div>
 
