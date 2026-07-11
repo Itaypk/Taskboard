@@ -64,9 +64,13 @@ class BacklogTaskService(
     }
 
     /**
-     * Tasks across **every** board the user belongs to — the planner's view (`find_task`,
-     * suggestion sampling). `status == null` means everything except archived. The future-dated
-     * filter applies to the TODO view exactly as in [getTasks].
+     * Tasks across **every** board the user belongs to — the AI assistant's view (backlog search,
+     * `find_task`, suggestion sampling). `status == null` means everything except archived. The
+     * future-dated filter applies to the TODO view exactly as in [getTasks].
+     *
+     * Tasks the user has hidden from the assistant are dropped here: this method feeds only AI read
+     * paths (the web board view uses [getTasks], which keeps them visible). If a future non-AI caller
+     * is added, revisit this filter.
      */
     @Transactional(readOnly = true)
     fun getTasksAcrossBoards(userId: UUID, status: TaskStatus?): List<BacklogTask> {
@@ -76,7 +80,7 @@ class BacklogTaskService(
             null -> backlogTaskRepository.findAllByBoardIdInAndStatusNotOrderBySortKeyAsc(boardIds, TaskStatus.ARCHIVED)
             else -> backlogTaskRepository.findAllByBoardIdInAndStatusOrderBySortKeyAsc(boardIds, status)
         }
-        val tasks = entities.map { it.toDomain(boardCrypto) }
+        val tasks = entities.map { it.toDomain(boardCrypto) }.filterNot { it.hiddenFromAssistant }
         return if (status == TaskStatus.TODO) filterOutFutureDated(userId, tasks) else tasks
     }
 
@@ -130,6 +134,7 @@ class BacklogTaskService(
             categoryId = task.category.id.toString(),
             tags = task.tags.map { TagInput(it.id.toString(), it.label, it.colorId.name.lowercase()) },
             relevantFrom = task.relevantFrom?.toString(),
+            hiddenFromAssistant = task.hiddenFromAssistant,
         )
         return updateTask(userId, task.boardId, id, request)
     }
@@ -162,6 +167,7 @@ class BacklogTaskService(
             categoryId = task.category.id.toString(),
             tags = task.tags.map { TagInput(it.id.toString(), it.label, it.colorId.name.lowercase()) },
             relevantFrom = task.relevantFrom?.toString(),
+            hiddenFromAssistant = task.hiddenFromAssistant,
         )
         return updateTask(userId, task.boardId, id, request)
     }
@@ -241,6 +247,7 @@ class BacklogTaskService(
             this.createdAt = Instant.now()
             this.updatedAt = null
             this.relevantFrom = request.relevantFrom?.let { LocalDate.parse(it) }
+            this.hiddenFromAssistant = request.hiddenFromAssistant
         }
 
         val saved = backlogTaskRepository.save(entity)
@@ -275,6 +282,7 @@ class BacklogTaskService(
         entity.category = category
         entity.tags = resolveOrCreateTags(boardId, request.tags)
         entity.relevantFrom = request.relevantFrom?.let { LocalDate.parse(it) }
+        entity.hiddenFromAssistant = request.hiddenFromAssistant
         entity.updatedAt = Instant.now()
 
         val saved = backlogTaskRepository.save(entity)

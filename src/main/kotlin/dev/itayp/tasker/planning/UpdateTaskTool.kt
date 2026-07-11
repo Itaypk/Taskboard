@@ -120,6 +120,9 @@ class UpdateTaskTool(
             categoryId = (root["category_id"] as? String)?.takeIf { it.isNotBlank() } ?: current.category.id.toString(),
             tags = if (root.containsKey("tags")) parseTags(root["tags"]) else current.tags.map { it.toTagInput() },
             relevantFrom = if (root.containsKey("relevant_from")) root["relevant_from"] as? String else current.relevantFrom?.toString(),
+            // Not an LLM-settable field (absent from the tool schema): carry the user's choice forward so a
+            // full-replacement update never silently un-hides a task the user withheld from the assistant.
+            hiddenFromAssistant = current.hiddenFromAssistant,
         )
 
         return runCatching {

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="011-1-backlog-task-hidden-from-assistant" author="tasker">
+        <comment>
+            Per-task opt-out from the AI assistant's context: a hidden task is filtered out of the
+            weekly-planner slate, the backlog search tool, and quick-add suggestion sampling. Orthogonal
+            to priority (a hidden task keeps its priority for when it's un-hidden).
+        </comment>
+        <addColumn tableName="backlog_task">
+            <column name="hidden_from_assistant" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

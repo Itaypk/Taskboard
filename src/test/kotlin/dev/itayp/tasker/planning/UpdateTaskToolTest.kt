@@ -55,6 +55,15 @@ class UpdateTaskToolTest {
     }
 
     @Test
+    fun `carries the assistant-hidden flag forward so a partial update never un-hides a task`() {
+        whenever(backlogTaskService.findTask(userId, taskId))
+            .thenReturn(currentTask().copy(hiddenFromAssistant = true))
+        val captor = executeAndCapture("""{"task_id":"$taskId","title":"Renamed"}""")
+
+        assertTrue(captor.hiddenFromAssistant)
+    }
+
+    @Test
     fun `marks the task done`() {
         stubCurrentTask()
         val captor = executeAndCapture("""{"task_id":"$taskId","status":"done"}""")

@@ -808,6 +808,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
         defaultCategoryId={defaultCategoryId}
         members={members}
         currentUserId={currentUserId}
+        aiEnabled={settings.aiEnabled}
         onClose={closeDrawer}
         onSave={handleSave}
         onDelete={requestDelete}

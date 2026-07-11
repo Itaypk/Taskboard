@@ -63,6 +63,7 @@ class PlannerTaskSelector(
             .filter { it.relevantFrom == null || !it.relevantFrom.isAfter(today) }
             .filter { it.assigneeUserId == null || it.assigneeUserId == userId }
             .filterNot { it.tutorial }
+            .filterNot { it.hiddenFromAssistant }
 
         val totalSlots = urgentSlots + staleSlots
         val (urgent, stale) = if (tasks.size <= totalSlots) {

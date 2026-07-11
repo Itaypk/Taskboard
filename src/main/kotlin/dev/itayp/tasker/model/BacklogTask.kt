@@ -68,5 +68,7 @@ data class BacklogTask(
     val rescheduleCount: Int,
     val lastScheduledInSessionId: UUID?,
     val relevantFrom: LocalDate?,
-    val tutorial: Boolean = false
+    val tutorial: Boolean = false,
+    /** When true, the task is excluded from every AI-assistant read path. Orthogonal to [priority]. */
+    val hiddenFromAssistant: Boolean = false
 )

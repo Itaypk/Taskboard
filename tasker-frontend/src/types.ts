@@ -63,6 +63,8 @@ export interface Task {
   assigneeUserId?: string | null;
   /** True for seeded tutorial tasks: editing is hidden client-side and a "clear tutorial" action is offered. */
   tutorial?: boolean;
+  /** When true, the task is excluded from the AI assistant's context (planner, search, suggestions). */
+  hiddenFromAssistant?: boolean;
 }
 
 export interface TimeSlot {

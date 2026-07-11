@@ -229,6 +229,7 @@ class AccountImportService(
                 this.rescheduleCount = 0
                 this.lastScheduledInSessionId = null
                 this.relevantFrom = parseLocalDate("relevantFrom", task.relevantFrom)
+                this.hiddenFromAssistant = task.hiddenFromAssistant
             })
         }
 
