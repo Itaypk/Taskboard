@@ -85,8 +85,11 @@ class AiConversationManager(
                 toolCallId = msg.toolCallId,
             )
         }
+        // Mark the system prompt as a cache breakpoint: it's the stable prefix reused on every turn
+        // of a multi-turn conversation, so caching it saves re-billing the whole prompt each call
+        // (notably on models without implicit caching, e.g. Gemini Flash Lite).
         val systemMessage = conversation.systemPrompt
-            ?.let { listOf(ChatMessage(role = "system", content = it)) }
+            ?.let { listOf(ChatMessage.cacheable(role = "system", text = it)) }
             ?: emptyList()
         val messages = systemMessage + storedMessages
 
@@ -111,7 +114,7 @@ class AiConversationManager(
         conversationService.addMessage(
             conversationId = conversationId,
             role = "assistant",
-            content = choice.message.content,
+            content = choice.message.contentText,
             toolCallsJson = choice.message.toolCalls
                 ?.let { objectMapper.writeValueAsString(it) },
             promptTokens = usage?.promptTokens,
@@ -128,10 +131,10 @@ class AiConversationManager(
                 )
             })
         } else {
-            if (choice.message.content.isNullOrBlank()) {
+            if (choice.message.contentText.isNullOrBlank()) {
                 log.warn("Model returned neither content nor tool_calls for conversation {}", conversationId)
             }
-            TurnOutcome.TextReply(choice.message.content ?: "")
+            TurnOutcome.TextReply(choice.message.contentText ?: "")
         }
     }
 }

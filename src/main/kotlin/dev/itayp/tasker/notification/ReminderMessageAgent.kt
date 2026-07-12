@@ -74,7 +74,7 @@ class ReminderMessageAgent(
         )
 
         val context = AiCallContext(userId = userId, conversationType = AiConversationType.SLOT_REMINDER)
-        val reply = aiClient.chat(request, context).choices.firstOrNull()?.message?.content?.trim()
+        val reply = aiClient.chat(request, context).choices.firstOrNull()?.message?.contentText?.trim()
         reply?.takeIf { it.isNotBlank() }
     }.getOrElse {
         log.warn("AI reminder generation failed for user {}; falling back to static template", userId, it)

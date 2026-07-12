@@ -81,7 +81,7 @@ class TaskSuggestionAgent(
         )
 
         val context = AiCallContext(userId = userId, conversationType = AiConversationType.TASK_SUGGESTION)
-        val raw = aiClient.chat(request, context).choices.firstOrNull()?.message?.content.orEmpty()
+        val raw = aiClient.chat(request, context).choices.firstOrNull()?.message?.contentText.orEmpty()
         val draft = runCatching { parseAssistantJsonResponse(objectMapper, raw, TaskDraft::class.java) }
             .getOrElse {
                 log.warn("suggest_task could not parse sub-agent output: {}", it.message)
@@ -188,7 +188,7 @@ class TaskSuggestionAgent(
         )
 
         val context = AiCallContext(userId = userId, conversationType = AiConversationType.TASK_SUGGESTION)
-        val raw = aiClient.chat(chatRequest, context).choices.firstOrNull()?.message?.content.orEmpty()
+        val raw = aiClient.chat(chatRequest, context).choices.firstOrNull()?.message?.contentText.orEmpty()
         return parseOutcome(raw)
     }
 

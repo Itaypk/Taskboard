@@ -53,7 +53,7 @@ class BacklogTaskSearchAgent(
         )
 
         val context = AiCallContext(userId = userId, conversationType = AiConversationType.TASK_SEARCH)
-        val raw = aiClient.chat(request, context).choices.firstOrNull()?.message?.content.orEmpty()
+        val raw = aiClient.chat(request, context).choices.firstOrNull()?.message?.contentText.orEmpty()
         val matches = runCatching { parseAssistantJsonResponse(objectMapper, raw, SearchResult::class.java) }
             .getOrElse {
                 log.warn("find_task could not parse sub-agent output: {}", it.message)

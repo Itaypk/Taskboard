@@ -1,5 +1,6 @@
 package dev.itayp.tasker.ai.client
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonProperty
 
@@ -22,10 +23,47 @@ data class ChatRequest(
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class ChatMessage(
     val role: String,
-    val content: String? = null,
+    // Either a plain `String` (the common case, and the only form we ever receive back) or a
+    // `List<ContentPart>` — the OpenAI/OpenRouter content-array form we send when a message needs a
+    // prompt-caching `cache_control` breakpoint. Kept as `Any?` because the wire schema is a true
+    // union; use [contentText] to read the string form off a response.
+    val content: Any? = null,
     @JsonProperty("tool_calls") val toolCalls: List<ToolCall>? = null,
     @JsonProperty("tool_call_id") val toolCallId: String? = null,
     val name: String? = null,
+) {
+    /**
+     * Content as a plain string. Responses always carry string content, so read sites use this to
+     * stay type-safe; returns null when the content is the structured array form (which we only ever
+     * build for outgoing requests).
+     */
+    @get:JsonIgnore
+    val contentText: String?
+        get() = content as? String
+
+    companion object {
+        /**
+         * A message whose content is a single text part marked as a prompt-caching breakpoint
+         * (`cache_control: {type: ephemeral}`). OpenRouter forwards the breakpoint to providers with
+         * explicit caching (Anthropic, Gemini Flash Lite, …) and harmlessly ignores it for providers
+         * that cache automatically. Use for the stable prefix — typically the system prompt.
+         */
+        fun cacheable(role: String, text: String): ChatMessage =
+            ChatMessage(role = role, content = listOf(ContentPart(text = text, cacheControl = CacheControl())))
+    }
+}
+
+// A single part of the content-array form. Only `text` parts are used today.
+data class ContentPart(
+    val type: String = "text",
+    val text: String,
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @JsonProperty("cache_control") val cacheControl: CacheControl? = null,
+)
+
+// OpenRouter prompt-caching breakpoint marker; `ephemeral` is the only supported type.
+data class CacheControl(
+    val type: String = "ephemeral",
 )
 
 data class ToolDefinition(
