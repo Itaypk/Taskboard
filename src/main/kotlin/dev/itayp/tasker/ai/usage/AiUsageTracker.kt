@@ -37,6 +37,8 @@ class AiUsageTracker(
             completionTokens = usage?.completionTokens,
             totalTokens = usage?.totalTokens
                 ?: usage?.let { it.promptTokens + it.completionTokens },
+            cachedTokens = usage?.promptTokensDetails?.cachedTokens,
+            cacheWriteTokens = usage?.promptTokensDetails?.cacheWriteTokens,
         )
     }
 
@@ -50,6 +52,8 @@ class AiUsageTracker(
             promptTokens = null,
             completionTokens = null,
             totalTokens = null,
+            cachedTokens = null,
+            cacheWriteTokens = null,
         )
     }
 
@@ -61,6 +65,8 @@ class AiUsageTracker(
         promptTokens: Int?,
         completionTokens: Int?,
         totalTokens: Int?,
+        cachedTokens: Int?,
+        cacheWriteTokens: Int?,
     ) {
         val providerTag = provider ?: "unknown"
         meterRegistry.counter(
@@ -90,9 +96,10 @@ class AiUsageTracker(
         }
 
         log.debug(
-            "AI usage user={} type={} status={} model={} provider={} promptTokens={} completionTokens={} session={} conversation={}",
+            "AI usage user={} type={} status={} model={} provider={} promptTokens={} completionTokens={} cachedTokens={} cacheWriteTokens={} session={} conversation={}",
             context.userId, context.conversationType, status, model, providerTag,
-            promptTokens, completionTokens, context.sessionId, context.conversationId,
+            promptTokens, completionTokens, cachedTokens, cacheWriteTokens,
+            context.sessionId, context.conversationId,
         )
 
         persist(context, model, provider, status, promptTokens, completionTokens, totalTokens)
