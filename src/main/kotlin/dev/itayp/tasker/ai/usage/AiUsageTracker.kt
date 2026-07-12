@@ -94,6 +94,27 @@ class AiUsageTracker(
                 "type", "completion",
             ).increment(completionTokens.toDouble())
         }
+        // Prompt-caching breakdown, only present when the provider reports prompt_tokens_details.
+        // Both are subsets/relatives of the prompt tokens (cache reads and cache writes), so they
+        // are their own `type` series rather than added to the prompt/completion totals.
+        if (cachedTokens != null) {
+            meterRegistry.counter(
+                "tasker.ai.tokens",
+                "conversation_type", context.conversationType,
+                "model", model,
+                "provider", providerTag,
+                "type", "cached",
+            ).increment(cachedTokens.toDouble())
+        }
+        if (cacheWriteTokens != null) {
+            meterRegistry.counter(
+                "tasker.ai.tokens",
+                "conversation_type", context.conversationType,
+                "model", model,
+                "provider", providerTag,
+                "type", "cache_write",
+            ).increment(cacheWriteTokens.toDouble())
+        }
 
         log.debug(
             "AI usage user={} type={} status={} model={} provider={} promptTokens={} completionTokens={} cachedTokens={} cacheWriteTokens={} session={} conversation={}",

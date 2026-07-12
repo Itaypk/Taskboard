@@ -16,8 +16,9 @@ pools, GC, CPU internals, DB pool, and per-endpoint HTTP stats.
 - **API traffic**: request rate stacked by HTTP status; general latency (average +
   max); and planning-turn latency, broken out separately because those endpoints
   block on the OpenRouter call (see "Excluding AI latency" below).
-- **AI usage**: requests/min by model & outcome, tokens/min (prompt vs completion),
-  24h token totals, and active conversations.
+- **AI usage**: requests/min by model & outcome, tokens/min by type (prompt,
+  completion, and — when the provider reports prompt caching — cached and
+  cache_write), 24h token totals, and active conversations.
 - **Current totals**: users, users by type (claimed / unclaimed-idle /
   unclaimed-engaged), total tasks, tasks by status, planning sessions by status.
 - **Email delivery & quick add**: emails sent/min by sender purpose (auth vs

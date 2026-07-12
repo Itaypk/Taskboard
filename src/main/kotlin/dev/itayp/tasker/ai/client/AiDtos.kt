@@ -1,8 +1,10 @@
 package dev.itayp.tasker.ai.client
 
+import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.fasterxml.jackson.annotation.JsonValue
 
 // ── Request ──────────────────────────────────────────────────────────────────
 
@@ -23,15 +25,20 @@ data class ChatRequest(
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class ChatMessage(
     val role: String,
-    // Either a plain `String` (the common case, and the only form we ever receive back) or a
-    // `List<ContentPart>` — the OpenAI/OpenRouter content-array form we send when a message needs a
-    // prompt-caching `cache_control` breakpoint. Kept as `Any?` because the wire schema is a true
-    // union; use [contentText] to read the string form off a response.
-    val content: Any? = null,
+    val content: MessageContent? = null,
     @JsonProperty("tool_calls") val toolCalls: List<ToolCall>? = null,
     @JsonProperty("tool_call_id") val toolCallId: String? = null,
     val name: String? = null,
 ) {
+    /** Convenience for the common plain-string message (the only form we ever receive back). */
+    constructor(
+        role: String,
+        content: String?,
+        toolCalls: List<ToolCall>? = null,
+        toolCallId: String? = null,
+        name: String? = null,
+    ) : this(role, content?.let { MessageContent.Text(it) }, toolCalls, toolCallId, name)
+
     /**
      * Content as a plain string. Responses always carry string content, so read sites use this to
      * stay type-safe; returns null when the content is the structured array form (which we only ever
@@ -39,7 +46,7 @@ data class ChatMessage(
      */
     @get:JsonIgnore
     val contentText: String?
-        get() = content as? String
+        get() = (content as? MessageContent.Text)?.value
 
     companion object {
         /**
@@ -49,7 +56,27 @@ data class ChatMessage(
          * that cache automatically. Use for the stable prefix — typically the system prompt.
          */
         fun cacheable(role: String, text: String): ChatMessage =
-            ChatMessage(role = role, content = listOf(ContentPart(text = text, cacheControl = CacheControl())))
+            ChatMessage(role = role, content = MessageContent.Parts(listOf(ContentPart(text = text, cacheControl = CacheControl()))))
+    }
+}
+
+/**
+ * A chat message's content. The OpenAI/OpenRouter wire schema is a union of a bare string and an
+ * array of typed parts; [Text] and [Parts] model those two shapes. `@JsonValue` on each variant
+ * keeps the serialized JSON as exactly that union (a raw string / a raw array — never a wrapper
+ * object), and the delegating `@JsonCreator` deserializes an incoming string back into [Text]
+ * (responses only ever carry string content).
+ */
+sealed interface MessageContent {
+
+    data class Text(@get:JsonValue val value: String) : MessageContent
+
+    data class Parts(@get:JsonValue val parts: List<ContentPart>) : MessageContent
+
+    companion object {
+        @JvmStatic
+        @JsonCreator
+        fun fromString(value: String): MessageContent = Text(value)
     }
 }
 
