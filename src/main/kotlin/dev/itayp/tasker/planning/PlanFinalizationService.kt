@@ -51,12 +51,16 @@ class PlanFinalizationService(
      * edit updates in place. Returns false if the task isn't in the session's plan.
      */
     fun changeTaskSlot(userId: UUID, sessionId: UUID, taskId: UUID, newSlot: AgreedTimeSlot): Boolean {
-        val previous = plannedTaskService.findTaskInSession(userId, sessionId, taskId) ?: return false
+        val previous = plannedTaskService.findTaskInSession(userId, sessionId, taskId) ?: run {
+            log.debug("Slot change skipped: task {} is not planned in session {}", taskId, sessionId)
+            return false
+        }
         val updated = previous.copy(slots = listOf(newSlot))
         plannedTaskService.upsertSingleTask(sessionId, userId, updated)
         planWatermarkService.bump(userId)
         dispatchInviteDiffIfEligible(userId, listOf(previous), listOf(updated))
         slotReminderService.sync(userId, sessionId, listOf(previous), listOf(updated))
+        log.info("Changed slot for planned task {} in session {}", taskId, sessionId)
         return true
     }
 

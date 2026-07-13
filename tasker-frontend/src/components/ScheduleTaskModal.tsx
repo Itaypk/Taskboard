@@ -37,8 +37,11 @@ function formatDayLabel(date: Date): { weekday: string; date: string } {
   };
 }
 
+/** Local-time YYYY-MM-DD (formatted explicitly rather than via a locale that happens to match). */
 function toDateStr(d: Date): string {
-  return d.toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${month}-${day}`;
 }
 
 /** Local wall-clock "HH:MM" of an ISO instant. */
