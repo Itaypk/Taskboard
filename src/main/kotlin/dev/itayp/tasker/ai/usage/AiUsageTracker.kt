@@ -37,6 +37,8 @@ class AiUsageTracker(
             completionTokens = usage?.completionTokens,
             totalTokens = usage?.totalTokens
                 ?: usage?.let { it.promptTokens + it.completionTokens },
+            cachedTokens = usage?.promptTokensDetails?.cachedTokens,
+            cacheWriteTokens = usage?.promptTokensDetails?.cacheWriteTokens,
         )
     }
 
@@ -50,6 +52,8 @@ class AiUsageTracker(
             promptTokens = null,
             completionTokens = null,
             totalTokens = null,
+            cachedTokens = null,
+            cacheWriteTokens = null,
         )
     }
 
@@ -61,6 +65,8 @@ class AiUsageTracker(
         promptTokens: Int?,
         completionTokens: Int?,
         totalTokens: Int?,
+        cachedTokens: Int?,
+        cacheWriteTokens: Int?,
     ) {
         val providerTag = provider ?: "unknown"
         meterRegistry.counter(
@@ -88,11 +94,33 @@ class AiUsageTracker(
                 "type", "completion",
             ).increment(completionTokens.toDouble())
         }
+        // Prompt-caching breakdown, only present when the provider reports prompt_tokens_details.
+        // Both are subsets/relatives of the prompt tokens (cache reads and cache writes), so they
+        // are their own `type` series rather than added to the prompt/completion totals.
+        if (cachedTokens != null) {
+            meterRegistry.counter(
+                "tasker.ai.tokens",
+                "conversation_type", context.conversationType,
+                "model", model,
+                "provider", providerTag,
+                "type", "cached",
+            ).increment(cachedTokens.toDouble())
+        }
+        if (cacheWriteTokens != null) {
+            meterRegistry.counter(
+                "tasker.ai.tokens",
+                "conversation_type", context.conversationType,
+                "model", model,
+                "provider", providerTag,
+                "type", "cache_write",
+            ).increment(cacheWriteTokens.toDouble())
+        }
 
         log.debug(
-            "AI usage user={} type={} status={} model={} provider={} promptTokens={} completionTokens={} session={} conversation={}",
+            "AI usage user={} type={} status={} model={} provider={} promptTokens={} completionTokens={} cachedTokens={} cacheWriteTokens={} session={} conversation={}",
             context.userId, context.conversationType, status, model, providerTag,
-            promptTokens, completionTokens, context.sessionId, context.conversationId,
+            promptTokens, completionTokens, cachedTokens, cacheWriteTokens,
+            context.sessionId, context.conversationId,
         )
 
         persist(context, model, provider, status, promptTokens, completionTokens, totalTokens)

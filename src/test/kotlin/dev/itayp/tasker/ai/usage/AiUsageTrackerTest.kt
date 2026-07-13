@@ -6,6 +6,7 @@ import dev.itayp.tasker.ai.client.ChatMessage
 import dev.itayp.tasker.ai.client.ChatRequest
 import dev.itayp.tasker.ai.client.ChatResponse
 import dev.itayp.tasker.ai.client.Choice
+import dev.itayp.tasker.ai.client.PromptTokensDetails
 import dev.itayp.tasker.ai.client.Usage
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.junit.jupiter.api.Test
@@ -83,6 +84,63 @@ class AiUsageTrackerTest {
                 "provider", "Anthropic",
                 "type", "prompt",
             ).count(),
+        )
+    }
+
+    @Test
+    fun `success emits cached and cache_write token counters when prompt_tokens_details is present`() {
+        whenever(repository.save(any<AiUsageEventEntity>())).thenAnswer { it.arguments[0] }
+        val context = AiCallContext(userId, AiConversationType.WEEKLY_PLANNING, conversationId = conversationId)
+
+        tracker.recordSuccess(
+            context,
+            request(),
+            response(
+                Usage(
+                    promptTokens = 100,
+                    completionTokens = 40,
+                    promptTokensDetails = PromptTokensDetails(cachedTokens = 64, cacheWriteTokens = 12),
+                ),
+            ),
+        )
+
+        assertEquals(
+            64.0,
+            registry.counter(
+                "tasker.ai.tokens",
+                "conversation_type", AiConversationType.WEEKLY_PLANNING,
+                "model", "resolved/model",
+                "provider", "Anthropic",
+                "type", "cached",
+            ).count(),
+        )
+        assertEquals(
+            12.0,
+            registry.counter(
+                "tasker.ai.tokens",
+                "conversation_type", AiConversationType.WEEKLY_PLANNING,
+                "model", "resolved/model",
+                "provider", "Anthropic",
+                "type", "cache_write",
+            ).count(),
+        )
+    }
+
+    @Test
+    fun `success without prompt_tokens_details emits no cache counters`() {
+        whenever(repository.save(any<AiUsageEventEntity>())).thenAnswer { it.arguments[0] }
+        val context = AiCallContext(userId, AiConversationType.WEEKLY_PLANNING, conversationId = conversationId)
+
+        tracker.recordSuccess(context, request(), response(Usage(promptTokens = 100, completionTokens = 40)))
+
+        // No cached/cache_write series should have been created.
+        assertEquals(
+            0,
+            registry.find("tasker.ai.tokens").tag("type", "cached").counters().size,
+        )
+        assertEquals(
+            0,
+            registry.find("tasker.ai.tokens").tag("type", "cache_write").counters().size,
         )
     }
 

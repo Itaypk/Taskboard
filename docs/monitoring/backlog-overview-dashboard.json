@@ -381,7 +381,7 @@
     {
       "type": "timeseries",
       "title": "AI tokens / min by type",
-      "description": "Prompt vs completion tokens consumed. Proxy for AI spend.",
+      "description": "Prompt vs completion tokens consumed (stacked = total). Proxy for AI spend. 'cached' (prompt tokens served from cache) and 'cache_write' (tokens written to cache) come from prompt_tokens_details and are subsets of prompt, so they render as un-stacked dashed overlays rather than adding to the total — only present for providers/models that report caching.",
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "gridPos": { "h": 8, "w": 8, "x": 8, "y": 24 },
       "id": 32,
@@ -390,7 +390,16 @@
           "unit": "short",
           "custom": { "drawStyle": "line", "fillOpacity": 20, "lineWidth": 1, "stacking": { "mode": "normal" }, "showPoints": "never" }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": { "id": "byRegexp", "options": "cached|cache_write" },
+            "properties": [
+              { "id": "custom.stacking", "value": { "mode": "none" } },
+              { "id": "custom.fillOpacity", "value": 0 },
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [8, 4] } }
+            ]
+          }
+        ]
       },
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["sum"] }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [
@@ -400,7 +409,7 @@
     {
       "type": "stat",
       "title": "AI tokens (24h)",
-      "description": "Total tokens consumed over the last 24h, split prompt/completion.",
+      "description": "Total tokens consumed over the last 24h, split by type. 'cached'/'cache_write' (from prompt_tokens_details) are subsets of prompt — compare 'cached' against 'prompt' to gauge cache-hit rate — and only appear for providers/models that report caching.",
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "gridPos": { "h": 8, "w": 4, "x": 16, "y": 24 },
       "id": 33,
