@@ -4,6 +4,7 @@ import dev.itayp.tasker.channel.email.EmailProperties
 import dev.itayp.tasker.notification.SlotReminderService
 import dev.itayp.tasker.planning.dto.AgreedPlan
 import dev.itayp.tasker.planning.dto.AgreedPlanTask
+import dev.itayp.tasker.planning.dto.AgreedTimeSlot
 import dev.itayp.tasker.service.BacklogTaskService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -39,6 +40,28 @@ class PlanFinalizationService(
         log.debug("Revising agreed plan for session {}", sessionId)
         planningSessionService.updateSummary(sessionId, plan.summary)
         applyPlan(userId, sessionId, plan)
+    }
+
+    /**
+     * Reschedules a single already-planned task to [newSlot], leaving the rest of the plan untouched.
+     * The quick-switch counterpart to editing a slot through a full plan revision: it snapshots the
+     * task's current slot(s) and drives the change through the same `(taskId, startIso)` slot diff
+     * ([dispatchInviteDiffIfEligible] + [SlotReminderService.sync]), so a time move cancels the old
+     * calendar invite + reminder (including a snoozed one) and issues the new one, while a same-start
+     * edit updates in place. Returns false if the task isn't in the session's plan.
+     */
+    fun changeTaskSlot(userId: UUID, sessionId: UUID, taskId: UUID, newSlot: AgreedTimeSlot): Boolean {
+        val previous = plannedTaskService.findTaskInSession(userId, sessionId, taskId) ?: run {
+            log.debug("Slot change skipped: task {} is not planned in session {}", taskId, sessionId)
+            return false
+        }
+        val updated = previous.copy(slots = listOf(newSlot))
+        plannedTaskService.upsertSingleTask(sessionId, userId, updated)
+        planWatermarkService.bump(userId)
+        dispatchInviteDiffIfEligible(userId, listOf(previous), listOf(updated))
+        slotReminderService.sync(userId, sessionId, listOf(previous), listOf(updated))
+        log.info("Changed slot for planned task {} in session {}", taskId, sessionId)
+        return true
     }
 
     fun addTaskToSession(userId: UUID, sessionId: UUID, task: AgreedPlanTask) {

@@ -119,6 +119,15 @@ function emitError(detail: ApiErrorDetail): void {
     window.dispatchEvent(new CustomEvent<ApiErrorDetail>(API_ERROR_EVENT, { detail }));
 }
 
+/**
+ * Surfaces a client-side message through the same global toast channel API errors use. For flows
+ * that want a friendlier, action-specific message than the generic status fallback (pair with
+ * `{ emitErrors: false }` on the request so only this message shows).
+ */
+export function notifyError(message: string): void {
+    emitError({ message, status: 0, path: '' });
+}
+
 async function rawFetch(path: string, options: RequestInit = {}, emitErrors = true): Promise<Response> {
     const headers = new Headers(options.headers);
     const method = (options.method ?? 'GET').toUpperCase();
@@ -371,8 +380,12 @@ export const clearTutorialTasks = (boardId: string): Promise<void> =>
 export const setTaskAssignee = (boardId: string, id: string, userId: string | null): Promise<Task> =>
     apiRequest(`/boards/${boardId}/tasks/${id}/assignee`, { method: 'PUT', ...jsonBody({ userId }) });
 
-export const addTaskToPlan = (taskId: string, startIso: string, endIso: string): Promise<void> =>
-    apiRequest(`/plans/current/tasks/${taskId}`, { method: 'POST', ...jsonBody({ startIso, endIso }) });
+export const addTaskToPlan = (taskId: string, startIso: string, endIso: string, config?: RequestConfig): Promise<void> =>
+    apiRequest(`/plans/current/tasks/${taskId}`, { method: 'POST', ...jsonBody({ startIso, endIso }) }, config);
+
+/** Reschedules an already-planned task to a new single slot in the current plan. */
+export const changeTaskSlot = (taskId: string, startIso: string, endIso: string, config?: RequestConfig): Promise<void> =>
+    apiRequest(`/plans/current/tasks/${taskId}/slot`, { method: 'PUT', ...jsonBody({ startIso, endIso }) }, config);
 
 // --- Categories ---
 

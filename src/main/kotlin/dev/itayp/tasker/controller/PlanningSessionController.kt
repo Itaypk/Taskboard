@@ -26,6 +26,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
@@ -179,5 +180,30 @@ class PlanningSessionController(
         )
 
         return ResponseEntity.noContent().build()
+    }
+
+    /**
+     * Reschedules an already-planned task to a new single slot without going through a full plan
+     * revision — the quick-switch path from the task's context menu. 422 if there's no current plan,
+     * 404 if the task isn't part of it. Notifications (calendar invite + slot reminder, snoozed
+     * included) are re-synced by the slot diff, same as a revision.
+     */
+    @PutMapping("/plans/current/tasks/{taskId}/slot")
+    fun changeTaskSlot(
+        @AuthenticationPrincipal principal: TaskerPrincipal,
+        @PathVariable taskId: UUID,
+        @Valid @RequestBody request: AddToPlanRequest,
+    ): ResponseEntity<Void> {
+        val session = planningSessionService.findCurrentPlan(principal.userId)
+            ?: return ResponseEntity.unprocessableContent().build()
+
+        val changed = planFinalizationService.changeTaskSlot(
+            principal.userId,
+            session.id,
+            taskId,
+            AgreedTimeSlot(request.startIso, request.endIso),
+        )
+
+        return if (changed) ResponseEntity.noContent().build() else ResponseEntity.notFound().build()
     }
 }
