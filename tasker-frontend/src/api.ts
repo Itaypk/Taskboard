@@ -374,6 +374,10 @@ export const setTaskAssignee = (boardId: string, id: string, userId: string | nu
 export const addTaskToPlan = (taskId: string, startIso: string, endIso: string): Promise<void> =>
     apiRequest(`/plans/current/tasks/${taskId}`, { method: 'POST', ...jsonBody({ startIso, endIso }) });
 
+/** Reschedules an already-planned task to a new single slot in the current plan. */
+export const changeTaskSlot = (taskId: string, startIso: string, endIso: string): Promise<void> =>
+    apiRequest(`/plans/current/tasks/${taskId}/slot`, { method: 'PUT', ...jsonBody({ startIso, endIso }) });
+
 // --- Categories ---
 
 export const fetchCategories = (boardId: string): Promise<Category[]> =>

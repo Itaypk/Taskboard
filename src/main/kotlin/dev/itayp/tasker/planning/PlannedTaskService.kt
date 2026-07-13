@@ -74,6 +74,19 @@ class PlannedTaskService(
         tasks.forEachIndexed { index, task -> upsertTask(sessionId, userId, task, index) }
     }
 
+    /**
+     * Removes a single task (and its slots) from [sessionId], e.g. when it's unscheduled out of the
+     * plan. No-op if the task isn't planned in that session. Notification cleanup (reminders, calendar
+     * cancellations) is the caller's responsibility and must run *before* this, while the slots are
+     * still readable.
+     */
+    @Transactional
+    fun deleteTaskFromSession(sessionId: UUID, backlogTaskId: UUID) {
+        val existing = plannedTaskRepository.findBySessionIdAndBacklogTaskId(sessionId, backlogTaskId) ?: return
+        plannedTaskSlotRepository.deleteAllByPlannedTaskId(existing.id!!)
+        plannedTaskRepository.delete(existing)
+    }
+
     @Transactional
     fun upsertSingleTask(sessionId: UUID, userId: UUID, task: AgreedPlanTask): PlannedTaskEntity {
         val position = plannedTaskRepository.findBySessionIdAndBacklogTaskId(sessionId, task.taskId)?.position

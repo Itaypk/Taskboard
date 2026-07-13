@@ -14,6 +14,7 @@ import dev.itayp.tasker.model.request.TagInput
 import dev.itayp.tasker.model.request.UpdateBacklogTaskRequest
 import dev.itayp.tasker.planning.BacklogTaskChangeService
 import dev.itayp.tasker.planning.PlanWatermarkService
+import dev.itayp.tasker.planning.PlannedTaskService
 import dev.itayp.tasker.planning.TaskCompletionCancellationService
 import dev.itayp.tasker.repository.BacklogTaskCategoryRepository
 import dev.itayp.tasker.repository.BacklogTaskRepository
@@ -48,6 +49,7 @@ class BacklogTaskService(
     private val userRepository: UserRepository,
     private val clock: Clock,
     private val taskCompletionCancellationService: TaskCompletionCancellationService,
+    private val plannedTaskService: PlannedTaskService,
 ) {
     private val log = LoggerFactory.getLogger(BacklogTaskService::class.java)
 
@@ -362,6 +364,14 @@ class BacklogTaskService(
         boardMembershipService.requireMember(userId, boardId)
         val entity = backlogTaskRepository.findByIdAndBoardId(id, boardId)
             ?: throw NoSuchElementException("Task $id not found")
+        // Removing a task from the plan makes any still-pending reminder and calendar invite for its
+        // upcoming slots stale, exactly like a plan revision that drops the slot. Cancel them *before*
+        // deleting the planned rows (the cancellation reads the slots), then drop the planned task so
+        // it no longer lingers in the session's slot diff.
+        entity.lastScheduledInSessionId?.let { sessionId ->
+            taskCompletionCancellationService.cancelUpcomingSlots(userId, sessionId, id)
+            plannedTaskService.deleteTaskFromSession(sessionId, id)
+        }
         entity.lastScheduledInSessionId = null
         entity.updatedAt = Instant.now()
         backlogTaskRepository.save(entity)

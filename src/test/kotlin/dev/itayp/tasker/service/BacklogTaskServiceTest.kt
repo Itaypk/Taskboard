@@ -51,6 +51,7 @@ class BacklogTaskServiceTest {
     @Mock private lateinit var userRepository: UserRepository
     @Mock private lateinit var clock: Clock
     @Mock private lateinit var taskCompletionCancellationService: TaskCompletionCancellationService
+    @Mock private lateinit var plannedTaskService: dev.itayp.tasker.planning.PlannedTaskService
 
     private val boardCrypto = noopBoardCryptoService()
 
@@ -67,6 +68,7 @@ class BacklogTaskServiceTest {
             userRepository,
             clock,
             taskCompletionCancellationService,
+            plannedTaskService,
         )
     }
 
@@ -403,6 +405,34 @@ class BacklogTaskServiceTest {
         // Already cancelled when the task first went DONE — moving between terminal statuses shouldn't
         // dispatch a second round of cancellations.
         verify(taskCompletionCancellationService, never()).cancelUpcomingSlots(any(), any(), any())
+    }
+
+    @Test
+    fun `unscheduleTask cancels upcoming slots and drops the planned rows for a scheduled task`() {
+        val taskId = UUID.randomUUID()
+        val sessionId = UUID.randomUUID()
+        val existingEntity = taskEntity(categoryEntity(), id = taskId, lastScheduledInSessionId = sessionId)
+        whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(existingEntity)
+        stubSaveTask(existingEntity)
+
+        service.unscheduleTask(userId, boardId, taskId)
+
+        verify(taskCompletionCancellationService).cancelUpcomingSlots(userId, sessionId, taskId)
+        verify(plannedTaskService).deleteTaskFromSession(sessionId, taskId)
+        assertNull(existingEntity.lastScheduledInSessionId)
+    }
+
+    @Test
+    fun `unscheduleTask on an unplanned task skips notification and planned-row cleanup`() {
+        val taskId = UUID.randomUUID()
+        val existingEntity = taskEntity(categoryEntity(), id = taskId)
+        whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(existingEntity)
+        stubSaveTask(existingEntity)
+
+        service.unscheduleTask(userId, boardId, taskId)
+
+        verify(taskCompletionCancellationService, never()).cancelUpcomingSlots(any(), any(), any())
+        verify(plannedTaskService, never()).deleteTaskFromSession(any(), any())
     }
 
     @Test

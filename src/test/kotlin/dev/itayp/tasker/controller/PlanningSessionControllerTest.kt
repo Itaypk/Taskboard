@@ -19,6 +19,7 @@ import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.BacklogTaskService
 import dev.itayp.tasker.service.SortKeyGenerator
 import org.junit.jupiter.api.Test
+import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -34,6 +35,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import java.time.Instant
@@ -268,6 +270,66 @@ class PlanningSessionControllerTest(@Autowired val mockMvc: MockMvc) {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"startIso":"2026-04-28T09:00:00Z","endIso":"2026-04-28T10:00:00Z"}"""),
         ).andExpect(status().isNotFound)
+    }
+
+    // ── PUT /plans/current/tasks/{taskId}/slot ───────────────────────────────
+
+    @Test
+    fun `PUT change slot returns 204 and delegates to planFinalizationService`() {
+        whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(aSession())
+        whenever(planFinalizationService.changeTaskSlot(eq(userId), eq(sessionId), eq(taskId), eq(AgreedTimeSlot("2026-04-28T09:00:00Z", "2026-04-28T10:00:00Z"))))
+            .thenReturn(true)
+
+        mockMvc.perform(
+            put("/api/v1/plans/current/tasks/$taskId/slot")
+                .with(authentication(auth))
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"startIso":"2026-04-28T09:00:00Z","endIso":"2026-04-28T10:00:00Z"}"""),
+        ).andExpect(status().isNoContent)
+
+        verify(planFinalizationService).changeTaskSlot(
+            eq(userId), eq(sessionId), eq(taskId),
+            eq(AgreedTimeSlot("2026-04-28T09:00:00Z", "2026-04-28T10:00:00Z")),
+        )
+    }
+
+    @Test
+    fun `PUT change slot returns 422 when no current plan exists`() {
+        whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(null)
+
+        mockMvc.perform(
+            put("/api/v1/plans/current/tasks/$taskId/slot")
+                .with(authentication(auth))
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"startIso":"2026-04-28T09:00:00Z","endIso":"2026-04-28T10:00:00Z"}"""),
+        ).andExpect(status().isUnprocessableContent)
+    }
+
+    @Test
+    fun `PUT change slot returns 404 when the task is not in the plan`() {
+        whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(aSession())
+        whenever(planFinalizationService.changeTaskSlot(eq(userId), eq(sessionId), eq(taskId), any()))
+            .thenReturn(false)
+
+        mockMvc.perform(
+            put("/api/v1/plans/current/tasks/$taskId/slot")
+                .with(authentication(auth))
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"startIso":"2026-04-28T09:00:00Z","endIso":"2026-04-28T10:00:00Z"}"""),
+        ).andExpect(status().isNotFound)
+    }
+
+    @Test
+    fun `PUT change slot without csrf returns 403`() {
+        mockMvc.perform(
+            put("/api/v1/plans/current/tasks/$taskId/slot")
+                .with(authentication(auth))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"startIso":"2026-04-28T09:00:00Z","endIso":"2026-04-28T10:00:00Z"}"""),
+        ).andExpect(status().isForbidden)
     }
 
     // ── POST /plans/events/{eventId}/cancel ──────────────────────────────────

@@ -312,6 +312,77 @@ class PlanFinalizationServiceTest {
         verify(planInviteDispatcher, never()).dispatch(any(), any(), any(), any(), any())
     }
 
+    // ── changeTaskSlot ───────────────────────────────────────────────────────
+
+    @Test
+    fun `changeTaskSlot returns false when the task is not in the plan`() {
+        whenever(plannedTaskService.findTaskInSession(userId, sessionId, taskId1)).thenReturn(null)
+
+        val changed = service.changeTaskSlot(userId, sessionId, taskId1, slot)
+
+        assertEquals(false, changed)
+        verify(plannedTaskService, never()).upsertSingleTask(any(), any(), any())
+    }
+
+    @Test
+    fun `changeTaskSlot upserts the task with only the new slot`() {
+        val existing = AgreedPlanTask(taskId = taskId1, title = "Task A", notes = "n", slots = listOf(slot))
+        whenever(plannedTaskService.findTaskInSession(userId, sessionId, taskId1)).thenReturn(existing)
+
+        val newSlot = AgreedTimeSlot("2026-05-13T14:00:00+02:00", "2026-05-13T15:00:00+02:00")
+        val changed = service.changeTaskSlot(userId, sessionId, taskId1, newSlot)
+
+        assertEquals(true, changed)
+        // Title/notes preserved, slots replaced by the single new slot.
+        verify(plannedTaskService).upsertSingleTask(sessionId, userId, existing.copy(slots = listOf(newSlot)))
+        verify(planWatermarkService).bump(userId)
+    }
+
+    @Test
+    fun `changeTaskSlot syncs slot reminders against the previous slot`() {
+        val existing = AgreedPlanTask(taskId = taskId1, title = "Task A", slots = listOf(slot))
+        whenever(plannedTaskService.findTaskInSession(userId, sessionId, taskId1)).thenReturn(existing)
+
+        val newSlot = AgreedTimeSlot("2026-05-13T14:00:00+02:00", "2026-05-13T15:00:00+02:00")
+        service.changeTaskSlot(userId, sessionId, taskId1, newSlot)
+
+        verify(slotReminderService).sync(
+            eq(userId),
+            eq(sessionId),
+            eq(listOf(existing)),
+            eq(listOf(existing.copy(slots = listOf(newSlot)))),
+        )
+    }
+
+    @Test
+    fun `changeTaskSlot to a new time cancels the old invite and issues a fresh one`() {
+        val existing = AgreedPlanTask(taskId = taskId1, title = "Task A", slots = listOf(slot))
+        whenever(plannedTaskService.findTaskInSession(userId, sessionId, taskId1)).thenReturn(existing)
+        optInWithVerifiedEmail()
+
+        val movedSlot = AgreedTimeSlot("2026-05-13T14:00:00+02:00", "2026-05-13T16:00:00+02:00")
+        service.changeTaskSlot(userId, sessionId, taskId1, movedSlot)
+
+        verify(planInviteDispatcher).dispatch(any(), any(), any(), any(), any())
+        verify(planInviteDispatcher).dispatchCancellations(any(), any(), any(), any(), any())
+        verify(planInviteDispatcher, never()).dispatchUpdates(any(), any(), any(), any(), any())
+    }
+
+    @Test
+    fun `changeTaskSlot with the same start sends an update`() {
+        val existing = AgreedPlanTask(taskId = taskId1, title = "Task A", slots = listOf(slot))
+        whenever(plannedTaskService.findTaskInSession(userId, sessionId, taskId1)).thenReturn(existing)
+        optInWithVerifiedEmail()
+
+        // Same start, later end → a same-slot "changed" edit, not a move.
+        val extended = AgreedTimeSlot(slot.startIso, "2026-05-11T12:00:00+02:00")
+        service.changeTaskSlot(userId, sessionId, taskId1, extended)
+
+        verify(planInviteDispatcher).dispatchUpdates(any(), any(), any(), any(), any())
+        verify(planInviteDispatcher, never()).dispatch(any(), any(), any(), any(), any())
+        verify(planInviteDispatcher, never()).dispatchCancellations(any(), any(), any(), any(), any())
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private fun planningSession(weekStart: java.time.LocalDate) = PlanningSession(

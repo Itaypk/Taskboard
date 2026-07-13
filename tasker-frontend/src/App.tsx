@@ -34,7 +34,7 @@ import { StatsModal } from './components/StatsModal';
 import { FeedbackModal } from './components/FeedbackModal';
 import { BoardSettingsModal } from './components/BoardSettingsModal';
 import { DEFAULT_SETTINGS } from './data';
-import { fetchBoards, createBoard, fetchTasks, fetchCategories, fetchUserSettings, fetchTags, updateTag, fetchCurrentPlan, fetchSync, createTask, updateTask, deleteTask, duplicateTask, moveTaskToBoard, reorderTask, removeTaskFromPlan, clearTutorialTasks, addTaskToPlan, fetchMembers, setTaskAssignee, type TaskStatusFilter, type Board, type BoardMember } from './api';
+import { fetchBoards, createBoard, fetchTasks, fetchCategories, fetchUserSettings, fetchTags, updateTag, fetchCurrentPlan, fetchSync, createTask, updateTask, deleteTask, duplicateTask, moveTaskToBoard, reorderTask, removeTaskFromPlan, clearTutorialTasks, addTaskToPlan, changeTaskSlot, fetchMembers, setTaskAssignee, type TaskStatusFilter, type Board, type BoardMember } from './api';
 import { UpdateBanner } from './components/UpdateBanner';
 import type { Task, UserSettings, Tag, CurrentPlan, TaskFilter, ViewMode } from './types';
 import { sortTasks, isSortMode, type SortMode } from './sort';
@@ -155,7 +155,13 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const [planDrawerOpen, setPlanDrawerOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; taskId: string; inPlan: boolean } | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ taskId: string; title: string } | null>(null);
-  const [scheduleModal, setScheduleModal] = useState<{ taskId: string; title: string } | null>(null);
+  const [scheduleModal, setScheduleModal] = useState<{
+    taskId: string;
+    title: string;
+    estimatedMinutes?: number;
+    /** Present when rescheduling an already-planned task; drives prefill + the update path. */
+    initialSlot?: { startIso: string; endIso: string };
+  } | null>(null);
   const [moveModal, setMoveModal] = useState<{ taskId: string; title: string; categoryLabel: string | null } | null>(null);
   // Last-seen sync watermarks (per board) + the version baseline. The first poll after a board switch
   // just records these; later polls refetch only the entity types whose timestamp moved.
@@ -502,6 +508,18 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
     }
   }, [currentPlan, fetchStatus, activeBoardId]);
 
+  const handleChangeSlot = useCallback(async (taskId: string, startIso: string, endIso: string) => {
+    if (!currentPlan || !activeBoardId) return;
+    try {
+      await changeTaskSlot(taskId, startIso, endIso);
+      const [freshPlan, freshTasks] = await Promise.all([fetchCurrentPlan(), fetchTasks(activeBoardId, fetchStatus)]);
+      setCurrentPlan(freshPlan);
+      setTasks(freshTasks);
+    } catch (e) {
+      console.error('Failed to change task slot', e);
+    }
+  }, [currentPlan, fetchStatus, activeBoardId]);
+
   const requestDelete = useCallback((id: string) => {
     const task = tasks.find(t => t.id === id) ?? archivedTasks.find(t => t.id === id);
     if (!task) return;
@@ -554,10 +572,18 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
     }
     if (!inPlan && currentPlan !== null) {
       actions.push({ label: "Add to this week's plan", onClick: () => {
-        setScheduleModal({ taskId, title: task.title });
+        setScheduleModal({ taskId, title: task.title, estimatedMinutes: task.estimatedMinutes });
       }});
     }
     if (inPlan) {
+      // Quick-switch a single planned slot without a full plan revision. Only offered for the
+      // single-slot common case; multi-slot tasks (agent-created) stay on the revise flow.
+      const plannedSlots = currentPlan?.tasks.find(t => t.id === taskId)?.slots ?? [];
+      if (plannedSlots.length === 1) {
+        actions.push({ label: 'Change slot…', onClick: () => {
+          setScheduleModal({ taskId, title: task.title, estimatedMinutes: task.estimatedMinutes, initialSlot: plannedSlots[0] });
+        }});
+      }
       actions.push({ label: "Remove from this week's plan", onClick: () => { void handleRemoveFromPlan(taskId); } });
     }
     actions.push({ label: 'Duplicate', onClick: () => { void handleDuplicate(taskId); } });
@@ -902,13 +928,19 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
 
       {scheduleModal && currentPlan && (
         <ScheduleTaskModal
-          key={scheduleModal.taskId}
+          key={`${scheduleModal.taskId}-${scheduleModal.initialSlot ? 'edit' : 'add'}`}
           open={scheduleModal !== null}
           taskTitle={scheduleModal.title}
           weekStart={currentPlan.weekStart}
           weekEnd={currentPlan.weekEnd}
+          estimatedMinutes={scheduleModal.estimatedMinutes}
+          initialSlot={scheduleModal.initialSlot}
           onConfirm={(startIso, endIso) => {
-            void handleAddToPlan(scheduleModal.taskId, startIso, endIso);
+            if (scheduleModal.initialSlot) {
+              void handleChangeSlot(scheduleModal.taskId, startIso, endIso);
+            } else {
+              void handleAddToPlan(scheduleModal.taskId, startIso, endIso);
+            }
             setScheduleModal(null);
           }}
           onClose={() => setScheduleModal(null)}
