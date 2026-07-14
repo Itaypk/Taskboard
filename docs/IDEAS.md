@@ -106,7 +106,7 @@ Deferred from the `docs/I18N.md` design (see there for full rationale). Not bloc
 - **Web UI i18n** — design and phased rollout live in `docs/I18N.md`. Phase 0 (trim the supported
   languages to en/he/ru/ar) and Phase 1 (i18next + locale-resolution infrastructure, `Intl`
   formatting helper, string-extraction pattern, key-parity test) are landing; the remaining phases
-  are Hebrew + full RTL (Phase 2), then Russian and Arabic (Phase 3). Bulk string extraction across
-  the ~47 components proceeds screen-by-screen in follow-up PRs (untranslated keys fall back to
-  English, so it's safe to land incrementally).
+  are Hebrew + full RTL (Phase 2), then Russian and Arabic (Phase 3). Bulk string extraction
+  proceeds screen-by-screen in follow-up PRs (untranslated keys fall back to English, so it's safe
+  to land incrementally) — `docs/I18N-INVENTORY.md` tracks per-component status.
 - Multi-modal support: the assistant can process images and voice messages. 

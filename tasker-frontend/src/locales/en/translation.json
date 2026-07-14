@@ -54,5 +54,34 @@
       "devFailed": "Dev login failed. Is the backend running with the dev profile?",
       "emailSendFailed": "Could not send the sign-in link. Please try again."
     }
+  },
+  "notFound": {
+    "heading": "Page not found",
+    "body": "This page doesn't exist. It may have been moved or the URL is incorrect.",
+    "homeLink": "Go to Backlog.fyi"
+  },
+  "confirmDialog": {
+    "cancel": "Cancel",
+    "confirm": "Confirm"
+  },
+  "errorToast": {
+    "region": "Notifications",
+    "dismiss": "Dismiss"
+  },
+  "api": {
+    "errors": {
+      "network": "Can't reach the server. Check your connection and try again.",
+      "badRequest": "That request looks invalid. Please review and try again.",
+      "forbidden": "You don't have permission to do that.",
+      "notFound": "We couldn't find what you were looking for.",
+      "conflict": "That change conflicts with the current state. Reload and try again.",
+      "payloadTooLarge": "That request is too large.",
+      "unprocessable": "Some of those values are not valid.",
+      "rateLimited": "Too many requests. Please wait a moment and try again.",
+      "serverError": "The server hit an unexpected error. Please try again in a moment.",
+      "requestFailed": "The request failed.",
+      "generic": "Something went wrong.",
+      "sessionExpired": "Your session has expired. Please sign in again."
+    }
   }
 }

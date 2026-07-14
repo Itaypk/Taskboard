@@ -1,3 +1,4 @@
+import i18n from './i18n';
 import type { Task, Category, Tag, UserSettings, SettingsOptions, CurrentPlan, OneOffEvent, TimeSlot, Stats, AiUsage } from './types';
 
 const BASE = '/api/v1';
@@ -50,17 +51,17 @@ export class ApiError extends Error {
 }
 
 function defaultMessageFor(status: number, statusText: string): string {
-    if (status === 0)   return "Can't reach the server. Check your connection and try again.";
-    if (status === 400) return 'That request looks invalid. Please review and try again.';
-    if (status === 403) return "You don't have permission to do that.";
-    if (status === 404) return "We couldn't find what you were looking for.";
-    if (status === 409) return 'That change conflicts with the current state. Reload and try again.';
-    if (status === 413) return 'That request is too large.';
-    if (status === 422) return 'Some of those values are not valid.';
-    if (status === 429) return 'Too many requests. Please wait a moment and try again.';
-    if (status >= 500)  return 'The server hit an unexpected error. Please try again in a moment.';
-    if (status >= 400)  return statusText || 'The request failed.';
-    return statusText || 'Something went wrong.';
+    if (status === 0)   return i18n.t('api.errors.network');
+    if (status === 400) return i18n.t('api.errors.badRequest');
+    if (status === 403) return i18n.t('api.errors.forbidden');
+    if (status === 404) return i18n.t('api.errors.notFound');
+    if (status === 409) return i18n.t('api.errors.conflict');
+    if (status === 413) return i18n.t('api.errors.payloadTooLarge');
+    if (status === 422) return i18n.t('api.errors.unprocessable');
+    if (status === 429) return i18n.t('api.errors.rateLimited');
+    if (status >= 500)  return i18n.t('api.errors.serverError');
+    if (status >= 400)  return statusText || i18n.t('api.errors.requestFailed');
+    return statusText || i18n.t('api.errors.generic');
 }
 
 // Spring's ProblemDetail uses `detail`/`title`; our handlers return `{error: "..."}`.
@@ -154,7 +155,7 @@ async function handle<T>(res: Response, path: string, opts: { jsonOnEmpty?: T; e
             status: 401,
             statusText: res.statusText,
             path,
-            userMessage: 'Your session has expired. Please sign in again.',
+            userMessage: i18n.t('api.errors.sessionExpired'),
         });
     }
     if (!res.ok) {
