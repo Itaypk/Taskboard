@@ -6,6 +6,7 @@ import dev.itayp.tasker.security.SessionAuthenticator
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.AccountLinkService
 import dev.itayp.tasker.service.LinkResult
+import dev.itayp.tasker.service.LocaleNegotiationService
 import dev.itayp.tasker.service.TelegramAuthData
 import dev.itayp.tasker.service.TelegramAuthorizationRequest
 import dev.itayp.tasker.service.TelegramOidcService
@@ -29,7 +30,7 @@ import java.time.Instant
 import java.util.UUID
 
 @WebMvcTest(TelegramOidcController::class)
-@Import(SecurityConfiguration::class)
+@Import(SecurityConfiguration::class, LocaleNegotiationService::class)
 class TelegramOidcControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @MockitoBean lateinit var telegramOidcService: TelegramOidcService

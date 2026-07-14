@@ -20,6 +20,7 @@ import MarkdownRenderer from './MarkdownRenderer';
 import { ConfirmDialog } from './ConfirmDialog';
 import { EventsSection } from './EventsSection';
 import { PlanDetails } from './PlanDetails';
+import { formatDate } from '../i18n/format';
 import styles from './WeeklyPlanDrawer.module.css';
 
 interface WeeklyPlanDrawerProps {
@@ -619,8 +620,8 @@ function formatRange(weekStart: string, weekEnd: string): string {
   const start = new Date(`${weekStart}T00:00:00`);
   const end = new Date(`${weekEnd}T00:00:00`);
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return '';
-  const startMonth = start.toLocaleDateString(undefined, { month: 'short' });
-  const endMonth = end.toLocaleDateString(undefined, { month: 'short' });
+  const startMonth = formatDate(start, { month: 'short' });
+  const endMonth = formatDate(end, { month: 'short' });
   return startMonth === endMonth
     ? `${startMonth} ${start.getDate()}–${end.getDate()}`
     : `${startMonth} ${start.getDate()} – ${endMonth} ${end.getDate()}`;
@@ -632,8 +633,8 @@ function formatWeekRange(weekStart: string, weekEnd: string): string {
   const end = new Date(`${weekEnd}T00:00:00`);
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return '';
   const year = start.getFullYear();
-  const startMonth = start.toLocaleDateString(undefined, { month: 'short' });
-  const endMonth = end.toLocaleDateString(undefined, { month: 'short' });
+  const startMonth = formatDate(start, { month: 'short' });
+  const endMonth = formatDate(end, { month: 'short' });
   return startMonth === endMonth
     ? `${startMonth} ${start.getDate()}–${end.getDate()}, ${year}`
     : `${startMonth} ${start.getDate()} – ${endMonth} ${end.getDate()}, ${year}`;

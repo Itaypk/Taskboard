@@ -1,0 +1,58 @@
+{
+  "login": {
+    "nav": {
+      "terms": "Terms",
+      "privacy": "Privacy",
+      "logIn": "Log in"
+    },
+    "hero": {
+      "tag": "This week · top of mind",
+      "titleLine1": "Tasks you keep",
+      "titleLine2": "actually doing.",
+      "sub": "Capture what's on your plate. Talk through a realistic week with the assistant. Agreed tasks land on your calendar as time blocks.",
+      "getStarted": "Get started — it's free",
+      "startNow": "or start now, no sign-up →"
+    },
+    "satellites": {
+      "problemTag": "The problem",
+      "problemTitle": "Tasks get written down — then quietly buried.",
+      "payoffTag": "The payoff",
+      "payoffTitle": "A week you can actually commit to.",
+      "payoffMeta": "Not another list to ignore.",
+      "methodTag": "The method",
+      "methodTitle": "Time-blocking — but you don't do the planning.",
+      "methodMeta": "The assistant proposes; you push back.",
+      "privacyTag": "Yours alone",
+      "privacyTitle": "No ads. No trackers. Encrypted at rest. ZDR AI."
+    },
+    "modal": {
+      "close": "Close",
+      "tag": "Welcome in",
+      "title": "Pick how you'd like to continue",
+      "sub": "One tap. We'll create your board if it's your first time.",
+      "telegram": "Log in with Telegram",
+      "google": "Continue with Google",
+      "soon": "Soon",
+      "emailSent": "Check your inbox — we sent a sign-in link to <strong>{{email}}</strong>. It expires in 30 minutes.",
+      "emailPlaceholder": "you@example.com",
+      "sending": "Sending…",
+      "sendLink": "Send sign-in link",
+      "continueEmail": "Continue with email",
+      "moreWays": "More ways to sign in are on the way",
+      "justLooking": "just looking?",
+      "sandbox": "Start now — no sign-up →",
+      "sandboxSub": "Get a real board instantly. Add an email or Telegram later to keep it.",
+      "fine": "By continuing you agree to our <terms>Terms</terms> and <privacy>Privacy Policy</privacy>. No ads, no trackers — ever.",
+      "devLogin": "Dev login (skip Telegram)"
+    },
+    "notices": {
+      "telegramFailed": "Telegram sign-in didn’t complete. Please try again.",
+      "telegramUnavailable": "Telegram sign-in is temporarily unavailable. Try another method."
+    },
+    "errors": {
+      "demoFailed": "Couldn't start a new account. Please try again.",
+      "devFailed": "Dev login failed. Is the backend running with the dev profile?",
+      "emailSendFailed": "Could not send the sign-in link. Please try again."
+    }
+  }
+}

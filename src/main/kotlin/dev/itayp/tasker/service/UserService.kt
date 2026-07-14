@@ -10,11 +10,15 @@ class UserService(
     private val boardService: BoardService,
 ) {
 
-    fun initializeNewUser(userId: UUID) {
+    /**
+     * [localeHint], when non-null, is a supported language code resolved from the registration
+     * request's `Accept-Language`; it seeds the new user's `preferred_language` (docs/I18N.md, D2).
+     */
+    fun initializeNewUser(userId: UUID, localeHint: String? = null) {
         // Every account gets a personal board, which owns the default category set and the
         // account's tasks/tags. A board is "private" until other members are invited.
         boardService.createBoardForOwner(userId, BoardService.DEFAULT_BOARD_NAME)
-        userSettingsService.initializeForNewUser(userId)
+        userSettingsService.initializeForNewUser(userId, localeHint)
     }
 
     companion object {

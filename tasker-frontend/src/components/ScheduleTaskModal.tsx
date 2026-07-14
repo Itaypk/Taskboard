@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { formatDate } from '../i18n/format';
 import styles from './ScheduleTaskModal.module.css';
 
 interface ScheduleTaskModalProps {
@@ -32,8 +33,8 @@ function toLocalIso(dateStr: string, timeStr: string): string {
 
 function formatDayLabel(date: Date): { weekday: string; date: string } {
   return {
-    weekday: date.toLocaleDateString(undefined, { weekday: 'short' }),
-    date: date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+    weekday: formatDate(date, { weekday: 'short' }),
+    date: formatDate(date, { month: 'short', day: 'numeric' }),
   };
 }
 

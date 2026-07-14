@@ -33,9 +33,11 @@ class EmailLoginServiceTest {
     private val appProperties = AppProperties(baseUrl = "https://backlog.fyi")
     private val blocklist = EmailDomainBlocklistService(EmailProperties(blockedDomains = setOf("blocked.example")))
 
+    private val localeNegotiationService = LocaleNegotiationService()
+
     private val service = EmailLoginService(
         tokenRepository, userAuthService, outboundChannel, templateEngine,
-        messageSource, crypto, appProperties, blocklist, clock,
+        messageSource, crypto, appProperties, blocklist, localeNegotiationService, clock,
     )
 
     @Test

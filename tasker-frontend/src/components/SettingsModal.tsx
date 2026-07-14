@@ -12,6 +12,7 @@ import { Tabs } from './Tabs';
 import { Toggle } from './Toggle';
 import { createCategory, updateCategory, deleteCategory, updateTag, deleteTag, updateUserSettings, fetchSettingsOptions, deleteAccount, exportAccount, importAccount, requestEmailVerification } from '../api';
 import type { ImportSummary } from '../api';
+import { applyLocale } from '../i18n';
 import type { SettingsTab } from '../taskLink';
 
 interface SettingsModalProps {
@@ -192,6 +193,9 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
       ]);
 
       onSave({ ...form, categories: finalCategories });
+      // Apply a language change immediately (i18n UI language + document lang/dir + Intl locale),
+      // no reload needed (docs/I18N.md, D3). No-op in Phase 1 while the UI stays English-only.
+      void applyLocale(form.preferredLanguage);
       // A tag rename/recolor fans out to tasks (they embed the label/colour), so refetch both.
       if (tagsTouched) onTagsChanged();
       onClose();

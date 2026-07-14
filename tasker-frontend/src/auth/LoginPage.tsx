@@ -1,25 +1,25 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { demoLogin, devLogin, requestEmailLogin, telegramLoginUrl } from './authApi';
 import pineappleUrl from '../assets/pineapple.webp';
 import styles from './LoginPage.module.css';
 
-// The Telegram OIDC callback redirects back here with a notice if login didn't complete.
-const TELEGRAM_NOTICES: Record<string, string> = {
-    failed: 'Telegram sign-in didn’t complete. Please try again.',
-    unavailable: 'Telegram sign-in is temporarily unavailable. Try another method.',
-};
-
-function readTelegramNotice(): string | null {
+// The Telegram OIDC callback redirects back here with a notice code if login didn't complete;
+// `unavailable` maps to its own copy, every other value degrades to the generic "failed" message.
+function readTelegramNoticeKey(): string | null {
     const code = new URLSearchParams(window.location.search).get('telegramLogin');
-    return code ? TELEGRAM_NOTICES[code] ?? TELEGRAM_NOTICES.failed : null;
+    if (!code) return null;
+    return code === 'unavailable' ? 'login.notices.telegramUnavailable' : 'login.notices.telegramFailed';
 }
 
 export function LoginPage({ next }: { next?: string } = {}) {
+    const { t } = useTranslation();
     const { setUser } = useAuth();
     // A failed Telegram redirect lands on "/" with the modal closed — auto-open it to show the error.
-    const initialNotice = readTelegramNotice();
+    const initialNoticeKey = readTelegramNoticeKey();
+    const initialNotice = initialNoticeKey ? t(initialNoticeKey) : null;
     const [modalOpen, setModalOpen] = useState(initialNotice != null);
     const [error, setError] = useState<string | null>(initialNotice);
     const [busy, setBusy] = useState(false);
@@ -45,7 +45,7 @@ export function LoginPage({ next }: { next?: string } = {}) {
             setUser(user);
         } catch (e) {
             console.error('Start-now login failed', e);
-            setError("Couldn't start a new account. Please try again.");
+            setError(t('login.errors.demoFailed'));
         } finally {
             setBusy(false);
         }
@@ -59,7 +59,7 @@ export function LoginPage({ next }: { next?: string } = {}) {
             setUser(user);
         } catch (e) {
             console.error('Dev login failed', e);
-            setError('Dev login failed. Is the backend running with the dev profile?');
+            setError(t('login.errors.devFailed'));
         } finally {
             setBusy(false);
         }
@@ -76,10 +76,10 @@ export function LoginPage({ next }: { next?: string } = {}) {
                     <span className={styles.copyright}>© 2026</span>
                 </div>
                 <nav className={styles.navRight}>
-                    <Link to="/terms" className={styles.navLink}>Terms</Link>
-                    <Link to="/privacy" className={styles.navLink}>Privacy</Link>
+                    <Link to="/terms" className={styles.navLink}>{t('login.nav.terms')}</Link>
+                    <Link to="/privacy" className={styles.navLink}>{t('login.nav.privacy')}</Link>
                     <button type="button" className={styles.navLink} onClick={() => setModalOpen(true)}>
-                        Log in
+                        {t('login.nav.logIn')}
                     </button>
                 </nav>
             </header>
@@ -90,14 +90,13 @@ export function LoginPage({ next }: { next?: string } = {}) {
                         <span className={styles.tape} style={{ top: -11, left: 70, transform: 'rotate(-7deg)' }} />
                         <span className={styles.tape} style={{ top: -11, right: 90, width: 90, transform: 'rotate(6deg)' }} />
 
-                        <div className={styles.heroTag}>This week · top of mind</div>
+                        <div className={styles.heroTag}>{t('login.hero.tag')}</div>
                         <h1 className={styles.heroH1}>
-                            Tasks you keep<br />
-                            <em className={styles.heroEm}>actually doing.</em>
+                            {t('login.hero.titleLine1')}<br />
+                            <em className={styles.heroEm}>{t('login.hero.titleLine2')}</em>
                         </h1>
                         <p className={styles.heroSub}>
-                            Capture what's on your plate. Talk through a realistic week with the
-                            assistant. Agreed tasks land on your calendar as time blocks.
+                            {t('login.hero.sub')}
                         </p>
 
                         <div className={styles.ctaRow}>
@@ -107,7 +106,7 @@ export function LoginPage({ next }: { next?: string } = {}) {
                                 onClick={() => setModalOpen(true)}
                                 disabled={busy}
                             >
-                                Get started — it's free
+                                {t('login.hero.getStarted')}
                             </button>
                             <button
                                 type="button"
@@ -115,7 +114,7 @@ export function LoginPage({ next }: { next?: string } = {}) {
                                 onClick={handleDemoLogin}
                                 disabled={busy}
                             >
-                                or start now, no sign-up →
+                                {t('login.hero.startNow')}
                             </button>
                         </div>
                     </div>
@@ -123,27 +122,27 @@ export function LoginPage({ next }: { next?: string } = {}) {
 
                 <div className={styles.satGrid}>
                     <div className={`${styles.sat} ${styles.satPink}`}>
-                        <div className={styles.satTag}>The problem</div>
-                        <h3 className={styles.satH}>Tasks get written down — then quietly buried.</h3>
+                        <div className={styles.satTag}>{t('login.satellites.problemTag')}</div>
+                        <h3 className={styles.satH}>{t('login.satellites.problemTitle')}</h3>
                     </div>
 
                     <div className={`${styles.sat} ${styles.satPeach}`}>
                         <span className={styles.tape} style={{ top: -9, left: 26, transform: 'rotate(-4deg)' }} />
-                        <div className={styles.satTag}>The payoff</div>
-                        <h3 className={styles.satH}>A week you can actually commit to.</h3>
-                        <div className={styles.satMeta}>Not another list to ignore.</div>
+                        <div className={styles.satTag}>{t('login.satellites.payoffTag')}</div>
+                        <h3 className={styles.satH}>{t('login.satellites.payoffTitle')}</h3>
+                        <div className={styles.satMeta}>{t('login.satellites.payoffMeta')}</div>
                     </div>
 
                     <div className={`${styles.sat} ${styles.satBlue}`}>
-                        <div className={styles.satTag}>The method</div>
-                        <h3 className={styles.satH}>Time-blocking — but you don't do the planning.</h3>
-                        <div className={styles.satMeta}>The assistant proposes; you push back.</div>
+                        <div className={styles.satTag}>{t('login.satellites.methodTag')}</div>
+                        <h3 className={styles.satH}>{t('login.satellites.methodTitle')}</h3>
+                        <div className={styles.satMeta}>{t('login.satellites.methodMeta')}</div>
                     </div>
 
                     <div className={`${styles.sat} ${styles.satMint}`}>
                         <span className={styles.tape} style={{ top: -9, right: 30, transform: 'rotate(5deg)' }} />
-                        <div className={styles.satTag}>Yours alone</div>
-                        <h3 className={styles.satH}>No ads. No trackers. Encrypted at rest. ZDR&nbsp;AI.</h3>
+                        <div className={styles.satTag}>{t('login.satellites.privacyTag')}</div>
+                        <h3 className={styles.satH}>{t('login.satellites.privacyTitle')}</h3>
                     </div>
                 </div>
             </div>
@@ -179,6 +178,7 @@ function LoginModal({
     onDevLogin: () => void;
     onClose: () => void;
 }) {
+    const { t } = useTranslation();
     const [emailMode, setEmailMode] = useState(false);
     const [email, setEmail] = useState('');
     const [emailSent, setEmailSent] = useState(false);
@@ -196,7 +196,7 @@ function LoginModal({
             setEmailSent(true);
         } catch (err) {
             console.error('Email login request failed', err);
-            setEmailErr('Could not send the sign-in link. Please try again.');
+            setEmailErr(t('login.errors.emailSendFailed'));
         } finally {
             setEmailBusy(false);
         }
@@ -205,36 +205,39 @@ function LoginModal({
     return (
         <div className={styles.overlay} onClick={onClose}>
             <div className={styles.modal} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-                <button type="button" className={styles.modalClose} onClick={onClose} aria-label="Close">✕</button>
+                <button type="button" className={styles.modalClose} onClick={onClose} aria-label={t('login.modal.close')}>✕</button>
 
-                <div className={styles.modalTag}>Welcome in</div>
-                <h2 className={styles.modalH}>Pick how you'd like to continue</h2>
-                <p className={styles.modalSub}>One tap. We'll create your board if it's your first time.</p>
+                <div className={styles.modalTag}>{t('login.modal.tag')}</div>
+                <h2 className={styles.modalH}>{t('login.modal.title')}</h2>
+                <p className={styles.modalSub}>{t('login.modal.sub')}</p>
 
                 <div className={styles.channels}>
                     <a
                         href={telegramLoginUrl(next)}
                         className={`${styles.channelBtn} ${styles.chTelegram}`}
                     >
-                        <TelegramIcon /> Log in with Telegram
+                        <TelegramIcon /> {t('login.modal.telegram')}
                     </a>
 
                     <button type="button" className={`${styles.channelBtn} ${styles.chGoogle}`} disabled>
-                        <GIcon /> Continue with Google
-                        <span className={styles.soonBadge}>Soon</span>
+                        <GIcon /> {t('login.modal.google')}
+                        <span className={styles.soonBadge}>{t('login.modal.soon')}</span>
                     </button>
 
                     {emailSent ? (
                         <p className={styles.emailSent}>
-                            Check your inbox — we sent a sign-in link to <strong>{email.trim()}</strong>.
-                            It expires in 30 minutes.
+                            <Trans
+                                i18nKey="login.modal.emailSent"
+                                values={{ email: email.trim() }}
+                                components={{ strong: <strong /> }}
+                            />
                         </p>
                     ) : emailMode ? (
                         <form className={styles.emailForm} onSubmit={submitEmail}>
                             <input
                                 type="email"
                                 className={styles.emailInput}
-                                placeholder="you@example.com"
+                                placeholder={t('login.modal.emailPlaceholder')}
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 autoFocus
@@ -245,7 +248,7 @@ function LoginModal({
                                 className={`${styles.channelBtn} ${styles.chEmail}`}
                                 disabled={emailBusy}
                             >
-                                {emailBusy ? 'Sending…' : 'Send sign-in link'}
+                                {emailBusy ? t('login.modal.sending') : t('login.modal.sendLink')}
                             </button>
                             {emailErr && <p className={styles.error}>{emailErr}</p>}
                         </form>
@@ -255,32 +258,34 @@ function LoginModal({
                             className={`${styles.channelBtn} ${styles.chEmail}`}
                             onClick={() => setEmailMode(true)}
                         >
-                            <MailIcon /> Continue with email
+                            <MailIcon /> {t('login.modal.continueEmail')}
                         </button>
                     )}
                 </div>
 
-                <p className={styles.moreNote}>More ways to sign in are on the way</p>
+                <p className={styles.moreNote}>{t('login.modal.moreWays')}</p>
 
                 <div className={styles.divider}>
                     <span className={styles.divLine} />
-                    <span className={styles.divText}>just looking?</span>
+                    <span className={styles.divText}>{t('login.modal.justLooking')}</span>
                     <span className={styles.divLine} />
                 </div>
 
                 <button type="button" className={styles.sandboxCard} onClick={onSandbox} disabled={busy}>
-                    Start now — no sign-up →
-                    <span className={styles.sandboxSub}>Get a real board instantly. Add an email or Telegram later to keep it.</span>
+                    {t('login.modal.sandbox')}
+                    <span className={styles.sandboxSub}>{t('login.modal.sandboxSub')}</span>
                 </button>
 
                 <p className={styles.fine}>
-                    By continuing you agree to our <Link to="/terms">Terms</Link> and{' '}
-                    <Link to="/privacy">Privacy Policy</Link>. No ads, no trackers — ever.
+                    <Trans
+                        i18nKey="login.modal.fine"
+                        components={{ terms: <Link to="/terms" />, privacy: <Link to="/privacy" /> }}
+                    />
                 </p>
 
                 {import.meta.env.DEV && (
                     <button type="button" className={styles.devBtn} onClick={onDevLogin} disabled={busy}>
-                        Dev login (skip Telegram)
+                        {t('login.modal.devLogin')}
                     </button>
                 )}
 

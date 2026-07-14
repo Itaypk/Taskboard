@@ -5,7 +5,9 @@ import dev.itayp.tasker.model.response.MeResponse
 import dev.itayp.tasker.model.response.toMeResponse
 import dev.itayp.tasker.security.SessionAuthenticator
 import dev.itayp.tasker.security.TaskerPrincipal
+import dev.itayp.tasker.service.LocaleNegotiationService
 import dev.itayp.tasker.service.UserAuthService
+import dev.itayp.tasker.service.UserSettingsService
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.http.ResponseEntity
@@ -19,6 +21,8 @@ class DemoAuthController(
     private val userAuthService: UserAuthService,
     private val sessionAuthenticator: SessionAuthenticator,
     private val userCrypto: UserCryptoService,
+    private val userSettingsService: UserSettingsService,
+    private val localeNegotiationService: LocaleNegotiationService,
 ) {
 
     /**
@@ -32,8 +36,11 @@ class DemoAuthController(
         request: HttpServletRequest,
         response: HttpServletResponse,
     ): ResponseEntity<MeResponse> {
-        val user = userAuthService.createUnclaimedUser()
+        // The demo is the funnel: a Hebrew-speaking visitor should see the demo in Hebrew, so
+        // seed the language from the browser just like any other registration (docs/I18N.md, D2).
+        val localeHint = localeNegotiationService.resolveSupportedTag(request.getHeader("Accept-Language"))
+        val user = userAuthService.createUnclaimedUser(localeHint)
         sessionAuthenticator.authenticate(TaskerPrincipal(user.id!!), request, response)
-        return ResponseEntity.ok(user.toMeResponse(userCrypto))
+        return ResponseEntity.ok(user.toMeResponse(userCrypto, userSettingsService.getPreferredLanguage(user.id!!)))
     }
 }

@@ -5,6 +5,7 @@ import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.jpa.UserEntity
 import dev.itayp.tasker.repository.UserRepository
 import dev.itayp.tasker.security.TaskerPrincipal
+import dev.itayp.tasker.service.UserSettingsService
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
@@ -27,6 +28,7 @@ class AuthControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @MockitoBean lateinit var userRepository: UserRepository
     @MockitoBean lateinit var userCryptoService: UserCryptoService
+    @MockitoBean lateinit var userSettingsService: UserSettingsService
 
     private val userId = UUID.fromString("00000000-0000-0000-0000-0000000000aa")
 
@@ -52,10 +54,12 @@ class AuthControllerTest(@Autowired val mockMvc: MockMvc) {
     @Test
     fun `GET me with auth returns current user JSON`() {
         whenever(userRepository.findById(userId)).thenReturn(Optional.of(userEntity()))
+        whenever(userSettingsService.getPreferredLanguage(userId)).thenReturn("he")
 
         mockMvc.perform(get("/api/auth/me").with(authentication(auth)))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.id").value(userId.toString()))
             .andExpect(jsonPath("$.telegramUsername").value("alice"))
+            .andExpect(jsonPath("$.preferredLanguage").value("he"))
     }
 }

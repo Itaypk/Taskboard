@@ -7,6 +7,7 @@ import dev.itayp.tasker.service.EmailLoginResult
 import dev.itayp.tasker.service.EmailLoginService
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -87,7 +88,7 @@ class EmailAuthControllerTest(@Autowired val mockMvc: MockMvc) {
             .andExpect(status().isFound)
             .andExpect(header().string("Location", "/email-login?token=tok123"))
 
-        verify(emailLoginService, never()).completeLogin(any())
+        verify(emailLoginService, never()).completeLogin(any(), anyOrNull())
     }
 
     // ── GET /api/auth/email/precheck ─────────────────────────────────────────
@@ -100,7 +101,7 @@ class EmailAuthControllerTest(@Autowired val mockMvc: MockMvc) {
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.valid").value(true))
 
-        verify(emailLoginService, never()).completeLogin(any())
+        verify(emailLoginService, never()).completeLogin(any(), anyOrNull())
     }
 
     @Test
@@ -111,6 +112,6 @@ class EmailAuthControllerTest(@Autowired val mockMvc: MockMvc) {
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.valid").value(false))
 
-        verify(emailLoginService, never()).completeLogin(any())
+        verify(emailLoginService, never()).completeLogin(any(), anyOrNull())
     }
 }
