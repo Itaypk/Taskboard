@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { API_ERROR_EVENT, type ApiErrorDetail } from '../api';
 import styles from './ErrorToast.module.css';
 
@@ -10,6 +11,7 @@ interface Toast {
 const AUTO_DISMISS_MS = 6000;
 
 export function ErrorToastStack() {
+    const { t } = useTranslation();
     const [toasts, setToasts] = useState<Toast[]>([]);
     const nextId = useRef(1);
 
@@ -34,16 +36,16 @@ export function ErrorToastStack() {
     if (toasts.length === 0) return null;
 
     return (
-        <div className={styles.stack} role="region" aria-label="Notifications">
-            {toasts.map(t => (
-                <div key={t.id} className={styles.toast} role="alert">
+        <div className={styles.stack} role="region" aria-label={t('errorToast.region')}>
+            {toasts.map(toast => (
+                <div key={toast.id} className={styles.toast} role="alert">
                     <span className={styles.icon} aria-hidden>!</span>
-                    <span className={styles.message}>{t.message}</span>
+                    <span className={styles.message}>{toast.message}</span>
                     <button
                         type="button"
                         className={styles.close}
-                        onClick={() => setToasts(prev => prev.filter(p => p.id !== t.id))}
-                        aria-label="Dismiss"
+                        onClick={() => setToasts(prev => prev.filter(p => p.id !== toast.id))}
+                        aria-label={t('errorToast.dismiss')}
                     >
                         ×
                     </button>

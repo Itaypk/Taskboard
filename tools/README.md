@@ -57,3 +57,7 @@ board-settings picker. End to end:
 - **`level-bottom-gap.py`** — normalizes the bottom transparent gap to a reference
   image's height ratio (see step 2). Supports `--dry-run`, `--reference`, `--mode`, `--gap`.
 - **`to-webp.py`** — converts PNG(s) to WebP with alpha. Supports `--quality`, `--lossless`.
+- **`i18n-inventory.mjs`** — heuristic scan of `tasker-frontend/src/**/*.tsx` for hardcoded
+  user-facing strings, sized per component. Feeds `docs/I18N-INVENTORY.md` (the i18n
+  string-extraction checklist); re-run after a batch of extraction PRs. Run with
+  `node ../tools/i18n-inventory.mjs` from `tasker-frontend/`. Requires only Node (no deps).
