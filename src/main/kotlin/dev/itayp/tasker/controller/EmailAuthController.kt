@@ -34,8 +34,11 @@ class EmailAuthController(
 ) {
 
     @PostMapping
-    fun requestLogin(@Valid @RequestBody request: EmailLoginRequest): ResponseEntity<Unit> {
-        emailLoginService.requestLogin(request.email, request.next)
+    fun requestLogin(
+        @Valid @RequestBody request: EmailLoginRequest,
+        httpRequest: HttpServletRequest,
+    ): ResponseEntity<Unit> {
+        emailLoginService.requestLogin(request.email, request.next, httpRequest.getHeader("Accept-Language"))
         return ResponseEntity.noContent().build()
     }
 
@@ -56,7 +59,7 @@ class EmailAuthController(
         request: HttpServletRequest,
         response: HttpServletResponse,
     ): ResponseEntity<Map<String, String>> {
-        val outcome = when (val result = emailLoginService.completeLogin(body.token)) {
+        val outcome = when (val result = emailLoginService.completeLogin(body.token, request.getHeader("Accept-Language"))) {
             is EmailLoginResult.Success -> {
                 sessionAuthenticator.authenticate(TaskerPrincipal(result.user.id!!), request, response)
                 "success"

@@ -8,6 +8,7 @@ import dev.itayp.tasker.model.response.toMeResponse
 import dev.itayp.tasker.security.SessionAuthenticator
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.UserAuthService
+import dev.itayp.tasker.service.UserSettingsService
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.slf4j.LoggerFactory
@@ -28,6 +29,7 @@ class DevAuthController(
     private val userAuthService: UserAuthService,
     private val sessionAuthenticator: SessionAuthenticator,
     private val userCrypto: UserCryptoService,
+    private val userSettingsService: UserSettingsService,
 ) {
 
     @PostMapping("/dev-login")
@@ -38,7 +40,7 @@ class DevAuthController(
         val user = userAuthService.ensureDevUser(DEV_USER_ID, DEV_USER_TELEGRAM_ID)
         sessionAuthenticator.authenticate(TaskerPrincipal(user.id!!), request, response)
         logger.debug("Successful dev login for user ID ${user.id}")
-        return ResponseEntity.ok(user.toMeResponse(userCrypto))
+        return ResponseEntity.ok(user.toMeResponse(userCrypto, userSettingsService.getPreferredLanguage(user.id!!)))
     }
 
     companion object {

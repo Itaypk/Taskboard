@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import styles from './StatsModal.module.css';
 import { fetchStats } from '../api';
+import { formatDate } from '../i18n/format';
 import type { Stats } from '../types';
 
 interface StatsModalProps {
@@ -14,7 +15,7 @@ function formatAvg(n: number): string {
 }
 
 function formatJoined(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  return formatDate(iso, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 function formatCompletion(seconds: number | null): string {

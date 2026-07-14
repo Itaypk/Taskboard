@@ -18,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional
 import java.net.URLEncoder
 import java.time.Clock
 import java.time.Duration
-import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
@@ -40,6 +39,7 @@ class EmailLoginService(
     private val userCrypto: UserCryptoService,
     private val appProperties: AppProperties,
     private val emailDomainBlocklistService: EmailDomainBlocklistService,
+    private val localeNegotiationService: LocaleNegotiationService,
     private val clock: Clock,
 ) {
 
@@ -55,7 +55,7 @@ class EmailLoginService(
      * redirect there on success.
      */
     @Transactional
-    fun requestLogin(email: String, next: String? = null) {
+    fun requestLogin(email: String, next: String? = null, acceptLanguage: String? = null) {
         val normalised = email.trim().lowercase()
         if (emailDomainBlocklistService.isBlocked(normalised)) {
             log.info("Email login blocked for disallowed domain")
@@ -87,8 +87,10 @@ class EmailLoginService(
                 append("&next=${URLEncoder.encode(safeNext, Charsets.UTF_8)}")
             }
         }
-        // Recipient locale is unknown before they have an account, so login emails default to English.
-        val locale = Locale.ENGLISH
+        // No stored preference exists before the account does, so the pre-auth login email is
+        // localized from the request's Accept-Language (best supported match, else English) — see
+        // docs/I18N.md, D2. This closes the small gap where a Hebrew visitor got an English link.
+        val locale = localeNegotiationService.resolveLocale(acceptLanguage)
         val htmlBody = emailTemplateEngine.render(
             "emails/login-link.html",
             mapOf("login_url" to loginUrl, "email" to normalised),
@@ -119,7 +121,7 @@ class EmailLoginService(
      * marked consumed before the account is resolved, so a replay is rejected.
      */
     @Transactional
-    fun completeLogin(token: String): EmailLoginResult {
+    fun completeLogin(token: String, acceptLanguage: String? = null): EmailLoginResult {
         val row = tokenRepository.findById(token).orElse(null)
             ?: return EmailLoginResult.Invalid
         val expiry = row.expiresAt ?: return EmailLoginResult.Invalid
@@ -132,7 +134,10 @@ class EmailLoginService(
         val email = userCrypto.decryptSystem(row.emailEnc)
             ?: return EmailLoginResult.Invalid
 
-        return when (val outcome = userAuthService.loginByEmail(email)) {
+        // On first use this registers the account; seed its language from the (browser) request that
+        // clicked the link. An existing account keeps its stored preference (hint is ignored there).
+        val localeHint = localeNegotiationService.resolveSupportedTag(acceptLanguage)
+        return when (val outcome = userAuthService.loginByEmail(email, localeHint)) {
             is EmailLoginOutcome.Success -> EmailLoginResult.Success(outcome.user)
             EmailLoginOutcome.UnverifiedConflict -> EmailLoginResult.UnverifiedConflict
         }

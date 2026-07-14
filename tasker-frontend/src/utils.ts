@@ -1,3 +1,5 @@
+import { formatDate, formatTime } from './i18n/format';
+
 export function formatDeadline(isoDate: string): string {
   const d = new Date(isoDate + 'T00:00:00');
   const today = new Date();
@@ -7,8 +9,8 @@ export function formatDeadline(isoDate: string): string {
   if (diff < 0) return `${Math.abs(diff)}d overdue`;
   if (diff === 0) return 'Today';
   if (diff === 1) return 'Tomorrow';
-  if (diff <= 6) return d.toLocaleDateString('en', { weekday: 'short' });
-  return d.toLocaleDateString('en', { month: 'short', day: 'numeric' });
+  if (diff <= 6) return formatDate(d, { weekday: 'short' });
+  return formatDate(d, { month: 'short', day: 'numeric' });
 }
 
 export function isOverdue(isoDate: string): boolean {
@@ -81,17 +83,18 @@ export function formatRelative(iso: string): string {
   if (diffHours < 24) return `${diffHours}h ago`;
   const diffDays = Math.round(diffHours / 24);
   if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return formatDate(date, { month: 'short', day: 'numeric' });
 }
 
 export function formatTimeSlot(startIso: string, endIso: string): string {
   const start = new Date(startIso);
   const end = new Date(endIso);
   if (Number.isNaN(start.getTime())) return '';
-  const day = start.toLocaleDateString(undefined, { weekday: 'short' });
-  const startTime = start.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+  // hour12 is pinned to 24h for now; see the D4 open question in i18n/format.ts.
+  const day = formatDate(start, { weekday: 'short' });
+  const startTime = formatTime(start, { hour: '2-digit', minute: '2-digit', hour12: false });
   if (Number.isNaN(end.getTime())) return `${day} ${startTime}`;
-  const endTime = end.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+  const endTime = formatTime(end, { hour: '2-digit', minute: '2-digit', hour12: false });
   return `${day} ${startTime}–${endTime}`;
 }
 

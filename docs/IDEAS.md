@@ -79,6 +79,22 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - We'll recognize tasks that are repeatedly rescheduled or not marked done, and proactively suggest help.
 - Possible help ideas include breaking them down to multiple tasks, finding time for them, or even just reminding us about them.
 
+## Web UI i18n follow-ups
+Deferred from the `docs/I18N.md` design (see there for full rationale). Not blocking any phase:
+- Login-page (anonymous) language switcher — browser detection covers the first iteration; a
+  `localStorage` override slotted above browser detection is a cheap add later.
+- Localized `document.title` / meta tags (the SPA sets `lang`/`dir` at runtime; the static
+  `index.html` SEO surface deliberately stays English).
+- A one-line localized notice on the legal pages ("This document is available in English only");
+  the ToS/privacy text itself stays English-only.
+- Broader server-error `code` coverage — codes are added opportunistically per flow as each is
+  translated, not as a big-bang backend sweep.
+- Re-adding any of the dormant language bundles (`de/es/fr/it/ja/ko/nl/pt/zh`) if demand appears;
+  they're frozen, not deleted.
+- Hebrew/Arabic display typography that preserves the paper/post-it aesthetic — a product/design
+  decision to make early in Phase 2 (this is the same concern as the "Fonts look bad in Hebrew"
+  note above).
+
 ## Ideas that require more consideration
 - Open source the application under AGPL.
 - Unlock more mascots for users over use time or patterns.
@@ -87,5 +103,10 @@ The scope of the individual idea is varying - could be small UI improvements, or
 
 ## Large projects
 - WhatsApp as a communication channel support.
-- Complete i18n support, including the web UI, welcome page, etc. Consider trimming the list of supported languages.
+- **Web UI i18n** — design and phased rollout live in `docs/I18N.md`. Phase 0 (trim the supported
+  languages to en/he/ru/ar) and Phase 1 (i18next + locale-resolution infrastructure, `Intl`
+  formatting helper, string-extraction pattern, key-parity test) are landing; the remaining phases
+  are Hebrew + full RTL (Phase 2), then Russian and Arabic (Phase 3). Bulk string extraction across
+  the ~47 components proceeds screen-by-screen in follow-up PRs (untranslated keys fall back to
+  English, so it's safe to land incrementally).
 - Multi-modal support: the assistant can process images and voice messages. 

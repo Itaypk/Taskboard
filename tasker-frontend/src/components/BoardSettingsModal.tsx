@@ -4,6 +4,7 @@ import {
     setMemberRole, removeMember, leaveBoard, updateBoard, deleteBoard,
     type Board, type BoardMember, type PendingInvitation,
 } from '../api';
+import { getActiveLocale } from '../i18n/format';
 import { MASCOTS } from '../mascots';
 import { ConfirmDialog } from './ConfirmDialog';
 import styles from './BoardSettingsModal.module.css';
@@ -38,7 +39,7 @@ const CONSENT =
     'until you remove them. They will also see your name. Send the invitation?';
 
 function formatDate(iso: string): string {
-    return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    return new Date(iso).toLocaleDateString(getActiveLocale(), { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 export function BoardSettingsModal({

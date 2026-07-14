@@ -8,6 +8,7 @@ import {
     type ReactNode,
 } from 'react';
 import { UNAUTHENTICATED_EVENT } from '../api';
+import { applyLocale } from '../i18n';
 import { type AuthUser, fetchMe, logout as logoutCall } from './authApi';
 
 type AuthState =
@@ -31,6 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
             const user = await fetchMe();
             if (user) {
+                void applyLocale(user.preferredLanguage);
                 setState({ status: 'authenticated', user });
             } else {
                 setState({ status: 'unauthenticated' });
@@ -45,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         fetchMe()
             .then(user => {
                 if (!mounted) return;
+                if (user) void applyLocale(user.preferredLanguage);
                 setState(user ? { status: 'authenticated', user } : { status: 'unauthenticated' });
             })
             .catch(() => { if (mounted) setState({ status: 'unauthenticated' }); });
@@ -66,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const setUser = useCallback((user: AuthUser) => {
+        void applyLocale(user.preferredLanguage);
         setState({ status: 'authenticated', user });
     }, []);
 

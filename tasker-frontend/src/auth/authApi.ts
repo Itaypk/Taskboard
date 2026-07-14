@@ -9,6 +9,8 @@ export interface AuthUser {
     email: string | null;
     /** False while the account has no login identity yet — drives the "save your account" nudge. */
     claimed: boolean;
+    /** Stored UI-language preference (e.g. `en-US`, `he`); drives the i18n locale on boot (docs/I18N.md). */
+    preferredLanguage: string;
 }
 
 export const fetchMe = (): Promise<AuthUser | null> =>

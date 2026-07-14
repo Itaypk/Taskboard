@@ -5,6 +5,7 @@ import dev.itayp.tasker.security.SessionAuthenticator
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.AccountLinkService
 import dev.itayp.tasker.service.LinkResult
+import dev.itayp.tasker.service.LocaleNegotiationService
 import dev.itayp.tasker.service.TelegramAuthException
 import dev.itayp.tasker.service.TelegramOidcService
 import dev.itayp.tasker.service.UserAuthService
@@ -41,6 +42,7 @@ class TelegramOidcController(
     private val userAuthService: UserAuthService,
     private val accountLinkService: AccountLinkService,
     private val sessionAuthenticator: SessionAuthenticator,
+    private val localeNegotiationService: LocaleNegotiationService,
     private val appProperties: AppProperties,
 ) {
 
@@ -114,7 +116,10 @@ class TelegramOidcController(
             }
         }
 
-        val user = userAuthService.loginOrRegisterByTelegram(data)
+        // Registration seeds preferred_language from the browser that ran the OAuth round-trip;
+        // an existing user's stored preference is untouched (the hint is ignored on login).
+        val localeHint = localeNegotiationService.resolveSupportedTag(request.getHeader("Accept-Language"))
+        val user = userAuthService.loginOrRegisterByTelegram(data, localeHint)
         sessionAuthenticator.authenticate(TaskerPrincipal(user.id!!), request, response)
         return redirect(localRedirect(next))
     }

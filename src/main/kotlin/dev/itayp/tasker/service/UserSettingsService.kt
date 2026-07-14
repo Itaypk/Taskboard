@@ -103,12 +103,25 @@ class UserSettingsService(
 
     fun getLocale(userId: UUID): Locale = toLocale(fetchOrCreate(userId).preferredLanguage)
 
+    /** The stored language tag only, without decrypting the rest of the settings row. Used by the
+     * auth bootstrap (`/me`) so the SPA can pick its UI locale before first paint (docs/I18N.md, D3). */
+    fun getPreferredLanguage(userId: UUID): String = fetchOrCreate(userId).preferredLanguage
+
     /** Maps a stored `preferredLanguage` tag to a [Locale]. Centralized so callers that already hold
      * a [UserSettings] don't re-fetch (and so the tag→locale rule lives in one place). */
     fun toLocale(preferredLanguage: String): Locale = Locale.forLanguageTag(preferredLanguage)
 
-    fun initializeForNewUser(userId: UUID) {
-        settingsRepository.save(UserSettingsEntity().apply { this.userId = userId })
+    /**
+     * Creates the settings row for a brand-new user. [preferredLanguage], when non-null, is a
+     * supported language code resolved from the registration request's `Accept-Language` (see
+     * docs/I18N.md, D2); when null the entity's `en-US` default stands. Only ever called once per
+     * user, at registration.
+     */
+    fun initializeForNewUser(userId: UUID, preferredLanguage: String? = null) {
+        settingsRepository.save(UserSettingsEntity().apply {
+            this.userId = userId
+            preferredLanguage?.let { this.preferredLanguage = it }
+        })
     }
 
     private fun fetchOrCreate(userId: UUID): UserSettingsEntity =
@@ -179,21 +192,22 @@ class UserSettingsService(
             GenderOption("neutral", "Neutral"),
         )
 
+        /**
+         * Languages offered in the settings picker and accepted on update. Trimmed from the
+         * original 14 to the set we actually support end-to-end (see docs/I18N.md, D1): every
+         * added language now carries UI-translation + QA cost, not just channel bundle keys.
+         *
+         * The dormant `messages_de/es/fr/…​.properties` bundles are deliberately kept (not deleted):
+         * validation only runs on *new* updates, so any stored preference still pointing at one keeps
+         * working and falls back per-key to the base (English) bundle. Read paths must therefore
+         * tolerate a stored code outside this list — never assume membership on read.
+         */
         val SUPPORTED_LANGUAGES: List<LanguageOption> = listOf(
             LanguageOption("ar", "Arabic"),
-            LanguageOption("zh", "Chinese"),
-            LanguageOption("nl", "Dutch"),
             LanguageOption("en-GB", "English (UK)"),
             LanguageOption("en-US", "English (US)"),
-            LanguageOption("fr", "French"),
-            LanguageOption("de", "German"),
             LanguageOption("he", "Hebrew"),
-            LanguageOption("it", "Italian"),
-            LanguageOption("ja", "Japanese"),
-            LanguageOption("ko", "Korean"),
-            LanguageOption("pt", "Portuguese"),
             LanguageOption("ru", "Russian"),
-            LanguageOption("es", "Spanish"),
         )
     }
 }
