@@ -61,8 +61,11 @@ class ModelCapabilityService(
 
     private fun fetch(model: String) {
         try {
+            // Concatenate the slug into the path rather than passing it as a URI variable: a slug like
+            // "openai/gpt-oss-20b:free" contains a slash that would otherwise be percent-encoded
+            // (%2F), which OpenRouter's model endpoint does not resolve.
             val data = client.get()
-                .uri("/model/{slug}", model)
+                .uri("/model/$model")
                 .retrieve()
                 .body(ModelResponse::class.java)
                 ?.data
