@@ -55,10 +55,10 @@ tasker:
     # for no reasoning override. Only sent to models whose capabilities (fetched at startup) report
     # reasoning support, so a level set here on a non-reasoning model is silently skipped.
     reasoning:
-      weekly-planning: ${TASKER_AI_REASONING_WEEKLY_PLANNING:}
-      task-search: ${TASKER_AI_REASONING_TASK_SEARCH:}
-      task-suggestion: ${TASKER_AI_REASONING_TASK_SUGGESTION:}
-      slot-reminder: ${TASKER_AI_REASONING_SLOT_REMINDER:}
+      weekly-planning: ${TASKER_AI_REASONING_WEEKLY_PLANNING:low}
+      task-search: ${TASKER_AI_REASONING_TASK_SEARCH:low}
+      task-suggestion: ${TASKER_AI_REASONING_TASK_SUGGESTION:high}
+      slot-reminder: ${TASKER_AI_REASONING_SLOT_REMINDER:high}
   telegram:
     bot-token: ${TASKER_TELEGRAM_BOT_TOKEN:}
     bot-username: ${TASKER_TELEGRAM_BOT_USERNAME:}
