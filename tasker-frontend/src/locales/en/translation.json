@@ -665,5 +665,54 @@
       "deleteMessage": "Delete “{{board}}” and all of its tasks, categories, and tags? This cannot be undone.",
       "defaultLabel": "Confirm"
     }
+  },
+  "weeklyPlanDrawer": {
+    "ariaLabel": "Weekly plan",
+    "backToPlan": "Back to plan",
+    "titleChat": "Weekly planning",
+    "titleOverview": "Weekly plan",
+    "leaveSession": "Leave session",
+    "close": "Close",
+    "prevWeekAria": "Previous week",
+    "nextWeekAria": "Next week",
+    "loading": "Loading…",
+    "noPlanTitle": "No plan for this week.",
+    "emptyHintPast": "Planning is available for the current and upcoming weeks only.",
+    "emptyHintFuture": "Plan it with the assistant below, or start a session on Telegram.",
+    "planFinalized": "Plan finalized",
+    "thinkingPlaceholder": "Thinking…",
+    "typeMessagePlaceholder": "Type a message…",
+    "messageAria": "Message",
+    "send": "Send",
+    "confirmLeave": {
+      "title": "Leave planning session?",
+      "message": "This discards the in-progress conversation. Your existing plan stays as it is.",
+      "confirmLabel": "Leave"
+    },
+    "thisWeekWord": "this week",
+    "nextWeekWord": "next week",
+    "override": {
+      "title": "You already have a plan for {{week}}",
+      "body": "Planning {{week}} from scratch starts a new session that will replace the existing plan when you finalize it. Revise the current plan instead to keep what's already scheduled.",
+      "cancel": "Cancel",
+      "planFromScratch": "Plan from scratch",
+      "revise": "Revise"
+    },
+    "aiDisabledHint": "AI planning is disabled. Re-enable it in Settings → Assistant, or ask a co-member who opted out to do the same on a board you share.",
+    "sessionInProgress": "A planning session is in progress.",
+    "continuePlanning": "Continue planning",
+    "abandonStartOver": "Abandon & start over",
+    "revisePlan": "Revise this plan",
+    "planThisWeek": "Plan this week",
+    "planNextWeek": "Plan next week",
+    "relative": {
+      "thisWeek": "This week",
+      "nextWeek": "Next week",
+      "lastWeek": "Last week",
+      "weeksAgo_one": "{{count}} week ago",
+      "weeksAgo_other": "{{count}} weeks ago",
+      "inWeeks_one": "In {{count}} week",
+      "inWeeks_other": "In {{count}} weeks"
+    }
   }
 }
