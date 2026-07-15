@@ -20,6 +20,8 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Persisted calendar invite SEQUENCE counter. Plan-revise updates re-send same-time slot edits (label/title/notes) with a fixed `SEQUENCE:1`. A second same-slot edit in a later session sends `SEQUENCE:1` again, which strict calendar clients may not re-apply. Persisting a per-slot revision counter (incremented on each update) would make repeated updates robust. Low priority: time moves go through cancel + fresh invite, which is unaffected.
 - Currently, a single task is tied to a single time-block; would we like to change that, so that a single task might have multiple (or zero) time blocks attached?
 - Add a search functionality.
+- Notifications: toggle whether calendar invite emails include a notification, or not (in case users prefer other means of notifications and just want the calendar sync for blocking time).
+- Notifications: consider web push notifications (https://web.dev/articles/push-notifications-overview) - they work even if the users are not active in the site.
 
 ## Auth & accounts
 - Add Google OAuth as a login provider — drops in as another `loginOrRegister('google', sub, …)`
