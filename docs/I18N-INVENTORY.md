@@ -48,7 +48,7 @@ are near-duplicates worth consolidating into one key.
 | `src/components/SettingsModal.tsx` | ✅ Done | — | Extracted this session; module-level `SETTINGS_TABS`/`DAYS_OF_WEEK` arrays now hold translation keys, resolved to labels inside the component (via `t()`) before being passed to `Tabs`/rendered in the day `<select>`s. Also fixed a pre-existing display bug: the "first day of week" help tip's `&quot;this week&quot;` was a literal HTML-entity string (never decoded, since it renders as plain React text) — now a real curly-quoted string in the catalog |
 | `src/components/TaskDrawer.tsx` | ✅ Done | — | Extracted this session, including the tutorial-task banner copy and the module-level `validate()` field-error messages (resolved via the `i18n` singleton, like `utils.ts`/`api.ts`, since that function runs outside the component). Renamed several `.map(t => …)`/`.find(t => …)`/`.filter(t => …)` loop variables (all `Tag` objects, unrelated to translation) from `t` to `tag`/`existing` to stop them shadowing the `t()` translation function |
 | `src/App.tsx` | ✅ Done | — | Extracted this session, including the module-level `emptyMessageFor()` (routed through the `i18n` singleton, like `utils.ts`) and the `buildContextMenuActions()` labels. The `error` state changed from a `string \| null` holding pre-rendered English text to a `boolean` — the message was always the same one string, so storing it as translated text at set-time would go stale across a language switch; it's now resolved via `t()` at render time. Renamed the one `.find(t => …)` inside `buildContextMenuActions` (a `Task`, unrelated to translation) to `pt` since that callback now calls `t()`; the ~20 other `Task`-typed `t` loop variables elsewhere in the file were left alone since none of those closures call `t()` |
-| `src/components/BoardSettingsModal.tsx` | ⬜ Not started | 28 | Board name/mascot, member management, invitations |
+| `src/components/BoardSettingsModal.tsx` | ✅ Done | — | Extracted this session, including the module-level `CONSENT` invite-warning string (moved from a top-level `const` into the catalog and resolved via `t()` inside `confirmCopy()`, which already had access to the hook). Mascot labels (`MASCOTS` in `src/mascots.ts`) are intentionally untouched — that module isn't in this inventory and is out of scope here |
 | `src/components/WeeklyPlanDrawer.tsx` | ⬜ Not started | 28 | Planning conversation UI chrome (not the LLM messages themselves) |
 | `src/components/StatsModal.tsx` | ✅ Done | — | Extracted this session; completion-time row now uses count-based plural keys (`statsModal.days`/`statsModal.hours`) |
 | `src/components/ConnectedAccounts.tsx` | ✅ Done | — | Extracted this session; provider labels and link notices now resolved via key lookup + `t()` |
@@ -99,18 +99,17 @@ Not `.tsx`, so outside the script's scan, but both are explicitly called out in 
 
 ## Summary
 
-- **37 of ~44 components/modules done** (the rest are ➖ No copy): LoginPage pilot + NotFoundPage,
+- **38 of ~44 components/modules done** (the rest are ➖ No copy): LoginPage pilot + NotFoundPage,
   ConfirmDialog, ErrorToast (earlier session); StatsModal, ConnectedAccounts,
   EmailLoginConfirmPage, EmailVerifyConfirmPage, FeedbackModal, InvitePage, `utils.ts` (PR #124);
   ScheduleTaskModal, MoveTaskModal, TagEditModal, ImportResultDialog, AiUsageMeter, PostItNote,
   UserMenu, TaskLine, PlanDetails (PR #125); PolicyPage, BoardFilter, MarkdownRenderer,
   NoteEditor, BoardNameDialog, BrandBoard, CategoryEditor, TagEditor, UpdateBanner, ViewToggle,
   EventsSection, WashiTape, PaperSwatchPicker, SortMenu (PR #126); SettingsModal (PR #127);
-  TaskDrawer (PR #128); App.tsx (this PR) — plus Autocomplete re-classified from "not started"
-  to "no copy" after a hand check.
-- **Two heavy screens remain**: `BoardSettingsModal`, `WeeklyPlanDrawer` — each intended as its
-  own dedicated PR (per the earlier note against folding them into a general pass) rather than a
-  general-pass batch.
+  TaskDrawer (PR #128); App.tsx (PR #129); BoardSettingsModal (this PR) — plus Autocomplete
+  re-classified from "not started" to "no copy" after a hand check.
+- **One heavy screen remains**: `WeeklyPlanDrawer` — last of the five originally called out as
+  needing its own dedicated PR.
 - `utils.ts`'s date helpers were already extracted, and every remaining caller is done too, so
   every `formatDeadline`/`formatRelative`/`formatDuration` call site in the app renders fully
   localized relative dates.
