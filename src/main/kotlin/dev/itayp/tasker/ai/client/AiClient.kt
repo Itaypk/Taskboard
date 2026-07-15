@@ -14,6 +14,7 @@ class AiClient(
     properties: AiProperties,
     private val callGate: AiCallGate,
     private val usageTracker: AiUsageTracker,
+    private val reasoningResolver: ReasoningResolver,
 ) {
     private val log = LoggerFactory.getLogger(AiClient::class.java)
 
@@ -28,22 +29,30 @@ class AiClient(
      * and may throw to refuse the call; otherwise usage is recorded for both success and failure.
      */
     fun chat(request: ChatRequest, context: AiCallContext): ChatResponse {
-        callGate.beforeCall(context, request)
+        // Apply per-functionality reasoning centrally (keyed on the call's conversation type), unless
+        // the caller already set it explicitly. Guarded by the model's fetched capabilities.
+        val effectiveRequest =
+            if (request.reasoning == null) {
+                request.copy(reasoning = reasoningResolver.resolve(context.conversationType, request.model))
+            } else {
+                request
+            }
+        callGate.beforeCall(context, effectiveRequest)
         val response = try {
             withRetry {
-                log.debug("Sending chat request to AI API: model=${request.model}, messages=${request.messages.size}")
+                log.debug("Sending chat request to AI API: model=${effectiveRequest.model}, messages=${effectiveRequest.messages.size}")
                 client.post()
                     .uri("/chat/completions")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(request)
+                    .body(effectiveRequest)
                     .retrieve()
                     .body(ChatResponse::class.java)!!
             }
         } catch (e: RuntimeException) {
-            usageTracker.recordFailure(context, request)
+            usageTracker.recordFailure(context, effectiveRequest)
             throw e
         }
-        usageTracker.recordSuccess(context, request, response)
+        usageTracker.recordSuccess(context, effectiveRequest, response)
         return response
     }
 

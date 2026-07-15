@@ -51,6 +51,14 @@ tasker:
     weekly-planning-model: ${TASKER_AI_PLANNING_MODEL:openai/gpt-oss-20b:free}
     # Model for the planner's task search/suggestion sub-agents; defaults to the planning model.
     task-assistant-model: ${TASKER_AI_TASK_ASSISTANT_MODEL:${TASKER_AI_PLANNING_MODEL:openai/gpt-oss-20b:free}}
+    # Reasoning/effort level per functionality. Value: minimal|low|medium|high, or blank (default)
+    # for no reasoning override. Only sent to models whose capabilities (fetched at startup) report
+    # reasoning support, so a level set here on a non-reasoning model is silently skipped.
+    reasoning:
+      weekly-planning: ${TASKER_AI_REASONING_WEEKLY_PLANNING:}
+      task-search: ${TASKER_AI_REASONING_TASK_SEARCH:}
+      task-suggestion: ${TASKER_AI_REASONING_TASK_SUGGESTION:}
+      slot-reminder: ${TASKER_AI_REASONING_SLOT_REMINDER:}
   telegram:
     bot-token: ${TASKER_TELEGRAM_BOT_TOKEN:}
     bot-username: ${TASKER_TELEGRAM_BOT_USERNAME:}

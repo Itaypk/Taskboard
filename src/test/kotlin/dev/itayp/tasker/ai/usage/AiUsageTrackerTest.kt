@@ -7,6 +7,7 @@ import dev.itayp.tasker.ai.client.ChatRequest
 import dev.itayp.tasker.ai.client.ChatResponse
 import dev.itayp.tasker.ai.client.Choice
 import dev.itayp.tasker.ai.client.PromptTokensDetails
+import dev.itayp.tasker.ai.client.ReasoningConfig
 import dev.itayp.tasker.ai.client.Usage
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.junit.jupiter.api.Test
@@ -72,6 +73,7 @@ class AiUsageTrackerTest {
                 "conversation_type", AiConversationType.WEEKLY_PLANNING,
                 "model", "resolved/model",
                 "provider", "Anthropic",
+                "effort", "none",
                 "outcome", "success",
             ).count(),
         )
@@ -82,6 +84,7 @@ class AiUsageTrackerTest {
                 "conversation_type", AiConversationType.WEEKLY_PLANNING,
                 "model", "resolved/model",
                 "provider", "Anthropic",
+                "effort", "none",
                 "type", "prompt",
             ).count(),
         )
@@ -111,6 +114,7 @@ class AiUsageTrackerTest {
                 "conversation_type", AiConversationType.WEEKLY_PLANNING,
                 "model", "resolved/model",
                 "provider", "Anthropic",
+                "effort", "none",
                 "type", "cached",
             ).count(),
         )
@@ -121,6 +125,7 @@ class AiUsageTrackerTest {
                 "conversation_type", AiConversationType.WEEKLY_PLANNING,
                 "model", "resolved/model",
                 "provider", "Anthropic",
+                "effort", "none",
                 "type", "cache_write",
             ).count(),
         )
@@ -166,7 +171,33 @@ class AiUsageTrackerTest {
                 "conversation_type", AiConversationType.TASK_SEARCH,
                 "model", "configured/model",
                 "provider", "unknown",
+                "effort", "none",
                 "outcome", "error",
+            ).count(),
+        )
+    }
+
+    @Test
+    fun `effort label reflects the request's reasoning effort`() {
+        whenever(repository.save(any<AiUsageEventEntity>())).thenAnswer { it.arguments[0] }
+        val context = AiCallContext(userId, AiConversationType.WEEKLY_PLANNING, conversationId = conversationId)
+        val request = ChatRequest(
+            model = "configured/model",
+            messages = emptyList(),
+            reasoning = ReasoningConfig(effort = "low"),
+        )
+
+        tracker.recordSuccess(context, request, response(Usage(promptTokens = 5, completionTokens = 2)))
+
+        assertEquals(
+            1.0,
+            registry.counter(
+                "tasker.ai.requests",
+                "conversation_type", AiConversationType.WEEKLY_PLANNING,
+                "model", "resolved/model",
+                "provider", "Anthropic",
+                "effort", "low",
+                "outcome", "success",
             ).count(),
         )
     }

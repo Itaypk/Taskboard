@@ -32,6 +32,7 @@ class AiUsageTracker(
             context = context,
             model = model,
             provider = response.provider,
+            effort = request.reasoning?.effort ?: "none",
             status = AiUsageStatus.SUCCESS,
             promptTokens = usage?.promptTokens,
             completionTokens = usage?.completionTokens,
@@ -48,6 +49,7 @@ class AiUsageTracker(
             context = context,
             model = request.model,
             provider = null,
+            effort = request.reasoning?.effort ?: "none",
             status = AiUsageStatus.ERROR,
             promptTokens = null,
             completionTokens = null,
@@ -61,6 +63,7 @@ class AiUsageTracker(
         context: AiCallContext,
         model: String,
         provider: String?,
+        effort: String,
         status: AiUsageStatus,
         promptTokens: Int?,
         completionTokens: Int?,
@@ -74,6 +77,7 @@ class AiUsageTracker(
             "conversation_type", context.conversationType,
             "model", model,
             "provider", providerTag,
+            "effort", effort,
             "outcome", status.name.lowercase(),
         ).increment()
         if (promptTokens != null) {
@@ -82,6 +86,7 @@ class AiUsageTracker(
                 "conversation_type", context.conversationType,
                 "model", model,
                 "provider", providerTag,
+                "effort", effort,
                 "type", "prompt",
             ).increment(promptTokens.toDouble())
         }
@@ -91,6 +96,7 @@ class AiUsageTracker(
                 "conversation_type", context.conversationType,
                 "model", model,
                 "provider", providerTag,
+                "effort", effort,
                 "type", "completion",
             ).increment(completionTokens.toDouble())
         }
@@ -103,6 +109,7 @@ class AiUsageTracker(
                 "conversation_type", context.conversationType,
                 "model", model,
                 "provider", providerTag,
+                "effort", effort,
                 "type", "cached",
             ).increment(cachedTokens.toDouble())
         }
@@ -112,13 +119,14 @@ class AiUsageTracker(
                 "conversation_type", context.conversationType,
                 "model", model,
                 "provider", providerTag,
+                "effort", effort,
                 "type", "cache_write",
             ).increment(cacheWriteTokens.toDouble())
         }
 
         log.debug(
-            "AI usage user={} type={} status={} model={} provider={} promptTokens={} completionTokens={} cachedTokens={} cacheWriteTokens={} session={} conversation={}",
-            context.userId, context.conversationType, status, model, providerTag,
+            "AI usage user={} type={} status={} model={} provider={} effort={} promptTokens={} completionTokens={} cachedTokens={} cacheWriteTokens={} session={} conversation={}",
+            context.userId, context.conversationType, status, model, providerTag, effort,
             promptTokens, completionTokens, cachedTokens, cacheWriteTokens,
             context.sessionId, context.conversationId,
         )
