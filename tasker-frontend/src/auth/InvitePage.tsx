@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { LoginPage } from './LoginPage';
@@ -20,6 +21,7 @@ type PreviewState =
  * signed in joins as themselves (docs/BOARD-SHARING-PHASE2.md, Decision 3).
  */
 export function InvitePage() {
+    const { t } = useTranslation();
     const { state: auth } = useAuth();
     const token = new URLSearchParams(window.location.search).get('token');
 
@@ -45,7 +47,7 @@ export function InvitePage() {
             localStorage.setItem(ACTIVE_BOARD_KEY, accepted.boardId);
             window.location.replace('/');
         } catch {
-            setError('We couldn’t accept this invitation. It may have expired or been revoked.');
+            setError(t('invitePage.errors.acceptFailed'));
             setAccepting(false);
         }
     };
@@ -56,7 +58,7 @@ export function InvitePage() {
     }
 
     const signedInAs = auth.status === 'authenticated'
-        ? (auth.user.telegramFirstName ?? auth.user.telegramUsername ?? auth.user.email ?? 'your account')
+        ? (auth.user.telegramFirstName ?? auth.user.telegramUsername ?? auth.user.email ?? t('invitePage.yourAccount'))
         : null;
 
     return (
@@ -74,30 +76,33 @@ export function InvitePage() {
             <div className={layout.stage}>
                 {(preview.phase === 'loading' || auth.status === 'loading') && (
                     <div className={styles.card} aria-live="polite">
-                        <div className={styles.dots} aria-label="Loading…"><span /><span /><span /></div>
+                        <div className={styles.dots} aria-label={t('invitePage.loading')}><span /><span /><span /></div>
                     </div>
                 )}
 
                 {preview.phase === 'invalid' && auth.status !== 'loading' && (
                     <div className={styles.card} aria-live="polite">
-                        <div className={styles.cardTag}>Invitation</div>
-                        <h1 className={styles.cardH}>Invitation not found</h1>
+                        <div className={styles.cardTag}>{t('invitePage.invalid.tag')}</div>
+                        <h1 className={styles.cardH}>{t('invitePage.invalid.title')}</h1>
                         <p className={styles.cardBody}>
-                            This invitation is invalid, has expired, or was revoked. Ask the board
-                            owner to send you a new one.
+                            {t('invitePage.invalid.body')}
                         </p>
-                        <Link to="/" className={styles.backLink}>← Go to Backlog.fyi</Link>
+                        <Link to="/" className={styles.backLink}>{t('invitePage.invalid.backHome')}</Link>
                     </div>
                 )}
 
                 {preview.phase === 'ready' && auth.status === 'authenticated' && (
                     <div className={styles.card} aria-live="polite">
-                        <div className={styles.cardTag}>Board invitation</div>
-                        <h1 className={styles.cardH}>Join “{preview.preview.boardName}”</h1>
+                        <div className={styles.cardTag}>{t('invitePage.ready.tag')}</div>
+                        <h1 className={styles.cardH}>
+                            {t('invitePage.ready.title', { boardName: preview.preview.boardName })}
+                        </h1>
                         <p className={styles.cardBody}>
-                            <strong>{preview.preview.inviterName}</strong> invited you to this board.
-                            Everyone on a board can see and edit all of its tasks, and your name
-                            becomes visible to its members. You’re signed in as <strong>{signedInAs}</strong>.
+                            <Trans
+                                i18nKey="invitePage.ready.body"
+                                values={{ inviterName: preview.preview.inviterName, signedInAs }}
+                                components={{ strong: <strong /> }}
+                            />
                         </p>
 
                         <button
@@ -106,12 +111,12 @@ export function InvitePage() {
                             onClick={handleAccept}
                             disabled={accepting}
                         >
-                            {accepting ? <span className={styles.spinner} aria-label="Joining…" /> : 'Join board'}
+                            {accepting ? <span className={styles.spinner} aria-label={t('invitePage.joining')} /> : t('invitePage.joinBoard')}
                         </button>
 
                         {error && <p className={styles.errorMsg} role="alert">{error}</p>}
 
-                        <Link to="/" className={styles.backLink}>← Not now</Link>
+                        <Link to="/" className={styles.backLink}>{t('invitePage.notNow')}</Link>
                     </div>
                 )}
             </div>

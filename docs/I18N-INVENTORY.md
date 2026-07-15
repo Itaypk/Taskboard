@@ -50,12 +50,12 @@ are near-duplicates worth consolidating into one key.
 | `src/App.tsx` | ⬜ Not started | 40 | Top-level shell: onboarding nudges, empty states, board switcher |
 | `src/components/BoardSettingsModal.tsx` | ⬜ Not started | 28 | Board name/mascot, member management, invitations |
 | `src/components/WeeklyPlanDrawer.tsx` | ⬜ Not started | 28 | Planning conversation UI chrome (not the LLM messages themselves) |
-| `src/components/StatsModal.tsx` | ⬜ Not started | 15 | |
-| `src/components/ConnectedAccounts.tsx` | ⬜ Not started | 14 | Link/unlink copy, conflict notices |
-| `src/auth/EmailLoginConfirmPage.tsx` | ⬜ Not started | 12 | |
-| `src/auth/EmailVerifyConfirmPage.tsx` | ⬜ Not started | 11 | |
-| `src/components/FeedbackModal.tsx` | ⬜ Not started | 11 | |
-| `src/auth/InvitePage.tsx` | ⬜ Not started | 10 | |
+| `src/components/StatsModal.tsx` | ✅ Done | — | Extracted this session; completion-time row now uses count-based plural keys (`statsModal.days`/`statsModal.hours`) |
+| `src/components/ConnectedAccounts.tsx` | ✅ Done | — | Extracted this session; provider labels and link notices now resolved via key lookup + `t()` |
+| `src/auth/EmailLoginConfirmPage.tsx` | ✅ Done | — | Extracted this session |
+| `src/auth/EmailVerifyConfirmPage.tsx` | ✅ Done | — | Extracted this session |
+| `src/components/FeedbackModal.tsx` | ✅ Done | — | Extracted this session |
+| `src/auth/InvitePage.tsx` | ✅ Done | — | Extracted this session; invitation body uses `Trans` for the two `<strong>` interpolations |
 | `src/components/ScheduleTaskModal.tsx` | ⬜ Not started | 10 | |
 | `src/components/MoveTaskModal.tsx` | ⬜ Not started | 9 | |
 | `src/components/TagEditModal.tsx` | ⬜ Not started | 8 | |
@@ -95,14 +95,17 @@ Not `.tsx`, so outside the script's scan, but both are explicitly called out in 
 | Module | Status | Notes |
 | --- | --- | --- |
 | `src/api.ts` | ✅ Done | `defaultMessageFor` (the D6 "client-side generic fallbacks") and the 401 `sessionExpired` message now call `i18n.t(...)` directly (plain module, no React context — uses the `i18n` singleton exported from `src/i18n/index.ts`, not the `useTranslation` hook) |
-| `src/utils.ts` | ⬜ Not started | Relative-date helpers hardcode English: `"Today"`, `"Tomorrow"`, `` `${n}d overdue` ``, `"just now"`, `` `${n}h ago` ``/`` `${n}d ago` ``. The `plural(n, one, many)` helper is naive English pluralization (`n === 1 ? one : many`) — will need `Intl.PluralRules` before Russian/Arabic ship (3 and 6 plural forms respectively), per D3/D4 in `docs/I18N.md` |
+| `src/utils.ts` | ✅ Done | Extracted this session — `formatDeadline`/`formatRelative` now call the `i18n` singleton directly (plain module, like `api.ts`), with `utils.overdue`/`utils.hoursAgo`/`utils.daysAgo` as count-based keys (`_one`/`_other`) so i18next's `Intl.PluralRules`-backed pluralization applies once a language with different plural forms launches. The `plural(n, one, many)` helper itself takes its words from the caller (only `ImportResultDialog.tsx` uses it today) — untouched, still naive, tracked with that component |
 
 ## Summary
 
-- **4 of ~44 components/modules done** (LoginPage pilot + NotFoundPage, ConfirmDialog, ErrorToast
-  from this session).
+- **11 of ~44 components/modules done** (LoginPage pilot + NotFoundPage, ConfirmDialog, ErrorToast
+  from an earlier session; StatsModal, ConnectedAccounts, EmailLoginConfirmPage,
+  EmailVerifyConfirmPage, FeedbackModal, InvitePage, and `utils.ts` from this session).
 - Heaviest remaining lifts: `SettingsModal`, `TaskDrawer`, `App.tsx`, `BoardSettingsModal`,
   `WeeklyPlanDrawer` — all >25 strings, all central screens. Tackle these in dedicated PRs rather
   than folding them into a general pass.
-- `utils.ts`'s date/plural helpers are worth doing early since almost every other component's
-  extraction will end up calling into them.
+- `utils.ts`'s date helpers are now extracted, so components that call `formatDeadline`/
+  `formatRelative`/`formatDuration` (`TaskDrawer`, `TaskLine`, `PostItNote`, `PlanDetails`,
+  `ImportResultDialog`, `CategoryEditor`, `EventsSection`) already render localized relative
+  dates even before those components themselves are extracted.

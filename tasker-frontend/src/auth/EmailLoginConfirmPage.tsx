@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { precheckEmailLogin, completeEmailLogin } from './authApi';
 import layout from './LoginPage.module.css';
@@ -19,6 +20,7 @@ function localRedirect(path: string | null | undefined): string {
 }
 
 export function EmailLoginConfirmPage() {
+    const { t } = useTranslation();
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
     const next = params.get('next');
@@ -43,14 +45,13 @@ export function EmailLoginConfirmPage() {
             } else if (outcome === 'unverified') {
                 setState({
                     phase: 'error',
-                    message:
-                        'That email is already linked to an unverified account. Sign in with Telegram and verify your email under Settings.',
+                    message: t('emailLoginConfirm.errors.unverified'),
                 });
             } else {
-                setState({ phase: 'error', message: 'This sign-in link is invalid or has expired.' });
+                setState({ phase: 'error', message: t('emailLoginConfirm.errors.expired') });
             }
         } catch {
-            setState({ phase: 'error', message: 'Something went wrong. Please try again.' });
+            setState({ phase: 'error', message: t('emailLoginConfirm.errors.generic') });
         }
     };
 
@@ -69,7 +70,7 @@ export function EmailLoginConfirmPage() {
             <div className={layout.stage}>
                 {state.phase === 'loading' && (
                     <div className={styles.card} aria-live="polite">
-                        <div className={styles.dots} aria-label="Loading…">
+                        <div className={styles.dots} aria-label={t('emailLoginConfirm.loading')}>
                             <span /><span /><span />
                         </div>
                     </div>
@@ -77,25 +78,23 @@ export function EmailLoginConfirmPage() {
 
                 {state.phase === 'invalid' && (
                     <div className={styles.card} aria-live="polite">
-                        <div className={styles.cardTag}>Sign-in link</div>
-                        <h1 className={styles.cardH}>Link expired</h1>
+                        <div className={styles.cardTag}>{t('emailLoginConfirm.invalid.tag')}</div>
+                        <h1 className={styles.cardH}>{t('emailLoginConfirm.invalid.title')}</h1>
                         <p className={styles.cardBody}>
-                            This sign-in link is invalid or has expired. Magic links are
-                            single-use and expire after 30&nbsp;minutes.
+                            {t('emailLoginConfirm.invalid.body')}
                         </p>
                         <Link to="/" className={styles.backLink}>
-                            ← Request a new link
+                            {t('emailLoginConfirm.invalid.requestNew')}
                         </Link>
                     </div>
                 )}
 
                 {(state.phase === 'ready' || state.phase === 'confirming' || state.phase === 'error') && (
                     <div className={styles.card} aria-live="polite">
-                        <div className={styles.cardTag}>One more step</div>
-                        <h1 className={styles.cardH}>Confirm it's you</h1>
+                        <div className={styles.cardTag}>{t('emailLoginConfirm.ready.tag')}</div>
+                        <h1 className={styles.cardH}>{t('emailLoginConfirm.ready.title')}</h1>
                         <p className={styles.cardBody}>
-                            Click the button below to complete sign-in. This confirms that you
-                            opened this link from your inbox.
+                            {t('emailLoginConfirm.ready.body')}
                         </p>
 
                         <button
@@ -105,9 +104,9 @@ export function EmailLoginConfirmPage() {
                             disabled={state.phase === 'confirming'}
                         >
                             {state.phase === 'confirming' ? (
-                                <span className={styles.spinner} aria-label="Signing in…" />
+                                <span className={styles.spinner} aria-label={t('emailLoginConfirm.signingIn')} />
                             ) : (
-                                'Sign in to Backlog.fyi'
+                                t('emailLoginConfirm.signIn')
                             )}
                         </button>
 
@@ -118,7 +117,7 @@ export function EmailLoginConfirmPage() {
                         )}
 
                         <Link to="/" className={styles.backLink}>
-                            ← Back to sign in
+                            {t('emailLoginConfirm.backToSignIn')}
                         </Link>
                     </div>
                 )}

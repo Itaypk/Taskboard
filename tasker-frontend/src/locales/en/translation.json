@@ -83,5 +83,140 @@
       "generic": "Something went wrong.",
       "sessionExpired": "Your session has expired. Please sign in again."
     }
+  },
+  "utils": {
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "overdue_one": "{{count}}d overdue",
+    "overdue_other": "{{count}}d overdue",
+    "justNow": "just now",
+    "hoursAgo_one": "{{count}}h ago",
+    "hoursAgo_other": "{{count}}h ago",
+    "daysAgo_one": "{{count}}d ago",
+    "daysAgo_other": "{{count}}d ago"
+  },
+  "statsModal": {
+    "title": "Your stats",
+    "close": "Close stats",
+    "loading": "Loading…",
+    "loadError": "Couldn't load your stats. Please try again.",
+    "empty": "No stats yet — add a few tasks and plan your week, then check back here.",
+    "openTasks": "Open tasks",
+    "completed": "Completed",
+    "joined": "Joined",
+    "totalCreated": "Tasks created (all time)",
+    "totalCompleted": "Tasks completed (all time)",
+    "newPerWeek": "New tasks / week",
+    "completedPerWeek": "Completed / week",
+    "avgCompletionTime": "Avg. time to complete",
+    "planningSessions": "Planning sessions",
+    "notEnoughData": "Not enough completed tasks yet",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days",
+    "hours_one": "{{count}} hour",
+    "hours_other": "{{count}} hours"
+  },
+  "connectedAccounts": {
+    "label": "Connected accounts",
+    "hint": "Ways you can sign in. Keep at least one.",
+    "unlink": "Unlink",
+    "none": "No login methods linked yet.",
+    "linkTelegram": "Link Telegram",
+    "linkAnotherFirst": "Link another method before removing this one",
+    "providers": {
+      "telegram": "Telegram",
+      "email": "Email",
+      "google": "Google"
+    },
+    "linkNotices": {
+      "conflict": "That Telegram account is already linked to a different Backlog.fyi account.",
+      "exists": "You already have a Telegram account linked.",
+      "failed": "Could not link Telegram. Please try again.",
+      "unavailable": "Telegram linking is temporarily unavailable."
+    },
+    "errors": {
+      "lastMethod": "You can’t remove your only sign-in method. Link another first.",
+      "unlinkFailed": "Could not unlink. Please try again."
+    }
+  },
+  "emailLoginConfirm": {
+    "loading": "Loading…",
+    "invalid": {
+      "tag": "Sign-in link",
+      "title": "Link expired",
+      "body": "This sign-in link is invalid or has expired. Magic links are single-use and expire after 30 minutes.",
+      "requestNew": "← Request a new link"
+    },
+    "ready": {
+      "tag": "One more step",
+      "title": "Confirm it's you",
+      "body": "Click the button below to complete sign-in. This confirms that you opened this link from your inbox."
+    },
+    "signingIn": "Signing in…",
+    "signIn": "Sign in to Backlog.fyi",
+    "backToSignIn": "← Back to sign in",
+    "errors": {
+      "unverified": "That email is already linked to an unverified account. Sign in with Telegram and verify your email under Settings.",
+      "expired": "This sign-in link is invalid or has expired.",
+      "generic": "Something went wrong. Please try again."
+    }
+  },
+  "emailVerifyConfirm": {
+    "success": {
+      "tag": "All done",
+      "title": "Email verified",
+      "body": "Your email address has been confirmed. You can now use it to sign in with a magic link.",
+      "goToBoard": "Go to my board →"
+    },
+    "ready": {
+      "tag": "Verify email",
+      "title": "Confirm your address",
+      "body": "Click the button below to verify your email address. This links it to your account so you can use it to sign in."
+    },
+    "verifying": "Verifying…",
+    "verifyButton": "Verify my email",
+    "backToApp": "← Back to app",
+    "errors": {
+      "expired": "This verification link is invalid or has expired.",
+      "generic": "Something went wrong. Please try again."
+    }
+  },
+  "feedbackModal": {
+    "title": "Send feedback",
+    "close": "Close feedback",
+    "thanks": "Thanks for the feedback — it's on its way. 🙏",
+    "hint": "Found a bug, have an idea, or just want to say hi? We read everything.",
+    "messageLabel": "Your feedback",
+    "messagePlaceholder": "What's on your mind?",
+    "emailLabel": "Reply email (optional)",
+    "emailPlaceholder": "you@example.com — only if you'd like a reply",
+    "done": "Done",
+    "cancel": "Cancel",
+    "sending": "Sending…",
+    "send": "Send",
+    "errors": {
+      "generic": "Something went wrong. Please try again."
+    }
+  },
+  "invitePage": {
+    "loading": "Loading…",
+    "yourAccount": "your account",
+    "invalid": {
+      "tag": "Invitation",
+      "title": "Invitation not found",
+      "body": "This invitation is invalid, has expired, or was revoked. Ask the board owner to send you a new one.",
+      "backHome": "← Go to Backlog.fyi"
+    },
+    "ready": {
+      "tag": "Board invitation",
+      "title": "Join “{{boardName}}”",
+      "body": "<strong>{{inviterName}}</strong> invited you to this board. Everyone on a board can see and edit all of its tasks, and your name becomes visible to its members. You’re signed in as <strong>{{signedInAs}}</strong>."
+    },
+    "joining": "Joining…",
+    "joinBoard": "Join board",
+    "notNow": "← Not now",
+    "errors": {
+      "acceptFailed": "We couldn’t accept this invitation. It may have expired or been revoked."
+    }
   }
 }

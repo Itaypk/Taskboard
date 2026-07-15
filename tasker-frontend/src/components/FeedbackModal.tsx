@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { sendFeedback, ApiError } from '../api';
 import styles from './FeedbackModal.module.css';
 
@@ -14,6 +15,7 @@ const MAX_MESSAGE = 5000;
  * address. Submission posts to `/api/v1/feedback`, which emails it to the configured recipient.
  */
 export function FeedbackModal({ open, onClose }: FeedbackModalProps) {
+  const { t } = useTranslation();
   const [message, setMessage] = useState('');
   const [replyEmail, setReplyEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -50,7 +52,7 @@ export function FeedbackModal({ open, onClose }: FeedbackModalProps) {
       await sendFeedback(message.trim(), replyEmail.trim() || undefined, { emitErrors: false });
       setSent(true);
     } catch (e) {
-      const msg = e instanceof ApiError ? e.userMessage : 'Something went wrong. Please try again.';
+      const msg = e instanceof ApiError ? e.userMessage : t('feedbackModal.errors.generic');
       setError(msg);
     } finally {
       setSubmitting(false);
@@ -62,23 +64,23 @@ export function FeedbackModal({ open, onClose }: FeedbackModalProps) {
       className={`modal-overlay${open ? ' modal-overlay--open' : ''}`}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="modal" role="dialog" aria-modal="true" aria-label="Send feedback">
+      <div className="modal" role="dialog" aria-modal="true" aria-label={t('feedbackModal.title')}>
         <div className="modal__header">
-          <span className="modal__title">Send feedback</span>
-          <button className="drawer__close" onClick={onClose} aria-label="Close feedback">×</button>
+          <span className="modal__title">{t('feedbackModal.title')}</span>
+          <button className="drawer__close" onClick={onClose} aria-label={t('feedbackModal.close')}>×</button>
         </div>
 
         {sent ? (
           <div className="modal__body">
-            <p className={styles.thanks}>Thanks for the feedback — it's on its way. 🙏</p>
+            <p className={styles.thanks}>{t('feedbackModal.thanks')}</p>
           </div>
         ) : (
           <div className="modal__body">
             <p className="settings-hint">
-              Found a bug, have an idea, or just want to say hi? We read everything.
+              {t('feedbackModal.hint')}
             </p>
             <div className="field">
-              <label className="field__label" htmlFor="feedback-message">Your feedback</label>
+              <label className="field__label" htmlFor="feedback-message">{t('feedbackModal.messageLabel')}</label>
               <textarea
                 id="feedback-message"
                 className="field__textarea"
@@ -86,19 +88,19 @@ export function FeedbackModal({ open, onClose }: FeedbackModalProps) {
                 maxLength={MAX_MESSAGE}
                 value={message}
                 onChange={e => setMessage(e.target.value)}
-                placeholder="What's on your mind?"
+                placeholder={t('feedbackModal.messagePlaceholder')}
                 autoFocus
               />
             </div>
             <div className="field">
-              <label className="field__label" htmlFor="feedback-email">Reply email (optional)</label>
+              <label className="field__label" htmlFor="feedback-email">{t('feedbackModal.emailLabel')}</label>
               <input
                 id="feedback-email"
                 type="email"
                 className="field__input"
                 value={replyEmail}
                 onChange={e => setReplyEmail(e.target.value)}
-                placeholder="you@example.com — only if you'd like a reply"
+                placeholder={t('feedbackModal.emailPlaceholder')}
               />
             </div>
             {error && <p className={styles.error}>{error}</p>}
@@ -107,12 +109,12 @@ export function FeedbackModal({ open, onClose }: FeedbackModalProps) {
 
         <div className="modal__footer">
           {sent ? (
-            <button className="btn btn--primary" onClick={onClose}>Done</button>
+            <button className="btn btn--primary" onClick={onClose}>{t('feedbackModal.done')}</button>
           ) : (
             <>
-              <button className="btn btn--ghost" onClick={onClose} disabled={submitting}>Cancel</button>
+              <button className="btn btn--ghost" onClick={onClose} disabled={submitting}>{t('feedbackModal.cancel')}</button>
               <button className="btn btn--primary" onClick={handleSubmit} disabled={!canSubmit}>
-                {submitting ? 'Sending…' : 'Send'}
+                {submitting ? t('feedbackModal.sending') : t('feedbackModal.send')}
               </button>
             </>
           )}
