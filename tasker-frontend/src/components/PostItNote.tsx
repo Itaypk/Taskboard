@@ -1,4 +1,5 @@
 import { useSortable } from '@dnd-kit/sortable';
+import { useTranslation } from 'react-i18next';
 import type { Task, Category, PaperSwatchId } from '../types';
 import { PAPER_SWATCHES } from '../types';
 import { formatDeadline, isOverdue, formatDuration, rotationFromId } from '../utils';
@@ -41,6 +42,7 @@ export function PostItNote({
   onContextMenu,
   onFollowLink,
 }: PostItNoteProps) {
+  const { t } = useTranslation();
   const swatchId = category?.swatchId ?? FALLBACK_SWATCH;
   const swatch = PAPER_SWATCHES.find(s => s.id === swatchId) ?? PAPER_SWATCHES[6];
 
@@ -91,21 +93,21 @@ export function PostItNote({
       {...listeners}
       role="listitem"
       tabIndex={0}
-      aria-label={`Open task: ${task.title}`}
+      aria-label={t('taskCard.openTask', { title: task.title })}
       onClick={onClick}
       onContextMenu={onContextMenu ? e => { e.preventDefault(); onContextMenu(e); } : undefined}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
     >
       {task.priority === 'high' && (
-        <span className="note__stamp" aria-label="High priority">!</span>
+        <span className="note__stamp" aria-label={t('taskCard.highPriority')}>!</span>
       )}
 
       {inCurrentPlan && (
-        <span className={styles.planSrLabel}>In this week's plan</span>
+        <span className={styles.planSrLabel}>{t('taskCard.inCurrentPlan')}</span>
       )}
 
       {category && (
-        <span className="note__category" title={`Category: ${category.label}`}>
+        <span className="note__category" title={t('taskCard.categoryTitle', { label: category.label })}>
           {category.label}
         </span>
       )}
@@ -132,8 +134,8 @@ export function PostItNote({
         {assignee && (
           <span
             className={`${styles.assignee} ${assignee.isMe ? styles.assigneeMe : ''}`}
-            title={assignee.isMe ? `Claimed by you (${assignee.name})` : `Assigned to ${assignee.name}`}
-            aria-label={assignee.isMe ? `Claimed by you` : `Assigned to ${assignee.name}`}
+            title={assignee.isMe ? t('taskCard.claimedByYouWithName', { name: assignee.name }) : t('taskCard.assignedTo', { name: assignee.name })}
+            aria-label={assignee.isMe ? t('taskCard.claimedByYou') : t('taskCard.assignedTo', { name: assignee.name })}
           >
             {assignee.initials}
           </span>
@@ -152,7 +154,7 @@ export function PostItNote({
         <button
           type="button"
           className={styles.linkRow}
-          aria-label={`Open link: ${linkLabel(link)}`}
+          aria-label={t('taskCard.openLink', { label: linkLabel(link) })}
           title={link.kind === 'external' ? link.href : linkLabel(link)}
           onPointerDown={e => e.stopPropagation()}
           onClick={e => { e.stopPropagation(); onFollowLink?.(); }}
@@ -165,7 +167,7 @@ export function PostItNote({
       <span className="note__curl" aria-hidden />
 
       {draggable && (
-        <span className="note__drag-handle" aria-hidden title="Drag to reorder">
+        <span className="note__drag-handle" aria-hidden title={t('taskCard.dragToReorder')}>
           ⠿
         </span>
       )}
@@ -173,7 +175,7 @@ export function PostItNote({
       {onContextMenu && (
         <button
           className={styles.menuBtn}
-          aria-label="Task actions"
+          aria-label={t('taskCard.taskActions')}
           onPointerDown={e => e.stopPropagation()}
           onClick={e => { e.stopPropagation(); onContextMenu(e as unknown as React.MouseEvent); }}
         >

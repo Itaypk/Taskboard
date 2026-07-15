@@ -218,5 +218,120 @@
     "errors": {
       "acceptFailed": "We couldn’t accept this invitation. It may have expired or been revoked."
     }
+  },
+  "scheduleTaskModal": {
+    "scheduleTitle": "Schedule task",
+    "rescheduleTitle": "Reschedule task",
+    "subtitleSchedule": "Adding <strong>{{taskTitle}}</strong> to this week's plan.",
+    "subtitleReschedule": "Moving <strong>{{taskTitle}}</strong> to a new time.",
+    "day": "Day",
+    "startTime": "Start time",
+    "endTime": "End time",
+    "endTimeError": "End time must be after start time.",
+    "cancel": "Cancel",
+    "addToPlan": "Add to plan",
+    "updateSlot": "Update slot"
+  },
+  "moveTaskModal": {
+    "title": "Move task",
+    "subtitle": "Moving <strong>{{taskTitle}}</strong> to another board. Pick the destination board and the category it should land in; tags are recreated on the destination.",
+    "destinationBoard": "Destination board",
+    "members_one": "{{count}} member",
+    "members_other": "{{count}} members",
+    "category": "Category",
+    "loadingCategories": "Loading categories…",
+    "loadError": "Couldn't load that board's categories. Try again.",
+    "cancel": "Cancel",
+    "move": "Move"
+  },
+  "tagEditModal": {
+    "title": "Edit tag",
+    "close": "Close",
+    "label": "Label",
+    "labelPlaceholder": "Tag label",
+    "color": "Color",
+    "persistsHint": "This renames the tag on every task that uses it.",
+    "cancel": "Cancel",
+    "save": "Save"
+  },
+  "importResultDialog": {
+    "successTitle": "Import complete",
+    "imported": "Imported {{tasks}}, {{tags}}, and {{categories}}.",
+    "tasksCount_one": "{{count}} task",
+    "tasksCount_other": "{{count}} tasks",
+    "tagsCount_one": "{{count}} tag",
+    "tagsCount_other": "{{count}} tags",
+    "categoriesCount_one": "{{count}} category",
+    "categoriesCount_other": "{{count}} categories",
+    "emailSkip": {
+      "accountHasEmail": "Your account already has an email, so the one in the file was not imported.",
+      "taken": "The email in the file belongs to another account, so it was not imported. Your current email is unchanged."
+    },
+    "errors": {
+      "corruptedFile": {
+        "title": "This file couldn’t be imported",
+        "body": "The file doesn’t look like a valid Backlog export. Make sure you’re importing a file you exported from Backlog, unchanged."
+      },
+      "unsupportedVersion": {
+        "title": "Unsupported export version",
+        "body": "This file was made by a different version of Backlog. Export your data again from this version, then import it."
+      },
+      "accountNotEmpty": {
+        "title": "Import needs an empty account",
+        "body": "You can only import into an account that has no tasks of its own. Start with a fresh account, then import."
+      },
+      "internalError": {
+        "title": "Something went wrong on our end",
+        "body": "The import couldn’t be completed. Please try again in a moment."
+      }
+    },
+    "stillStuck": "Still stuck?",
+    "contactSupport": "Contact support",
+    "reload": "Reload",
+    "close": "Close"
+  },
+  "userMenu": {
+    "account": "Account",
+    "accountMenu": "Account menu",
+    "stats": "Stats",
+    "settings": "Settings",
+    "sendFeedback": "Send feedback",
+    "signOut": "Sign out"
+  },
+  "taskCard": {
+    "highPriority": "High priority",
+    "inCurrentPlan": "In this week's plan",
+    "categoryTitle": "Category: {{label}}",
+    "openTask": "Open task: {{title}}",
+    "claimedByYou": "Claimed by you",
+    "claimedByYouWithName": "Claimed by you ({{name}})",
+    "assignedTo": "Assigned to {{name}}",
+    "openLink": "Open link: {{label}}",
+    "dragToReorder": "Drag to reorder",
+    "taskActions": "Task actions",
+    "foldAway": "Fold note away",
+    "peekNote": "Peek note"
+  },
+  "planDetails": {
+    "inProgress": "In progress",
+    "finalized": "Finalized",
+    "timestampStarted": "Started {{started}}",
+    "timestampRange": "Started {{started}} · finished {{ended}}",
+    "summaryHeading": "Summary",
+    "noSummary": "No summary recorded for this session.",
+    "tasksHeading": "Tasks ({{count}})",
+    "noTasks": "No tasks were scheduled in this plan.",
+    "done": "Done",
+    "todo": "To do"
+  },
+  "aiUsageMeter": {
+    "loadError": "Couldn't load your AI usage right now.",
+    "loading": "Loading usage…",
+    "unlimited": "Unlimited",
+    "unlimitedNote": "Your plan has no token cap. Use AI features as much as you like.",
+    "left": "left",
+    "ariaLabel": "AI tokens used this period",
+    "caption_one": "{{pct}}% used · resets as your last {{count}} day rolls forward",
+    "caption_other": "{{pct}}% used · resets as your last {{count}} days roll forward"
   }
 }

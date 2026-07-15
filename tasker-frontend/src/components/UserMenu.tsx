@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../auth/AuthContext';
 import styles from './UserMenu.module.css';
 
@@ -33,6 +34,7 @@ function UserProfileIcon() {
  * the menu itself is right-aligned under the trigger and dismisses on outside-click or Escape.
  */
 export function UserMenu({ displayName, onOpenStats, onOpenSettings, onOpenFeedback, onSignOut }: UserMenuProps) {
+  const { t } = useTranslation();
   const { state } = useAuth();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -53,7 +55,7 @@ export function UserMenu({ displayName, onOpenStats, onOpenSettings, onOpenFeedb
 
   const user = state.status === 'authenticated' ? state.user : null;
   const primaryName =
-    displayName?.trim() || user?.telegramFirstName || user?.telegramUsername || user?.email || 'Account';
+    displayName?.trim() || user?.telegramFirstName || user?.telegramUsername || user?.email || t('userMenu.account');
   const secondary = user?.telegramUsername ? `@${user.telegramUsername}` : user?.email ?? null;
 
   const runAction = (action: () => void) => { setOpen(false); action(); };
@@ -64,7 +66,7 @@ export function UserMenu({ displayName, onOpenStats, onOpenSettings, onOpenFeedb
         type="button"
         className={`icon-btn ${styles.trigger}`}
         onClick={() => setOpen(o => !o)}
-        aria-label="Account menu"
+        aria-label={t('userMenu.accountMenu')}
         aria-haspopup="menu"
         aria-expanded={open}
       >
@@ -87,7 +89,7 @@ export function UserMenu({ displayName, onOpenStats, onOpenSettings, onOpenFeedb
               className={styles.item}
               onClick={() => runAction(onOpenStats)}
             >
-              Stats
+              {t('userMenu.stats')}
             </button>
           </li>
           <li role="none">
@@ -97,7 +99,7 @@ export function UserMenu({ displayName, onOpenStats, onOpenSettings, onOpenFeedb
               className={styles.item}
               onClick={() => runAction(onOpenSettings)}
             >
-              Settings
+              {t('userMenu.settings')}
             </button>
           </li>
           <li role="none">
@@ -107,7 +109,7 @@ export function UserMenu({ displayName, onOpenStats, onOpenSettings, onOpenFeedb
               className={styles.item}
               onClick={() => runAction(onOpenFeedback)}
             >
-              Send feedback
+              {t('userMenu.sendFeedback')}
             </button>
           </li>
           <li className={styles.divider} role="separator" />
@@ -118,7 +120,7 @@ export function UserMenu({ displayName, onOpenStats, onOpenSettings, onOpenFeedb
               className={`${styles.item} ${styles.itemDanger}`}
               onClick={() => runAction(onSignOut)}
             >
-              Sign out
+              {t('userMenu.signOut')}
             </button>
           </li>
         </ul>

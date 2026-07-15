@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
+import { useTranslation } from 'react-i18next';
 import type { Task, Category, PaperSwatchId } from '../types';
 import { PAPER_SWATCHES } from '../types';
 import { formatDeadline, isOverdue, formatDuration, rotationFromId, notePreview } from '../utils';
@@ -35,6 +36,7 @@ export function TaskLine({
   onContextMenu,
   onFollowLink,
 }: TaskLineProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
   const swatchId = category?.swatchId ?? FALLBACK_SWATCH;
@@ -90,7 +92,7 @@ export function TaskLine({
       {...listeners}
       role="listitem"
       tabIndex={0}
-      aria-label={`Open task: ${task.title}`}
+      aria-label={t('taskCard.openTask', { title: task.title })}
       onClick={onClick}
       onContextMenu={onContextMenu ? e => { e.preventDefault(); onContextMenu(e); } : undefined}
       // Only the row itself opens the task on Enter/Space — child buttons (dog-ear, link) handle their own keys.
@@ -99,11 +101,11 @@ export function TaskLine({
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); }
       }}
     >
-      {inCurrentPlan && <span className={styles.srOnly}>In this week's plan</span>}
+      {inCurrentPlan && <span className={styles.srOnly}>{t('taskCard.inCurrentPlan')}</span>}
 
       {task.priority === 'high'
-        ? <span className={styles.bang} aria-label="High priority">!</span>
-        : <span className={styles.cat} title={category ? `Category: ${category.label}` : undefined}>{category?.label ?? ''}</span>}
+        ? <span className={styles.bang} aria-label={t('taskCard.highPriority')}>!</span>
+        : <span className={styles.cat} title={category ? t('taskCard.categoryTitle', { label: category.label }) : undefined}>{category?.label ?? ''}</span>}
 
       <div className={styles.main}>
         <div className={styles.title}>{task.title}</div>
@@ -119,8 +121,8 @@ export function TaskLine({
         {assignee && (
           <span
             className={`${styles.who} ${assignee.isMe ? styles.whoMe : ''}`}
-            title={assignee.isMe ? `Claimed by you (${assignee.name})` : `Assigned to ${assignee.name}`}
-            aria-label={assignee.isMe ? 'Claimed by you' : `Assigned to ${assignee.name}`}
+            title={assignee.isMe ? t('taskCard.claimedByYouWithName', { name: assignee.name }) : t('taskCard.assignedTo', { name: assignee.name })}
+            aria-label={assignee.isMe ? t('taskCard.claimedByYou') : t('taskCard.assignedTo', { name: assignee.name })}
           >
             {assignee.initials}
           </span>
@@ -139,9 +141,9 @@ export function TaskLine({
         <button
           type="button"
           className={styles.dogear}
-          aria-label={open ? 'Fold note away' : 'Peek note'}
+          aria-label={open ? t('taskCard.foldAway') : t('taskCard.peekNote')}
           aria-expanded={open}
-          title={open ? 'Fold note away' : 'Peek note'}
+          title={open ? t('taskCard.foldAway') : t('taskCard.peekNote')}
           onPointerDown={e => e.stopPropagation()}
           onClick={e => { e.stopPropagation(); setOpen(o => !o); }}
         />
@@ -158,7 +160,7 @@ export function TaskLine({
                 <button
                   type="button"
                   className={styles.link}
-                  aria-label={`Open link: ${linkLabel(link)}`}
+                  aria-label={t('taskCard.openLink', { label: linkLabel(link) })}
                   title={link.kind === 'external' ? link.href : linkLabel(link)}
                   onPointerDown={e => e.stopPropagation()}
                   onClick={e => { e.stopPropagation(); onFollowLink?.(); }}

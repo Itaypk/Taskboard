@@ -56,19 +56,19 @@ are near-duplicates worth consolidating into one key.
 | `src/auth/EmailVerifyConfirmPage.tsx` | ✅ Done | — | Extracted this session |
 | `src/components/FeedbackModal.tsx` | ✅ Done | — | Extracted this session |
 | `src/auth/InvitePage.tsx` | ✅ Done | — | Extracted this session; invitation body uses `Trans` for the two `<strong>` interpolations |
-| `src/components/ScheduleTaskModal.tsx` | ⬜ Not started | 10 | |
-| `src/components/MoveTaskModal.tsx` | ⬜ Not started | 9 | |
-| `src/components/TagEditModal.tsx` | ⬜ Not started | 8 | |
-| `src/components/ImportResultDialog.tsx` | ⬜ Not started | 7 | `ERROR_COPY`/`EMAIL_SKIP_MESSAGES` maps — good candidate to key by the import error `code` (D6) |
-| `src/components/AiUsageMeter.tsx` | ⬜ Not started | 5 | |
-| `src/components/PostItNote.tsx` | ⬜ Not started | 5 | Shares strings with `TaskLine.tsx` ("In this week's plan", "High priority") — extract once, reuse the key |
-| `src/components/UserMenu.tsx` | ⬜ Not started | 5 | |
-| `src/components/TaskLine.tsx` | ⬜ Not started | 4 | See `PostItNote.tsx` note |
+| `src/components/ScheduleTaskModal.tsx` | ✅ Done | — | Extracted this session |
+| `src/components/MoveTaskModal.tsx` | ✅ Done | — | Extracted this session; `{{count}} members` now a proper plural key |
+| `src/components/TagEditModal.tsx` | ✅ Done | — | Extracted this session |
+| `src/components/ImportResultDialog.tsx` | ✅ Done | — | Extracted this session; `ERROR_COPY`/`EMAIL_SKIP_MESSAGES` now key-maps resolved via `t()`, keyed by the import error category (D6-style). The tasks/tags/categories summary sentence now uses three independently pluralized `t()` calls instead of `utils.plural()`, which had no other callers and was removed. The support-email `mailto:` subject stays hardcoded English (admin-facing output convention) |
+| `src/components/AiUsageMeter.tsx` | ✅ Done | — | Extracted this session; the "resets in N days" caption is a proper plural key with two interpolations (`count`, `pct`) |
+| `src/components/PostItNote.tsx` | ✅ Done | — | Extracted this session into a shared `taskCard.*` namespace, reused by `TaskLine.tsx` |
+| `src/components/UserMenu.tsx` | ✅ Done | — | Extracted this session |
+| `src/components/TaskLine.tsx` | ✅ Done | — | Extracted this session; reuses `taskCard.*` keys from `PostItNote.tsx` |
 | `src/auth/PolicyPage.tsx` | ⬜ Not started | 3 | Nav chrome only — the legal *content* stays English (`docs/I18N.md` non-goal) |
 | `src/components/BoardFilter.tsx` | ⬜ Not started | 3 | |
 | `src/components/MarkdownRenderer.tsx` | ⬜ Not started | 3 | |
 | `src/components/NoteEditor.tsx` | ⬜ Not started | 3 | |
-| `src/components/PlanDetails.tsx` | ⬜ Not started | 3 | |
+| `src/components/PlanDetails.tsx` | ✅ Done | — | Extracted this session; "Started X · finished Y" and the "Tasks (N)" heading now go through `t()` |
 | `src/components/BoardNameDialog.tsx` | ⬜ Not started | 2 | |
 | `src/components/BrandBoard.tsx` | ⬜ Not started | 2 | |
 | `src/components/CategoryEditor.tsx` | ⬜ Not started | 2 | |
@@ -95,17 +95,23 @@ Not `.tsx`, so outside the script's scan, but both are explicitly called out in 
 | Module | Status | Notes |
 | --- | --- | --- |
 | `src/api.ts` | ✅ Done | `defaultMessageFor` (the D6 "client-side generic fallbacks") and the 401 `sessionExpired` message now call `i18n.t(...)` directly (plain module, no React context — uses the `i18n` singleton exported from `src/i18n/index.ts`, not the `useTranslation` hook) |
-| `src/utils.ts` | ✅ Done | Extracted this session — `formatDeadline`/`formatRelative` now call the `i18n` singleton directly (plain module, like `api.ts`), with `utils.overdue`/`utils.hoursAgo`/`utils.daysAgo` as count-based keys (`_one`/`_other`) so i18next's `Intl.PluralRules`-backed pluralization applies once a language with different plural forms launches. The `plural(n, one, many)` helper itself takes its words from the caller (only `ImportResultDialog.tsx` uses it today) — untouched, still naive, tracked with that component |
+| `src/utils.ts` | ✅ Done | Extracted — `formatDeadline`/`formatRelative` now call the `i18n` singleton directly (plain module, like `api.ts`), with `utils.overdue`/`utils.hoursAgo`/`utils.daysAgo` as count-based keys (`_one`/`_other`) so i18next's `Intl.PluralRules`-backed pluralization applies once a language with different plural forms launches. The naive `plural(n, one, many)` helper had only one caller (`ImportResultDialog.tsx`); once that component moved to its own `_one`/`_other` keys, `plural()` was dead code and was deleted |
 
 ## Summary
 
-- **11 of ~44 components/modules done** (LoginPage pilot + NotFoundPage, ConfirmDialog, ErrorToast
-  from an earlier session; StatsModal, ConnectedAccounts, EmailLoginConfirmPage,
-  EmailVerifyConfirmPage, FeedbackModal, InvitePage, and `utils.ts` from this session).
+- **19 of ~44 components/modules done**: LoginPage pilot + NotFoundPage, ConfirmDialog, ErrorToast
+  (earlier session); StatsModal, ConnectedAccounts, EmailLoginConfirmPage, EmailVerifyConfirmPage,
+  FeedbackModal, InvitePage, `utils.ts` (previous PR); ScheduleTaskModal, MoveTaskModal,
+  TagEditModal, ImportResultDialog, AiUsageMeter, PostItNote, UserMenu, TaskLine, PlanDetails
+  (this PR).
 - Heaviest remaining lifts: `SettingsModal`, `TaskDrawer`, `App.tsx`, `BoardSettingsModal`,
   `WeeklyPlanDrawer` — all >25 strings, all central screens. Tackle these in dedicated PRs rather
   than folding them into a general pass.
-- `utils.ts`'s date helpers are now extracted, so components that call `formatDeadline`/
-  `formatRelative`/`formatDuration` (`TaskDrawer`, `TaskLine`, `PostItNote`, `PlanDetails`,
-  `ImportResultDialog`, `CategoryEditor`, `EventsSection`) already render localized relative
-  dates even before those components themselves are extracted.
+- `utils.ts`'s date helpers are extracted, so components that call `formatDeadline`/
+  `formatRelative`/`formatDuration` (`TaskDrawer`, `CategoryEditor`, `EventsSection` among the
+  ones still pending) already render localized relative dates even before those components
+  themselves are extracted.
+- New shared namespace: `taskCard.*` in the catalog holds strings common to `PostItNote.tsx` and
+  `TaskLine.tsx` ("High priority", "In this week's plan", assignee/link/category labels) — reuse
+  this namespace rather than re-adding the same copy under a new component key when touching
+  either file again.
