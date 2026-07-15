@@ -438,5 +438,92 @@
     "sortTasks": "Sort tasks",
     "sortTasksBy": "Sort tasks by",
     "none": "None"
+  },
+  "settingsModal": {
+    "title": "Settings",
+    "close": "Close settings",
+    "tabs": {
+      "general": "General",
+      "categories": "Labels",
+      "assistant": "Assistant"
+    },
+    "days": {
+      "monday": "Monday",
+      "tuesday": "Tuesday",
+      "wednesday": "Wednesday",
+      "thursday": "Thursday",
+      "friday": "Friday",
+      "saturday": "Saturday",
+      "sunday": "Sunday"
+    },
+    "general": {
+      "displayName": "Display name",
+      "displayNamePlaceholder": "Your name",
+      "emailAddress": "Email address",
+      "emailVerified": "{{email}} — verified",
+      "emailHint": "Used to send calendar invites for planned tasks.",
+      "emailNotVerified": "Not yet verified.",
+      "emailPlaceholder": "you@example.com",
+      "sending": "Sending…",
+      "sent": "Sent!",
+      "sendVerification": "Send verification",
+      "verificationSentHint": "Check your inbox and click the link to verify.",
+      "autoArchive": "Auto-archive done tasks",
+      "autoArchiveHelp": "Done tasks are archived after this many days. Leave blank to disable.",
+      "autoArchivePlaceholder": "7",
+      "notifications": "Notifications",
+      "calendarInvites": "Email calendar invites for tasks planned to the week",
+      "verifyEmailFirst": "(verify your email first)",
+      "appReminders": "In-app reminders before a planned task starts",
+      "sentOverTelegram": "(sent over Telegram, if connected)",
+      "timeZone": "Time zone",
+      "timeZonePlaceholder": "e.g. Europe/London",
+      "language": "Language",
+      "firstDayOfWeek": "First day of the week",
+      "firstDayOfWeekHelp": "Frames “this week” during your planning sessions.",
+      "notSet": "Not set",
+      "dangerZone": "Danger zone",
+      "exporting": "Exporting…",
+      "exportData": "Export my data",
+      "importing": "Importing…",
+      "importData": "Import data",
+      "deleteWarning": "This will permanently delete your account and all data. There's no undo.",
+      "deleting": "Deleting…",
+      "confirmDelete": "Yes, delete everything",
+      "cancel": "Cancel",
+      "deleteAccount": "Delete account"
+    },
+    "categories": {
+      "categoriesLabel": "Categories",
+      "categoriesHint": "Post-it color on the board. Every task belongs to one.",
+      "tagsLabel": "Tags",
+      "tagsHint": "Washi-tape labels a task can carry several of. Rename, recolor, or remove them."
+    },
+    "assistant": {
+      "aiAccess": "AI access",
+      "aiAccessHelp": "Turns off every AI-driven feature for your account: weekly planning, quick-capture suggestions, and the Telegram /plan and /add commands. On a board you share, the board's AI features stop working for everyone while yours is off.",
+      "aiAccessToggle": "Allow AI features to read my data",
+      "aiPlan": "AI plan",
+      "aiPlanHelp": "Your token budget for AI-driven features over a rolling 30-day window.",
+      "weeklyPlanning": "Weekly planning session",
+      "weeklyPlanningHelp": "We'll start your planning conversation via Telegram at this time each week.",
+      "weeklyPlanningToggle": "Start a weekly planning session",
+      "planningDay": "Planning day",
+      "planningTime": "Planning time",
+      "reminders": "Reminders",
+      "remindersHelp": "When on, the reminder sent before a planned task starts is written by the assistant — a short, personalized nudge instead of the standard template. The reminder buttons (snooze, mark done) work either way.",
+      "remindersToggle": "Let the assistant write my task reminders",
+      "addressYou": "How should the assistant address you?",
+      "addressYouHelp": "Sets pronouns and gendered language used during planning conversations.",
+      "noPreference": "— no preference",
+      "personalContext": "Personal context",
+      "personalContextHelp": "Facts the AI planner will use when scheduling your week — preferences, recurring commitments, energy patterns.",
+      "personalContextPlaceholder": "e.g. I prefer deep work in the morning…"
+    },
+    "footer": {
+      "cancel": "Cancel",
+      "saving": "Saving…",
+      "save": "Save"
+    }
   }
 }

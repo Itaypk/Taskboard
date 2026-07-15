@@ -45,7 +45,7 @@ are near-duplicates worth consolidating into one key.
 | `src/NotFoundPage.tsx` | ✅ Done | — | Extracted this session |
 | `src/components/ConfirmDialog.tsx` | ✅ Done | — | Extracted this session; default `confirmLabel` now resolved via `t()` instead of a hardcoded prop default |
 | `src/components/ErrorToast.tsx` | ✅ Done | — | Extracted this session, paired with `src/api.ts` (see below) |
-| `src/components/SettingsModal.tsx` | ⬜ Not started | 50 | Largest remaining surface — settings labels, connected-accounts strings, danger-zone copy |
+| `src/components/SettingsModal.tsx` | ✅ Done | — | Extracted this session; module-level `SETTINGS_TABS`/`DAYS_OF_WEEK` arrays now hold translation keys, resolved to labels inside the component (via `t()`) before being passed to `Tabs`/rendered in the day `<select>`s. Also fixed a pre-existing display bug: the "first day of week" help tip's `&quot;this week&quot;` was a literal HTML-entity string (never decoded, since it renders as plain React text) — now a real curly-quoted string in the catalog |
 | `src/components/TaskDrawer.tsx` | ⬜ Not started | 44 | Includes the seeded-tutorial-task banner copy |
 | `src/App.tsx` | ⬜ Not started | 40 | Top-level shell: onboarding nudges, empty states, board switcher |
 | `src/components/BoardSettingsModal.tsx` | ⬜ Not started | 28 | Board name/mascot, member management, invitations |
@@ -99,18 +99,17 @@ Not `.tsx`, so outside the script's scan, but both are explicitly called out in 
 
 ## Summary
 
-- **34 of ~44 components/modules done** (the rest are ➖ No copy): LoginPage pilot + NotFoundPage,
+- **35 of ~44 components/modules done** (the rest are ➖ No copy): LoginPage pilot + NotFoundPage,
   ConfirmDialog, ErrorToast (earlier session); StatsModal, ConnectedAccounts,
   EmailLoginConfirmPage, EmailVerifyConfirmPage, FeedbackModal, InvitePage, `utils.ts` (PR #124);
   ScheduleTaskModal, MoveTaskModal, TagEditModal, ImportResultDialog, AiUsageMeter, PostItNote,
   UserMenu, TaskLine, PlanDetails (PR #125); PolicyPage, BoardFilter, MarkdownRenderer,
   NoteEditor, BoardNameDialog, BrandBoard, CategoryEditor, TagEditor, UpdateBanner, ViewToggle,
-  EventsSection, WashiTape, PaperSwatchPicker, SortMenu (this PR) — plus Autocomplete
-  re-classified from "not started" to "no copy" after a hand check.
-- **Only the five heavy screens remain**: `SettingsModal`, `TaskDrawer`, `App.tsx`,
-  `BoardSettingsModal`, `WeeklyPlanDrawer` — all >25 strings, all central screens, each intended
-  as its own dedicated PR (per the earlier note against folding them into a general pass) rather
-  than a general-pass batch like this one.
+  EventsSection, WashiTape, PaperSwatchPicker, SortMenu (PR #126); SettingsModal (this PR) —
+  plus Autocomplete re-classified from "not started" to "no copy" after a hand check.
+- **Four heavy screens remain**: `TaskDrawer`, `App.tsx`, `BoardSettingsModal`,
+  `WeeklyPlanDrawer` — each intended as its own dedicated PR (per the earlier note against
+  folding them into a general pass) rather than a general-pass batch.
 - `utils.ts`'s date helpers are extracted, so components that call `formatDeadline`/
   `formatRelative`/`formatDuration` (`TaskDrawer` is the only one still pending) already render
   localized relative dates even before `TaskDrawer` itself is extracted.
