@@ -20,6 +20,23 @@ data class ChatRequest(
     @JsonProperty("max_tokens") val maxTokens: Int? = null,
     @JsonProperty("tool_choice") val toolChoice: String? = null,
     val provider: ProviderPreferences = ProviderPreferences(),
+    // Reasoning/effort control (OpenRouter `reasoning` field). Omitted from the wire when null, so
+    // the default is unchanged model behavior. Populated centrally by AiClient from per-functionality
+    // config (see ReasoningResolver), or set explicitly by a caller.
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    val reasoning: ReasoningConfig? = null,
+)
+
+/**
+ * OpenRouter `reasoning` request field. [effort] is the primary knob (`minimal|low|medium|high` —
+ * OpenRouter normalizes it onto each provider's native reasoning control). [maxTokens] and [exclude]
+ * are available for explicit callers; only [effort] is wired to per-functionality config today.
+ */
+@JsonInclude(JsonInclude.Include.NON_NULL)
+data class ReasoningConfig(
+    val effort: String? = null,
+    @JsonProperty("max_tokens") val maxTokens: Int? = null,
+    val exclude: Boolean? = null,
 )
 
 @JsonInclude(JsonInclude.Include.NON_NULL)

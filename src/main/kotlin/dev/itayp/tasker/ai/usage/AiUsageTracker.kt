@@ -3,6 +3,7 @@ package dev.itayp.tasker.ai.usage
 import dev.itayp.tasker.ai.client.AiCallContext
 import dev.itayp.tasker.ai.client.ChatRequest
 import dev.itayp.tasker.ai.client.ChatResponse
+import dev.itayp.tasker.ai.client.ModelCapabilityService
 import io.micrometer.core.instrument.MeterRegistry
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -21,8 +22,24 @@ class AiUsageTracker(
     private val repository: AiUsageEventRepository,
     private val meterRegistry: MeterRegistry,
     private val clock: Clock,
+    private val modelCapabilityService: ModelCapabilityService,
 ) {
     private val log = LoggerFactory.getLogger(AiUsageTracker::class.java)
+
+    /**
+     * Effort level to tag the call with. The explicit request effort wins; otherwise, for a
+     * reasoning model called without an explicit level, it's the model's default effort; for a
+     * non-reasoning model it's "none". [DEFAULT_EFFORT_UNKNOWN] covers a reasoning model that didn't
+     * advertise a default.
+     */
+    private fun effortLabel(request: ChatRequest): String {
+        request.reasoning?.effort?.let { return it }
+        val capabilities = modelCapabilityService.get(request.model)
+        return when {
+            capabilities == null || !capabilities.supportsReasoning -> EFFORT_NONE
+            else -> capabilities.defaultEffort ?: DEFAULT_EFFORT_UNKNOWN
+        }
+    }
 
     fun recordSuccess(context: AiCallContext, request: ChatRequest, response: ChatResponse) {
         val usage = response.usage
@@ -32,6 +49,7 @@ class AiUsageTracker(
             context = context,
             model = model,
             provider = response.provider,
+            effort = effortLabel(request),
             status = AiUsageStatus.SUCCESS,
             promptTokens = usage?.promptTokens,
             completionTokens = usage?.completionTokens,
@@ -48,6 +66,7 @@ class AiUsageTracker(
             context = context,
             model = request.model,
             provider = null,
+            effort = effortLabel(request),
             status = AiUsageStatus.ERROR,
             promptTokens = null,
             completionTokens = null,
@@ -61,6 +80,7 @@ class AiUsageTracker(
         context: AiCallContext,
         model: String,
         provider: String?,
+        effort: String,
         status: AiUsageStatus,
         promptTokens: Int?,
         completionTokens: Int?,
@@ -74,6 +94,7 @@ class AiUsageTracker(
             "conversation_type", context.conversationType,
             "model", model,
             "provider", providerTag,
+            "effort", effort,
             "outcome", status.name.lowercase(),
         ).increment()
         if (promptTokens != null) {
@@ -82,6 +103,7 @@ class AiUsageTracker(
                 "conversation_type", context.conversationType,
                 "model", model,
                 "provider", providerTag,
+                "effort", effort,
                 "type", "prompt",
             ).increment(promptTokens.toDouble())
         }
@@ -91,6 +113,7 @@ class AiUsageTracker(
                 "conversation_type", context.conversationType,
                 "model", model,
                 "provider", providerTag,
+                "effort", effort,
                 "type", "completion",
             ).increment(completionTokens.toDouble())
         }
@@ -103,6 +126,7 @@ class AiUsageTracker(
                 "conversation_type", context.conversationType,
                 "model", model,
                 "provider", providerTag,
+                "effort", effort,
                 "type", "cached",
             ).increment(cachedTokens.toDouble())
         }
@@ -112,13 +136,14 @@ class AiUsageTracker(
                 "conversation_type", context.conversationType,
                 "model", model,
                 "provider", providerTag,
+                "effort", effort,
                 "type", "cache_write",
             ).increment(cacheWriteTokens.toDouble())
         }
 
         log.debug(
-            "AI usage user={} type={} status={} model={} provider={} promptTokens={} completionTokens={} cachedTokens={} cacheWriteTokens={} session={} conversation={}",
-            context.userId, context.conversationType, status, model, providerTag,
+            "AI usage user={} type={} status={} model={} provider={} effort={} promptTokens={} completionTokens={} cachedTokens={} cacheWriteTokens={} session={} conversation={}",
+            context.userId, context.conversationType, status, model, providerTag, effort,
             promptTokens, completionTokens, cachedTokens, cacheWriteTokens,
             context.sessionId, context.conversationId,
         )
@@ -153,5 +178,12 @@ class AiUsageTracker(
             // Accounting must not break the AI flow; the metric + log still captured the call.
             log.error("Failed to persist AI usage event for user {}", context.userId, e)
         }
+    }
+
+    companion object {
+        // effort label for a non-reasoning model.
+        private const val EFFORT_NONE = "none"
+        // effort label for a reasoning model that didn't advertise a default effort.
+        private const val DEFAULT_EFFORT_UNKNOWN = "default"
     }
 }
