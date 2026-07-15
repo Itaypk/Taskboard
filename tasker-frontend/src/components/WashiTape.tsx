@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { Tag } from '../types';
 
 interface WashiTapeProps {
@@ -11,6 +12,7 @@ interface WashiTapeProps {
 }
 
 export function WashiTape({ tag, index = 0, idSeed = '', onRemove, onClick }: WashiTapeProps) {
+  const { t } = useTranslation();
   const jitterRot = jitter(idSeed + ':r:' + index) * 1.1;
   const jitterX   = jitter(idSeed + ':x:' + index) * 3;
 
@@ -24,7 +26,7 @@ export function WashiTape({ tag, index = 0, idSeed = '', onRemove, onClick }: Wa
       }}
     >
       {onClick ? (
-        <button type="button" className="washi__label washi__label--btn" onClick={onClick} title={`Edit tag ${tag.label}`}>
+        <button type="button" className="washi__label washi__label--btn" onClick={onClick} title={t('washiTape.editTag', { label: tag.label })}>
           {tag.label}
         </button>
       ) : (
@@ -35,7 +37,7 @@ export function WashiTape({ tag, index = 0, idSeed = '', onRemove, onClick }: Wa
           type="button"
           className="washi__remove"
           onClick={e => { e.stopPropagation(); onRemove(); }}
-          aria-label={`Remove tag ${tag.label}`}
+          aria-label={t('washiTape.removeTag', { label: tag.label })}
         >
           ×
         </button>

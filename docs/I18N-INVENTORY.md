@@ -64,22 +64,22 @@ are near-duplicates worth consolidating into one key.
 | `src/components/PostItNote.tsx` | ✅ Done | — | Extracted this session into a shared `taskCard.*` namespace, reused by `TaskLine.tsx` |
 | `src/components/UserMenu.tsx` | ✅ Done | — | Extracted this session |
 | `src/components/TaskLine.tsx` | ✅ Done | — | Extracted this session; reuses `taskCard.*` keys from `PostItNote.tsx` |
-| `src/auth/PolicyPage.tsx` | ⬜ Not started | 3 | Nav chrome only — the legal *content* stays English (`docs/I18N.md` non-goal) |
-| `src/components/BoardFilter.tsx` | ⬜ Not started | 3 | |
-| `src/components/MarkdownRenderer.tsx` | ⬜ Not started | 3 | |
-| `src/components/NoteEditor.tsx` | ⬜ Not started | 3 | |
+| `src/auth/PolicyPage.tsx` | ✅ Done | — | Extracted this session; nav chrome only — the legal *content* stays English (`docs/I18N.md` non-goal) |
+| `src/components/BoardFilter.tsx` | ✅ Done | — | Extracted this session; the module-level `OPTIONS` array now stores translation keys instead of literal labels, resolved via `t()` in render |
+| `src/components/MarkdownRenderer.tsx` | ✅ Done | — | Extracted this session; the ▲/▼ glyphs stay outside the catalog string, composed in JSX |
+| `src/components/NoteEditor.tsx` | ✅ Done | — | Extracted this session, including the toolbar labels and the `window.prompt` copy |
 | `src/components/PlanDetails.tsx` | ✅ Done | — | Extracted this session; "Started X · finished Y" and the "Tasks (N)" heading now go through `t()` |
-| `src/components/BoardNameDialog.tsx` | ⬜ Not started | 2 | |
-| `src/components/BrandBoard.tsx` | ⬜ Not started | 2 | |
-| `src/components/CategoryEditor.tsx` | ⬜ Not started | 2 | |
-| `src/components/TagEditor.tsx` | ⬜ Not started | 2 | |
-| `src/components/UpdateBanner.tsx` | ⬜ Not started | 2 | |
-| `src/components/ViewToggle.tsx` | ⬜ Not started | 2 | |
-| `src/components/EventsSection.tsx` | ⬜ Not started | ~2 | Undercounted — see template-literal blind spot above (`Events (…)`, `Cancel {title}`) |
-| `src/components/WashiTape.tsx` | ⬜ Not started | ~2 | Undercounted — "Edit tag"/"Remove tag" prefixes in interpolated `title`/`aria-label` |
-| `src/components/PaperSwatchPicker.tsx` | ⬜ Not started | 1 | |
-| `src/components/SortMenu.tsx` | ⬜ Not started | 1 | |
-| `src/components/Autocomplete.tsx` | ⬜ Not started | 1 | Mostly a garbled sample from the script — re-check by hand |
+| `src/components/BoardNameDialog.tsx` | ✅ Done | — | Extracted this session; `title`/`confirmLabel` remain caller-supplied props (owned by `BoardSettingsModal.tsx`, still pending) |
+| `src/components/BrandBoard.tsx` | ✅ Done | — | Extracted this session; member count is now a proper plural key |
+| `src/components/CategoryEditor.tsx` | ✅ Done | — | Extracted this session, including the seeded "New category" default label and the `In use by N task(s)` plural |
+| `src/components/TagEditor.tsx` | ✅ Done | — | Extracted this session; renamed the `.map(t => …)` loop variable to `tag` to stop it shadowing `t()` |
+| `src/components/UpdateBanner.tsx` | ✅ Done | — | Extracted this session |
+| `src/components/ViewToggle.tsx` | ✅ Done | — | Extracted this session |
+| `src/components/EventsSection.tsx` | ✅ Done | — | Extracted this session |
+| `src/components/WashiTape.tsx` | ✅ Done | — | Extracted this session |
+| `src/components/PaperSwatchPicker.tsx` | ✅ Done | — | Extracted this session |
+| `src/components/SortMenu.tsx` | ✅ Done | — | Extracted this session; field labels now come from a `SORT_FIELD_LABEL_KEYS` map in the component rather than `SORT_OPTIONS.label` in `src/sort.ts`, keeping that module copy-free |
+| `src/components/Autocomplete.tsx` | ➖ No copy | — | Re-checked by hand this session — no literal copy, only caller-supplied `placeholder`/option labels |
 | `src/auth/AuthContext.tsx` | ➖ No copy | — | The one string ("useAuth must be used inside AuthProvider") is a dev-time programmer-error invariant, never shown to a real user |
 | `src/components/ContextMenu.tsx` | ➖ No copy | — | Renders action labels passed in via props |
 | `src/components/HelpTip.tsx` | ➖ No copy | — | `aria-label` is the caller-supplied `text` prop |
@@ -99,19 +99,25 @@ Not `.tsx`, so outside the script's scan, but both are explicitly called out in 
 
 ## Summary
 
-- **19 of ~44 components/modules done**: LoginPage pilot + NotFoundPage, ConfirmDialog, ErrorToast
-  (earlier session); StatsModal, ConnectedAccounts, EmailLoginConfirmPage, EmailVerifyConfirmPage,
-  FeedbackModal, InvitePage, `utils.ts` (previous PR); ScheduleTaskModal, MoveTaskModal,
-  TagEditModal, ImportResultDialog, AiUsageMeter, PostItNote, UserMenu, TaskLine, PlanDetails
-  (this PR).
-- Heaviest remaining lifts: `SettingsModal`, `TaskDrawer`, `App.tsx`, `BoardSettingsModal`,
-  `WeeklyPlanDrawer` — all >25 strings, all central screens. Tackle these in dedicated PRs rather
-  than folding them into a general pass.
+- **34 of ~44 components/modules done** (the rest are ➖ No copy): LoginPage pilot + NotFoundPage,
+  ConfirmDialog, ErrorToast (earlier session); StatsModal, ConnectedAccounts,
+  EmailLoginConfirmPage, EmailVerifyConfirmPage, FeedbackModal, InvitePage, `utils.ts` (PR #124);
+  ScheduleTaskModal, MoveTaskModal, TagEditModal, ImportResultDialog, AiUsageMeter, PostItNote,
+  UserMenu, TaskLine, PlanDetails (PR #125); PolicyPage, BoardFilter, MarkdownRenderer,
+  NoteEditor, BoardNameDialog, BrandBoard, CategoryEditor, TagEditor, UpdateBanner, ViewToggle,
+  EventsSection, WashiTape, PaperSwatchPicker, SortMenu (this PR) — plus Autocomplete
+  re-classified from "not started" to "no copy" after a hand check.
+- **Only the five heavy screens remain**: `SettingsModal`, `TaskDrawer`, `App.tsx`,
+  `BoardSettingsModal`, `WeeklyPlanDrawer` — all >25 strings, all central screens, each intended
+  as its own dedicated PR (per the earlier note against folding them into a general pass) rather
+  than a general-pass batch like this one.
 - `utils.ts`'s date helpers are extracted, so components that call `formatDeadline`/
-  `formatRelative`/`formatDuration` (`TaskDrawer`, `CategoryEditor`, `EventsSection` among the
-  ones still pending) already render localized relative dates even before those components
-  themselves are extracted.
+  `formatRelative`/`formatDuration` (`TaskDrawer` is the only one still pending) already render
+  localized relative dates even before `TaskDrawer` itself is extracted.
 - New shared namespace: `taskCard.*` in the catalog holds strings common to `PostItNote.tsx` and
   `TaskLine.tsx` ("High priority", "In this week's plan", assignee/link/category labels) — reuse
   this namespace rather than re-adding the same copy under a new component key when touching
   either file again.
+- `SortMenu.tsx`'s field labels moved out of `src/sort.ts` (`SORT_OPTIONS.label`) into a
+  component-local `SORT_FIELD_LABEL_KEYS` map, so `sort.ts` — a pure comparator/ordering
+  module — stays free of user-facing copy.

@@ -333,5 +333,110 @@
     "ariaLabel": "AI tokens used this period",
     "caption_one": "{{pct}}% used · resets as your last {{count}} day rolls forward",
     "caption_other": "{{pct}}% used · resets as your last {{count}} days roll forward"
+  },
+  "policyPage": {
+    "termsTitle": "Terms of Service",
+    "privacyTitle": "Privacy Policy",
+    "backHome": "← Back to Backlog.fyi"
+  },
+  "boardFilter": {
+    "todo": "To do",
+    "thisWeeksPlan": "This week's plan",
+    "week": "Week",
+    "done": "Done",
+    "all": "All",
+    "filterTasks": "Filter tasks",
+    "noPlanYet": "No active or recent plan yet"
+  },
+  "markdownRenderer": {
+    "showLess": "Show less",
+    "showMore": "Show more"
+  },
+  "noteEditor": {
+    "bold": "Bold",
+    "italic": "Italic",
+    "bulletedList": "Bulleted list",
+    "numberedList": "Numbered list",
+    "checklist": "Checklist",
+    "indent": "Indent",
+    "outdent": "Outdent",
+    "link": "Link",
+    "editAsMarkdown": "Edit as Markdown",
+    "richEditor": "Rich editor",
+    "formatting": "Formatting",
+    "linkUrlPrompt": "Link URL"
+  },
+  "boardNameDialog": {
+    "namePlaceholder": "Board name",
+    "cancel": "Cancel"
+  },
+  "brandBoard": {
+    "members_one": "{{count}} member",
+    "members_other": "{{count}} members",
+    "currentBoard": "Current board: {{name}}. Switch board",
+    "switchBoard": "Switch board",
+    "boardFallback": "Board",
+    "boardSettings": "Board settings…",
+    "newBoard": "+ New board"
+  },
+  "categoryEditor": {
+    "changeColor": "Change color for {{label}}",
+    "namePlaceholder": "Category name",
+    "delete": "Delete {{label}}",
+    "inUseBy_one": "In use by {{count}} task",
+    "inUseBy_other": "In use by {{count}} tasks",
+    "deleteTitle": "Delete",
+    "addCategory": "+ Add category",
+    "newCategoryDefault": "New category"
+  },
+  "tagEditor": {
+    "empty": "No tags yet. Add a tag from any task and it'll show up here to rename, recolor, or remove.",
+    "changeColor": "Change color for {{label}}",
+    "labelPlaceholder": "Tag label",
+    "onTasks_one": "On {{count}} task",
+    "onTasks_other": "On {{count}} tasks",
+    "unused": "Unused",
+    "delete": "Delete {{label}}",
+    "deleteAndRemove_one": "Delete and remove from {{count}} task",
+    "deleteAndRemove_other": "Delete and remove from {{count}} tasks",
+    "deleteTitle": "Delete"
+  },
+  "updateBanner": {
+    "message": "A new version of Backlog.fyi is available.",
+    "refresh": "Refresh"
+  },
+  "viewToggle": {
+    "switchToCard": "Switch to card view",
+    "cardView": "Card view",
+    "switchToCompact": "Switch to compact view",
+    "compactView": "Compact view"
+  },
+  "eventsSection": {
+    "heading": "Events ({{count}})",
+    "cancelEvent": "Cancel {{title}}",
+    "cancelling": "Cancelling…",
+    "cancel": "Cancel"
+  },
+  "washiTape": {
+    "editTag": "Edit tag {{label}}",
+    "removeTag": "Remove tag {{label}}"
+  },
+  "paperSwatchPicker": {
+    "ariaLabel": "Paper color"
+  },
+  "sortMenu": {
+    "fields": {
+      "deadline": "Deadline",
+      "priority": "Priority",
+      "created": "Recently added",
+      "title": "A–Z",
+      "longest": "Longest",
+      "shortest": "Shortest"
+    },
+    "sortedByChange": "Sorted by {{label}}. Change sort order",
+    "sortedBy": "Sorted by {{label}}",
+    "sortTasks": "Sort tasks",
+    "sortTasksBy": "Sort tasks by",
+    "none": "None"
   }
 }

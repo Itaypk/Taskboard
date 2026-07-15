@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { ViewMode } from '../types';
 import styles from './ViewToggle.module.css';
 
@@ -12,14 +13,15 @@ interface ViewToggleProps {
  * compact is active — so the mode reads at a glance without spending header width.
  */
 export function ViewToggle({ value, onChange }: ViewToggleProps) {
+  const { t } = useTranslation();
   const compact = value === 'compact';
   return (
     <button
       type="button"
       className={`${styles.trigger} ${compact ? styles.triggerActive : ''}`}
       aria-pressed={compact}
-      aria-label={compact ? 'Switch to card view' : 'Switch to compact view'}
-      title={compact ? 'Card view' : 'Compact view'}
+      aria-label={compact ? t('viewToggle.switchToCard') : t('viewToggle.switchToCompact')}
+      title={compact ? t('viewToggle.cardView') : t('viewToggle.compactView')}
       onClick={() => onChange(compact ? 'board' : 'compact')}
     >
       {compact ? <GridIcon /> : <StackIcon />}
