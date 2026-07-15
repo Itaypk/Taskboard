@@ -10,7 +10,9 @@ import org.springframework.test.web.client.response.MockRestResponseCreators.wit
 import org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess
 import org.springframework.http.HttpMethod
 import org.springframework.web.client.RestClient
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class ModelCapabilityServiceTest {
@@ -38,6 +40,39 @@ class ModelCapabilityServiceTest {
 
         server.verify()
         assertTrue(svc.supportsReasoning("openai/gpt-oss-20b:free"))
+        // No `reasoning` object in this response → efforts/default unknown.
+        assertNull(svc.get("openai/gpt-oss-20b:free")?.supportedEfforts)
+        assertNull(svc.get("openai/gpt-oss-20b:free")?.defaultEffort)
+    }
+
+    @Test
+    fun `captures the reasoning object and input modalities`() {
+        val properties = AiProperties(apiKey = "k", weeklyPlanningModel = "google/gemini-3.1-flash-lite")
+        val (svc, server) = service(properties)
+        server.expect(requestTo("https://openrouter.ai/api/v1/model/google/gemini-3.1-flash-lite"))
+            .andRespond(
+                withSuccess(
+                    """
+                    {"data":{
+                      "supported_parameters":["reasoning","reasoning_effort","temperature"],
+                      "architecture":{"input_modalities":["text","image","audio"]},
+                      "reasoning":{"mandatory":false,"default_enabled":true,
+                        "supported_efforts":["high","medium","low","minimal"],"default_effort":"minimal"}
+                    }}
+                    """.trimIndent(),
+                    MediaType.APPLICATION_JSON,
+                ),
+            )
+
+        svc.prefetch()
+
+        val caps = svc.get("google/gemini-3.1-flash-lite")
+        assertTrue(caps!!.supportsReasoning)
+        assertEquals(listOf("high", "medium", "low", "minimal"), caps.supportedEfforts)
+        assertEquals("minimal", caps.defaultEffort)
+        assertTrue(caps.reasoningDefaultEnabled)
+        assertFalse(caps.reasoningMandatory)
+        assertEquals(listOf("text", "image", "audio"), caps.inputModalities)
     }
 
     @Test

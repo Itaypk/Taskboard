@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component
  * ([ModelCapabilityService]).
  *
  * Returns null (no reasoning field) when the functionality has no configured effort, the effort
- * value is invalid, or the target model doesn't support reasoning.
+ * value isn't accepted by the model, or the target model doesn't support reasoning.
  */
 @Component
 class ReasoningResolver(
@@ -21,16 +21,23 @@ class ReasoningResolver(
 
     fun resolve(conversationType: String, model: String): ReasoningConfig? {
         val configured = effortFor(conversationType)?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        val effort = configured.lowercase()
 
-        if (configured.lowercase() !in VALID_EFFORTS) {
-            log.warn("Ignoring invalid reasoning effort '{}' for {} (expected one of {})", configured, conversationType, VALID_EFFORTS)
-            return null
-        }
-        if (!modelCapabilityService.supportsReasoning(model)) {
+        val capabilities = modelCapabilityService.get(model)
+        if (capabilities == null || !capabilities.supportsReasoning) {
             log.debug("Model {} does not support reasoning; skipping effort={} for {}", model, configured, conversationType)
             return null
         }
-        return ReasoningConfig(effort = configured.lowercase())
+
+        // Validate against the model's own advertised effort levels when it reports them; fall back
+        // to the known OpenRouter effort set only when the model didn't advertise supported_efforts.
+        val allowed = capabilities.supportedEfforts?.map { it.lowercase() }?.takeIf { it.isNotEmpty() }
+            ?: DEFAULT_EFFORTS
+        if (effort !in allowed) {
+            log.warn("Ignoring reasoning effort '{}' for {} (model {} accepts {})", configured, conversationType, model, allowed)
+            return null
+        }
+        return ReasoningConfig(effort = effort)
     }
 
     private fun effortFor(conversationType: String): String? = when (conversationType) {
@@ -42,6 +49,7 @@ class ReasoningResolver(
     }
 
     companion object {
-        private val VALID_EFFORTS = setOf("minimal", "low", "medium", "high")
+        // Fallback effort set used only when a reasoning model doesn't advertise supported_efforts.
+        private val DEFAULT_EFFORTS = setOf("minimal", "low", "medium", "high")
     }
 }

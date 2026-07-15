@@ -11,16 +11,20 @@ import org.springframework.web.client.RestClient
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Caches, in memory, which of the configured models support the OpenRouter `reasoning` parameter.
+ * Caches, in memory, the capabilities of the configured models as reported by OpenRouter's
+ * model-by-slug endpoint (`GET /model/{slug}`).
  *
- * OpenRouter's model-by-slug endpoint (`GET /model/{slug}`) exposes a `supported_parameters` array;
- * a model that lists `"reasoning"` accepts the reasoning field, otherwise sending it is an illegal
- * argument. The endpoint does not expose a discrete list of allowed effort levels — OpenRouter
- * normalizes `minimal|low|medium|high` across providers — so the only per-model guard we can make is
- * "does this model support reasoning at all", which is what we cache here.
+ * We capture two things:
+ * - **Reasoning support** — whether the model accepts the `reasoning` parameter (from
+ *   `supported_parameters`) and, for reasoning models, the `reasoning` object's `supported_efforts`
+ *   / `default_effort` (so we can validate configured effort levels and label the default). Sending
+ *   a reasoning arg to a model that doesn't support it is an illegal argument, and an effort value
+ *   outside `supported_efforts` is likewise rejected.
+ * - **Input modalities** — `architecture.input_modalities` (text/image/audio/…), captured for a
+ *   planned image/voice-input feature.
  *
- * The cache is populated once at startup (best-effort). An unfetched/unknown model is treated as
- * *not* supporting reasoning, so we never risk sending an illegal argument.
+ * The cache is populated once at startup (best-effort). An unfetched/unknown model returns null
+ * capabilities, and callers treat that conservatively (reasoning omitted).
  */
 @Component
 class ModelCapabilityService(
@@ -38,7 +42,7 @@ class ModelCapabilityService(
     private val capabilities = ConcurrentHashMap<String, ModelCapabilities>()
 
     /** Prefetch capabilities for every configured model once the app is up. Never blocks/fails boot. */
-    @EventListener(ApplicationReadyEvent)
+    @EventListener(ApplicationReadyEvent::class)
     fun prefetch() {
         if (properties.apiKey.isBlank()) {
             log.info("AI API key not configured; skipping model capability prefetch")
@@ -49,22 +53,32 @@ class ModelCapabilityService(
         }
     }
 
-    /**
-     * Whether [model] supports the reasoning parameter. Returns false for any model whose
-     * capabilities are unknown (conservative — avoids illegal-argument errors).
-     */
+    /** Cached capabilities for [model], or null when unknown (not fetched / fetch failed). */
+    fun get(model: String): ModelCapabilities? = capabilities[model]
+
+    /** Convenience: whether [model] accepts the reasoning parameter. False when unknown. */
     fun supportsReasoning(model: String): Boolean = capabilities[model]?.supportsReasoning == true
 
     private fun fetch(model: String) {
         try {
-            val response = client.get()
+            val data = client.get()
                 .uri("/model/{slug}", model)
                 .retrieve()
                 .body(ModelResponse::class.java)
-            val supported = response?.data?.supportedParameters ?: emptyList()
-            val supportsReasoning = supported.contains("reasoning")
-            capabilities[model] = ModelCapabilities(supportsReasoning = supportsReasoning)
-            log.info("Fetched model capabilities: model={} supportsReasoning={}", model, supportsReasoning)
+                ?.data
+            val caps = ModelCapabilities(
+                supportsReasoning = data?.supportedParameters?.contains("reasoning") == true,
+                supportedEfforts = data?.reasoning?.supportedEfforts,
+                defaultEffort = data?.reasoning?.defaultEffort,
+                reasoningMandatory = data?.reasoning?.mandatory ?: false,
+                reasoningDefaultEnabled = data?.reasoning?.defaultEnabled ?: false,
+                inputModalities = data?.architecture?.inputModalities ?: emptyList(),
+            )
+            capabilities[model] = caps
+            log.info(
+                "Fetched model capabilities: model={} supportsReasoning={} supportedEfforts={} defaultEffort={} inputModalities={}",
+                model, caps.supportsReasoning, caps.supportedEfforts, caps.defaultEffort, caps.inputModalities,
+            )
         } catch (e: Exception) {
             // Best-effort: leave the model unknown (reasoning omitted) rather than failing startup.
             log.warn("Failed to fetch model capabilities for model={}; reasoning will be omitted", model, e)
@@ -72,8 +86,25 @@ class ModelCapabilityService(
     }
 }
 
+/**
+ * Cached capabilities for a single model.
+ *
+ * @param supportsReasoning whether the model accepts the `reasoning` parameter.
+ * @param supportedEfforts the effort levels the model accepts, or null when the model doesn't report
+ *   them (reasoning models that omit the `reasoning` object). Null means "validate against the
+ *   known-effort fallback" rather than "no efforts".
+ * @param defaultEffort the effort the model uses when reasoning is enabled without an explicit level.
+ * @param reasoningMandatory whether reasoning cannot be disabled.
+ * @param reasoningDefaultEnabled whether reasoning is on by default (no explicit request needed).
+ * @param inputModalities accepted input modalities (text/image/audio/…), for planned multimodal input.
+ */
 data class ModelCapabilities(
     val supportsReasoning: Boolean,
+    val supportedEfforts: List<String>? = null,
+    val defaultEffort: String? = null,
+    val reasoningMandatory: Boolean = false,
+    val reasoningDefaultEnabled: Boolean = false,
+    val inputModalities: List<String> = emptyList(),
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -84,4 +115,19 @@ private data class ModelResponse(
 @JsonIgnoreProperties(ignoreUnknown = true)
 private data class ModelData(
     @JsonProperty("supported_parameters") val supportedParameters: List<String>? = null,
+    val reasoning: ReasoningInfo? = null,
+    val architecture: Architecture? = null,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+private data class ReasoningInfo(
+    @JsonProperty("supported_efforts") val supportedEfforts: List<String>? = null,
+    @JsonProperty("default_effort") val defaultEffort: String? = null,
+    val mandatory: Boolean = false,
+    @JsonProperty("default_enabled") val defaultEnabled: Boolean = false,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+private data class Architecture(
+    @JsonProperty("input_modalities") val inputModalities: List<String>? = null,
 )

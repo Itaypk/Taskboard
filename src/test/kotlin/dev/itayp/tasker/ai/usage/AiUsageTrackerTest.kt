@@ -6,6 +6,8 @@ import dev.itayp.tasker.ai.client.ChatMessage
 import dev.itayp.tasker.ai.client.ChatRequest
 import dev.itayp.tasker.ai.client.ChatResponse
 import dev.itayp.tasker.ai.client.Choice
+import dev.itayp.tasker.ai.client.ModelCapabilities
+import dev.itayp.tasker.ai.client.ModelCapabilityService
 import dev.itayp.tasker.ai.client.PromptTokensDetails
 import dev.itayp.tasker.ai.client.ReasoningConfig
 import dev.itayp.tasker.ai.client.Usage
@@ -30,7 +32,8 @@ class AiUsageTrackerTest {
     private val repository: AiUsageEventRepository = mock()
     private val registry = SimpleMeterRegistry()
     private val clock = Clock.fixed(Instant.parse("2026-06-04T10:00:00Z"), ZoneOffset.UTC)
-    private val tracker = AiUsageTracker(repository, registry, clock)
+    private val modelCapabilityService: ModelCapabilityService = mock()
+    private val tracker = AiUsageTracker(repository, registry, clock, modelCapabilityService)
 
     private val userId = UUID.randomUUID()
     private val conversationId = UUID.randomUUID()
@@ -197,6 +200,29 @@ class AiUsageTrackerTest {
                 "model", "resolved/model",
                 "provider", "Anthropic",
                 "effort", "low",
+                "outcome", "success",
+            ).count(),
+        )
+    }
+
+    @Test
+    fun `effort label falls back to the model default effort for a reasoning model`() {
+        whenever(repository.save(any<AiUsageEventEntity>())).thenAnswer { it.arguments[0] }
+        whenever(modelCapabilityService.get("configured/model"))
+            .thenReturn(ModelCapabilities(supportsReasoning = true, defaultEffort = "minimal"))
+        val context = AiCallContext(userId, AiConversationType.WEEKLY_PLANNING, conversationId = conversationId)
+
+        // No explicit reasoning on the request → label reflects the model's default effort.
+        tracker.recordSuccess(context, request(), response(Usage(promptTokens = 5, completionTokens = 2)))
+
+        assertEquals(
+            1.0,
+            registry.counter(
+                "tasker.ai.requests",
+                "conversation_type", AiConversationType.WEEKLY_PLANNING,
+                "model", "resolved/model",
+                "provider", "Anthropic",
+                "effort", "minimal",
                 "outcome", "success",
             ).count(),
         )
