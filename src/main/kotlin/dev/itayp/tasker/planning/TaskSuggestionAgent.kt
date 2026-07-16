@@ -8,7 +8,7 @@ import dev.itayp.tasker.ai.client.AiClient
 import dev.itayp.tasker.ai.client.ChatMessage
 import dev.itayp.tasker.ai.client.ChatRequest
 import dev.itayp.tasker.ai.prompt.PromptTemplateLoader
-import dev.itayp.tasker.ai.parseAssistantJsonResponse
+import dev.itayp.tasker.ai.parseAssistantJsonResponseOrNull
 import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.BacklogTaskTag
@@ -17,6 +17,7 @@ import dev.itayp.tasker.service.BacklogTaskCategoryService
 import dev.itayp.tasker.service.BacklogTaskService
 import dev.itayp.tasker.service.BacklogTaskTagService
 import dev.itayp.tasker.service.UserSettingsService
+import io.micrometer.core.instrument.MeterRegistry
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
@@ -44,6 +45,7 @@ class TaskSuggestionAgent(
     private val promptTemplateLoader: PromptTemplateLoader,
     private val objectMapper: ObjectMapper,
     private val clock: Clock,
+    private val meterRegistry: MeterRegistry,
     @Value("\${tasker.ai.task-assistant-model}")
     private val model: String,
 ) {
@@ -82,11 +84,10 @@ class TaskSuggestionAgent(
 
         val context = AiCallContext(userId = userId, conversationType = AiConversationType.TASK_SUGGESTION)
         val raw = aiClient.chat(request, context).choices.firstOrNull()?.message?.contentText.orEmpty()
-        val draft = runCatching { parseAssistantJsonResponse(objectMapper, raw, TaskDraft::class.java) }
-            .getOrElse {
-                log.warn("suggest_task could not parse sub-agent output: {}", it.message)
-                null
-            }
+        val draft = parseAssistantJsonResponseOrNull(
+            objectMapper, raw, TaskDraft::class.java,
+            AiConversationType.TASK_SUGGESTION, meterRegistry, log, "suggest_task",
+        )
         log.debug("suggest_task drafted a task (categories={}, tags={}, sample={})", categories.size, tags.size, sample.size)
         return draft
     }
@@ -192,26 +193,29 @@ class TaskSuggestionAgent(
         return parseOutcome(raw)
     }
 
-    private fun parseOutcome(raw: String): SuggestionOutcome = runCatching {
-        val parsed = parseAssistantJsonResponse(objectMapper, raw, QuickAddRaw::class.java)
+    private fun parseOutcome(raw: String): SuggestionOutcome {
+        val parsed = parseAssistantJsonResponseOrNull(
+            objectMapper, raw, QuickAddRaw::class.java,
+            AiConversationType.TASK_SUGGESTION, meterRegistry, log, "quick-add",
+        ) ?: return SuggestionOutcome.Unparseable
+
         val question = parsed.clarify?.question?.takeIf { it.isNotBlank() }
         if (question != null) {
             val options = parsed.clarify.options.mapNotNull { opt ->
                 val label = opt.label?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
                 ClarifyOption(id = opt.id?.takeIf { it.isNotBlank() } ?: label, label = label)
             }
-            return@runCatching SuggestionOutcome.Clarify(question = question, options = options)
+            return SuggestionOutcome.Clarify(question = question, options = options)
         }
         val items = parsed.items.orEmpty().mapNotNull { it.toCapturedItem() }
         if (items.isEmpty()) {
+            meterRegistry.counter(
+                "tasker.ai.parse_failures", "conversation_type", AiConversationType.TASK_SUGGESTION, "reason", "empty_result",
+            ).increment()
             log.warn("quick-add output had neither a clarify question nor any captured items")
-            SuggestionOutcome.Unparseable
-        } else {
-            SuggestionOutcome.Draft(items = items)
+            return SuggestionOutcome.Unparseable
         }
-    }.getOrElse {
-        log.warn("quick-add could not parse sub-agent output: {}", it.message)
-        SuggestionOutcome.Unparseable
+        return SuggestionOutcome.Draft(items = items)
     }
 
     private fun renderClarifications(clarifications: List<ClarificationExchange>): String {
