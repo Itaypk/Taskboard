@@ -215,13 +215,14 @@ class QuickAddFlow(
                 channel.send(ChannelMessage.Text(msg(userId, "quickadd.unparseable")))
                 null
             } else {
-                // Normalise option ids to short, stable values (they become channel callback data).
+                // Normalize option ids to short, stable values (they become channel callback data).
                 val options = outcome.options.mapIndexed { i, o -> ClarifyOption(id = "o$i", label = o.label) }
                 renderClarify(userId, channel, outcome.question, options)
                 QuickAddState.AwaitingClarification(op, outcome.question, options, clarifyRound, now())
             }
         }
         is SuggestionOutcome.Unparseable -> {
+            count("failed")
             channel.send(ChannelMessage.Text(msg(userId, "quickadd.unparseable")))
             null
         }

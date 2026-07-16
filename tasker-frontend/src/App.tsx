@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   DndContext,
   MouseSensor,
@@ -54,6 +55,7 @@ import { EmailVerifyConfirmPage } from './auth/EmailVerifyConfirmPage';
 import { InvitePage } from './auth/InvitePage';
 import { NotFoundPage } from './NotFoundPage';
 import { mascotFor } from './mascots';
+import i18n from './i18n';
 import './App.css';
 
 /** Up to two initials from a display name (e.g. "Dana Scully" → "DS", "it***@gmail.com" → "IT"). */
@@ -66,10 +68,10 @@ function initialsOf(name: string): string {
 
 function emptyMessageFor(filter: TaskFilter): string {
   switch (filter) {
-    case 'todo': return 'Nothing pinned up. Add your first task.';
-    case 'plan': return "Nothing in this week's plan yet.";
-    case 'done': return 'No completed tasks yet.';
-    case 'all':  return 'No tasks yet.';
+    case 'todo': return i18n.t('app.emptyTodo');
+    case 'plan': return i18n.t('app.emptyPlan');
+    case 'done': return i18n.t('app.emptyDone');
+    case 'all':  return i18n.t('app.emptyAll');
   }
 }
 
@@ -101,10 +103,11 @@ export default function App() {
 }
 
 function AuthShell() {
+  const { t } = useTranslation();
   const { state, signOut } = useAuth();
 
   if (state.status === 'loading') {
-    return <div className="board-wrap"><div className="board board--empty">Loading…</div></div>;
+    return <div className="board-wrap"><div className="board board--empty">{t('app.loading')}</div></div>;
   }
 
   if (state.status === 'unauthenticated') {
@@ -115,6 +118,7 @@ function AuthShell() {
 }
 
 function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
+  const { t } = useTranslation();
   const { state: authState } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -144,7 +148,10 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const [memberData, setMemberData]   = useState<{ boardId: string; members: BoardMember[] } | null>(null);
   const [leavingId, setLeavingId]     = useState<string | null>(null);
   const [loading, setLoading]         = useState(true);
-  const [error, setError]             = useState<string | null>(null);
+  // Always the same failure text (the initial bootstrap fetch), so a boolean is enough; the message
+  // itself is resolved at render time via t() rather than stored, so it stays correct across a
+  // language switch.
+  const [error, setError]             = useState(false);
   const [draggingId, setDraggingId]   = useState<string | null>(null);
   const [filter, setFilter]           = useState<TaskFilter>('todo');
   const [sortModeByBoard, setSortModeByBoard] = useState<Record<string, SortMode>>({});
@@ -202,7 +209,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
         const stored = localStorage.getItem(ACTIVE_BOARD_KEY);
         setActiveBoardId(loadedBoards.find(b => b.id === stored)?.id ?? loadedBoards[0].id);
       } catch {
-        setError('Failed to load data. Is the backend running?');
+        setError(true);
         setLoading(false);
       }
     })();
@@ -515,11 +522,11 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
       await addTaskToPlan(taskId, startIso, endIso, { emitErrors: false });
     } catch (e) {
       console.error('Failed to add task to plan', e);
-      notifyError("Couldn't add the task to this week's plan. Please try again.");
+      notifyError(t('app.addToPlanFailed'));
       return;
     }
     await refreshPlanAndTasks();
-  }, [currentPlan, activeBoardId, refreshPlanAndTasks]);
+  }, [currentPlan, activeBoardId, refreshPlanAndTasks, t]);
 
   const handleChangeSlot = useCallback(async (taskId: string, startIso: string, endIso: string) => {
     if (!currentPlan || !activeBoardId) return;
@@ -527,11 +534,11 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
       await changeTaskSlot(taskId, startIso, endIso, { emitErrors: false });
     } catch (e) {
       console.error('Failed to change task slot', e);
-      notifyError("Couldn't move the task to that time. Please try again.");
+      notifyError(t('app.changeSlotFailed'));
       return;
     }
     await refreshPlanAndTasks();
-  }, [currentPlan, activeBoardId, refreshPlanAndTasks]);
+  }, [currentPlan, activeBoardId, refreshPlanAndTasks, t]);
 
   const requestDelete = useCallback((id: string) => {
     const task = tasks.find(t => t.id === id) ?? archivedTasks.find(t => t.id === id);
@@ -551,9 +558,9 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const resolveAssignee = useCallback((task: Task): AssigneeChipInfo | null => {
     if (!sharedBoard || !task.assigneeUserId) return null;
     const member = membersById.get(task.assigneeUserId);
-    const name = member?.displayName ?? 'Member';
+    const name = member?.displayName ?? t('app.member');
     return { initials: initialsOf(name), name, isMe: task.assigneeUserId === currentUserId };
-  }, [sharedBoard, membersById, currentUserId]);
+  }, [sharedBoard, membersById, currentUserId, t]);
 
   const handleSetAssignee = useCallback(async (taskId: string, userId: string | null) => {
     if (!activeBoardId) return;
@@ -571,43 +578,43 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
     if (!task) return [];
     const actions: ContextMenuAction[] = [];
     if (task.status === 'done') {
-      actions.push({ label: 'Mark to-do', onClick: () => { handleMarkTodo(taskId); } });
+      actions.push({ label: t('app.contextMenu.markTodo'), onClick: () => { handleMarkTodo(taskId); } });
     } else {
-      actions.push({ label: 'Mark done', onClick: () => { handleMarkDone(taskId); } });
+      actions.push({ label: t('app.contextMenu.markDone'), onClick: () => { handleMarkDone(taskId); } });
     }
-    actions.push({ label: 'Edit', onClick: () => { setIsCreating(false); setSelectedId(taskId); } });
+    actions.push({ label: t('app.contextMenu.edit'), onClick: () => { setIsCreating(false); setSelectedId(taskId); } });
     if (sharedBoard) {
       if (task.assigneeUserId === currentUserId) {
-        actions.push({ label: 'Unclaim', onClick: () => { void handleSetAssignee(taskId, null); } });
+        actions.push({ label: t('app.contextMenu.unclaim'), onClick: () => { void handleSetAssignee(taskId, null); } });
       } else {
-        actions.push({ label: 'Claim', onClick: () => { void handleSetAssignee(taskId, currentUserId); } });
+        actions.push({ label: t('app.contextMenu.claim'), onClick: () => { void handleSetAssignee(taskId, currentUserId); } });
       }
     }
     if (!inPlan && currentPlan !== null) {
-      actions.push({ label: "Add to this week's plan", onClick: () => {
+      actions.push({ label: t('app.contextMenu.addToPlan'), onClick: () => {
         setScheduleModal({ taskId, title: task.title, estimatedMinutes: task.estimatedMinutes });
       }});
     }
     if (inPlan) {
       // Quick-switch a single planned slot without a full plan revision. Only offered for the
       // single-slot common case; multi-slot tasks (agent-created) stay on the revise flow.
-      const plannedSlots = currentPlan?.tasks.find(t => t.id === taskId)?.slots ?? [];
+      const plannedSlots = currentPlan?.tasks.find(pt => pt.id === taskId)?.slots ?? [];
       if (plannedSlots.length === 1) {
-        actions.push({ label: 'Change slot…', onClick: () => {
+        actions.push({ label: t('app.contextMenu.changeSlot'), onClick: () => {
           setScheduleModal({ taskId, title: task.title, estimatedMinutes: task.estimatedMinutes, initialSlot: plannedSlots[0] });
         }});
       }
-      actions.push({ label: "Remove from this week's plan", onClick: () => { void handleRemoveFromPlan(taskId); } });
+      actions.push({ label: t('app.contextMenu.removeFromPlan'), onClick: () => { void handleRemoveFromPlan(taskId); } });
     }
-    actions.push({ label: 'Duplicate', onClick: () => { void handleDuplicate(taskId); } });
+    actions.push({ label: t('app.contextMenu.duplicate'), onClick: () => { void handleDuplicate(taskId); } });
     if (boards.length > 1) {
-      actions.push({ label: 'Move to board…', onClick: () => {
+      actions.push({ label: t('app.contextMenu.moveToBoard'), onClick: () => {
         setMoveModal({ taskId, title: task.title, categoryLabel: categoryById.get(task.categoryId)?.label ?? null });
       }});
     }
-    actions.push({ label: 'Delete', danger: true, onClick: () => { requestDelete(taskId); } });
+    actions.push({ label: t('app.contextMenu.delete'), danger: true, onClick: () => { requestDelete(taskId); } });
     return actions;
-  }, [tasks, boards, categoryById, currentPlan, sharedBoard, currentUserId, handleSetAssignee, handleMarkDone, handleMarkTodo, handleRemoveFromPlan, handleDuplicate, requestDelete]);
+  }, [tasks, boards, categoryById, currentPlan, sharedBoard, currentUserId, handleSetAssignee, handleMarkDone, handleMarkTodo, handleRemoveFromPlan, handleDuplicate, requestDelete, t]);
 
   const handleDragStart = (event: DragStartEvent) => {
     setDraggingId(String(event.active.id));
@@ -725,11 +732,11 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   };
 
   if (loading) {
-    return <div className="board-wrap"><div className="board board--empty">Loading…</div></div>;
+    return <div className="board-wrap"><div className="board board--empty">{t('app.loading')}</div></div>;
   }
 
   if (error || !activeBoardId) {
-    return <div className="board-wrap"><div className="board board--empty">{error ?? 'Failed to load data. Is the backend running?'}</div></div>;
+    return <div className="board-wrap"><div className="board board--empty">{t('app.loadError')}</div></div>;
   }
 
   return (
@@ -758,8 +765,8 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
             type="button"
             className="new-note-btn"
             onClick={openNew}
-            aria-label="Add new task"
-            title="Pin up a new task"
+            aria-label={t('app.addTaskAria')}
+            title={t('app.addTaskTitle')}
           >
             <span className="new-note-btn__plus">+</span>
           </button>
@@ -770,8 +777,8 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
               fetchCurrentPlan().then(setCurrentPlan).catch(e => console.error('Failed to refetch plan', e));
               setPlanDrawerOpen(true);
             }}
-            aria-label="Open weekly plan"
-            title="Weekly plan"
+            aria-label={t('app.openPlanAria')}
+            title={t('app.openPlanTitle')}
           >
             <PlanIcon />
           </button>
@@ -803,7 +810,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
               <div
                 className={viewMode === 'compact' ? 'board board--stack' : 'board board--list'}
                 role="list"
-                aria-label="Task list"
+                aria-label={t('app.taskListAria')}
                 data-dragging={draggingId ? 'true' : undefined}
               >
                 {visibleTasks.map((task) => {
@@ -831,7 +838,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
       {filter === 'all' && (
         <div className="show-archived-wrap">
           <button type="button" className="show-archived-btn" onClick={handleToggleArchived}>
-            {showArchived ? 'Hide archived' : 'Show archived'}
+            {showArchived ? t('app.hideArchived') : t('app.showArchived')}
           </button>
         </div>
       )}
@@ -931,9 +938,9 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
 
       <ConfirmDialog
         open={deleteConfirm !== null}
-        title="Delete task"
-        message={`Are you sure you want to delete "${deleteConfirm?.title}"? This cannot be undone.`}
-        confirmLabel="Delete"
+        title={t('app.deleteTaskTitle')}
+        message={t('app.deleteTaskMessage', { title: deleteConfirm?.title ?? '' })}
+        confirmLabel={t('app.deleteConfirmLabel')}
         danger
         onConfirm={() => { if (deleteConfirm) { void handleDelete(deleteConfirm.taskId); closeDrawer(); } }}
         onClose={() => setDeleteConfirm(null)}
@@ -977,26 +984,26 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
 
       <BoardNameDialog
         open={boardCreateOpen}
-        title="New board"
-        confirmLabel="Create"
+        title={t('app.newBoardTitle')}
+        confirmLabel={t('app.createBoard')}
         onConfirm={handleCreateBoard}
         onClose={() => setBoardCreateOpen(false)}
       />
 
       {!claimed && !nudgeDismissed && (
         <div className="account-nudge" role="status">
-          <span className="account-nudge__text">Add an email or Telegram to keep your tasks safe.</span>
+          <span className="account-nudge__text">{t('app.nudgeText')}</span>
           <button
             type="button"
             className="account-nudge__cta"
             onClick={() => navigate('/settings/general')}
           >
-            Save my account
+            {t('app.nudgeCta')}
           </button>
           <button
             type="button"
             className="account-nudge__dismiss"
-            aria-label="Dismiss"
+            aria-label={t('app.dismiss')}
             onClick={() => { localStorage.setItem('saveAccountNudgeDismissed', '1'); setNudgeDismissed(true); }}
           >
             ×

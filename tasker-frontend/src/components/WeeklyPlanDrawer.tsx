@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ApiError,
   fetchPlanningEntry,
@@ -21,6 +22,7 @@ import { ConfirmDialog } from './ConfirmDialog';
 import { EventsSection } from './EventsSection';
 import { PlanDetails } from './PlanDetails';
 import { formatDate } from '../i18n/format';
+import i18n from '../i18n';
 import styles from './WeeklyPlanDrawer.module.css';
 
 interface WeeklyPlanDrawerProps {
@@ -50,6 +52,7 @@ type Turn = UserTurn | AssistantTurn;
 const DONE = 'DONE';
 
 export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTaskContextMenu, onFinalized }: WeeklyPlanDrawerProps) {
+  const { t } = useTranslation();
   const [view, setView] = useState<'overview' | 'chat'>('overview');
   const [entry, setEntry] = useState<PlanningEntry | null>(null);
   const [entryLoading, setEntryLoading] = useState(false);
@@ -231,10 +234,10 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
     setThinking(true);
     setView('chat');
     try {
-      const t = await fetchPlanningTranscript(id);
-      setSessionId(t.sessionId);
-      setPhase(t.phase);
-      setTranscript(t.messages.map(m => m.role === 'user'
+      const transcriptResult = await fetchPlanningTranscript(id);
+      setSessionId(transcriptResult.sessionId);
+      setPhase(transcriptResult.phase);
+      setTranscript(transcriptResult.messages.map(m => m.role === 'user'
         ? { id: nextId(), role: 'user', text: m.text }
         : { id: nextId(), role: 'assistant', message: { type: m.type, text: m.text, completions: m.completions, options: m.options } }));
     } catch {
@@ -302,24 +305,24 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
         inert={!open}
         role="dialog"
         aria-modal="true"
-        aria-label="Weekly plan"
+        aria-label={t('weeklyPlanDrawer.ariaLabel')}
       >
         <div className="drawer__header">
           <div className={styles.headerLeft}>
             {view === 'chat' && (
-              <button type="button" className={styles.backBtn} onClick={backToOverview} aria-label="Back to plan">←</button>
+              <button type="button" className={styles.backBtn} onClick={backToOverview} aria-label={t('weeklyPlanDrawer.backToPlan')}>←</button>
             )}
             <div className={styles.titleGroup}>
-              <span className="drawer__label">{view === 'chat' ? 'Weekly planning' : 'Weekly plan'}</span>
+              <span className="drawer__label">{view === 'chat' ? t('weeklyPlanDrawer.titleChat') : t('weeklyPlanDrawer.titleOverview')}</span>
             </div>
           </div>
           <div className={styles.headerActions}>
             {view === 'chat' && phase !== DONE && sessionId && (
               <button type="button" className={styles.leaveBtn} onClick={() => setConfirmLeave(true)}>
-                Leave session
+                {t('weeklyPlanDrawer.leaveSession')}
               </button>
             )}
-            <button className="drawer__close" onClick={onClose} aria-label="Close">×</button>
+            <button className="drawer__close" onClick={onClose} aria-label={t('weeklyPlanDrawer.close')}>×</button>
           </div>
         </div>
 
@@ -333,7 +336,7 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
                     className={styles.weekNavBtn}
                     onClick={() => prevWeek && selectWeek(prevWeek)}
                     disabled={!prevWeek}
-                    aria-label="Previous week"
+                    aria-label={t('weeklyPlanDrawer.prevWeekAria')}
                   >‹</button>
                   <div className={styles.weekNavLabel}>
                     <span className={styles.weekRelative}>{relativeWeekLabel(viewedWeekStart, thisWeekStart, entry?.nextWeek.weekStart ?? null)}</span>
@@ -344,13 +347,13 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
                     className={styles.weekNavBtn}
                     onClick={() => nextWeek && selectWeek(nextWeek)}
                     disabled={!nextWeek}
-                    aria-label="Next week"
+                    aria-label={t('weeklyPlanDrawer.nextWeekAria')}
                   >›</button>
                 </div>
               )}
 
               {planLoading ? (
-                <p className={styles.entryHint}>Loading…</p>
+                <p className={styles.entryHint}>{t('weeklyPlanDrawer.loading')}</p>
               ) : viewedPlan ? (
                 <>
                   <PlanDetails plan={viewedPlan} onTaskClick={onTaskClick} onTaskContextMenu={onTaskContextMenu} />
@@ -359,11 +362,11 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
               ) : (
                 <>
                   <div className={styles.empty}>
-                    <p className={styles.emptyTitle}>No plan for this week.</p>
+                    <p className={styles.emptyTitle}>{t('weeklyPlanDrawer.noPlanTitle')}</p>
                     <p className={styles.emptyHint}>
                       {weekRel === 'past'
-                        ? 'Planning is available for the current and upcoming weeks only.'
-                        : 'Plan it with the assistant below, or start a session on Telegram.'}
+                        ? t('weeklyPlanDrawer.emptyHintPast')
+                        : t('weeklyPlanDrawer.emptyHintFuture')}
                     </p>
                   </div>
                   <EventsSection events={events} onCancelled={handleEventCancelled} />
@@ -399,8 +402,8 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
               {thinking && <div className={styles.thinking}><span /><span /><span /></div>}
               {phase === DONE && (
                 <div className={styles.doneBar}>
-                  <span className={styles.doneLabel}>Plan finalized</span>
-                  <button type="button" className={styles.entryBtn} onClick={resetToOverview}>Back to plan</button>
+                  <span className={styles.doneLabel}>{t('weeklyPlanDrawer.planFinalized')}</span>
+                  <button type="button" className={styles.entryBtn} onClick={resetToOverview}>{t('weeklyPlanDrawer.backToPlan')}</button>
                 </div>
               )}
             </div>
@@ -417,20 +420,20 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
               onChange={e => setInput(e.target.value)}
               onInput={resizeInput}
               onKeyDown={onInputKeyDown}
-              placeholder={thinking ? 'Thinking…' : 'Type a message…'}
+              placeholder={thinking ? t('weeklyPlanDrawer.thinkingPlaceholder') : t('weeklyPlanDrawer.typeMessagePlaceholder')}
               disabled={inputDisabled}
-              aria-label="Message"
+              aria-label={t('weeklyPlanDrawer.messageAria')}
             />
-            <button type="submit" className={styles.sendBtn} disabled={inputDisabled || !input.trim()}>Send</button>
+            <button type="submit" className={styles.sendBtn} disabled={inputDisabled || !input.trim()}>{t('weeklyPlanDrawer.send')}</button>
           </form>
         )}
       </aside>
 
       <ConfirmDialog
         open={confirmLeave}
-        title="Leave planning session?"
-        message="This discards the in-progress conversation. Your existing plan stays as it is."
-        confirmLabel="Leave"
+        title={t('weeklyPlanDrawer.confirmLeave.title')}
+        message={t('weeklyPlanDrawer.confirmLeave.message')}
+        confirmLabel={t('weeklyPlanDrawer.confirmLeave.confirmLabel')}
         danger
         onConfirm={() => { void leaveSession(); }}
         onClose={() => setConfirmLeave(false)}
@@ -466,7 +469,8 @@ function OverridePlanDialog({ open, offset, onRevise, onPlanFresh, onClose }: {
   onPlanFresh: () => void;
   onClose: () => void;
 }) {
-  const whichWeek = offset === 'CURRENT' ? 'this week' : 'next week';
+  const { t } = useTranslation();
+  const whichWeek = offset === 'CURRENT' ? t('weeklyPlanDrawer.thisWeekWord') : t('weeklyPlanDrawer.nextWeekWord');
   return (
     <div
       className={`modal-overlay${open ? ' modal-overlay--open' : ''}`}
@@ -474,18 +478,17 @@ function OverridePlanDialog({ open, offset, onRevise, onPlanFresh, onClose }: {
     >
       <div className="modal" role="alertdialog" aria-modal="true" aria-labelledby="override-title" style={{ width: 400 }}>
         <div className="modal__header">
-          <span className="modal__title" id="override-title">You already have a plan for {whichWeek}</span>
+          <span className="modal__title" id="override-title">{t('weeklyPlanDrawer.override.title', { week: whichWeek })}</span>
         </div>
         <div className="modal__body" style={{ gap: 0, paddingBottom: 8 }}>
           <p style={{ margin: 0, fontSize: 14, lineHeight: 1.55, color: 'var(--ink-soft)' }}>
-            Planning {whichWeek} from scratch starts a new session that will replace the existing
-            plan when you finalize it. Revise the current plan instead to keep what's already scheduled.
+            {t('weeklyPlanDrawer.override.body', { week: whichWeek })}
           </p>
         </div>
         <div className="modal__footer">
-          <button type="button" className="btn btn--ghost" onClick={onClose}>Cancel</button>
-          <button type="button" className="btn btn--danger" onClick={onPlanFresh}>Plan from scratch</button>
-          <button type="button" className="btn btn--primary" onClick={onRevise}>Revise</button>
+          <button type="button" className="btn btn--ghost" onClick={onClose}>{t('weeklyPlanDrawer.override.cancel')}</button>
+          <button type="button" className="btn btn--danger" onClick={onPlanFresh}>{t('weeklyPlanDrawer.override.planFromScratch')}</button>
+          <button type="button" className="btn btn--primary" onClick={onRevise}>{t('weeklyPlanDrawer.override.revise')}</button>
         </div>
       </div>
     </div>
@@ -535,8 +538,9 @@ function OverviewActions({ entry, viewedPlan, weekRel, loading, busy, onStart, o
   onContinue: (sessionId: string) => void;
   onAbandon: (sessionId: string) => void;
 }) {
+  const { t } = useTranslation();
   if (loading || !entry) {
-    return <p className={styles.entryHint}>Loading…</p>;
+    return <p className={styles.entryHint}>{t('weeklyPlanDrawer.loading')}</p>;
   }
 
   const aiOff = !entry.aiAvailable;
@@ -545,8 +549,7 @@ function OverviewActions({ entry, viewedPlan, weekRel, loading, busy, onStart, o
   // itself stays readable; only the AI-driven actions are gated.
   const aiHint = aiOff ? (
     <p className={styles.actionsNote}>
-      AI planning is disabled. Re-enable it in Settings → Assistant, or ask a co-member who
-      opted out to do the same on a board you share.
+      {t('weeklyPlanDrawer.aiDisabledHint')}
     </p>
   ) : null;
 
@@ -554,12 +557,12 @@ function OverviewActions({ entry, viewedPlan, weekRel, loading, busy, onStart, o
     const id = entry.activeSessionId;
     return (
       <div className={styles.actions}>
-        {aiHint ?? <p className={styles.actionsNote}>A planning session is in progress.</p>}
+        {aiHint ?? <p className={styles.actionsNote}>{t('weeklyPlanDrawer.sessionInProgress')}</p>}
         <button type="button" className={`${styles.entryBtn} ${styles.entryPrimary}`} disabled={busy || aiOff} onClick={() => onContinue(id)}>
-          Continue planning
+          {t('weeklyPlanDrawer.continuePlanning')}
         </button>
         <button type="button" className={styles.entryBtn} disabled={busy} onClick={() => onAbandon(id)}>
-          Abandon &amp; start over
+          {t('weeklyPlanDrawer.abandonStartOver')}
         </button>
       </div>
     );
@@ -578,16 +581,16 @@ function OverviewActions({ entry, viewedPlan, weekRel, loading, busy, onStart, o
       {aiHint}
       {revisable && (
         <button type="button" className={`${styles.entryBtn} ${styles.entryPrimary}`} disabled={busy || aiOff} onClick={() => onRevise(revisable)}>
-          Revise this plan
+          {t('weeklyPlanDrawer.revisePlan')}
         </button>
       )}
       {showPlanThisWeek && (
         <button type="button" className={`${styles.entryBtn} ${revisable ? '' : styles.entryPrimary}`} disabled={busy || aiOff} onClick={() => onStart('CURRENT')}>
-          Plan this week<span className={styles.entryDates}>{formatRange(entry.thisWeek.weekStart, entry.thisWeek.weekEnd)}</span>
+          {t('weeklyPlanDrawer.planThisWeek')}<span className={styles.entryDates}>{formatRange(entry.thisWeek.weekStart, entry.thisWeek.weekEnd)}</span>
         </button>
       )}
       <button type="button" className={`${styles.entryBtn} ${(!revisable && !showPlanThisWeek) ? styles.entryPrimary : ''}`} disabled={busy || aiOff} onClick={() => onStart('NEXT')}>
-        Plan next week<span className={styles.entryDates}>{formatRange(entry.nextWeek.weekStart, entry.nextWeek.weekEnd)}</span>
+        {t('weeklyPlanDrawer.planNextWeek')}<span className={styles.entryDates}>{formatRange(entry.nextWeek.weekStart, entry.nextWeek.weekEnd)}</span>
       </button>
     </div>
   );
@@ -606,13 +609,13 @@ function isoWeekEnd(weekStart: string): string {
 /** "Last week" / "This week" / "Next week" relative to today's week, else a blank label. */
 function relativeWeekLabel(weekStart: string, thisWeekStart: string | null, nextWeekStart: string | null): string {
   if (!thisWeekStart) return '';
-  if (weekStart === thisWeekStart) return 'This week';
-  if (nextWeekStart && weekStart === nextWeekStart) return 'Next week';
+  if (weekStart === thisWeekStart) return i18n.t('weeklyPlanDrawer.relative.thisWeek');
+  if (nextWeekStart && weekStart === nextWeekStart) return i18n.t('weeklyPlanDrawer.relative.nextWeek');
   const ms = new Date(`${weekStart}T00:00:00`).getTime() - new Date(`${thisWeekStart}T00:00:00`).getTime();
   const weeks = Math.round(ms / (7 * 24 * 60 * 60 * 1000));
-  if (weeks === -1) return 'Last week';
-  if (weeks < 0) return `${-weeks} weeks ago`;
-  if (weeks > 1) return `In ${weeks} weeks`;
+  if (weeks === -1) return i18n.t('weeklyPlanDrawer.relative.lastWeek');
+  if (weeks < 0) return i18n.t('weeklyPlanDrawer.relative.weeksAgo', { count: -weeks });
+  if (weeks > 1) return i18n.t('weeklyPlanDrawer.relative.inWeeks', { count: weeks });
   return '';
 }
 
