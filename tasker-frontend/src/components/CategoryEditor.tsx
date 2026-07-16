@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Category, PaperSwatchId } from '../types';
 import { PAPER_SWATCHES } from '../types';
 import { PaperSwatchPicker } from './PaperSwatchPicker';
@@ -11,6 +12,7 @@ interface CategoryEditorProps {
 }
 
 export function CategoryEditor({ categories, usage, onChange }: CategoryEditorProps) {
+  const { t } = useTranslation();
   const [openPicker, setOpenPicker] = useState<string | null>(null);
 
   const update = (id: string, patch: Partial<Category>) => {
@@ -27,7 +29,7 @@ export function CategoryEditor({ categories, usage, onChange }: CategoryEditorPr
     const next = PAPER_SWATCHES.find(s => !usedSwatches.has(s.id))?.id ?? 'cream';
     onChange([
       ...categories,
-      { id: generateId(), label: 'New category', swatchId: next as PaperSwatchId },
+      { id: generateId(), label: t('categoryEditor.newCategoryDefault'), swatchId: next as PaperSwatchId },
     ]);
   };
 
@@ -44,14 +46,14 @@ export function CategoryEditor({ categories, usage, onChange }: CategoryEditorPr
               className="cat-row__swatch"
               style={{ background: swatch.paper, borderColor: swatch.edge }}
               onClick={() => setOpenPicker(picking ? null : cat.id)}
-              aria-label={`Change color for ${cat.label}`}
+              aria-label={t('categoryEditor.changeColor', { label: cat.label })}
               aria-expanded={picking}
             />
             <input
               className="cat-row__input"
               value={cat.label}
               onChange={e => update(cat.id, { label: e.target.value })}
-              placeholder="Category name"
+              placeholder={t('categoryEditor.namePlaceholder')}
             />
             <span className="cat-row__count">{count}</span>
             <button
@@ -59,8 +61,8 @@ export function CategoryEditor({ categories, usage, onChange }: CategoryEditorPr
               className="cat-row__del"
               disabled={count > 0}
               onClick={() => remove(cat.id)}
-              aria-label={`Delete ${cat.label}`}
-              title={count > 0 ? `In use by ${count} task${count === 1 ? '' : 's'}` : 'Delete'}
+              aria-label={t('categoryEditor.delete', { label: cat.label })}
+              title={count > 0 ? t('categoryEditor.inUseBy', { count }) : t('categoryEditor.deleteTitle')}
             >
               ×
             </button>
@@ -77,7 +79,7 @@ export function CategoryEditor({ categories, usage, onChange }: CategoryEditorPr
         );
       })}
       <button type="button" className="cat-row__add" onClick={add}>
-        + Add category
+        {t('categoryEditor.addCategory')}
       </button>
     </div>
   );

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import styles from './UpdateBanner.module.css';
 
 /**
@@ -5,10 +6,11 @@ import styles from './UpdateBanner.module.css';
  * is running stale JS, so we nudge — but don't force — a reload.
  */
 export function UpdateBanner({ onReload }: { onReload: () => void }) {
+  const { t } = useTranslation();
   return (
     <div className={styles.banner} role="status">
-      <span>A new version of Backlog.fyi is available.</span>
-      <button type="button" className={styles.reloadBtn} onClick={onReload}>Refresh</button>
+      <span>{t('updateBanner.message')}</span>
+      <button type="button" className={styles.reloadBtn} onClick={onReload}>{t('updateBanner.refresh')}</button>
     </div>
   );
 }
