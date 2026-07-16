@@ -12,6 +12,7 @@ import dev.itayp.tasker.service.BacklogTaskCategoryService
 import dev.itayp.tasker.service.BacklogTaskService
 import dev.itayp.tasker.service.BacklogTaskTagService
 import dev.itayp.tasker.service.UserSettingsService
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
@@ -37,9 +38,10 @@ class TaskSuggestionAgentTest {
     private val userSettingsService: UserSettingsService = mock()
     private val objectMapper = jacksonObjectMapper()
     private val clock = Clock.fixed(Instant.parse("2026-06-01T10:00:00Z"), ZoneOffset.UTC)
+    private val meterRegistry = SimpleMeterRegistry()
     private val agent = TaskSuggestionAgent(
         aiClient, backlogTaskService, categoryService, tagService, userSettingsService,
-        PromptTemplateLoader(), objectMapper, clock, "test-model",
+        PromptTemplateLoader(), objectMapper, clock, meterRegistry, "test-model",
     )
 
     private val userId = UUID.randomUUID()
@@ -92,6 +94,12 @@ class TaskSuggestionAgentTest {
         whenever(aiClient.chat(any(), any())).thenReturn(chatResponse("no json here"))
 
         assertNull(agent.suggest(userId, "whatever"))
+        assertEquals(
+            1.0,
+            meterRegistry.counter(
+                "tasker.ai.parse_failures", "conversation_type", "task_suggestion", "reason", "no_json_found",
+            ).count(),
+        )
     }
 
     @Test
@@ -167,6 +175,25 @@ class TaskSuggestionAgentTest {
         whenever(aiClient.chat(any(), any())).thenReturn(chatResponse("not json"))
 
         assertIs<SuggestionOutcome.Unparseable>(agent.quickAddDraft(userId, "whatever"))
+        assertEquals(
+            1.0,
+            meterRegistry.counter(
+                "tasker.ai.parse_failures", "conversation_type", "task_suggestion", "reason", "no_json_found",
+            ).count(),
+        )
+    }
+
+    @Test
+    fun `quickAddDraft returns Unparseable and records empty_result when neither items nor a clarify question came back`() {
+        whenever(aiClient.chat(any(), any())).thenReturn(chatResponse("""{"items":[]}"""))
+
+        assertIs<SuggestionOutcome.Unparseable>(agent.quickAddDraft(userId, "whatever"))
+        assertEquals(
+            1.0,
+            meterRegistry.counter(
+                "tasker.ai.parse_failures", "conversation_type", "task_suggestion", "reason", "empty_result",
+            ).count(),
+        )
     }
 
     private fun chatResponse(content: String) = ChatResponse(

@@ -45,11 +45,11 @@ are near-duplicates worth consolidating into one key.
 | `src/NotFoundPage.tsx` | ✅ Done | — | Extracted this session |
 | `src/components/ConfirmDialog.tsx` | ✅ Done | — | Extracted this session; default `confirmLabel` now resolved via `t()` instead of a hardcoded prop default |
 | `src/components/ErrorToast.tsx` | ✅ Done | — | Extracted this session, paired with `src/api.ts` (see below) |
-| `src/components/SettingsModal.tsx` | ⬜ Not started | 50 | Largest remaining surface — settings labels, connected-accounts strings, danger-zone copy |
-| `src/components/TaskDrawer.tsx` | ⬜ Not started | 44 | Includes the seeded-tutorial-task banner copy |
-| `src/App.tsx` | ⬜ Not started | 40 | Top-level shell: onboarding nudges, empty states, board switcher |
-| `src/components/BoardSettingsModal.tsx` | ⬜ Not started | 28 | Board name/mascot, member management, invitations |
-| `src/components/WeeklyPlanDrawer.tsx` | ⬜ Not started | 28 | Planning conversation UI chrome (not the LLM messages themselves) |
+| `src/components/SettingsModal.tsx` | ✅ Done | — | Extracted this session; module-level `SETTINGS_TABS`/`DAYS_OF_WEEK` arrays now hold translation keys, resolved to labels inside the component (via `t()`) before being passed to `Tabs`/rendered in the day `<select>`s. Also fixed a pre-existing display bug: the "first day of week" help tip's `&quot;this week&quot;` was a literal HTML-entity string (never decoded, since it renders as plain React text) — now a real curly-quoted string in the catalog |
+| `src/components/TaskDrawer.tsx` | ✅ Done | — | Extracted this session, including the tutorial-task banner copy and the module-level `validate()` field-error messages (resolved via the `i18n` singleton, like `utils.ts`/`api.ts`, since that function runs outside the component). Renamed several `.map(t => …)`/`.find(t => …)`/`.filter(t => …)` loop variables (all `Tag` objects, unrelated to translation) from `t` to `tag`/`existing` to stop them shadowing the `t()` translation function |
+| `src/App.tsx` | ✅ Done | — | Extracted this session, including the module-level `emptyMessageFor()` (routed through the `i18n` singleton, like `utils.ts`) and the `buildContextMenuActions()` labels. The `error` state changed from a `string \| null` holding pre-rendered English text to a `boolean` — the message was always the same one string, so storing it as translated text at set-time would go stale across a language switch; it's now resolved via `t()` at render time. Renamed the one `.find(t => …)` inside `buildContextMenuActions` (a `Task`, unrelated to translation) to `pt` since that callback now calls `t()`; the ~20 other `Task`-typed `t` loop variables elsewhere in the file were left alone since none of those closures call `t()` |
+| `src/components/BoardSettingsModal.tsx` | ✅ Done | — | Extracted this session, including the module-level `CONSENT` invite-warning string (moved from a top-level `const` into the catalog and resolved via `t()` inside `confirmCopy()`, which already had access to the hook). Mascot labels (`MASCOTS` in `src/mascots.ts`) are intentionally untouched — that module isn't in this inventory and is out of scope here |
+| `src/components/WeeklyPlanDrawer.tsx` | ✅ Done | — | Extracted this session, including the module-level `relativeWeekLabel()` ("This week"/"Last week"/"{{count}} weeks ago"/"In {{count}} weeks" — routed through the `i18n` singleton, with proper `_one`/`_other` plural keys for the last two). `OverridePlanDialog` and `OverviewActions` are separate top-level functions (siblings of `WeeklyPlanDrawer`, not nested), so each got its own `useTranslation()` call. Renamed a local `const t = await fetchPlanningTranscript(id)` in `resume()` to `transcriptResult` since it shadowed the translation `t()`. The LLM-authored planning conversation messages themselves stay untranslated by this app-side catalog — they're generated server-side in the user's `preferred_language` per `docs/I18N.md` |
 | `src/components/StatsModal.tsx` | ✅ Done | — | Extracted this session; completion-time row now uses count-based plural keys (`statsModal.days`/`statsModal.hours`) |
 | `src/components/ConnectedAccounts.tsx` | ✅ Done | — | Extracted this session; provider labels and link notices now resolved via key lookup + `t()` |
 | `src/auth/EmailLoginConfirmPage.tsx` | ✅ Done | — | Extracted this session |
@@ -99,21 +99,26 @@ Not `.tsx`, so outside the script's scan, but both are explicitly called out in 
 
 ## Summary
 
-- **34 of ~44 components/modules done** (the rest are ➖ No copy): LoginPage pilot + NotFoundPage,
-  ConfirmDialog, ErrorToast (earlier session); StatsModal, ConnectedAccounts,
-  EmailLoginConfirmPage, EmailVerifyConfirmPage, FeedbackModal, InvitePage, `utils.ts` (PR #124);
-  ScheduleTaskModal, MoveTaskModal, TagEditModal, ImportResultDialog, AiUsageMeter, PostItNote,
-  UserMenu, TaskLine, PlanDetails (PR #125); PolicyPage, BoardFilter, MarkdownRenderer,
-  NoteEditor, BoardNameDialog, BrandBoard, CategoryEditor, TagEditor, UpdateBanner, ViewToggle,
-  EventsSection, WashiTape, PaperSwatchPicker, SortMenu (this PR) — plus Autocomplete
-  re-classified from "not started" to "no copy" after a hand check.
-- **Only the five heavy screens remain**: `SettingsModal`, `TaskDrawer`, `App.tsx`,
-  `BoardSettingsModal`, `WeeklyPlanDrawer` — all >25 strings, all central screens, each intended
-  as its own dedicated PR (per the earlier note against folding them into a general pass) rather
-  than a general-pass batch like this one.
-- `utils.ts`'s date helpers are extracted, so components that call `formatDeadline`/
-  `formatRelative`/`formatDuration` (`TaskDrawer` is the only one still pending) already render
-  localized relative dates even before `TaskDrawer` itself is extracted.
+- **All ~44 tracked components/modules are done** (the untracked remainder is ➖ No copy):
+  LoginPage pilot + NotFoundPage, ConfirmDialog, ErrorToast (earlier session); StatsModal,
+  ConnectedAccounts, EmailLoginConfirmPage, EmailVerifyConfirmPage, FeedbackModal, InvitePage,
+  `utils.ts` (PR #124); ScheduleTaskModal, MoveTaskModal, TagEditModal, ImportResultDialog,
+  AiUsageMeter, PostItNote, UserMenu, TaskLine, PlanDetails (PR #125); PolicyPage, BoardFilter,
+  MarkdownRenderer, NoteEditor, BoardNameDialog, BrandBoard, CategoryEditor, TagEditor,
+  UpdateBanner, ViewToggle, EventsSection, WashiTape, PaperSwatchPicker, SortMenu (PR #126);
+  SettingsModal (PR #127); TaskDrawer (PR #128); App.tsx (PR #129); BoardSettingsModal
+  (PR #130); WeeklyPlanDrawer (this PR) — plus Autocomplete re-classified from "not started" to
+  "no copy" after a hand check.
+- **This closes out Phase 1 string extraction** (docs/I18N.md). What's *not* covered by this
+  inventory, and remains for later phases: `src/mascots.ts`'s mascot labels (a small, untracked
+  module discovered along the way — see the `BoardSettingsModal.tsx` note above); the shared
+  `Intl` date/number formatting helper audit (D4); the RTL pass (D5); and the translated `he`/
+  `ru`/`ar` catalogs themselves (D7, Phases 2–3). The LLM-authored planning conversation
+  (`WeeklyPlanDrawer`'s chat messages) was never in scope for this catalog — it's generated
+  server-side in the user's `preferred_language` already.
+- `utils.ts`'s date helpers were already extracted, and every remaining caller is done too, so
+  every `formatDeadline`/`formatRelative`/`formatDuration` call site in the app renders fully
+  localized relative dates.
 - New shared namespace: `taskCard.*` in the catalog holds strings common to `PostItNote.tsx` and
   `TaskLine.tsx` ("High priority", "In this week's plan", assignee/link/category labels) — reuse
   this namespace rather than re-adding the same copy under a new component key when touching

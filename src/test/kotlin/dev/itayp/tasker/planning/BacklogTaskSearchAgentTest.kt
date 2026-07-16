@@ -10,6 +10,7 @@ import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.CategoryColor
 import dev.itayp.tasker.model.TaskStatus
 import dev.itayp.tasker.service.BacklogTaskService
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
@@ -26,8 +27,9 @@ class BacklogTaskSearchAgentTest {
     private val aiClient: AiClient = mock()
     private val backlogTaskService: BacklogTaskService = mock()
     private val objectMapper = jacksonObjectMapper()
+    private val meterRegistry = SimpleMeterRegistry()
     private val agent = BacklogTaskSearchAgent(
-        aiClient, backlogTaskService, PromptTemplateLoader(), objectMapper, "test-model",
+        aiClient, backlogTaskService, PromptTemplateLoader(), objectMapper, meterRegistry, "test-model",
     )
 
     @Test
@@ -64,6 +66,12 @@ class BacklogTaskSearchAgentTest {
         whenever(aiClient.chat(any(), any())).thenReturn(chatResponse("sorry, no idea"))
 
         assertTrue(agent.search(userId, "taxes").isEmpty())
+        assertEquals(
+            1.0,
+            meterRegistry.counter(
+                "tasker.ai.parse_failures", "conversation_type", "task_search", "reason", "no_json_found",
+            ).count(),
+        )
     }
 
     private fun chatResponse(content: String) = ChatResponse(

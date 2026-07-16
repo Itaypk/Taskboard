@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, type ChangeEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import styles from './SettingsModal.module.css';
 import type { UserSettings, Task, SettingsOptions, Tag } from '../types';
 import { AiUsageMeter } from './AiUsageMeter';
@@ -32,20 +33,21 @@ interface SettingsModalProps {
   onAccountDeleted: () => void;
 }
 
-const SETTINGS_TABS = [
-  { id: 'general', label: 'General' },
-  { id: 'categories', label: 'Labels' },
-  { id: 'assistant', label: 'Assistant' },
-];
+const SETTINGS_TAB_IDS = ['general', 'categories', 'assistant'] as const;
+const SETTINGS_TAB_LABEL_KEYS: Record<(typeof SETTINGS_TAB_IDS)[number], string> = {
+  general: 'settingsModal.tabs.general',
+  categories: 'settingsModal.tabs.categories',
+  assistant: 'settingsModal.tabs.assistant',
+};
 
-const DAYS_OF_WEEK: { value: string; cron: string; label: string }[] = [
-  { value: 'MONDAY', cron: 'MON', label: 'Monday' },
-  { value: 'TUESDAY', cron: 'TUE', label: 'Tuesday' },
-  { value: 'WEDNESDAY', cron: 'WED', label: 'Wednesday' },
-  { value: 'THURSDAY', cron: 'THU', label: 'Thursday' },
-  { value: 'FRIDAY', cron: 'FRI', label: 'Friday' },
-  { value: 'SATURDAY', cron: 'SAT', label: 'Saturday' },
-  { value: 'SUNDAY', cron: 'SUN', label: 'Sunday' },
+const DAY_VALUES: { value: string; cron: string; labelKey: string }[] = [
+  { value: 'MONDAY', cron: 'MON', labelKey: 'settingsModal.days.monday' },
+  { value: 'TUESDAY', cron: 'TUE', labelKey: 'settingsModal.days.tuesday' },
+  { value: 'WEDNESDAY', cron: 'WED', labelKey: 'settingsModal.days.wednesday' },
+  { value: 'THURSDAY', cron: 'THU', labelKey: 'settingsModal.days.thursday' },
+  { value: 'FRIDAY', cron: 'FRI', labelKey: 'settingsModal.days.friday' },
+  { value: 'SATURDAY', cron: 'SAT', labelKey: 'settingsModal.days.saturday' },
+  { value: 'SUNDAY', cron: 'SUN', labelKey: 'settingsModal.days.sunday' },
 ];
 
 // Spring CronExpression: "second minute hour day-of-month month day-of-week"
@@ -69,6 +71,9 @@ function parseCron(cron: string | null | undefined): { day: string; time: string
 }
 
 export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab, onClose, onSave, onTagsChanged, onAccountDeleted }: SettingsModalProps) {
+  const { t } = useTranslation();
+  const settingsTabs = SETTINGS_TAB_IDS.map(id => ({ id, label: t(SETTINGS_TAB_LABEL_KEYS[id]) }));
+  const daysOfWeek = DAY_VALUES.map(d => ({ value: d.value, cron: d.cron, label: t(d.labelKey) }));
   const [form, setForm] = useState<UserSettings>(settings);
   // Staged tag edits (rename/recolor/delete), seeded from props on the open-edge and persisted on Save.
   const [tagDraft, setTagDraft] = useState<Tag[]>(tags);
@@ -288,14 +293,14 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
       className={`modal-overlay${open ? ' modal-overlay--open' : ''}`}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="modal" role="dialog" aria-modal="true" aria-label="Settings">
+      <div className="modal" role="dialog" aria-modal="true" aria-label={t('settingsModal.title')}>
         <div className="modal__header">
-          <span className="modal__title">Settings</span>
-          <button className="drawer__close" onClick={onClose} aria-label="Close settings">×</button>
+          <span className="modal__title">{t('settingsModal.title')}</span>
+          <button className="drawer__close" onClick={onClose} aria-label={t('settingsModal.close')}>×</button>
         </div>
 
         <Tabs
-          tabs={SETTINGS_TABS}
+          tabs={settingsTabs}
           activeTab={activeTab}
           onChange={id => setActiveTab(id as SettingsTab)}
         />
@@ -304,25 +309,25 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
           {activeTab === 'general' && (
             <>
               <div className="field">
-                <label className="field__label">Display name</label>
+                <label className="field__label">{t('settingsModal.general.displayName')}</label>
                 <input
                   className="field__input"
                   value={form.displayName}
                   onChange={e => setForm(f => ({ ...f, displayName: e.target.value }))}
-                  placeholder="Your name"
+                  placeholder={t('settingsModal.general.displayNamePlaceholder')}
                 />
               </div>
 
               <div className="field">
-                <label className="field__label" htmlFor="settings-email">Email address</label>
+                <label className="field__label" htmlFor="settings-email">{t('settingsModal.general.emailAddress')}</label>
                 {settings.emailVerified && settings.email && settings.email === emailInput.trim() ? (
                   <p className="settings-hint settings-hint--verified">
-                    {settings.email} — verified
+                    {t('settingsModal.general.emailVerified', { email: settings.email })}
                   </p>
                 ) : (
                   <p className="settings-hint">
-                    Used to send calendar invites for planned tasks.
-                    {settings.email && !settings.emailVerified && ' Not yet verified.'}
+                    {t('settingsModal.general.emailHint')}
+                    {settings.email && !settings.emailVerified && ` ${t('settingsModal.general.emailNotVerified')}`}
                   </p>
                 )}
                 <div className="settings-email-row">
@@ -332,7 +337,7 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
                     type="email"
                     value={emailInput}
                     onChange={e => { setEmailInput(e.target.value); setVerificationSent(false); }}
-                    placeholder="you@example.com"
+                    placeholder={t('settingsModal.general.emailPlaceholder')}
                     autoComplete="email"
                   />
                   <button
@@ -345,11 +350,11 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
                       (settings.emailVerified && settings.email === emailInput.trim())
                     }
                   >
-                    {sendingVerification ? 'Sending…' : verificationSent ? 'Sent!' : 'Send verification'}
+                    {sendingVerification ? t('settingsModal.general.sending') : verificationSent ? t('settingsModal.general.sent') : t('settingsModal.general.sendVerification')}
                   </button>
                 </div>
                 {verificationSent && (
-                  <p className="settings-hint">Check your inbox and click the link to verify.</p>
+                  <p className="settings-hint">{t('settingsModal.general.verificationSentHint')}</p>
                 )}
               </div>
 
@@ -357,8 +362,8 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
 
               <div className="field">
                 <label className="field__label" htmlFor="settings-auto-archive">
-                  Auto-archive done tasks
-                  <HelpTip text="Done tasks are archived after this many days. Leave blank to disable." />
+                  {t('settingsModal.general.autoArchive')}
+                  <HelpTip text={t('settingsModal.general.autoArchiveHelp')} />
                 </label>
                 <input
                   id="settings-auto-archive"
@@ -370,12 +375,12 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
                     ...f,
                     autoArchiveDays: e.target.value ? Number(e.target.value) : null,
                   }))}
-                  placeholder="7"
+                  placeholder={t('settingsModal.general.autoArchivePlaceholder')}
                 />
               </div>
 
               <div className="field">
-                <label className="field__label">Notifications</label>
+                <label className="field__label">{t('settingsModal.general.notifications')}</label>
                 <label className="settings-toggle">
                   <input
                     type="checkbox"
@@ -384,9 +389,9 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
                     disabled={!settings.emailVerified}
                   />
                   <span>
-                    Email calendar invites for tasks planned to the week
+                    {t('settingsModal.general.calendarInvites')}
                     {!settings.emailVerified && (
-                      <span className="settings-hint"> (verify your email first)</span>
+                      <span className="settings-hint"> {t('settingsModal.general.verifyEmailFirst')}</span>
                     )}
                   </span>
                 </label>
@@ -397,21 +402,21 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
                     onChange={e => setForm(f => ({ ...f, appReminders: e.target.checked }))}
                   />
                   <span>
-                    In-app reminders before a planned task starts
-                    <span className="settings-hint"> (sent over Telegram, if connected)</span>
+                    {t('settingsModal.general.appReminders')}
+                    <span className="settings-hint"> {t('settingsModal.general.sentOverTelegram')}</span>
                   </span>
                 </label>
               </div>
 
               <div className="field">
-                <label className="field__label" htmlFor="settings-tz">Time zone</label>
+                <label className="field__label" htmlFor="settings-tz">{t('settingsModal.general.timeZone')}</label>
                 <input
                   id="settings-tz"
                   className="field__input"
                   list="settings-tz-list"
                   value={form.timeZone}
                   onChange={e => setForm(f => ({ ...f, timeZone: e.target.value }))}
-                  placeholder="e.g. Europe/London"
+                  placeholder={t('settingsModal.general.timeZonePlaceholder')}
                   autoComplete="off"
                 />
                 {options && (
@@ -422,7 +427,7 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
               </div>
 
               <div className="field">
-                <label className="field__label" htmlFor="settings-lang">Language</label>
+                <label className="field__label" htmlFor="settings-lang">{t('settingsModal.general.language')}</label>
                 <select
                   id="settings-lang"
                   className="field__input"
@@ -437,8 +442,8 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
 
               <div className="field">
                 <label className="field__label" htmlFor="settings-week-start">
-                  First day of the week
-                  <HelpTip text="Frames &quot;this week&quot; during your planning sessions." />
+                  {t('settingsModal.general.firstDayOfWeek')}
+                  <HelpTip text={t('settingsModal.general.firstDayOfWeekHelp')} />
                 </label>
                 <select
                   id="settings-week-start"
@@ -446,15 +451,15 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
                   value={form.weekStartDay ?? ''}
                   onChange={e => setForm(f => ({ ...f, weekStartDay: e.target.value || null }))}
                 >
-                  <option value="">Not set</option>
-                  {DAYS_OF_WEEK.map(d => (
+                  <option value="">{t('settingsModal.general.notSet')}</option>
+                  {daysOfWeek.map(d => (
                     <option key={d.value} value={d.value}>{d.label}</option>
                   ))}
                 </select>
               </div>
 
               <div className="danger-zone">
-                <p className="danger-zone__label">Danger zone</p>
+                <p className="danger-zone__label">{t('settingsModal.general.dangerZone')}</p>
                 <div className="danger-zone__actions">
                   <button
                     type="button"
@@ -462,7 +467,7 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
                     onClick={handleExport}
                     disabled={exporting || deleting || importing}
                   >
-                    {exporting ? 'Exporting…' : 'Export my data'}
+                    {exporting ? t('settingsModal.general.exporting') : t('settingsModal.general.exportData')}
                   </button>
                   <button
                     type="button"
@@ -470,7 +475,7 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
                     onClick={handleImportClick}
                     disabled={exporting || deleting || importing}
                   >
-                    {importing ? 'Importing…' : 'Import data'}
+                    {importing ? t('settingsModal.general.importing') : t('settingsModal.general.importData')}
                   </button>
                   <input
                     ref={importInputRef}
@@ -481,14 +486,14 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
                   />
                   {deleteConfirm ? (
                     <div className="danger-zone__confirm">
-                      <span className="danger-zone__confirm-text">This will permanently delete your account and all data. There's no undo.</span>
+                      <span className="danger-zone__confirm-text">{t('settingsModal.general.deleteWarning')}</span>
                       <button
                         type="button"
                         className="btn btn--danger-solid"
                         onClick={handleDeleteConfirmed}
                         disabled={deleting}
                       >
-                        {deleting ? 'Deleting…' : 'Yes, delete everything'}
+                        {deleting ? t('settingsModal.general.deleting') : t('settingsModal.general.confirmDelete')}
                       </button>
                       <button
                         type="button"
@@ -496,7 +501,7 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
                         onClick={() => setDeleteConfirm(false)}
                         disabled={deleting}
                       >
-                        Cancel
+                        {t('settingsModal.general.cancel')}
                       </button>
                     </div>
                   ) : (
@@ -506,7 +511,7 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
                       onClick={() => setDeleteConfirm(true)}
                       disabled={saving}
                     >
-                      Delete account
+                      {t('settingsModal.general.deleteAccount')}
                     </button>
                   )}
                 </div>
@@ -517,8 +522,8 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
           {activeTab === 'categories' && (
             <>
               <div className="field">
-                <label className="field__label">Categories</label>
-                <p className="settings-hint">Post-it color on the board. Every task belongs to one.</p>
+                <label className="field__label">{t('settingsModal.categories.categoriesLabel')}</label>
+                <p className="settings-hint">{t('settingsModal.categories.categoriesHint')}</p>
                 <CategoryEditor
                   categories={form.categories}
                   usage={usage}
@@ -527,8 +532,8 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
               </div>
 
               <div className="field">
-                <label className="field__label">Tags</label>
-                <p className="settings-hint">Washi-tape labels a task can carry several of. Rename, recolor, or remove them.</p>
+                <label className="field__label">{t('settingsModal.categories.tagsLabel')}</label>
+                <p className="settings-hint">{t('settingsModal.categories.tagsHint')}</p>
                 <TagEditor tags={tagDraft} onChange={setTagDraft} />
               </div>
             </>
@@ -538,23 +543,23 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
             <>
               <div className="field">
                 <label className="field__label">
-                  AI access
+                  {t('settingsModal.assistant.aiAccess')}
                   <HelpTip
                     side="left"
-                    text="Turns off every AI-driven feature for your account: weekly planning, quick-capture suggestions, and the Telegram /plan and /add commands. On a board you share, the board's AI features stop working for everyone while yours is off."
+                    text={t('settingsModal.assistant.aiAccessHelp')}
                   />
                 </label>
                 <Toggle
                   checked={form.aiEnabled}
                   onChange={next => setForm(f => ({ ...f, aiEnabled: next }))}
-                  label="Allow AI features to read my data"
+                  label={t('settingsModal.assistant.aiAccessToggle')}
                 />
               </div>
 
               <div className="field">
                 <label className="field__label">
-                  AI plan
-                  <HelpTip side="left" text="Your token budget for AI-driven features over a rolling 30-day window." />
+                  {t('settingsModal.assistant.aiPlan')}
+                  <HelpTip side="left" text={t('settingsModal.assistant.aiPlanHelp')} />
                 </label>
                 <AiUsageMeter />
               </div>
@@ -562,8 +567,8 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
               <fieldset className={styles.aiFieldset} disabled={!form.aiEnabled}>
               <div className="field">
                 <label className="field__label">
-                  Weekly planning session
-                  <HelpTip text="We'll start your planning conversation via Telegram at this time each week." />
+                  {t('settingsModal.assistant.weeklyPlanning')}
+                  <HelpTip text={t('settingsModal.assistant.weeklyPlanningHelp')} />
                 </label>
                 <Toggle
                   checked={planningEnabled}
@@ -571,22 +576,22 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
                     ...f,
                     planningCron: next ? composeCron('MON', planningParts.time) : null,
                   }))}
-                  label="Start a weekly planning session"
+                  label={t('settingsModal.assistant.weeklyPlanningToggle')}
                 />
                 {planningEnabled && (
                   <div className={styles.planningRow}>
                     <select
-                      aria-label="Planning day"
+                      aria-label={t('settingsModal.assistant.planningDay')}
                       className="field__input"
                       value={planningParts.day}
                       onChange={e => setForm(f => ({ ...f, planningCron: composeCron(e.target.value, planningParts.time) }))}
                     >
-                      {DAYS_OF_WEEK.map(d => (
+                      {daysOfWeek.map(d => (
                         <option key={d.value} value={d.cron}>{d.label}</option>
                       ))}
                     </select>
                     <input
-                      aria-label="Planning time"
+                      aria-label={t('settingsModal.assistant.planningTime')}
                       type="time"
                       className="field__input"
                       value={planningParts.time}
@@ -598,20 +603,20 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
 
               <div className="field">
                 <label className="field__label">
-                  Reminders
-                  <HelpTip text="When on, the reminder sent before a planned task starts is written by the assistant — a short, personalized nudge instead of the standard template. The reminder buttons (snooze, mark done) work either way." />
+                  {t('settingsModal.assistant.reminders')}
+                  <HelpTip text={t('settingsModal.assistant.remindersHelp')} />
                 </label>
                 <Toggle
                   checked={form.aiEnhancedReminders}
                   onChange={next => setForm(f => ({ ...f, aiEnhancedReminders: next }))}
-                  label="Let the assistant write my task reminders"
+                  label={t('settingsModal.assistant.remindersToggle')}
                 />
               </div>
 
               <div className="field">
                 <label className="field__label" htmlFor="settings-gender">
-                  How should the assistant address you?
-                  <HelpTip text="Sets pronouns and gendered language used during planning conversations." />
+                  {t('settingsModal.assistant.addressYou')}
+                  <HelpTip text={t('settingsModal.assistant.addressYouHelp')} />
                 </label>
                 <select
                   id="settings-gender"
@@ -619,7 +624,7 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
                   value={form.gender ?? ''}
                   onChange={e => setForm(f => ({ ...f, gender: e.target.value || undefined }))}
                 >
-                  <option value="">— no preference</option>
+                  <option value="">{t('settingsModal.assistant.noPreference')}</option>
                   {genderOptions.map(opt => (
                     <option key={opt.code} value={opt.code}>{opt.label}</option>
                   ))}
@@ -628,15 +633,15 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
 
               <div className="field">
                 <label className="field__label">
-                  Personal context
-                  <HelpTip text="Facts the AI planner will use when scheduling your week — preferences, recurring commitments, energy patterns." />
+                  {t('settingsModal.assistant.personalContext')}
+                  <HelpTip text={t('settingsModal.assistant.personalContextHelp')} />
                 </label>
                 <textarea
                   className="field__textarea"
                   value={form.contextBlock}
                   onChange={e => setForm(f => ({ ...f, contextBlock: e.target.value }))}
                   rows={6}
-                  placeholder="e.g. I prefer deep work in the morning…"
+                  placeholder={t('settingsModal.assistant.personalContextPlaceholder')}
                 />
               </div>
               </fieldset>
@@ -645,9 +650,9 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
         </div>
 
         <div className="modal__footer">
-          <button className="btn btn--ghost" onClick={onClose} disabled={saving}>Cancel</button>
+          <button className="btn btn--ghost" onClick={onClose} disabled={saving}>{t('settingsModal.footer.cancel')}</button>
           <button className="btn btn--primary" onClick={handleSaveClick} disabled={saving}>
-            {saving ? 'Saving…' : 'Save'}
+            {saving ? t('settingsModal.footer.saving') : t('settingsModal.footer.save')}
           </button>
         </div>
       </div>
