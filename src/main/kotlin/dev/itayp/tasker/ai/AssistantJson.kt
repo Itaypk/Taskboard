@@ -1,5 +1,6 @@
 package dev.itayp.tasker.ai
 
+import dev.itayp.tasker.util.redactLlmResponse
 import io.micrometer.core.instrument.MeterRegistry
 import org.slf4j.Logger
 import tools.jackson.databind.ObjectMapper
@@ -22,11 +23,12 @@ fun <T : Any> parseAssistantJsonResponse(objectMapper: ObjectMapper, raw: String
  * [parseAssistantJsonResponse], but catches the failure itself: increments `tasker.ai.parse_failures`
  * (tagged by [conversationType] and a coarse `reason` — `no_json_found` when no `{ ... }` span was
  * present at all, `deserialize_error` when a span was found but didn't match [type]) and logs a
- * content-free warning, then returns null so the caller can fall back.
+ * warning, then returns null so the caller can fall back.
  *
- * Deliberately never logs the raw response: for these sub-agents it typically echoes back
- * user-authored text (a task title/description drafted from the user's own request), which CLAUDE.md
- * forbids in logs at any level. Only the response length and failure reason are safe to record.
+ * Never logs the raw response: for these sub-agents it typically echoes back user-authored text (a
+ * task title/description drafted from the user's own request), which CLAUDE.md forbids in logs at
+ * any level. [redactLlmResponse] instead logs the response's shape — keys, nesting, array/object
+ * structure — with every leaf value redacted, which is what actually explains a schema mismatch.
  */
 fun <T : Any> parseAssistantJsonResponseOrNull(
     objectMapper: ObjectMapper,
@@ -42,7 +44,8 @@ fun <T : Any> parseAssistantJsonResponseOrNull(
         meterRegistry.counter(
             "tasker.ai.parse_failures", "conversation_type", conversationType, "reason", reason,
         ).increment()
-        log.warn("{} could not parse sub-agent output ({}, {} chars): {}", agentLabel, reason, raw.length, e.message)
+        log.warn("{} could not parse sub-agent output ({}): {}", agentLabel, reason, e.message)
+        log.debug("{} redacted response shape: {}", agentLabel, redactLlmResponse(raw))
     }
     .getOrNull()
 
