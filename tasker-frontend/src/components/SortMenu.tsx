@@ -1,11 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
-import { SORT_OPTIONS, type SortMode } from '../sort';
+import { useTranslation } from 'react-i18next';
+import { SORT_OPTIONS, type SortField, type SortMode } from '../sort';
 import styles from './SortMenu.module.css';
 
 interface SortMenuProps {
   value: SortMode;
   onChange: (next: SortMode) => void;
 }
+
+/** Translation keys for each field sort, keyed by id — `sort.ts` owns the ordering/comparators, not copy. */
+const SORT_FIELD_LABEL_KEYS: Record<SortField, string> = {
+  deadline: 'sortMenu.fields.deadline',
+  priority: 'sortMenu.fields.priority',
+  created: 'sortMenu.fields.created',
+  title: 'sortMenu.fields.title',
+  longest: 'sortMenu.fields.longest',
+  shortest: 'sortMenu.fields.shortest',
+};
 
 /**
  * Sort control: an icon-button (sitting beside the board switcher, since ordering is board-specific)
@@ -14,6 +25,7 @@ interface SortMenuProps {
  * keeps a fixed width.
  */
 export function SortMenu({ value, onChange }: SortMenuProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -32,7 +44,7 @@ export function SortMenu({ value, onChange }: SortMenuProps) {
   }, [open]);
 
   const active = value !== 'none';
-  const activeLabel = SORT_OPTIONS.find(o => o.id === value)?.label;
+  const activeLabel = active ? t(SORT_FIELD_LABEL_KEYS[value as SortField]) : undefined;
   const select = (mode: SortMode) => { onChange(mode); setOpen(false); };
 
   return (
@@ -42,20 +54,20 @@ export function SortMenu({ value, onChange }: SortMenuProps) {
         className={`${styles.trigger} ${active ? styles.triggerActive : ''}`}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={active ? `Sorted by ${activeLabel}. Change sort order` : 'Sort tasks'}
-        title={active ? `Sorted by ${activeLabel}` : 'Sort tasks'}
+        aria-label={active ? t('sortMenu.sortedByChange', { label: activeLabel }) : t('sortMenu.sortTasks')}
+        title={active ? t('sortMenu.sortedBy', { label: activeLabel }) : t('sortMenu.sortTasks')}
         onClick={() => setOpen(o => !o)}
       >
         <SortIcon />
       </button>
 
       {open && (
-        <div className={styles.menu} role="menu" aria-label="Sort tasks by">
+        <div className={styles.menu} role="menu" aria-label={t('sortMenu.sortTasksBy')}>
           {SORT_OPTIONS.map(opt => (
-            <MenuItem key={opt.id} label={opt.label} checked={value === opt.id} onSelect={() => select(opt.id)} />
+            <MenuItem key={opt.id} label={t(SORT_FIELD_LABEL_KEYS[opt.id])} checked={value === opt.id} onSelect={() => select(opt.id)} />
           ))}
           <div className={styles.sep} role="separator" />
-          <MenuItem label="None" checked={value === 'none'} onSelect={() => select('none')} />
+          <MenuItem label={t('sortMenu.none')} checked={value === 'none'} onSelect={() => select('none')} />
         </div>
       )}
     </div>

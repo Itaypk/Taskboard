@@ -7,9 +7,10 @@ import dev.itayp.tasker.ai.client.AiClient
 import dev.itayp.tasker.ai.client.ChatMessage
 import dev.itayp.tasker.ai.client.ChatRequest
 import dev.itayp.tasker.ai.prompt.PromptTemplateLoader
-import dev.itayp.tasker.ai.parseAssistantJsonResponse
+import dev.itayp.tasker.ai.parseAssistantJsonResponseOrNull
 import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.service.BacklogTaskService
+import io.micrometer.core.instrument.MeterRegistry
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
@@ -28,6 +29,7 @@ class BacklogTaskSearchAgent(
     private val backlogTaskService: BacklogTaskService,
     private val promptTemplateLoader: PromptTemplateLoader,
     private val objectMapper: ObjectMapper,
+    private val meterRegistry: MeterRegistry,
     @Value("\${tasker.ai.task-assistant-model}")
     private val model: String,
 ) {
@@ -54,11 +56,10 @@ class BacklogTaskSearchAgent(
 
         val context = AiCallContext(userId = userId, conversationType = AiConversationType.TASK_SEARCH)
         val raw = aiClient.chat(request, context).choices.firstOrNull()?.message?.contentText.orEmpty()
-        val matches = runCatching { parseAssistantJsonResponse(objectMapper, raw, SearchResult::class.java) }
-            .getOrElse {
-                log.warn("find_task could not parse sub-agent output: {}", it.message)
-                null
-            }?.matches.orEmpty()
+        val matches = parseAssistantJsonResponseOrNull(
+            objectMapper, raw, SearchResult::class.java,
+            AiConversationType.TASK_SEARCH, meterRegistry, log, "find_task",
+        )?.matches.orEmpty()
         log.debug("find_task searched {} tasks, returned {} matches", tasks.size, matches.size)
         return matches
     }

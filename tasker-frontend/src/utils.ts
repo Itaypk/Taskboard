@@ -32,11 +32,6 @@ export function generateId(): string {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
-/** Formats a count with a singular/plural noun, e.g. `plural(1, 'task', 'tasks') === '1 task'`. */
-export function plural(n: number, one: string, many: string): string {
-  return `${n} ${n === 1 ? one : many}`;
-}
-
 function hash(s: string): number {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) {

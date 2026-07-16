@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import type { Board } from '../api';
 import { fetchCategories } from '../api';
 import type { Category } from '../types';
@@ -18,6 +19,7 @@ interface MoveTaskModalProps {
 export function MoveTaskModal({
   open, taskTitle, currentCategoryLabel, boards, onConfirm, onClose,
 }: MoveTaskModalProps) {
+  const { t } = useTranslation();
   const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
@@ -72,20 +74,19 @@ export function MoveTaskModal({
       className={`modal-overlay${open ? ' modal-overlay--open' : ''}`}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="modal" role="dialog" aria-modal="true" aria-label="Move task" style={{ width: 420 }}>
+      <div className="modal" role="dialog" aria-modal="true" aria-label={t('moveTaskModal.title')} style={{ width: 420 }}>
         <div className="modal__header">
-          <span className="modal__title">Move task</span>
+          <span className="modal__title">{t('moveTaskModal.title')}</span>
         </div>
 
         <div className="modal__body">
           <p className={styles.subtitle}>
-            Moving <strong>{taskTitle}</strong> to another board. Pick the destination board and the
-            category it should land in; tags are recreated on the destination.
+            <Trans i18nKey="moveTaskModal.subtitle" values={{ taskTitle }} components={{ strong: <strong /> }} />
           </p>
 
           <div className="field">
-            <label className="field__label">Destination board</label>
-            <div className={styles.boardList} role="radiogroup" aria-label="Destination board">
+            <label className="field__label">{t('moveTaskModal.destinationBoard')}</label>
+            <div className={styles.boardList} role="radiogroup" aria-label={t('moveTaskModal.destinationBoard')}>
               {boards.map(board => (
                 <button
                   key={board.id}
@@ -96,7 +97,9 @@ export function MoveTaskModal({
                   onClick={() => setSelectedBoardId(board.id)}
                 >
                   <span className={styles.boardName}>{board.name}</span>
-                  {board.memberCount > 1 && <span className={styles.boardMeta}>{board.memberCount} members</span>}
+                  {board.memberCount > 1 && (
+                    <span className={styles.boardMeta}>{t('moveTaskModal.members', { count: board.memberCount })}</span>
+                  )}
                 </button>
               ))}
             </div>
@@ -104,9 +107,9 @@ export function MoveTaskModal({
 
           {selectedBoardId && (
             <div className="field">
-              <label className="field__label" htmlFor="move-category">Category</label>
-              {loadingCategories && <p className={styles.note}>Loading categories…</p>}
-              {error && <p className={styles.note}>Couldn't load that board's categories. Try again.</p>}
+              <label className="field__label" htmlFor="move-category">{t('moveTaskModal.category')}</label>
+              {loadingCategories && <p className={styles.note}>{t('moveTaskModal.loadingCategories')}</p>}
+              {error && <p className={styles.note}>{t('moveTaskModal.loadError')}</p>}
               {!loadingCategories && !error && (
                 <select
                   id="move-category"
@@ -124,14 +127,14 @@ export function MoveTaskModal({
         </div>
 
         <div className="modal__footer">
-          <button type="button" className="btn btn--ghost" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn btn--ghost" onClick={onClose}>{t('moveTaskModal.cancel')}</button>
           <button
             type="button"
             className="btn btn--primary"
             onClick={() => { if (canMove) onConfirm(selectedBoardId!, selectedCategoryId); }}
             disabled={!canMove}
           >
-            Move
+            {t('moveTaskModal.move')}
           </button>
         </div>
       </div>

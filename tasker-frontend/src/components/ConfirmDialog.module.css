@@ -1,0 +1,15 @@
+.dialog {
+  width: 380px;
+}
+
+.body {
+  gap: 0;
+  padding-bottom: 8px;
+}
+
+.message {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ink-soft);
+}

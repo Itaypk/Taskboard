@@ -1,4 +1,5 @@
 import { useState, useEffect, Suspense, lazy } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Task, Tag, TagColorId, Category } from '../types';
 import { TAG_PALETTE, PAPER_SWATCHES } from '../types';
 import { ApiError, type BoardMember } from '../api';
@@ -9,6 +10,7 @@ import { Toggle } from './Toggle';
 import { HelpTip } from './HelpTip';
 import { generateId, formatRelative } from '../utils';
 import { resolveTaskLink, linkLabel } from '../taskLink';
+import i18n from '../i18n';
 
 // Lazy so the TipTap/ProseMirror bundle only loads when a drawer is actually opened, keeping
 // it out of the initial app chunk (the drawer is always mounted, just hidden via CSS).
@@ -48,15 +50,15 @@ const URL_PATTERN = /^https?:\/\//i;
 function validate(form: FormState): FieldErrors {
   const errors: FieldErrors = {};
   const title = form.title.trim();
-  if (!title) errors.title = 'Title is required.';
-  else if (title.length > 500) errors.title = 'Title must be at most 500 characters.';
+  if (!title) errors.title = i18n.t('taskDrawer.validation.titleRequired');
+  else if (title.length > 500) errors.title = i18n.t('taskDrawer.validation.titleTooLong');
   if (form.description && form.description.length > 5000) {
-    errors.description = 'Description must be at most 5000 characters.';
+    errors.description = i18n.t('taskDrawer.validation.descriptionTooLong');
   }
   const url = form.url?.trim();
   if (url) {
-    if (!URL_PATTERN.test(url)) errors.url = 'Link must start with http:// or https://';
-    else if (url.length > 2000) errors.url = 'Link must be at most 2000 characters.';
+    if (!URL_PATTERN.test(url)) errors.url = i18n.t('taskDrawer.validation.urlInvalid');
+    else if (url.length > 2000) errors.url = i18n.t('taskDrawer.validation.urlTooLong');
   }
   return errors;
 }
@@ -95,6 +97,7 @@ export function TaskDrawer({
   task, isNew, open, categories, availableTags, defaultCategoryId, members, currentUserId, aiEnabled,
   onClose, onSave, onDelete, onMarkDone, onMarkTodo, onSetAssignee, onUpdateTag, onFollowLink,
 }: TaskDrawerProps) {
+  const { t } = useTranslation();
   const [form, setForm] = useState<FormState>(makeEmpty(defaultCategoryId));
   const [showTagForm, setShowTagForm] = useState(false);
   const [tagLabel, setTagLabel] = useState('');
@@ -182,15 +185,15 @@ export function TaskDrawer({
       if (mapped) {
         setErrors(mapped);
       } else {
-        setFormError(e instanceof ApiError ? e.userMessage : 'Something went wrong. Please try again.');
+        setFormError(e instanceof ApiError ? e.userMessage : t('taskDrawer.saveError'));
       }
     }
   };
 
   const commitTag = () => {
     if (!tagLabel.trim() || form.tags.length >= 3) return;
-    const existing = availableTags.find(t => t.label.toLowerCase() === tagLabel.trim().toLowerCase());
-    const newTag: Tag = { 
+    const existing = availableTags.find(tag => tag.label.toLowerCase() === tagLabel.trim().toLowerCase());
+    const newTag: Tag = {
       id: tagId || existing?.id || '', 
       label: existing?.label || tagLabel.trim(), 
       colorId: existing?.colorId || tagColorId 
@@ -208,19 +211,19 @@ export function TaskDrawer({
   // One-click add of an existing board tag (no typing). No-op if already applied or at the cap.
   const addExistingTag = (tag: Tag) => {
     if (form.tags.length >= 3) return;
-    if (form.tags.some(t => t.id === tag.id || t.label.toLowerCase() === tag.label.toLowerCase())) return;
+    if (form.tags.some(existing => existing.id === tag.id || existing.label.toLowerCase() === tag.label.toLowerCase())) return;
     setForm(f => ({ ...f, tags: [...f.tags, { id: tag.id, label: tag.label, colorId: tag.colorId }] }));
   };
 
   // Most-used board tags not already on this task (availableTags arrives popularity-ordered from the API).
   const tagSuggestions = availableTags
-    .filter(t => !form.tags.some(ft => ft.id === t.id || ft.label.toLowerCase() === t.label.toLowerCase()))
+    .filter(tag => !form.tags.some(ft => ft.id === tag.id || ft.label.toLowerCase() === tag.label.toLowerCase()))
     .slice(0, 6);
 
   // Tapes loaded from a saved task carry no id (the task API embeds only label+colour), so resolve the
   // board tag id by label. Returns undefined for a freshly-typed tag that hasn't been persisted yet.
   const resolveBoardTagId = (tag: Tag): string | undefined =>
-    tag.id || availableTags.find(t => t.label.toLowerCase() === tag.label.toLowerCase())?.id;
+    tag.id || availableTags.find(existing => existing.label.toLowerCase() === tag.label.toLowerCase())?.id;
 
   const editingTag = editingTagIndex !== null ? form.tags[editingTagIndex] : null;
 
@@ -229,7 +232,7 @@ export function TaskDrawer({
     const current = form.tags[editingTagIndex];
     setForm(f => ({
       ...f,
-      tags: f.tags.map((t, i) => i === editingTagIndex ? { ...t, label, colorId } : t),
+      tags: f.tags.map((tag, i) => i === editingTagIndex ? { ...tag, label, colorId } : tag),
     }));
     const boardTagId = resolveBoardTagId(current);
     if (boardTagId && (current.label !== label || current.colorId !== colorId)) {
@@ -254,12 +257,12 @@ export function TaskDrawer({
         inert={!open}
         role="dialog"
         aria-modal="true"
-        aria-label={isNew ? 'New task' : 'Task details'}
+        aria-label={isNew ? t('taskDrawer.newTaskAria') : t('taskDrawer.taskDetailsAria')}
         style={accentStyle}
       >
         <div className="drawer__header">
-          <span className="drawer__label">{isNew ? 'New task' : 'Task'}</span>
-          <button className="drawer__close" onClick={onClose} aria-label="Close">×</button>
+          <span className="drawer__label">{isNew ? t('taskDrawer.newTaskLabel') : t('taskDrawer.taskLabel')}</span>
+          <button className="drawer__close" onClick={onClose} aria-label={t('taskDrawer.close')}>×</button>
         </div>
 
         <div className="drawer__body">
@@ -267,22 +270,22 @@ export function TaskDrawer({
             <div className="drawer__error" role="alert">{formError}</div>
           )}
           {readOnly && (
-            <p className="drawer__readonly-hint">This is a tutorial task. Mark it done or clear the tutorial when you’re ready.</p>
+            <p className="drawer__readonly-hint">{t('taskDrawer.tutorialHint')}</p>
           )}
           <fieldset className="drawer__fieldset" disabled={readOnly}>
           <input
             className={`field__title-input${errors.title ? ' field__input--error' : ''}`}
             value={form.title}
             onChange={e => { setForm(f => ({ ...f, title: e.target.value })); clearError('title'); }}
-            placeholder="Task title…"
+            placeholder={t('taskDrawer.titlePlaceholder')}
             autoFocus={isNew}
             aria-invalid={errors.title ? true : undefined}
           />
           {errors.title && <p className="field__error">{errors.title}</p>}
 
           <div className="field">
-            <label className="field__label">Category</label>
-            <div className="cat-picker" role="radiogroup" aria-label="Category">
+            <label className="field__label">{t('taskDrawer.category')}</label>
+            <div className="cat-picker" role="radiogroup" aria-label={t('taskDrawer.category')}>
               {categories.map(cat => {
                 const sw = PAPER_SWATCHES.find(s => s.id === cat.swatchId) ?? PAPER_SWATCHES[6];
                 const selected = cat.id === form.categoryId;
@@ -307,31 +310,31 @@ export function TaskDrawer({
           </div>
 
           <div className="field">
-            <label className="field__label">Priority</label>
+            <label className="field__label">{t('taskDrawer.priority')}</label>
             <select
               className="field__select"
               value={form.priority ?? ''}
               onChange={e => setForm(f => ({ ...f, priority: (e.target.value as Task['priority']) || undefined }))}
             >
-              <option value="">None</option>
-              <option value="high">High</option>
-              <option value="medium">Medium</option>
-              <option value="low">Low</option>
+              <option value="">{t('taskDrawer.priorityNone')}</option>
+              <option value="high">{t('taskDrawer.priorityHigh')}</option>
+              <option value="medium">{t('taskDrawer.priorityMedium')}</option>
+              <option value="low">{t('taskDrawer.priorityLow')}</option>
             </select>
           </div>
 
           {!isNew && task && members.length > 1 && (
             <div className="field">
-              <label className="field__label">Assignee</label>
+              <label className="field__label">{t('taskDrawer.assignee')}</label>
               <select
                 className="field__select"
                 value={task.assigneeUserId ?? ''}
                 onChange={e => onSetAssignee(task.id, e.target.value || null)}
               >
-                <option value="">Unassigned</option>
+                <option value="">{t('taskDrawer.unassigned')}</option>
                 {members.map(m => (
                   <option key={m.userId} value={m.userId}>
-                    {m.userId === currentUserId ? `${m.displayName} (you)` : m.displayName}
+                    {m.userId === currentUserId ? t('taskDrawer.assigneeYou', { name: m.displayName }) : m.displayName}
                   </option>
                 ))}
               </select>
@@ -339,13 +342,13 @@ export function TaskDrawer({
           )}
 
           <div className="field">
-            <label className="field__label">Description</label>
+            <label className="field__label">{t('taskDrawer.description')}</label>
             {open ? (
               <Suspense fallback={<div className="field__textarea" aria-busy="true" style={{ minHeight: 96 }} />}>
                 <NoteEditor
                   value={form.description ?? ''}
                   onChange={md => { setForm(f => ({ ...f, description: md })); clearError('description'); }}
-                  placeholder="Optional notes, context…"
+                  placeholder={t('taskDrawer.descriptionPlaceholder')}
                   error={!!errors.description}
                   disabled={readOnly}
                 />
@@ -358,7 +361,7 @@ export function TaskDrawer({
 
           {(!readOnly || taskLink) && (
             <div className="field">
-              <label className="field__label">Link</label>
+              <label className="field__label">{t('taskDrawer.link')}</label>
               {readOnly && taskLink ? (
                 // Internal/action links can't be plain anchors; let Board resolve them. An <a> stays
                 // clickable inside the disabled fieldset (only form controls are disabled).
@@ -379,7 +382,7 @@ export function TaskDrawer({
                     type="url"
                     value={form.url}
                     onChange={e => { setForm(f => ({ ...f, url: e.target.value })); clearError('url'); }}
-                    placeholder="https://…"
+                    placeholder={t('taskDrawer.urlPlaceholder')}
                     aria-invalid={errors.url ? true : undefined}
                   />
                   {errors.url && <p className="field__error">{errors.url}</p>}
@@ -390,7 +393,7 @@ export function TaskDrawer({
 
           <div className="row-2">
             <div className="field">
-              <label className="field__label">Deadline</label>
+              <label className="field__label">{t('taskDrawer.deadline')}</label>
               <input
                 className="field__input"
                 type="date"
@@ -399,7 +402,7 @@ export function TaskDrawer({
               />
             </div>
             <div className="field">
-              <label className="field__label">Available from</label>
+              <label className="field__label">{t('taskDrawer.availableFrom')}</label>
               <input
                 className="field__input"
                 type="date"
@@ -410,7 +413,7 @@ export function TaskDrawer({
           </div>
 
           <div className="field">
-            <label className="field__label">Est. minutes</label>
+            <label className="field__label">{t('taskDrawer.estMinutes')}</label>
             <input
               className="field__input"
               type="number"
@@ -421,14 +424,14 @@ export function TaskDrawer({
                 ...f,
                 estimatedMinutes: e.target.value ? Number(e.target.value) : undefined,
               }))}
-              placeholder="90"
+              placeholder={t('taskDrawer.estMinutesPlaceholder')}
             />
           </div>
 
           <div className="field">
             <label className="field__label">
-              Tags{' '}
-              <span className="field__label-hint">({form.tags.length}/3)</span>
+              {t('taskDrawer.tags')}{' '}
+              <span className="field__label-hint">{t('taskDrawer.tagsCount', { count: form.tags.length })}</span>
             </label>
             <div className="tape-editor">
               <div className="tape-editor__preview">
@@ -443,24 +446,24 @@ export function TaskDrawer({
                   />
                 ))}
                 {form.tags.length === 0 && !showTagForm && (
-                  <span className="tape-editor__hint">No tags yet</span>
+                  <span className="tape-editor__hint">{t('taskDrawer.noTagsYet')}</span>
                 )}
               </div>
 
               {form.tags.length < 3 && !showTagForm && tagSuggestions.length > 0 && (
                 <div className="tape-quickadd">
-                  <span className="tape-quickadd__label">Add from your tags</span>
+                  <span className="tape-quickadd__label">{t('taskDrawer.addFromYourTags')}</span>
                   <div className="tape-quickadd__row">
-                    {(tagsExpanded ? tagSuggestions : tagSuggestions.slice(0, 3)).map(t => (
+                    {(tagsExpanded ? tagSuggestions : tagSuggestions.slice(0, 3)).map(tag => (
                       <button
-                        key={t.id}
+                        key={tag.id}
                         type="button"
                         className="tape-quickadd__chip"
-                        onClick={() => addExistingTag(t)}
-                        aria-label={`Add tag ${t.label}`}
-                        title={`Add ${t.label}`}
+                        onClick={() => addExistingTag(tag)}
+                        aria-label={t('taskDrawer.addTagAria', { label: tag.label })}
+                        title={t('taskDrawer.addTagTitle', { label: tag.label })}
                       >
-                        <WashiTape tag={t} idSeed={'sugg-' + t.id} />
+                        <WashiTape tag={tag} idSeed={'sugg-' + tag.id} />
                       </button>
                     ))}
                     {tagSuggestions.length > 3 && (
@@ -470,7 +473,7 @@ export function TaskDrawer({
                         onClick={() => setTagsExpanded(v => !v)}
                         aria-expanded={tagsExpanded}
                       >
-                        {tagsExpanded ? 'Show less' : `+${tagSuggestions.length - 3} more`}
+                        {tagsExpanded ? t('taskDrawer.showLess') : t('taskDrawer.moreTags', { count: tagSuggestions.length - 3 })}
                       </button>
                     )}
                   </div>
@@ -483,12 +486,12 @@ export function TaskDrawer({
                   className="btn btn--ghost btn--sm"
                   onClick={() => setShowTagForm(true)}
                 >
-                  + Add tag
+                  {t('taskDrawer.addTag')}
                 </button>
               )}
 
               {showTagForm && (() => {
-                const isExisting = tagId !== null || availableTags.some(t => t.label.toLowerCase() === tagLabel.trim().toLowerCase());
+                const isExisting = tagId !== null || availableTags.some(tag => tag.label.toLowerCase() === tagLabel.trim().toLowerCase());
                 return (
                 <div className="tag-form">
                   <Autocomplete
@@ -496,7 +499,7 @@ export function TaskDrawer({
                     onChange={(val) => {
                       setTagLabel(val);
                       setTagId(null);
-                      const existing = availableTags.find(t => t.label.toLowerCase() === val.trim().toLowerCase());
+                      const existing = availableTags.find(tag => tag.label.toLowerCase() === val.trim().toLowerCase());
                       if (existing) setTagColorId(existing.colorId);
                     }}
                     onSelect={(opt) => {
@@ -509,14 +512,14 @@ export function TaskDrawer({
                       if (e.key === 'Escape') setShowTagForm(false);
                     }}
                     options={availableTags
-                      .filter(t => !form.tags.some(ft => ft.id === t.id || ft.label.toLowerCase() === t.label.toLowerCase()))
-                      .map(t => ({
-                        id: t.id,
-                        label: t.label,
-                        colorId: t.colorId,
-                        color: TAG_PALETTE.find(c => c.id === t.colorId)?.text || 'currentColor'
+                      .filter(tag => !form.tags.some(ft => ft.id === tag.id || ft.label.toLowerCase() === tag.label.toLowerCase()))
+                      .map(tag => ({
+                        id: tag.id,
+                        label: tag.label,
+                        colorId: tag.colorId,
+                        color: TAG_PALETTE.find(c => c.id === tag.colorId)?.text || 'currentColor'
                       }))}
-                    placeholder="Tag label…"
+                    placeholder={t('taskDrawer.tagLabelPlaceholder')}
                     autoFocus
                   />
                   {!isExisting && (
@@ -540,14 +543,14 @@ export function TaskDrawer({
                       onClick={commitTag}
                       disabled={!tagLabel.trim()}
                     >
-                      Add
+                      {t('taskDrawer.add')}
                     </button>
                     <button
                       type="button"
                       className="btn btn--ghost btn--sm"
                       onClick={() => setShowTagForm(false)}
                     >
-                      Cancel
+                      {t('taskDrawer.cancel')}
                     </button>
                   </div>
                 </div>
@@ -559,13 +562,13 @@ export function TaskDrawer({
           {aiEnabled && (
             <div className="field">
               <label className="field__label">
-                Visibility
-                <HelpTip text="When hidden, this task is left out of the planning assistant's suggestions and search. It still appears on your board as usual." />
+                {t('taskDrawer.visibility')}
+                <HelpTip text={t('taskDrawer.visibilityHelp')} />
               </label>
               <Toggle
                 checked={form.hiddenFromAssistant ?? false}
                 onChange={next => setForm(f => ({ ...f, hiddenFromAssistant: next }))}
-                label="Hide from assistant"
+                label={t('taskDrawer.hideFromAssistant')}
               />
             </div>
           )}
@@ -574,8 +577,8 @@ export function TaskDrawer({
 
         {!isNew && task && (
           <div className="drawer__timestamps">
-            <span>Created {formatRelative(task.createdAt)}</span>
-            {task.updatedAt && <span>· Updated {formatRelative(task.updatedAt)}</span>}
+            <span>{t('taskDrawer.created', { relative: formatRelative(task.createdAt) })}</span>
+            {task.updatedAt && <span>{t('taskDrawer.updated', { relative: formatRelative(task.updatedAt) })}</span>}
           </div>
         )}
 
@@ -589,7 +592,7 @@ export function TaskDrawer({
                     className="btn btn--ghost btn--sm"
                     onClick={() => { onMarkTodo(task!.id); onClose(); }}
                   >
-                    ↺ Unarchive
+                    {t('taskDrawer.unarchive')}
                   </button>
                 ) : task?.status === 'done' ? (
                   <button
@@ -597,7 +600,7 @@ export function TaskDrawer({
                     className="btn btn--ghost btn--sm"
                     onClick={() => { onMarkTodo(task!.id); onClose(); }}
                   >
-                    ↺ Mark to-do
+                    {t('taskDrawer.markTodo')}
                   </button>
                 ) : (
                   <button
@@ -605,7 +608,7 @@ export function TaskDrawer({
                     className="btn btn--ghost btn--sm"
                     onClick={() => { onMarkDone(task!.id); onClose(); }}
                   >
-                    Mark done
+                    {t('taskDrawer.markDone')}
                   </button>
                 )}
                 <button
@@ -613,13 +616,13 @@ export function TaskDrawer({
                   className="btn btn--danger btn--sm"
                   onClick={() => { onDelete(task!.id); onClose(); }}
                 >
-                  Delete
+                  {t('taskDrawer.delete')}
                 </button>
               </>
             )}
           </div>
           <div className="drawer__footer-right">
-            <button type="button" className="btn btn--ghost" onClick={onClose}>{readOnly ? 'Close' : 'Cancel'}</button>
+            <button type="button" className="btn btn--ghost" onClick={onClose}>{readOnly ? t('taskDrawer.close') : t('taskDrawer.cancel')}</button>
             {!readOnly && (
               <button
                 type="button"
@@ -627,7 +630,7 @@ export function TaskDrawer({
                 onClick={handleSave}
                 disabled={!form.title.trim() || !form.categoryId}
               >
-                {isNew ? 'Pin it up' : 'Save'}
+                {isNew ? t('taskDrawer.pinItUp') : t('taskDrawer.save')}
               </button>
             )}
           </div>

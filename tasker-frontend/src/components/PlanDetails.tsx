@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { CurrentPlan } from '../types';
 import { formatRelative, formatTimeSlot } from '../utils';
 import styles from './PlanDetails.module.css';
@@ -10,31 +11,33 @@ interface PlanDetailsProps {
 
 /** Read-only rendering of a finalized/active plan: status, summary, and scheduled tasks. */
 export function PlanDetails({ plan, onTaskClick, onTaskContextMenu }: PlanDetailsProps) {
+  const { t } = useTranslation();
   return (
     <>
       <div className={styles.metaRow}>
         <span className={`${styles.statusPill} ${plan.status === 'active' ? styles.statusActive : styles.statusCompleted}`}>
-          {plan.status === 'active' ? 'In progress' : 'Finalized'}
+          {plan.status === 'active' ? t('planDetails.inProgress') : t('planDetails.finalized')}
         </span>
         <span className={styles.timestamp}>
-          Started {formatRelative(plan.startedAt)}
-          {plan.endedAt ? ` · finished ${formatRelative(plan.endedAt)}` : ''}
+          {plan.endedAt
+            ? t('planDetails.timestampRange', { started: formatRelative(plan.startedAt), ended: formatRelative(plan.endedAt) })
+            : t('planDetails.timestampStarted', { started: formatRelative(plan.startedAt) })}
         </span>
       </div>
 
       <section className={styles.section}>
-        <h4 className={styles.sectionLabel}>Summary</h4>
+        <h4 className={styles.sectionLabel}>{t('planDetails.summaryHeading')}</h4>
         {plan.summary && plan.summary.trim().length > 0 ? (
           <p className={styles.summary}>{plan.summary}</p>
         ) : (
-          <p className={styles.summaryMuted}>No summary recorded for this session.</p>
+          <p className={styles.summaryMuted}>{t('planDetails.noSummary')}</p>
         )}
       </section>
 
       <section className={styles.section}>
-        <h4 className={styles.sectionLabel}>Tasks ({plan.tasks.length})</h4>
+        <h4 className={styles.sectionLabel}>{t('planDetails.tasksHeading', { count: plan.tasks.length })}</h4>
         {plan.tasks.length === 0 ? (
-          <p className={styles.summaryMuted}>No tasks were scheduled in this plan.</p>
+          <p className={styles.summaryMuted}>{t('planDetails.noTasks')}</p>
         ) : (
           <ul className={styles.taskList}>
             {plan.tasks.map(task => {
@@ -51,7 +54,7 @@ export function PlanDetails({ plan, onTaskClick, onTaskContextMenu }: PlanDetail
                   >
                     <span
                       className={`${styles.statusDot} ${isDone ? styles.statusDotDone : styles.statusDotTodo}`}
-                      aria-label={isDone ? 'Done' : 'To do'}
+                      aria-label={isDone ? t('planDetails.done') : t('planDetails.todo')}
                     />
                     <span className={styles.taskContent}>
                       <span className={`${styles.taskTitle} ${isDone ? styles.taskTitleDone : ''}`}>

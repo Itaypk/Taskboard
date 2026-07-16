@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Board } from '../api';
 import styles from './BrandBoard.module.css';
 
@@ -15,8 +16,10 @@ interface BrandBoardProps {
 
 /** Small "shared" cue: a member count shown when a board has more than one member. */
 function SharedBadge({ count }: { count: number }) {
+  const { t } = useTranslation();
   if (count <= 1) return null;
-  return <span className={styles.sharedBadge} title={`${count} members`} aria-label={`${count} members`}>{count}</span>;
+  const label = t('brandBoard.members', { count });
+  return <span className={styles.sharedBadge} title={label} aria-label={label}>{count}</span>;
 }
 
 /**
@@ -62,6 +65,7 @@ export function BrandBoard({
   onOpenSettings,
   brandName = 'Backlog.fyi',
 }: BrandBoardProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -93,10 +97,10 @@ export function BrandBoard({
           onClick={() => setOpen(o => !o)}
           aria-haspopup="menu"
           aria-expanded={open}
-          aria-label={activeBoard ? `Current board: ${activeBoard.name}. Switch board` : 'Switch board'}
-          title={activeBoard?.name ?? 'Switch board'}
+          aria-label={activeBoard ? t('brandBoard.currentBoard', { name: activeBoard.name }) : t('brandBoard.switchBoard')}
+          title={activeBoard?.name ?? t('brandBoard.switchBoard')}
         >
-          <span className={styles.labelName}>{activeBoard?.name ?? 'Board'}</span>
+          <span className={styles.labelName}>{activeBoard?.name ?? t('brandBoard.boardFallback')}</span>
           <span className={styles.labelInitials} aria-hidden>{boardInitials(activeBoard?.name)}</span>
           {activeBoard && <SharedBadge count={activeBoard.memberCount} />}
           <ChevronIcon />
@@ -122,10 +126,10 @@ export function BrandBoard({
             ))}
             <li className={styles.divider} role="separator" />
             <li role="none">
-              <button type="button" role="menuitem" className={styles.item} onClick={() => run(onOpenSettings)}>Board settings…</button>
+              <button type="button" role="menuitem" className={styles.item} onClick={() => run(onOpenSettings)}>{t('brandBoard.boardSettings')}</button>
             </li>
             <li role="none">
-              <button type="button" role="menuitem" className={styles.item} onClick={() => run(onCreate)}>+ New board</button>
+              <button type="button" role="menuitem" className={styles.item} onClick={() => run(onCreate)}>{t('brandBoard.newBoard')}</button>
             </li>
           </ul>
         )}

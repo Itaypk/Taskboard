@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import styles from './ConfirmDialog.module.css';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -16,6 +17,8 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   const { t } = useTranslation();
   const confirmRef = useRef<HTMLButtonElement>(null);
+  const titleId = useId();
+  const messageId = useId();
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -32,18 +35,17 @@ export function ConfirmDialog({
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        className="modal"
+        className={`modal ${styles.dialog}`}
         role="alertdialog"
         aria-modal="true"
-        aria-labelledby="confirm-title"
-        aria-describedby="confirm-message"
-        style={{ width: 380 }}
+        aria-labelledby={titleId}
+        aria-describedby={messageId}
       >
         <div className="modal__header">
-          <span className="modal__title" id="confirm-title">{title}</span>
+          <span className="modal__title" id={titleId}>{title}</span>
         </div>
-        <div className="modal__body" style={{ gap: 0, paddingBottom: 8 }}>
-          <p id="confirm-message" style={{ margin: 0, fontSize: 14, lineHeight: 1.55, color: 'var(--ink-soft)' }}>
+        <div className={`modal__body ${styles.body}`}>
+          <p id={messageId} className={styles.message}>
             {message}
           </p>
         </div>

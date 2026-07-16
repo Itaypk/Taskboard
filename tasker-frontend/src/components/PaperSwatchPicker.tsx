@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { PaperSwatchId } from '../types';
 import { PAPER_SWATCHES } from '../types';
 
@@ -10,12 +11,13 @@ interface PaperSwatchPickerProps {
 }
 
 export function PaperSwatchPicker({ selected, onSelect, size = 'md', only }: PaperSwatchPickerProps) {
+  const { t } = useTranslation();
   const swatches = only
     ? PAPER_SWATCHES.filter(s => only.includes(s.id))
     : PAPER_SWATCHES;
 
   return (
-    <div className={`swatch-row swatch-row--${size}`} role="radiogroup" aria-label="Paper color">
+    <div className={`swatch-row swatch-row--${size}`} role="radiogroup" aria-label={t('paperSwatchPicker.ariaLabel')}>
       {swatches.map((s, i) => {
         const isSelected = s.id === selected;
         return (

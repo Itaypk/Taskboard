@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { formatDate } from '../i18n/format';
 import styles from './ScheduleTaskModal.module.css';
 
@@ -67,6 +68,7 @@ function shiftTime(time: string, deltaMin: number): string | null {
 export function ScheduleTaskModal({
   open, taskTitle, weekStart, weekEnd, estimatedMinutes, initialSlot, onConfirm, onClose,
 }: ScheduleTaskModalProps) {
+  const { t } = useTranslation();
   const days = dateRange(weekStart, weekEnd);
   const reschedule = initialSlot != null;
   const duration = estimatedMinutes && estimatedMinutes > 0 ? estimatedMinutes : DEFAULT_DURATION_MIN;
@@ -125,24 +127,26 @@ export function ScheduleTaskModal({
         className="modal"
         role="dialog"
         aria-modal="true"
-        aria-label={reschedule ? 'Reschedule task' : 'Schedule task'}
+        aria-label={reschedule ? t('scheduleTaskModal.rescheduleTitle') : t('scheduleTaskModal.scheduleTitle')}
         style={{ width: 440 }}
       >
         <div className="modal__header">
-          <span className="modal__title">{reschedule ? 'Reschedule task' : 'Schedule task'}</span>
+          <span className="modal__title">
+            {reschedule ? t('scheduleTaskModal.rescheduleTitle') : t('scheduleTaskModal.scheduleTitle')}
+          </span>
         </div>
 
         <div className="modal__body">
           <p className={styles.subtitle}>
             {reschedule ? (
-              <>Moving <strong>{taskTitle}</strong> to a new time.</>
+              <Trans i18nKey="scheduleTaskModal.subtitleReschedule" values={{ taskTitle }} components={{ strong: <strong /> }} />
             ) : (
-              <>Adding <strong>{taskTitle}</strong> to this week's plan.</>
+              <Trans i18nKey="scheduleTaskModal.subtitleSchedule" values={{ taskTitle }} components={{ strong: <strong /> }} />
             )}
           </p>
 
           <div className="field">
-            <label className="field__label">Day</label>
+            <label className="field__label">{t('scheduleTaskModal.day')}</label>
             <div className={styles.dayGrid}>
               {days.map(day => {
                 const { weekday, date } = formatDayLabel(day);
@@ -164,7 +168,7 @@ export function ScheduleTaskModal({
 
           <div className={styles.timeRow}>
             <div className="field">
-              <label className="field__label">Start time</label>
+              <label className="field__label">{t('scheduleTaskModal.startTime')}</label>
               <input
                 className="field__input"
                 type="time"
@@ -174,7 +178,7 @@ export function ScheduleTaskModal({
             </div>
             <div className={styles.timeSep}>→</div>
             <div className="field">
-              <label className="field__label">End time</label>
+              <label className="field__label">{t('scheduleTaskModal.endTime')}</label>
               <input
                 className={`field__input${endTimeError ? ' field__input--error' : ''}`}
                 type="time"
@@ -184,19 +188,19 @@ export function ScheduleTaskModal({
             </div>
           </div>
           {endTimeError && (
-            <p className={styles.timeError}>End time must be after start time.</p>
+            <p className={styles.timeError}>{t('scheduleTaskModal.endTimeError')}</p>
           )}
         </div>
 
         <div className="modal__footer">
-          <button type="button" className="btn btn--ghost" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn btn--ghost" onClick={onClose}>{t('scheduleTaskModal.cancel')}</button>
           <button
             type="button"
             className="btn btn--primary"
             onClick={handleConfirm}
             disabled={endTimeError}
           >
-            {reschedule ? 'Update slot' : 'Add to plan'}
+            {reschedule ? t('scheduleTaskModal.updateSlot') : t('scheduleTaskModal.addToPlan')}
           </button>
         </div>
       </div>
