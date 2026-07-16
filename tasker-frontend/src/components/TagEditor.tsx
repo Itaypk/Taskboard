@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Tag, TagColorId } from '../types';
 import { TAG_PALETTE } from '../types';
 
@@ -13,16 +14,17 @@ interface TagEditorProps {
  * there's no "add" affordance — only management of existing ones.
  */
 export function TagEditor({ tags, onChange }: TagEditorProps) {
+  const { t } = useTranslation();
   const [openPicker, setOpenPicker] = useState<string | null>(null);
 
   const update = (id: string, patch: Partial<Tag>) =>
-    onChange(tags.map(t => t.id === id ? { ...t, ...patch } : t));
+    onChange(tags.map(tag => tag.id === id ? { ...tag, ...patch } : tag));
 
   const remove = (id: string) =>
-    onChange(tags.filter(t => t.id !== id));
+    onChange(tags.filter(tag => tag.id !== id));
 
   if (tags.length === 0) {
-    return <p className="settings-hint">No tags yet. Add a tag from any task and it'll show up here to rename, recolor, or remove.</p>;
+    return <p className="settings-hint">{t('tagEditor.empty')}</p>;
   }
 
   return (
@@ -38,7 +40,7 @@ export function TagEditor({ tags, onChange }: TagEditorProps) {
               className="cat-row__swatch"
               style={{ background: swatch.text, borderColor: swatch.border }}
               onClick={() => setOpenPicker(picking ? null : tag.id)}
-              aria-label={`Change color for ${tag.label}`}
+              aria-label={t('tagEditor.changeColor', { label: tag.label })}
               aria-expanded={picking}
             />
             <input
@@ -46,11 +48,11 @@ export function TagEditor({ tags, onChange }: TagEditorProps) {
               value={tag.label}
               maxLength={64}
               onChange={e => update(tag.id, { label: e.target.value })}
-              placeholder="Tag label"
+              placeholder={t('tagEditor.labelPlaceholder')}
             />
             <span
               className="cat-row__count"
-              title={count > 0 ? `On ${count} task${count === 1 ? '' : 's'}` : 'Unused'}
+              title={count > 0 ? t('tagEditor.onTasks', { count }) : t('tagEditor.unused')}
             >
               {count}
             </span>
@@ -58,8 +60,8 @@ export function TagEditor({ tags, onChange }: TagEditorProps) {
               type="button"
               className="cat-row__del"
               onClick={() => remove(tag.id)}
-              aria-label={`Delete ${tag.label}`}
-              title={count > 0 ? `Delete and remove from ${count} task${count === 1 ? '' : 's'}` : 'Delete'}
+              aria-label={t('tagEditor.delete', { label: tag.label })}
+              title={count > 0 ? t('tagEditor.deleteAndRemove', { count }) : t('tagEditor.deleteTitle')}
             >
               ×
             </button>

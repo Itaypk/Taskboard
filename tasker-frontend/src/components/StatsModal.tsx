@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styles from './StatsModal.module.css';
 import { fetchStats } from '../api';
 import { formatDate } from '../i18n/format';
@@ -18,17 +19,20 @@ function formatJoined(iso: string): string {
   return formatDate(iso, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-function formatCompletion(seconds: number | null): string {
-  if (seconds == null) return 'Not enough completed tasks yet';
-  const hours = seconds / 3600;
-  return hours >= 24 ? `${formatAvg(hours / 24)} days` : `${formatAvg(hours)} hours`;
-}
-
 function isEmpty(s: Stats): boolean {
   return s.openTasks === 0 && s.completedTasks === 0 && s.planningSessions === 0 && s.avgTasksCreatedPerWeek === 0;
 }
 
+function formatCompletion(seconds: number | null, t: (key: string, opts?: Record<string, unknown>) => string): string {
+  if (seconds == null) return t('statsModal.notEnoughData');
+  const hours = seconds / 3600;
+  return hours >= 24
+    ? t('statsModal.days', { count: Number(formatAvg(hours / 24)) })
+    : t('statsModal.hours', { count: Number(formatAvg(hours)) });
+}
+
 export function StatsModal({ open, onClose }: StatsModalProps) {
+  const { t } = useTranslation();
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -63,57 +67,57 @@ export function StatsModal({ open, onClose }: StatsModalProps) {
       className={`modal-overlay${open ? ' modal-overlay--open' : ''}`}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="modal" role="dialog" aria-modal="true" aria-label="Your stats">
+      <div className="modal" role="dialog" aria-modal="true" aria-label={t('statsModal.title')}>
         <div className="modal__header">
-          <span className="modal__title">Your stats</span>
-          <button className="drawer__close" onClick={onClose} aria-label="Close stats">×</button>
+          <span className="modal__title">{t('statsModal.title')}</span>
+          <button className="drawer__close" onClick={onClose} aria-label={t('statsModal.close')}>×</button>
         </div>
         <div className="modal__body">
-          {loading && <p className={styles.muted}>Loading…</p>}
-          {!loading && error && <p className={styles.muted}>Couldn't load your stats. Please try again.</p>}
+          {loading && <p className={styles.muted}>{t('statsModal.loading')}</p>}
+          {!loading && error && <p className={styles.muted}>{t('statsModal.loadError')}</p>}
           {!loading && !error && stats && (isEmpty(stats)
-            ? <p className={styles.muted}>No stats yet — add a few tasks and plan your week, then check back here.</p>
+            ? <p className={styles.muted}>{t('statsModal.empty')}</p>
             : (
               <div className={styles.stats}>
                 <div className={styles.highlights}>
                   <div className={styles.highlight}>
                     <span className={styles.highlightValue}>{stats.openTasks}</span>
-                    <span className={styles.highlightLabel}>Open tasks</span>
+                    <span className={styles.highlightLabel}>{t('statsModal.openTasks')}</span>
                   </div>
                   <div className={styles.highlight}>
                     <span className={styles.highlightValue}>{stats.completedTasks}</span>
-                    <span className={styles.highlightLabel}>Completed</span>
+                    <span className={styles.highlightLabel}>{t('statsModal.completed')}</span>
                   </div>
                 </div>
                 <dl className={styles.rows}>
                   {stats.joinedAt && (
                     <div className={styles.row}>
-                      <dt className={styles.rowLabel}>Joined</dt>
+                      <dt className={styles.rowLabel}>{t('statsModal.joined')}</dt>
                       <dd className={styles.rowValue}>{formatJoined(stats.joinedAt)}</dd>
                     </div>
                   )}
                   <div className={styles.row}>
-                    <dt className={styles.rowLabel}>Tasks created (all time)</dt>
+                    <dt className={styles.rowLabel}>{t('statsModal.totalCreated')}</dt>
                     <dd className={styles.rowValue}>{stats.totalTasksCreated}</dd>
                   </div>
                   <div className={styles.row}>
-                    <dt className={styles.rowLabel}>Tasks completed (all time)</dt>
+                    <dt className={styles.rowLabel}>{t('statsModal.totalCompleted')}</dt>
                     <dd className={styles.rowValue}>{stats.totalTasksCompleted}</dd>
                   </div>
                   <div className={styles.row}>
-                    <dt className={styles.rowLabel}>New tasks / week</dt>
+                    <dt className={styles.rowLabel}>{t('statsModal.newPerWeek')}</dt>
                     <dd className={styles.rowValue}>{formatAvg(stats.avgTasksCreatedPerWeek)}</dd>
                   </div>
                   <div className={styles.row}>
-                    <dt className={styles.rowLabel}>Completed / week</dt>
+                    <dt className={styles.rowLabel}>{t('statsModal.completedPerWeek')}</dt>
                     <dd className={styles.rowValue}>{formatAvg(stats.avgTasksCompletedPerWeek)}</dd>
                   </div>
                   <div className={styles.row}>
-                    <dt className={styles.rowLabel}>Avg. time to complete</dt>
-                    <dd className={styles.rowValue}>{formatCompletion(stats.avgCompletionSeconds)}</dd>
+                    <dt className={styles.rowLabel}>{t('statsModal.avgCompletionTime')}</dt>
+                    <dd className={styles.rowValue}>{formatCompletion(stats.avgCompletionSeconds, t)}</dd>
                   </div>
                   <div className={styles.row}>
-                    <dt className={styles.rowLabel}>Planning sessions</dt>
+                    <dt className={styles.rowLabel}>{t('statsModal.planningSessions')}</dt>
                     <dd className={styles.rowValue}>{stats.planningSessions}</dd>
                   </div>
                 </dl>

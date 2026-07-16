@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { confirmEmailVerification } from './authApi';
 import layout from './LoginPage.module.css';
@@ -11,11 +12,12 @@ type PageState =
     | { phase: 'error'; message: string };
 
 export function EmailVerifyConfirmPage() {
+    const { t } = useTranslation();
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
 
     const [state, setState] = useState<PageState>(
-        token ? { phase: 'ready' } : { phase: 'error', message: 'This verification link is invalid or has expired.' },
+        token ? { phase: 'ready' } : { phase: 'error', message: t('emailVerifyConfirm.errors.expired') },
     );
 
     const handleVerify = async () => {
@@ -26,10 +28,10 @@ export function EmailVerifyConfirmPage() {
             if (success) {
                 setState({ phase: 'success' });
             } else {
-                setState({ phase: 'error', message: 'This verification link is invalid or has expired.' });
+                setState({ phase: 'error', message: t('emailVerifyConfirm.errors.expired') });
             }
         } catch {
-            setState({ phase: 'error', message: 'Something went wrong. Please try again.' });
+            setState({ phase: 'error', message: t('emailVerifyConfirm.errors.generic') });
         }
     };
 
@@ -48,23 +50,21 @@ export function EmailVerifyConfirmPage() {
             <div className={layout.stage}>
                 {state.phase === 'success' ? (
                     <div className={styles.card} aria-live="polite">
-                        <div className={styles.cardTag}>All done</div>
-                        <h1 className={styles.cardH}>Email verified</h1>
+                        <div className={styles.cardTag}>{t('emailVerifyConfirm.success.tag')}</div>
+                        <h1 className={styles.cardH}>{t('emailVerifyConfirm.success.title')}</h1>
                         <p className={styles.cardBody}>
-                            Your email address has been confirmed. You can now use it to sign in
-                            with a magic link.
+                            {t('emailVerifyConfirm.success.body')}
                         </p>
                         <Link to="/" className={styles.actionBtn}>
-                            Go to my board →
+                            {t('emailVerifyConfirm.success.goToBoard')}
                         </Link>
                     </div>
                 ) : (
                     <div className={styles.card} aria-live="polite">
-                        <div className={styles.cardTag}>Verify email</div>
-                        <h1 className={styles.cardH}>Confirm your address</h1>
+                        <div className={styles.cardTag}>{t('emailVerifyConfirm.ready.tag')}</div>
+                        <h1 className={styles.cardH}>{t('emailVerifyConfirm.ready.title')}</h1>
                         <p className={styles.cardBody}>
-                            Click the button below to verify your email address. This links it to
-                            your account so you can use it to sign in.
+                            {t('emailVerifyConfirm.ready.body')}
                         </p>
 
                         <button
@@ -74,9 +74,9 @@ export function EmailVerifyConfirmPage() {
                             disabled={state.phase === 'confirming' || state.phase === 'error'}
                         >
                             {state.phase === 'confirming' ? (
-                                <span className={styles.spinner} aria-label="Verifying…" />
+                                <span className={styles.spinner} aria-label={t('emailVerifyConfirm.verifying')} />
                             ) : (
-                                'Verify my email'
+                                t('emailVerifyConfirm.verifyButton')
                             )}
                         </button>
 
@@ -87,7 +87,7 @@ export function EmailVerifyConfirmPage() {
                         )}
 
                         <Link to="/" className={styles.backLink}>
-                            ← Back to app
+                            {t('emailVerifyConfirm.backToApp')}
                         </Link>
                     </div>
                 )}

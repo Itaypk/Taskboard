@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { TagColorId } from '../types';
 import { TAG_PALETTE } from '../types';
 
@@ -15,6 +16,7 @@ interface TagEditModalProps {
 
 /** Small name + color editor opened by clicking a tag tape in the task drawer. */
 export function TagEditModal({ open, initialLabel, initialColorId, persists, onSave, onClose }: TagEditModalProps) {
+  const { t } = useTranslation();
   const [label, setLabel] = useState(initialLabel);
   const [colorId, setColorId] = useState<TagColorId>(initialColorId);
   const [seeded, setSeeded] = useState(false);
@@ -43,15 +45,15 @@ export function TagEditModal({ open, initialLabel, initialColorId, persists, onS
 
   return (
     <div className="modal-overlay modal-overlay--open" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal" role="dialog" aria-modal="true" aria-label="Edit tag" style={{ width: 340 }}>
+      <div className="modal" role="dialog" aria-modal="true" aria-label={t('tagEditModal.title')} style={{ width: 340 }}>
         <div className="modal__header">
-          <span className="modal__title">Edit tag</span>
-          <button type="button" className="modal__close" onClick={onClose} aria-label="Close">✕</button>
+          <span className="modal__title">{t('tagEditModal.title')}</span>
+          <button type="button" className="modal__close" onClick={onClose} aria-label={t('tagEditModal.close')}>✕</button>
         </div>
 
         <div className="modal__body">
           <div className="field">
-            <label className="field__label" htmlFor="tag-edit-label">Label</label>
+            <label className="field__label" htmlFor="tag-edit-label">{t('tagEditModal.label')}</label>
             <input
               id="tag-edit-label"
               className="field__input"
@@ -60,12 +62,12 @@ export function TagEditModal({ open, initialLabel, initialColorId, persists, onS
               autoFocus
               onChange={e => setLabel(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && canSave) onSave(trimmed, colorId); }}
-              placeholder="Tag label"
+              placeholder={t('tagEditModal.labelPlaceholder')}
             />
           </div>
 
           <div className="field">
-            <label className="field__label">Color</label>
+            <label className="field__label">{t('tagEditModal.color')}</label>
             <div className="color-swatches">
               {TAG_PALETTE.map(c => (
                 <button
@@ -81,14 +83,14 @@ export function TagEditModal({ open, initialLabel, initialColorId, persists, onS
           </div>
 
           {persists && (
-            <p className="settings-hint">This renames the tag on every task that uses it.</p>
+            <p className="settings-hint">{t('tagEditModal.persistsHint')}</p>
           )}
         </div>
 
         <div className="modal__footer">
-          <button type="button" className="btn btn--ghost" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn btn--ghost" onClick={onClose}>{t('tagEditModal.cancel')}</button>
           <button type="button" className="btn btn--primary" disabled={!canSave} onClick={() => onSave(trimmed, colorId)}>
-            Save
+            {t('tagEditModal.save')}
           </button>
         </div>
       </div>

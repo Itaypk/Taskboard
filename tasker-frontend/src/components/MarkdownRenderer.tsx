@@ -1,4 +1,5 @@
 import { useState, type SyntheticEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { marked } from 'marked';
 import markedBidi from 'marked-bidi';
 import DOMPurify from 'dompurify';
@@ -54,6 +55,7 @@ function stopEventIfLink(e: SyntheticEvent) {
 }
 
 function MarkdownRenderer({ content, maxLength, showExpandButton = true }: MarkdownRendererProps) {
+    const { t } = useTranslation();
     const [isExpanded, setIsExpanded] = useState(false);
 
     if (!content) return <div className="markdown-content" />;
@@ -77,9 +79,9 @@ function MarkdownRenderer({ content, maxLength, showExpandButton = true }: Markd
                     type="button"
                     className="btn-expand-text"
                     onClick={() => setIsExpanded(!isExpanded)}
-                    aria-label={isExpanded ? 'Show less' : 'Show more'}
+                    aria-label={isExpanded ? t('markdownRenderer.showLess') : t('markdownRenderer.showMore')}
                 >
-                    {isExpanded ? '▲ Show less' : '▼ Show more'}
+                    {isExpanded ? `▲ ${t('markdownRenderer.showLess')}` : `▼ ${t('markdownRenderer.showMore')}`}
                 </button>
             )}
         </div>

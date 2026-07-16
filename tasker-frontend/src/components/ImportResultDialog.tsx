@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import styles from './ImportResultDialog.module.css';
-import { plural } from '../utils';
 import { SUPPORT_EMAIL } from '../config';
 import type { ImportErrorCategory, ImportResult } from './importResult';
 
@@ -10,36 +10,37 @@ interface ImportResultDialogProps {
   onClose: () => void;
 }
 
-const EMAIL_SKIP_MESSAGES: Record<string, string> = {
-  ACCOUNT_HAS_EMAIL: 'Your account already has an email, so the one in the file was not imported.',
-  TAKEN: 'The email in the file belongs to another account, so it was not imported. Your current email is unchanged.',
+const EMAIL_SKIP_MESSAGE_KEYS: Record<string, string> = {
+  ACCOUNT_HAS_EMAIL: 'importResultDialog.emailSkip.accountHasEmail',
+  TAKEN: 'importResultDialog.emailSkip.taken',
 };
 
-/** Plain-language copy per error category. `support` toggles the "Contact support" mailto link. */
-const ERROR_COPY: Record<ImportErrorCategory, { title: string; body: string; support: boolean }> = {
+/** Translation-key pairs per error category. `support` toggles the "Contact support" mailto link. */
+const ERROR_COPY_KEYS: Record<ImportErrorCategory, { title: string; body: string; support: boolean }> = {
   CORRUPTED_FILE: {
-    title: 'This file couldn’t be imported',
-    body: 'The file doesn’t look like a valid Backlog export. Make sure you’re importing a file you exported from Backlog, unchanged.',
+    title: 'importResultDialog.errors.corruptedFile.title',
+    body: 'importResultDialog.errors.corruptedFile.body',
     support: true,
   },
   UNSUPPORTED_VERSION: {
-    title: 'Unsupported export version',
-    body: 'This file was made by a different version of Backlog. Export your data again from this version, then import it.',
+    title: 'importResultDialog.errors.unsupportedVersion.title',
+    body: 'importResultDialog.errors.unsupportedVersion.body',
     support: true,
   },
   ACCOUNT_NOT_EMPTY: {
-    title: 'Import needs an empty account',
-    body: 'You can only import into an account that has no tasks of its own. Start with a fresh account, then import.',
+    title: 'importResultDialog.errors.accountNotEmpty.title',
+    body: 'importResultDialog.errors.accountNotEmpty.body',
     support: false,
   },
   INTERNAL_ERROR: {
-    title: 'Something went wrong on our end',
-    body: 'The import couldn’t be completed. Please try again in a moment.',
+    title: 'importResultDialog.errors.internalError.title',
+    body: 'importResultDialog.errors.internalError.body',
     support: true,
   },
 };
 
 export function ImportResultDialog({ result, onClose }: ImportResultDialogProps) {
+  const { t } = useTranslation();
   const buttonRef = useRef<HTMLButtonElement>(null);
   const open = result !== null;
 
@@ -55,9 +56,10 @@ export function ImportResultDialog({ result, onClose }: ImportResultDialogProps)
   if (!result) return null;
 
   const success = result.kind === 'success';
-  const errorCopy = result.kind === 'error' ? ERROR_COPY[result.category] : undefined;
-  const title = success ? 'Import complete' : errorCopy!.title;
-  const emailNote = success ? EMAIL_SKIP_MESSAGES[result.summary.emailSkipReason ?? ''] : undefined;
+  const errorCopyKeys = result.kind === 'error' ? ERROR_COPY_KEYS[result.category] : undefined;
+  const title = success ? t('importResultDialog.successTitle') : t(errorCopyKeys!.title);
+  const emailSkipKey = success ? EMAIL_SKIP_MESSAGE_KEYS[result.summary.emailSkipReason ?? ''] : undefined;
+  const emailNote = emailSkipKey ? t(emailSkipKey) : undefined;
 
   return (
     <div
@@ -78,9 +80,11 @@ export function ImportResultDialog({ result, onClose }: ImportResultDialogProps)
           {success ? (
             <>
               <p className={styles.text}>
-                Imported {plural(result.summary.tasks, 'task', 'tasks')},{' '}
-                {plural(result.summary.tags, 'tag', 'tags')}, and{' '}
-                {result.summary.categories === 1 ? '1 category' : `${result.summary.categories} categories`}.
+                {t('importResultDialog.imported', {
+                  tasks: t('importResultDialog.tasksCount', { count: result.summary.tasks }),
+                  tags: t('importResultDialog.tagsCount', { count: result.summary.tags }),
+                  categories: t('importResultDialog.categoriesCount', { count: result.summary.categories }),
+                })}
               </p>
               {emailNote && (
                 <p className={styles.note}>{emailNote}</p>
@@ -88,13 +92,14 @@ export function ImportResultDialog({ result, onClose }: ImportResultDialogProps)
             </>
           ) : (
             <>
-              <p className={styles.text}>{errorCopy!.body}</p>
+              <p className={styles.text}>{t(errorCopyKeys!.body)}</p>
               {result.detail && <p className={styles.detail}>{result.detail}</p>}
-              {errorCopy!.support && (
+              {errorCopyKeys!.support && (
                 <p className={styles.note}>
-                  Still stuck?{' '}
+                  {t('importResultDialog.stillStuck')}{' '}
+                  {/* Support inbox reads this subject line — kept English per the admin-facing-output convention (docs/I18N.md). */}
                   <a className="link-btn" href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('Backlog import problem')}`}>
-                    Contact support
+                    {t('importResultDialog.contactSupport')}
                   </a>
                 </p>
               )}
@@ -108,7 +113,7 @@ export function ImportResultDialog({ result, onClose }: ImportResultDialogProps)
             className="btn btn--primary"
             onClick={onClose}
           >
-            {success ? 'Reload' : 'Close'}
+            {success ? t('importResultDialog.reload') : t('importResultDialog.close')}
           </button>
         </div>
       </div>

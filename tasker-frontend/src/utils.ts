@@ -1,3 +1,4 @@
+import i18n from './i18n';
 import { formatDate, formatTime } from './i18n/format';
 
 export function formatDeadline(isoDate: string): string {
@@ -6,9 +7,9 @@ export function formatDeadline(isoDate: string): string {
   today.setHours(0, 0, 0, 0);
   const diff = Math.round((d.getTime() - today.getTime()) / 86_400_000);
 
-  if (diff < 0) return `${Math.abs(diff)}d overdue`;
-  if (diff === 0) return 'Today';
-  if (diff === 1) return 'Tomorrow';
+  if (diff < 0) return i18n.t('utils.overdue', { count: Math.abs(diff) });
+  if (diff === 0) return i18n.t('utils.today');
+  if (diff === 1) return i18n.t('utils.tomorrow');
   if (diff <= 6) return formatDate(d, { weekday: 'short' });
   return formatDate(d, { month: 'short', day: 'numeric' });
 }
@@ -29,11 +30,6 @@ export function formatDuration(minutes: number): string {
 
 export function generateId(): string {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
-}
-
-/** Formats a count with a singular/plural noun, e.g. `plural(1, 'task', 'tasks') === '1 task'`. */
-export function plural(n: number, one: string, many: string): string {
-  return `${n} ${n === 1 ? one : many}`;
 }
 
 function hash(s: string): number {
@@ -79,10 +75,10 @@ export function formatRelative(iso: string): string {
   if (Number.isNaN(date.getTime())) return iso;
   const diffMs = Date.now() - date.getTime();
   const diffHours = Math.round(diffMs / (1000 * 60 * 60));
-  if (diffHours < 1) return 'just now';
-  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffHours < 1) return i18n.t('utils.justNow');
+  if (diffHours < 24) return i18n.t('utils.hoursAgo', { count: diffHours });
   const diffDays = Math.round(diffHours / 24);
-  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffDays < 7) return i18n.t('utils.daysAgo', { count: diffDays });
   return formatDate(date, { month: 'short', day: 'numeric' });
 }
 

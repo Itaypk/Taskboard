@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import { SUPPORT_EMAIL } from '../config';
 import tosContent from './tos.md?raw';
@@ -17,6 +18,7 @@ interface PolicyPageProps {
 }
 
 function PolicyPage({ title, body }: PolicyPageProps) {
+    const { t } = useTranslation();
     useEffect(() => {
         const previous = document.title;
         document.title = `${title} — Backlog.fyi`;
@@ -28,7 +30,7 @@ function PolicyPage({ title, body }: PolicyPageProps) {
             <article className={styles.page}>
                 <header className={styles.header}>
                     <h1>{title}</h1>
-                    <Link to="/" className="link-btn">← Back to Backlog.fyi</Link>
+                    <Link to="/" className="link-btn">{t('policyPage.backHome')}</Link>
                 </header>
                 <MarkdownRenderer content={body} showExpandButton={false} />
             </article>
@@ -37,9 +39,11 @@ function PolicyPage({ title, body }: PolicyPageProps) {
 }
 
 export function TermsPage() {
-    return <PolicyPage title="Terms of Service" body={fillPlaceholders(tosContent)} />;
+    const { t } = useTranslation();
+    return <PolicyPage title={t('policyPage.termsTitle')} body={fillPlaceholders(tosContent)} />;
 }
 
 export function PrivacyPage() {
-    return <PolicyPage title="Privacy Policy" body={fillPlaceholders(ppContent)} />;
+    const { t } = useTranslation();
+    return <PolicyPage title={t('policyPage.privacyTitle')} body={fillPlaceholders(ppContent)} />;
 }

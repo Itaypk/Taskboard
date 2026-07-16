@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { OneOffEvent } from '../types';
 import { cancelEvent as cancelEventApi } from '../api';
 import { formatTimeSlot } from '../utils';
@@ -16,6 +17,7 @@ interface EventsSectionProps {
  * event has started it's "triggered" and the button is hidden — its calendar copy is the user's now.
  */
 export function EventsSection({ events, onCancelled }: EventsSectionProps) {
+  const { t } = useTranslation();
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   // Snapshot "now" once at mount — the future/past split only needs to be right when the drawer
   // opens, and reading the clock during render is an impurity the lint rule (rightly) rejects.
@@ -33,7 +35,7 @@ export function EventsSection({ events, onCancelled }: EventsSectionProps) {
 
   return (
     <section className={styles.section}>
-      <h4 className={styles.sectionLabel}>Events ({events.length})</h4>
+      <h4 className={styles.sectionLabel}>{t('eventsSection.heading', { count: events.length })}</h4>
       <ul className={styles.eventList}>
         {events.map(event => {
           const cancellable = new Date(event.startsAt).getTime() > now;
@@ -52,9 +54,9 @@ export function EventsSection({ events, onCancelled }: EventsSectionProps) {
                   className={styles.eventCancelBtn}
                   onClick={() => cancel(event.id)}
                   disabled={cancellingId === event.id}
-                  aria-label={`Cancel ${event.title}`}
+                  aria-label={t('eventsSection.cancelEvent', { title: event.title })}
                 >
-                  {cancellingId === event.id ? 'Cancelling…' : 'Cancel'}
+                  {cancellingId === event.id ? t('eventsSection.cancelling') : t('eventsSection.cancel')}
                 </button>
               )}
             </li>

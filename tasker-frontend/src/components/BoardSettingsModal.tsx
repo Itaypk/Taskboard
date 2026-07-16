@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     fetchMembers, fetchInvitations, inviteToBoard, revokeInvitation,
     setMemberRole, removeMember, leaveBoard, updateBoard, deleteBoard,
@@ -34,10 +35,6 @@ type Confirm =
     | { kind: 'remove'; userId: string; name: string }
     | { kind: 'invite'; email: string };
 
-const CONSENT =
-    'Everyone you add can see and edit every task on this board — including ones already there — ' +
-    'until you remove them. They will also see your name. Send the invitation?';
-
 function formatDate(iso: string): string {
     return new Date(iso).toLocaleDateString(getActiveLocale(), { year: 'numeric', month: 'short', day: 'numeric' });
 }
@@ -45,6 +42,7 @@ function formatDate(iso: string): string {
 export function BoardSettingsModal({
     open, board, currentUserId, canDelete, canInvite, onClose, onMembershipChanged, onBoardChanged, onLeft, onDeleted,
 }: BoardSettingsModalProps) {
+    const { t } = useTranslation();
     const [members, setMembers] = useState<BoardMember[]>([]);
     const [invitations, setInvitations] = useState<PendingInvitation[]>([]);
     const [loadedBoardId, setLoadedBoardId] = useState<string | null>(null);
@@ -195,11 +193,11 @@ export function BoardSettingsModal({
 
     const confirmCopy = (): { title: string; message: string; label: string; danger: boolean } => {
         switch (confirm?.kind) {
-            case 'invite': return { title: 'Share this board?', message: CONSENT, label: 'Send invitation', danger: false };
-            case 'remove': return { title: 'Remove member?', message: `Remove ${confirm.name} from "${board.name}"? Their tasks stay on the board.`, label: 'Remove', danger: true };
-            case 'leave': return { title: 'Leave this board?', message: `Leave "${board.name}"? Tasks you added stay for the other members. You can only rejoin via a new invitation.`, label: 'Leave board', danger: true };
-            case 'delete': return { title: 'Delete this board?', message: `Delete "${board.name}" and all of its tasks, categories, and tags? This cannot be undone.`, label: 'Delete board', danger: true };
-            default: return { title: '', message: '', label: 'Confirm', danger: false };
+            case 'invite': return { title: t('boardSettingsModal.confirm.inviteTitle'), message: t('boardSettingsModal.consent'), label: t('boardSettingsModal.confirm.inviteLabel'), danger: false };
+            case 'remove': return { title: t('boardSettingsModal.confirm.removeTitle'), message: t('boardSettingsModal.confirm.removeMessage', { name: confirm.name, board: board.name }), label: t('boardSettingsModal.remove'), danger: true };
+            case 'leave': return { title: t('boardSettingsModal.confirm.leaveTitle'), message: t('boardSettingsModal.confirm.leaveMessage', { board: board.name }), label: t('boardSettingsModal.leaveBoard'), danger: true };
+            case 'delete': return { title: t('boardSettingsModal.confirm.deleteTitle'), message: t('boardSettingsModal.confirm.deleteMessage', { board: board.name }), label: t('boardSettingsModal.deleteBoard'), danger: true };
+            default: return { title: '', message: '', label: t('boardSettingsModal.confirm.defaultLabel'), danger: false };
         }
     };
 
@@ -209,14 +207,14 @@ export function BoardSettingsModal({
         <div className="modal-overlay modal-overlay--open" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
             <div className="modal" role="dialog" aria-modal="true" aria-labelledby="board-settings-title" style={{ width: 480 }}>
                 <div className="modal__header">
-                    <span className="modal__title" id="board-settings-title">Board settings</span>
-                    <button type="button" className="modal__close" onClick={onClose} aria-label="Close">✕</button>
+                    <span className="modal__title" id="board-settings-title">{t('boardSettingsModal.title')}</span>
+                    <button type="button" className="modal__close" onClick={onClose} aria-label={t('boardSettingsModal.close')}>✕</button>
                 </div>
 
                 <div className="modal__body">
                     {/* ── Name ── */}
                     <div className="field">
-                        <label className="field__label" htmlFor="board-name">Name</label>
+                        <label className="field__label" htmlFor="board-name">{t('boardSettingsModal.name')}</label>
                         <input
                             id="board-name"
                             type="text"
@@ -225,15 +223,15 @@ export function BoardSettingsModal({
                             maxLength={60}
                             disabled={!isOwner || savingBoard}
                             onChange={e => setName(e.target.value)}
-                            placeholder="Board name"
+                            placeholder={t('boardSettingsModal.namePlaceholder')}
                         />
                     </div>
 
                     {/* ── Mascot ── */}
                     <div className="field">
-                        <label className="field__label">Mascot</label>
-                        <p className={styles.fieldHint}>The little character in the corner of this board.</p>
-                        <div className={styles.mascotGrid} role="radiogroup" aria-label="Board mascot">
+                        <label className="field__label">{t('boardSettingsModal.mascot')}</label>
+                        <p className={styles.fieldHint}>{t('boardSettingsModal.mascotHint')}</p>
+                        <div className={styles.mascotGrid} role="radiogroup" aria-label={t('boardSettingsModal.mascotAria')}>
                             {MASCOTS.map(m => {
                                 const selected = m.id === mascot;
                                 return (
@@ -257,9 +255,9 @@ export function BoardSettingsModal({
 
                     {/* ── Members ── */}
                     <div className="field">
-                        <label className="field__label">Members</label>
+                        <label className="field__label">{t('boardSettingsModal.members')}</label>
                         {loading ? (
-                            <p className={styles.muted}>Loading…</p>
+                            <p className={styles.muted}>{t('boardSettingsModal.loading')}</p>
                         ) : (
                             <ul className={styles.list}>
                                 {members.map(m => {
@@ -268,12 +266,12 @@ export function BoardSettingsModal({
                                         <li key={m.userId} className={styles.row}>
                                             <div className={styles.who}>
                                                 <span className={styles.name}>
-                                                    {m.displayName}{isSelf && <span className={styles.youTag}> (you)</span>}
+                                                    {m.displayName}{isSelf && <span className={styles.youTag}>{t('boardSettingsModal.youTag')}</span>}
                                                 </span>
-                                                <span className={styles.meta}>joined {formatDate(m.joinedAt)}</span>
+                                                <span className={styles.meta}>{t('boardSettingsModal.joinedOn', { date: formatDate(m.joinedAt) })}</span>
                                             </div>
                                             <span className={`${styles.roleChip} ${m.role === 'OWNER' ? styles.roleOwner : ''}`}>
-                                                {m.role === 'OWNER' ? 'Owner' : 'Member'}
+                                                {m.role === 'OWNER' ? t('boardSettingsModal.roleOwner') : t('boardSettingsModal.roleMember')}
                                             </span>
                                             {isOwner && !isSelf && (
                                                 <div className={styles.rowActions}>
@@ -283,7 +281,7 @@ export function BoardSettingsModal({
                                                         disabled={busy}
                                                         onClick={() => changeRole(m.userId, m.role === 'OWNER' ? 'MEMBER' : 'OWNER')}
                                                     >
-                                                        {m.role === 'OWNER' ? 'Make member' : 'Make owner'}
+                                                        {m.role === 'OWNER' ? t('boardSettingsModal.makeMember') : t('boardSettingsModal.makeOwner')}
                                                     </button>
                                                     <button
                                                         type="button"
@@ -291,7 +289,7 @@ export function BoardSettingsModal({
                                                         disabled={busy}
                                                         onClick={() => setConfirm({ kind: 'remove', userId: m.userId, name: m.displayName })}
                                                     >
-                                                        Remove
+                                                        {t('boardSettingsModal.remove')}
                                                     </button>
                                                 </div>
                                             )}
@@ -303,7 +301,7 @@ export function BoardSettingsModal({
 
                         {isOwner && !canInvite && (
                             <p className={styles.inviteHint}>
-                                Link a login method (Telegram or a verified email) in Settings to invite people to this board.
+                                {t('boardSettingsModal.inviteHint')}
                             </p>
                         )}
 
@@ -313,25 +311,25 @@ export function BoardSettingsModal({
                                     <input
                                         type="email"
                                         className={styles.inviteInput}
-                                        placeholder="invite by email…"
+                                        placeholder={t('boardSettingsModal.invitePlaceholder')}
                                         value={email}
                                         onChange={e => setEmail(e.target.value)}
                                         disabled={busy}
                                         required
                                     />
-                                    <button type="submit" className="btn btn--primary" disabled={busy || !email.trim()}>Invite</button>
+                                    <button type="submit" className="btn btn--primary" disabled={busy || !email.trim()}>{t('boardSettingsModal.invite')}</button>
                                 </form>
 
                                 {invitations.length > 0 && (
                                     <div className={styles.pending}>
-                                        <div className={styles.pendingHead}>Pending invitations</div>
+                                        <div className={styles.pendingHead}>{t('boardSettingsModal.pendingInvitations')}</div>
                                         {invitations.map(inv => (
                                             <div key={inv.id} className={styles.pendingRow}>
                                                 <span className={styles.meta}>
-                                                    invited {formatDate(inv.createdAt)} · expires {formatDate(inv.expiresAt)}
+                                                    {t('boardSettingsModal.invitedExpires', { invited: formatDate(inv.createdAt), expires: formatDate(inv.expiresAt) })}
                                                 </span>
                                                 <button type="button" className={`${styles.linkBtn} ${styles.danger}`} disabled={busy} onClick={() => revoke(inv.id)}>
-                                                    Revoke
+                                                    {t('boardSettingsModal.revoke')}
                                                 </button>
                                             </div>
                                         ))}
@@ -347,20 +345,20 @@ export function BoardSettingsModal({
                             type="button"
                             className="btn btn--ghost"
                             disabled={busy || onlyMember}
-                            title={onlyMember ? 'You are the only member — delete the board instead' : undefined}
+                            title={onlyMember ? t('boardSettingsModal.onlyMemberHint') : undefined}
                             onClick={() => setConfirm({ kind: 'leave' })}
                         >
-                            Leave board
+                            {t('boardSettingsModal.leaveBoard')}
                         </button>
                         {isOwner && (
                             <button
                                 type="button"
                                 className="btn btn--danger"
                                 disabled={busy || !canDelete}
-                                title={!canDelete ? 'This is your only board — create another first' : undefined}
+                                title={!canDelete ? t('boardSettingsModal.onlyBoardHint') : undefined}
                                 onClick={() => setConfirm({ kind: 'delete' })}
                             >
-                                Delete board
+                                {t('boardSettingsModal.deleteBoard')}
                             </button>
                         )}
                     </div>
@@ -368,11 +366,11 @@ export function BoardSettingsModal({
 
                 <div className="modal__footer">
                     <button type="button" className="btn btn--ghost" onClick={onClose} disabled={savingBoard}>
-                        {dirty ? 'Cancel' : 'Done'}
+                        {dirty ? t('boardSettingsModal.cancel') : t('boardSettingsModal.done')}
                     </button>
                     {isOwner && (
                         <button type="button" className="btn btn--primary" onClick={saveBoard} disabled={!canSaveBoard}>
-                            {savingBoard ? 'Saving…' : 'Save'}
+                            {savingBoard ? t('boardSettingsModal.saving') : t('boardSettingsModal.save')}
                         </button>
                     )}
                 </div>

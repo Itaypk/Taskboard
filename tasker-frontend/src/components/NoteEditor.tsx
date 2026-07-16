@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Extension } from '@tiptap/core';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -55,6 +56,7 @@ interface NoteEditorProps {
  * Markdown for power users and as an escape hatch if the WYSIWYG ever mangles a round-trip.
  */
 function NoteEditor({ value, onChange, placeholder, error, disabled }: NoteEditorProps) {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<'rich' | 'raw'>('rich');
 
   // Keep the latest onChange/value without re-creating the editor (useEditor is init-once).
@@ -115,7 +117,7 @@ function NoteEditor({ value, onChange, placeholder, error, disabled }: NoteEdito
       editor.chain().focus().unsetLink().run();
       return;
     }
-    const url = window.prompt('Link URL')?.trim();
+    const url = window.prompt(t('noteEditor.linkUrlPrompt'))?.trim();
     if (url) editor.chain().focus().setLink({ href: url }).run();
   }
 
@@ -139,24 +141,24 @@ function NoteEditor({ value, onChange, placeholder, error, disabled }: NoteEdito
 
   return (
     <div className={wrapperClass}>
-      <div className={styles.toolbar} role="toolbar" aria-label="Formatting">
+      <div className={styles.toolbar} role="toolbar" aria-label={t('noteEditor.formatting')}>
         {mode === 'rich' && editor && (
           <>
-            <ToolbarButton label="Bold" active={editor.isActive('bold')} disabled={disabled}
+            <ToolbarButton label={t('noteEditor.bold')} active={editor.isActive('bold')} disabled={disabled}
               onClick={() => editor.chain().focus().toggleBold().run()}><BoldIcon /></ToolbarButton>
-            <ToolbarButton label="Italic" active={editor.isActive('italic')} disabled={disabled}
+            <ToolbarButton label={t('noteEditor.italic')} active={editor.isActive('italic')} disabled={disabled}
               onClick={() => editor.chain().focus().toggleItalic().run()}><ItalicIcon /></ToolbarButton>
             <span className={styles.divider} aria-hidden="true" />
-            <ToolbarButton label="Bulleted list" active={editor.isActive('bulletList')} disabled={disabled}
+            <ToolbarButton label={t('noteEditor.bulletedList')} active={editor.isActive('bulletList')} disabled={disabled}
               onClick={() => editor.chain().focus().toggleBulletList().run()}><BulletListIcon /></ToolbarButton>
-            <ToolbarButton label="Numbered list" active={editor.isActive('orderedList')} disabled={disabled}
+            <ToolbarButton label={t('noteEditor.numberedList')} active={editor.isActive('orderedList')} disabled={disabled}
               onClick={() => editor.chain().focus().toggleOrderedList().run()}><OrderedListIcon /></ToolbarButton>
-            <ToolbarButton label="Checklist" active={editor.isActive('taskList')} disabled={disabled}
+            <ToolbarButton label={t('noteEditor.checklist')} active={editor.isActive('taskList')} disabled={disabled}
               onClick={() => editor.chain().focus().toggleTaskList().run()}><ChecklistIcon /></ToolbarButton>
-            <ToolbarButton label="Indent" disabled={disabled} onClick={indent}><IndentIcon /></ToolbarButton>
-            <ToolbarButton label="Outdent" disabled={disabled} onClick={outdent}><OutdentIcon /></ToolbarButton>
+            <ToolbarButton label={t('noteEditor.indent')} disabled={disabled} onClick={indent}><IndentIcon /></ToolbarButton>
+            <ToolbarButton label={t('noteEditor.outdent')} disabled={disabled} onClick={outdent}><OutdentIcon /></ToolbarButton>
             <span className={styles.divider} aria-hidden="true" />
-            <ToolbarButton label="Link" active={editor.isActive('link')} disabled={disabled}
+            <ToolbarButton label={t('noteEditor.link')} active={editor.isActive('link')} disabled={disabled}
               onClick={toggleLink}><LinkIcon /></ToolbarButton>
           </>
         )}
@@ -165,8 +167,8 @@ function NoteEditor({ value, onChange, placeholder, error, disabled }: NoteEdito
           className={`${styles.tbtn} ${styles.tbtnRight}`}
           onClick={() => setMode(m => (m === 'rich' ? 'raw' : 'rich'))}
           aria-pressed={mode === 'raw'}
-          aria-label={mode === 'rich' ? 'Edit as Markdown' : 'Rich editor'}
-          title={mode === 'rich' ? 'Edit as Markdown' : 'Rich editor'}
+          aria-label={mode === 'rich' ? t('noteEditor.editAsMarkdown') : t('noteEditor.richEditor')}
+          title={mode === 'rich' ? t('noteEditor.editAsMarkdown') : t('noteEditor.richEditor')}
         >
           {mode === 'rich' ? <MarkdownIcon /> : <RichTextIcon />}
         </button>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface BoardNameDialogProps {
   open: boolean;
@@ -11,6 +12,7 @@ interface BoardNameDialogProps {
 
 /** Small single-field dialog for creating or renaming a board. Reuses the shared modal/btn styles. */
 export function BoardNameDialog({ open, title, confirmLabel, initialValue = '', onConfirm, onClose }: BoardNameDialogProps) {
+  const { t } = useTranslation();
   const [name, setName] = useState(initialValue);
   const [busy, setBusy] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
@@ -60,13 +62,13 @@ export function BoardNameDialog({ open, title, confirmLabel, initialValue = '', 
             className="field__input"
             value={name}
             maxLength={60}
-            placeholder="Board name"
+            placeholder={t('boardNameDialog.namePlaceholder')}
             onChange={e => setName(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void submit(); } }}
           />
         </div>
         <div className="modal__footer">
-          <button type="button" className="btn btn--ghost" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn btn--ghost" onClick={onClose}>{t('boardNameDialog.cancel')}</button>
           <button type="button" className="btn btn--primary" disabled={!canSubmit} onClick={() => void submit()}>
             {confirmLabel}
           </button>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styles from './AiUsageMeter.module.css';
 import type { AiUsage } from '../types';
 import { fetchAiUsage } from '../api';
@@ -9,6 +10,7 @@ import { fetchAiUsage } from '../api';
  * collapse to a quiet badge — no bar to fill.
  */
 export function AiUsageMeter() {
+  const { t } = useTranslation();
   const [usage, setUsage] = useState<AiUsage | null>(null);
   const [error, setError] = useState(false);
 
@@ -21,19 +23,19 @@ export function AiUsageMeter() {
   }, []);
 
   if (error) {
-    return <p className="settings-hint">Couldn't load your AI usage right now.</p>;
+    return <p className="settings-hint">{t('aiUsageMeter.loadError')}</p>;
   }
 
   if (!usage) {
-    return <p className={styles.loading}>Loading usage…</p>;
+    return <p className={styles.loading}>{t('aiUsageMeter.loading')}</p>;
   }
 
   if (usage.limitTokens == null) {
     return (
       <div className={styles.card}>
-        <span className={styles.unlimitedBadge}>Unlimited</span>
+        <span className={styles.unlimitedBadge}>{t('aiUsageMeter.unlimited')}</span>
         <p className={styles.unlimitedNote}>
-          Your plan has no token cap. Use AI features as much as you like.
+          {t('aiUsageMeter.unlimitedNote')}
         </p>
       </div>
     );
@@ -50,7 +52,7 @@ export function AiUsageMeter() {
       <div className={styles.head}>
         <div className={styles.headline}>
           <span className={styles.remaining}>{Math.round(pctRemaining)}%</span>
-          <span className={styles.remainingLabel}>left</span>
+          <span className={styles.remainingLabel}>{t('aiUsageMeter.left')}</span>
         </div>
         <span className={styles.tier}>{usage.tier}</span>
       </div>
@@ -62,14 +64,13 @@ export function AiUsageMeter() {
         aria-valuemin={0}
         aria-valuemax={usage.limitTokens}
         aria-valuenow={used}
-        aria-label="AI tokens used this period"
+        aria-label={t('aiUsageMeter.ariaLabel')}
       >
         <span className={styles.fill} style={{ width: `${pctUsed}%` }} />
       </div>
 
       <p className={styles.caption}>
-        {Math.round(pctUsed)}% used · resets as your last{' '}
-        {usage.windowDays} days roll forward
+        {t('aiUsageMeter.caption', { count: usage.windowDays, pct: Math.round(pctUsed) })}
       </p>
     </div>
   );
