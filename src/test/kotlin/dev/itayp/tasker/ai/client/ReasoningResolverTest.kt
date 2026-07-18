@@ -1,6 +1,7 @@
 package dev.itayp.tasker.ai.client
 
 import dev.itayp.tasker.ai.AiProperties
+import dev.itayp.tasker.ai.AiPropertiesReasoningEffortSource
 import dev.itayp.tasker.ai.AiReasoningProperties
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.mock
@@ -13,7 +14,7 @@ class ReasoningResolverTest {
     private val capabilities: ModelCapabilityService = mock()
 
     private fun resolver(reasoning: AiReasoningProperties) =
-        ReasoningResolver(AiProperties(reasoning = reasoning), capabilities)
+        ReasoningResolver(AiPropertiesReasoningEffortSource(AiProperties(reasoning = reasoning)), capabilities)
 
     private fun caps(supportsReasoning: Boolean, supportedEfforts: List<String>? = null) =
         ModelCapabilities(supportsReasoning = supportsReasoning, supportedEfforts = supportedEfforts)

@@ -20,7 +20,12 @@ class ModelCapabilityServiceTest {
     private fun service(properties: AiProperties): Pair<ModelCapabilityService, MockRestServiceServer> {
         val builder = RestClient.builder()
         val server = MockRestServiceServer.bindTo(builder).build()
-        return ModelCapabilityService(properties, builder) to server
+        val clientProperties = AiClientProperties(
+            apiKey = properties.apiKey,
+            baseUrl = properties.baseUrl,
+            configuredModels = properties.configuredModels,
+        )
+        return ModelCapabilityService(clientProperties, builder) to server
     }
 
     @Test

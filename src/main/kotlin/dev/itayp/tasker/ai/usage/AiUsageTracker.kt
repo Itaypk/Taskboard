@@ -1,6 +1,7 @@
 package dev.itayp.tasker.ai.usage
 
 import dev.itayp.tasker.ai.client.AiCallContext
+import dev.itayp.tasker.ai.client.AiCallListener
 import dev.itayp.tasker.ai.client.ChatRequest
 import dev.itayp.tasker.ai.client.ChatResponse
 import dev.itayp.tasker.ai.client.ModelCapabilityService
@@ -23,7 +24,7 @@ class AiUsageTracker(
     private val meterRegistry: MeterRegistry,
     private val clock: Clock,
     private val modelCapabilityService: ModelCapabilityService,
-) {
+) : AiCallListener {
     private val log = LoggerFactory.getLogger(AiUsageTracker::class.java)
 
     /**
@@ -41,7 +42,7 @@ class AiUsageTracker(
         }
     }
 
-    fun recordSuccess(context: AiCallContext, request: ChatRequest, response: ChatResponse) {
+    override fun recordSuccess(context: AiCallContext, request: ChatRequest, response: ChatResponse) {
         val usage = response.usage
         // OpenRouter echoes the resolved model/provider; fall back to the requested model.
         val model = response.model ?: request.model
@@ -60,7 +61,7 @@ class AiUsageTracker(
         )
     }
 
-    fun recordFailure(context: AiCallContext, request: ChatRequest) {
+    override fun recordFailure(context: AiCallContext, request: ChatRequest) {
         // No usage body on failure — record the attempt so failed calls are still accounted for.
         record(
             context = context,
