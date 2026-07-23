@@ -131,8 +131,8 @@ export function TaskLine({
           <span className={styles.dur}><ClockIcon /> {formatDuration(task.estimatedMinutes)}</span>
         )}
         {task.deadline && (
-          <span className={isOverdue(task.deadline) ? styles.overdue : undefined}>
-            <CalIcon /> {formatDeadline(task.deadline)}
+          <span className={isOverdue(task.deadline, task.status === 'done') ? styles.overdue : undefined}>
+            <CalIcon /> {formatDeadline(task.deadline, task.status === 'done')}
           </span>
         )}
       </div>
