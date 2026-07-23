@@ -88,7 +88,6 @@ class EmailVerificationService(
         )
 
         log.info("Email verification requested for userId={}", userId)
-        log.debug("Email verification email value: {}", normalised)
     }
 
     fun confirmVerification(token: String): Boolean {
