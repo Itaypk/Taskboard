@@ -122,8 +122,8 @@ export function PostItNote({
 
       <div className="note__meta">
         {task.deadline && (
-          <span className={`note__meta-item${isOverdue(task.deadline) ? ' note__meta-item--overdue' : ''}`}>
-            <Icon name="cal" /> {formatDeadline(task.deadline)}
+          <span className={`note__meta-item${isOverdue(task.deadline, task.status === 'done') ? ' note__meta-item--overdue' : ''}`}>
+            <Icon name="cal" /> {formatDeadline(task.deadline, task.status === 'done')}
           </span>
         )}
         {task.estimatedMinutes != null && (
