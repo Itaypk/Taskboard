@@ -19,15 +19,16 @@ class RateLimitInterceptor(
 ) : HandlerInterceptor {
 
     override fun preHandle(request: HttpServletRequest, response: HttpServletResponse, handler: Any): Boolean {
-        when (request.servletPath) {
-            DEMO_LOGIN_PATH -> {
-                if (!demoLoginLimiter.tryConsume(request.clientIp())) return reject(response)
-                return true
-            }
-            TELEGRAM_LOGIN_PATH -> {
-                if (!telegramLoginLimiter.tryConsume(request.clientIp())) return reject(response)
-                return true
-            }
+        val servletPath = request.servletPath
+        if (servletPath == DEMO_LOGIN_PATH) {
+            if (!demoLoginLimiter.tryConsume(request.clientIp())) return reject(response)
+            return true
+        }
+        // Prefix match: the real endpoints are /api/auth/telegram/{start,callback,link/...},
+        // never the bare prefix, so an exact-equality check would never fire.
+        if (servletPath.startsWith(TELEGRAM_LOGIN_PREFIX)) {
+            if (!telegramLoginLimiter.tryConsume(request.clientIp())) return reject(response)
+            return true
         }
 
         val principal = SecurityContextHolder.getContext().authentication?.principal
@@ -47,6 +48,6 @@ class RateLimitInterceptor(
 
     companion object {
         private const val DEMO_LOGIN_PATH = "/api/auth/demo-login"
-        private const val TELEGRAM_LOGIN_PATH = "/api/auth/telegram"
+        private const val TELEGRAM_LOGIN_PREFIX = "/api/auth/telegram"
     }
 }
