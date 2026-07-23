@@ -18,6 +18,19 @@ class AesGcmCipherTest {
     }
 
     @Test
+    fun `seal then open recovers empty plaintext`() {
+        val envelope = AesGcmCipher.seal(key, ByteArray(0), aad)
+        assertArrayEquals(ByteArray(0), AesGcmCipher.open(key, envelope, aad))
+    }
+
+    @Test
+    fun `seal then open with empty AAD round-trips`() {
+        val plaintext = "no aad".toByteArray()
+        val envelope = AesGcmCipher.seal(key, plaintext, ByteArray(0))
+        assertArrayEquals(plaintext, AesGcmCipher.open(key, envelope, ByteArray(0)))
+    }
+
+    @Test
     fun `tampered ciphertext fails`() {
         val envelope = AesGcmCipher.seal(key, "secret".toByteArray(), aad)
         envelope[envelope.size - 1] = (envelope[envelope.size - 1] + 1).toByte()
