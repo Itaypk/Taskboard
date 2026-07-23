@@ -1,10 +1,10 @@
 import i18n from './i18n';
 import { formatDate, formatTime } from './i18n/format';
 
-/** Once a task is done, its deadline is historical — show a plain date rather than a relative/overdue label. */
-export function formatDeadline(isoDate: string, done = false): string {
+/** Once a task is done or archived, its deadline is historical — show a plain date rather than a relative/overdue label. */
+export function formatDeadline(isoDate: string, inactive = false): string {
   const d = new Date(isoDate + 'T00:00:00');
-  if (done) return formatDate(d, { month: 'short', day: 'numeric' });
+  if (inactive) return formatDate(d, { month: 'short', day: 'numeric' });
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -17,8 +17,8 @@ export function formatDeadline(isoDate: string, done = false): string {
   return formatDate(d, { month: 'short', day: 'numeric' });
 }
 
-export function isOverdue(isoDate: string, done = false): boolean {
-  if (done) return false;
+export function isOverdue(isoDate: string, inactive = false): boolean {
+  if (inactive) return false;
   const d = new Date(isoDate + 'T00:00:00');
   const today = new Date();
   today.setHours(0, 0, 0, 0);
