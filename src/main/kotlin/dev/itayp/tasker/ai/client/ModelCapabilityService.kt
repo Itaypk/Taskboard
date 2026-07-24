@@ -2,7 +2,6 @@ package dev.itayp.tasker.ai.client
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
-import dev.itayp.tasker.ai.AiProperties
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
@@ -28,7 +27,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 @Component
 class ModelCapabilityService(
-    private val properties: AiProperties,
+    private val properties: AiClientProperties,
     restClientBuilder: RestClient.Builder = RestClient.builder(),
 ) {
     private val log = LoggerFactory.getLogger(ModelCapabilityService::class.java)

@@ -1,26 +1,25 @@
 package dev.itayp.tasker.ai.client
 
-import dev.itayp.tasker.ai.AiProperties
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 /**
  * Resolves the reasoning/effort configuration to apply to a chat request, combining the
- * per-functionality effort config ([AiProperties.reasoning]) with the model's fetched capabilities
- * ([ModelCapabilityService]).
+ * per-functionality effort config (from [ReasoningEffortSource]) with the model's fetched
+ * capabilities ([ModelCapabilityService]).
  *
  * Returns null (no reasoning field) when the functionality has no configured effort, the effort
  * value isn't accepted by the model, or the target model doesn't support reasoning.
  */
 @Component
 class ReasoningResolver(
-    private val properties: AiProperties,
+    private val effortSource: ReasoningEffortSource,
     private val modelCapabilityService: ModelCapabilityService,
 ) {
     private val log = LoggerFactory.getLogger(ReasoningResolver::class.java)
 
     fun resolve(conversationType: String, model: String): ReasoningConfig? {
-        val configured = effortFor(conversationType)?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        val configured = effortSource.effortFor(conversationType)?.trim()?.takeIf { it.isNotEmpty() } ?: return null
         val effort = configured.lowercase()
 
         val capabilities = modelCapabilityService.get(model)
@@ -38,14 +37,6 @@ class ReasoningResolver(
             return null
         }
         return ReasoningConfig(effort = effort)
-    }
-
-    private fun effortFor(conversationType: String): String? = when (conversationType) {
-        AiConversationType.WEEKLY_PLANNING -> properties.reasoning.weeklyPlanning
-        AiConversationType.TASK_SEARCH -> properties.reasoning.taskSearch
-        AiConversationType.TASK_SUGGESTION -> properties.reasoning.taskSuggestion
-        AiConversationType.SLOT_REMINDER -> properties.reasoning.slotReminder
-        else -> null
     }
 
     companion object {

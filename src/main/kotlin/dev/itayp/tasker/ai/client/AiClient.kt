@@ -1,7 +1,5 @@
 package dev.itayp.tasker.ai.client
 
-import dev.itayp.tasker.ai.AiProperties
-import dev.itayp.tasker.ai.usage.AiUsageTracker
 import org.slf4j.LoggerFactory
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
@@ -11,9 +9,9 @@ import org.springframework.web.client.RestClient
 
 @Component
 class AiClient(
-    properties: AiProperties,
+    properties: AiClientProperties,
     private val callGate: AiCallGate,
-    private val usageTracker: AiUsageTracker,
+    private val callListener: AiCallListener,
     private val reasoningResolver: ReasoningResolver,
 ) {
     private val log = LoggerFactory.getLogger(AiClient::class.java)
@@ -49,10 +47,10 @@ class AiClient(
                     .body(ChatResponse::class.java)!!
             }
         } catch (e: RuntimeException) {
-            usageTracker.recordFailure(context, effectiveRequest)
+            callListener.recordFailure(context, effectiveRequest)
             throw e
         }
-        usageTracker.recordSuccess(context, effectiveRequest, response)
+        callListener.recordSuccess(context, effectiveRequest, response)
         return response
     }
 

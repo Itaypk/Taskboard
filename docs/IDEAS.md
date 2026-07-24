@@ -97,6 +97,13 @@ Deferred from the `docs/I18N.md` design (see there for full rationale). Not bloc
   decision to make early in Phase 2 (this is the same concern as the "Fonts look bad in Hebrew"
   note above).
 
+## Reusable libraries
+- Extract the envelope-encryption infrastructure and the OpenRouter client into two standalone,
+  JitPack-published libraries. The in-app code has already been decoupled behind stable seams
+  (`DekStore`; `AiCallGate` / `AiCallListener` / `ReasoningEffortSource` + `AiClientProperties`) so
+  the switch to the published dependency is mechanical. Design plan: `docs/LIBRARY-EXTRACTION.md`.
+  The library repos themselves are created in a separate session.
+
 ## Ideas that require more consideration
 - Open source the application under AGPL.
 - Unlock more mascots for users over use time or patterns.
