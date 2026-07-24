@@ -1,7 +1,7 @@
 package dev.itayp.tasker.planning
 
-import dev.itayp.tasker.ai.tool.AiTool
-import dev.itayp.tasker.ai.tool.ToolKind
+import dev.itayp.nescioquid.openrouter.tool.AiTool
+import dev.itayp.nescioquid.openrouter.tool.ToolKind
 import org.springframework.stereotype.Component
 
 /**

@@ -1,7 +1,7 @@
 package dev.itayp.tasker.config
 
-import dev.itayp.tasker.ai.tool.AiTool
-import dev.itayp.tasker.ai.tool.ToolRegistry
+import dev.itayp.nescioquid.openrouter.tool.AiTool
+import dev.itayp.nescioquid.openrouter.tool.ToolRegistry
 import org.springframework.beans.factory.InitializingBean
 import org.springframework.context.annotation.Configuration
 

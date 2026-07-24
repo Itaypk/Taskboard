@@ -1,8 +1,8 @@
 package dev.itayp.tasker.planning
 
 import com.fasterxml.jackson.annotation.JsonProperty
-import dev.itayp.tasker.ai.tool.AiTool
-import dev.itayp.tasker.ai.tool.ToolKind
+import dev.itayp.nescioquid.openrouter.tool.AiTool
+import dev.itayp.nescioquid.openrouter.tool.ToolKind
 import dev.itayp.tasker.model.TaskPriority
 import dev.itayp.tasker.service.BacklogTaskService
 import dev.itayp.tasker.service.BoardMembershipService

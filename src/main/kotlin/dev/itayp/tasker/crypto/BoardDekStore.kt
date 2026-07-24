@@ -1,5 +1,6 @@
 package dev.itayp.tasker.crypto
 
+import dev.itayp.nescioquid.crypto.DekStore
 import java.time.Clock
 import java.time.Instant
 import java.util.UUID

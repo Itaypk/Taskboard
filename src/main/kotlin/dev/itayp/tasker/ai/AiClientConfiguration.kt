@@ -1,6 +1,6 @@
 package dev.itayp.tasker.ai
 
-import dev.itayp.tasker.ai.client.AiClientProperties
+import dev.itayp.nescioquid.openrouter.AiClientProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 

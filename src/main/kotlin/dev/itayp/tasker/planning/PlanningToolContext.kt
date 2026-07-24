@@ -5,7 +5,7 @@ import java.time.ZoneId
 import java.util.UUID
 
 /**
- * Bridges the stateless [dev.itayp.tasker.ai.tool.AiTool] callback API and the per-turn user
+ * Bridges the stateless [dev.itayp.nescioquid.openrouter.tool.AiTool] callback API and the per-turn user
  * context the orchestrator owns. Mirrors [PlanSubmissionInbox]: the orchestrator opens a
  * thread-local scope before dispatching a turn's tool calls, the `DATA_LOOKUP` tools
  * ([FindTaskTool], [SuggestTaskTool], [CreateTaskTool]) read the current [userId]/[zone] from it,

@@ -4,7 +4,7 @@ import dev.itayp.tasker.planning.dto.AgreedPlan
 import org.springframework.stereotype.Component
 
 /**
- * Bridges the stateless [dev.itayp.tasker.ai.tool.AiTool] callback API and the orchestrator
+ * Bridges the stateless [dev.itayp.nescioquid.openrouter.tool.AiTool] callback API and the orchestrator
  * that wraps a single `sendMessage` invocation. The orchestrator opens a thread-local
  * collection bucket before each AI turn, [SubmitPlanTool] drops parsed payloads into it,
  * and the orchestrator drains it after the turn finishes. Cleared automatically on drain.

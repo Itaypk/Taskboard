@@ -1,7 +1,7 @@
 package dev.itayp.tasker.planning
 
-import dev.itayp.tasker.ai.client.FunctionCallDetails
-import dev.itayp.tasker.ai.client.ToolCall
+import dev.itayp.nescioquid.openrouter.FunctionCallDetails
+import dev.itayp.nescioquid.openrouter.ToolCall
 import dev.itayp.tasker.ai.conversation.ConversationService
 import dev.itayp.tasker.ai.conversation.StoredMessage
 import org.junit.jupiter.api.Test

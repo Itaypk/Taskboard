@@ -1,9 +1,9 @@
 package dev.itayp.tasker.planning
 
-import dev.itayp.tasker.ai.client.AiClient
-import dev.itayp.tasker.ai.client.ChatMessage
-import dev.itayp.tasker.ai.client.ChatResponse
-import dev.itayp.tasker.ai.client.Choice
+import dev.itayp.nescioquid.openrouter.AiClient
+import dev.itayp.nescioquid.openrouter.ChatMessage
+import dev.itayp.nescioquid.openrouter.ChatResponse
+import dev.itayp.nescioquid.openrouter.Choice
 import dev.itayp.tasker.ai.prompt.PromptTemplateLoader
 import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.BacklogTaskCategory

@@ -1,12 +1,12 @@
 package dev.itayp.tasker.ai
 
-import dev.itayp.tasker.ai.client.AiCallContext
-import dev.itayp.tasker.ai.client.AiClient
-import dev.itayp.tasker.ai.client.ChatMessage
-import dev.itayp.tasker.ai.client.ChatRequest
-import dev.itayp.tasker.ai.client.ToolCall
+import dev.itayp.nescioquid.openrouter.AiCallContext
+import dev.itayp.nescioquid.openrouter.AiClient
+import dev.itayp.nescioquid.openrouter.ChatMessage
+import dev.itayp.nescioquid.openrouter.ChatRequest
+import dev.itayp.nescioquid.openrouter.ToolCall
 import dev.itayp.tasker.ai.conversation.ConversationService
-import dev.itayp.tasker.ai.tool.ToolRegistry
+import dev.itayp.nescioquid.openrouter.tool.ToolRegistry
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import tools.jackson.core.type.TypeReference
