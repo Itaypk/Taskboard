@@ -1,5 +1,7 @@
 package dev.itayp.tasker.planning
 
+import com.fasterxml.jackson.annotation.JsonPropertyDescription
+import dev.itayp.nescioquid.openrouter.jsonSchema
 import dev.itayp.nescioquid.openrouter.tool.AiTool
 import dev.itayp.nescioquid.openrouter.tool.ToolKind
 import org.springframework.stereotype.Component
@@ -23,37 +25,24 @@ class AskChoiceTool : AiTool {
         "Always include an escape option with id 'discuss' so the user can opt out " +
         "of the queue and discuss in free text."
 
-    override val parameters: Map<String, Any> = mapOf(
-        "type" to "object",
-        "properties" to mapOf(
-            "prompt" to mapOf(
-                "type" to "string",
-                "description" to "The question shown to the user.",
-            ),
-            "options" to mapOf(
-                "type" to "array",
-                "description" to "The choices the user can pick from.",
-                "items" to mapOf(
-                    "type" to "object",
-                    "properties" to mapOf(
-                        "id" to mapOf(
-                            "type" to "string",
-                            "description" to "Stable identifier for this option, e.g. 'slot_a' or 'discuss'.",
-                        ),
-                        "label" to mapOf(
-                            "type" to "string",
-                            "description" to "Short label shown to the user.",
-                        ),
-                    ),
-                    "required" to listOf("id", "label"),
-                ),
-            ),
-        ),
-        "required" to listOf("prompt", "options"),
-    )
+    override val parameters: Map<String, Any> = jsonSchema<AskChoiceArgs>(strict = false)
 
     override val kind: ToolKind = ToolKind.INTERACTIVE_INPUT
 
     override fun execute(arguments: String): String =
         error("ask_choice is dispatched by the orchestrator and never executed directly")
+
+    private data class AskChoiceArgs(
+        @JsonPropertyDescription("The question shown to the user.")
+        val prompt: String,
+        @JsonPropertyDescription("The choices the user can pick from.")
+        val options: List<ChoiceOption>,
+    )
+
+    private data class ChoiceOption(
+        @JsonPropertyDescription("Stable identifier for this option, e.g. 'slot_a' or 'discuss'.")
+        val id: String,
+        @JsonPropertyDescription("Short label shown to the user.")
+        val label: String,
+    )
 }

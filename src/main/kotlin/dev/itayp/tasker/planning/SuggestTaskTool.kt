@@ -1,5 +1,7 @@
 package dev.itayp.tasker.planning
 
+import com.fasterxml.jackson.annotation.JsonPropertyDescription
+import dev.itayp.nescioquid.openrouter.jsonSchema
 import dev.itayp.nescioquid.openrouter.tool.AiTool
 import dev.itayp.nescioquid.openrouter.tool.ToolKind
 import org.slf4j.LoggerFactory
@@ -30,16 +32,7 @@ class SuggestTaskTool(
 
     override val kind: ToolKind = ToolKind.DATA_LOOKUP
 
-    override val parameters: Map<String, Any> = mapOf(
-        "type" to "object",
-        "properties" to mapOf(
-            "description" to mapOf(
-                "type" to "string",
-                "description" to "What the new task is about, in natural language — the user's words or your distillation of them.",
-            ),
-        ),
-        "required" to listOf("description"),
-    )
+    override val parameters: Map<String, Any> = jsonSchema<SuggestTaskArgs>(strict = false)
 
     override fun execute(arguments: String): String {
         val description = runCatching { objectMapper.readValue(arguments, SuggestTaskArgs::class.java).description }
@@ -53,5 +46,8 @@ class SuggestTaskTool(
         return objectMapper.writeValueAsString(mapOf("draft" to draft))
     }
 
-    private data class SuggestTaskArgs(val description: String)
+    private data class SuggestTaskArgs(
+        @JsonPropertyDescription("What the new task is about, in natural language — the user's words or your distillation of them.")
+        val description: String,
+    )
 }
