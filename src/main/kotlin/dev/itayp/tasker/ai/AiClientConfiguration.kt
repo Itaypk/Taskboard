@@ -11,8 +11,9 @@ import org.springframework.context.annotation.Configuration
  * contract, keeping the client decoupled from the app's config shape.
  *
  * The [ComponentScan] pulls the library's `@Component` beans (`AiClient`, `ModelCapabilityService`,
- * `ReasoningResolver`, `ToolRegistry`) into the context — they live in the library's own package,
- * outside the app's `dev.itayp.tasker` scan base package, so they aren't picked up otherwise.
+ * `ToolRegistry`) into the context — they live in the library's own package, outside the app's
+ * `dev.itayp.tasker` scan base package, so they aren't picked up otherwise. (Reasoning resolution is
+ * app-side now — see `ReasoningResolver` / `ReasoningAwareAiClient`.)
  */
 @Configuration
 @ComponentScan("dev.itayp.nescioquid.openrouter")

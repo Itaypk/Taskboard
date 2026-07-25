@@ -1,6 +1,6 @@
 package dev.itayp.tasker.planning
 
-import dev.itayp.nescioquid.openrouter.AiClient
+import dev.itayp.tasker.ai.ReasoningAwareAiClient
 import dev.itayp.nescioquid.openrouter.ChatMessage
 import dev.itayp.nescioquid.openrouter.ChatResponse
 import dev.itayp.nescioquid.openrouter.Choice
@@ -24,7 +24,7 @@ import kotlin.test.assertTrue
 
 class BacklogTaskSearchAgentTest {
 
-    private val aiClient: AiClient = mock()
+    private val aiClient: ReasoningAwareAiClient = mock()
     private val backlogTaskService: BacklogTaskService = mock()
     private val objectMapper = jacksonObjectMapper()
     private val meterRegistry = SimpleMeterRegistry()

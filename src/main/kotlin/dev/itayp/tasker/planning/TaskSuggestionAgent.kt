@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
 import dev.itayp.nescioquid.openrouter.AiCallContext
 import dev.itayp.tasker.ai.client.AiConversationType
-import dev.itayp.nescioquid.openrouter.AiClient
+import dev.itayp.tasker.ai.ReasoningAwareAiClient
 import dev.itayp.nescioquid.openrouter.ChatMessage
 import dev.itayp.nescioquid.openrouter.ChatRequest
 import dev.itayp.tasker.ai.prompt.PromptTemplateLoader
@@ -37,7 +37,7 @@ import java.util.UUID
  */
 @Service
 class TaskSuggestionAgent(
-    private val aiClient: AiClient,
+    private val aiClient: ReasoningAwareAiClient,
     private val backlogTaskService: BacklogTaskService,
     private val categoryService: BacklogTaskCategoryService,
     private val tagService: BacklogTaskTagService,
