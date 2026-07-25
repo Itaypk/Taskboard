@@ -1,5 +1,8 @@
 package dev.itayp.tasker.planning
 
+import com.fasterxml.jackson.annotation.JsonProperty
+import com.fasterxml.jackson.annotation.JsonPropertyDescription
+import dev.itayp.nescioquid.openrouter.jsonSchema
 import dev.itayp.nescioquid.openrouter.tool.AiTool
 import dev.itayp.nescioquid.openrouter.tool.ToolKind
 import org.springframework.stereotype.Component
@@ -19,24 +22,20 @@ class SayTool : AiTool {
         "you'd otherwise type as content. Multiple `say` calls in one turn are rendered " +
         "in order."
 
-    override val parameters: Map<String, Any> = mapOf(
-        "type" to "object",
-        "properties" to mapOf(
-            "text" to mapOf(
-                "type" to "string",
-                "description" to "The message body shown to the user.",
-            ),
-            "suggested_replies" to mapOf(
-                "type" to "array",
-                "description" to "Optional short reply suggestions the channel can render " +
-                    "as autocompletions. Ignored on channels that don't support them.",
-                "items" to mapOf("type" to "string"),
-            ),
-        ),
-        "required" to listOf("text"),
-    )
+    override val parameters: Map<String, Any> = jsonSchema<SayArgs>(strict = false)
 
     override val kind: ToolKind = ToolKind.ONE_WAY_OUTPUT
 
     override fun execute(arguments: String): String = """{"ok":true}"""
+
+    private data class SayArgs(
+        @JsonPropertyDescription("The message body shown to the user.")
+        val text: String,
+        @JsonProperty("suggested_replies")
+        @JsonPropertyDescription(
+            "Optional short reply suggestions the channel can render as autocompletions. " +
+                "Ignored on channels that don't support them.",
+        )
+        val suggestedReplies: List<String>? = null,
+    )
 }

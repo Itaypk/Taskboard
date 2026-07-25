@@ -1,5 +1,8 @@
 package dev.itayp.tasker.planning
 
+import com.fasterxml.jackson.annotation.JsonProperty
+import com.fasterxml.jackson.annotation.JsonPropertyDescription
+import dev.itayp.nescioquid.openrouter.jsonSchema
 import dev.itayp.nescioquid.openrouter.tool.AiTool
 import dev.itayp.nescioquid.openrouter.tool.ToolKind
 import dev.itayp.tasker.model.BacklogTaskTag
@@ -47,45 +50,12 @@ class UpdateTaskTool(
 
     override val kind: ToolKind = ToolKind.DATA_LOOKUP
 
-    override val parameters: Map<String, Any> = mapOf(
-        "type" to "object",
-        "properties" to mapOf(
-            "task_id" to mapOf("type" to "string", "description" to "UUID of the existing task to update."),
-            "title" to mapOf("type" to "string", "description" to "New title. Omit to keep the current title."),
-            "category_id" to mapOf("type" to "string", "description" to "UUID of a category to move the task to. Omit to keep current."),
-            "description" to mapOf("type" to "string", "description" to "New description / notes. Omit to keep; pass an empty string to clear."),
-            "url" to mapOf("type" to "string", "description" to "New URL. Omit to keep; empty string to clear."),
-            "priority" to mapOf("type" to "string", "enum" to TaskPriority.allowedValues.toList(), "description" to "New priority. Omit to keep current."),
-            "deadline" to mapOf("type" to "string", "description" to "New deadline, YYYY-MM-DD. Omit to keep; empty string to clear."),
-            "estimated_minutes" to mapOf("type" to "integer", "description" to "New time estimate in minutes. Omit to keep current."),
-            "status" to mapOf(
-                "type" to "string",
-                "enum" to listOf("todo", "done", "archived"),
-                "description" to "Set 'done' to complete or 'archived' to remove from active lists. Omit to keep current.",
-            ),
-            "relevant_from" to mapOf("type" to "string", "description" to "Date the task becomes relevant, YYYY-MM-DD. Omit to keep; empty string to clear."),
-            "tags" to mapOf(
-                "type" to "array",
-                "description" to "REPLACES the entire tag set when present. Omit to keep the current tags; pass an empty " +
-                    "array to remove all tags. Reuse an existing tag by passing its id, or create one with a new label " +
-                    "(and optionally a color_id).",
-                "items" to mapOf(
-                    "type" to "object",
-                    "properties" to mapOf(
-                        "id" to mapOf("type" to "string", "description" to "UUID of an existing tag, if reusing one."),
-                        "label" to mapOf("type" to "string", "description" to "Tag label."),
-                        "color_id" to mapOf(
-                            "type" to "string",
-                            "enum" to TagColorOptions.ALLOWED,
-                            "description" to "Color for a new tag. One of the allowed values; a color is assigned if omitted.",
-                        ),
-                    ),
-                    "required" to listOf("label"),
-                ),
-            ),
-        ),
-        "required" to listOf("task_id"),
-    )
+    override val parameters: Map<String, Any> = jsonSchema<UpdateTaskArgs>(strict = false) {
+        // Runtime enum lists the generator can't derive from the String-typed DTO fields.
+        property("priority").enum(TaskPriority.allowedValues)
+        property("status").enum(listOf("todo", "done", "archived"))
+        property("tags").items().property("color_id").enum(TagColorOptions.ALLOWED)
+    }
 
     @Suppress("UNCHECKED_CAST")
     override fun execute(arguments: String): String {
@@ -158,4 +128,42 @@ class UpdateTaskTool(
 
     private fun BacklogTaskTag.toTagInput(): TagInput =
         TagInput(id = id.toString(), label = label, colorId = colorId.name.lowercase())
+
+    /**
+     * Schema shape only — `execute` binds the payload to a raw map for presence detection, so this DTO
+     * exists purely to generate the tool's `parameters`. Every field but `task_id` is nullable so it's
+     * optional in the schema (an omitted field leaves the current value untouched).
+     */
+    private data class UpdateTaskArgs(
+        @JsonProperty("task_id")
+        @JsonPropertyDescription("UUID of the existing task to update.")
+        val taskId: String,
+        @JsonPropertyDescription("New title. Omit to keep the current title.")
+        val title: String? = null,
+        @JsonProperty("category_id")
+        @JsonPropertyDescription("UUID of a category to move the task to. Omit to keep current.")
+        val categoryId: String? = null,
+        @JsonPropertyDescription("New description / notes. Omit to keep; pass an empty string to clear.")
+        val description: String? = null,
+        @JsonPropertyDescription("New URL. Omit to keep; empty string to clear.")
+        val url: String? = null,
+        @JsonPropertyDescription("New priority. Omit to keep current.")
+        val priority: String? = null,
+        @JsonPropertyDescription("New deadline, YYYY-MM-DD. Omit to keep; empty string to clear.")
+        val deadline: String? = null,
+        @JsonProperty("estimated_minutes")
+        @JsonPropertyDescription("New time estimate in minutes. Omit to keep current.")
+        val estimatedMinutes: Int? = null,
+        @JsonPropertyDescription("Set 'done' to complete or 'archived' to remove from active lists. Omit to keep current.")
+        val status: String? = null,
+        @JsonProperty("relevant_from")
+        @JsonPropertyDescription("Date the task becomes relevant, YYYY-MM-DD. Omit to keep; empty string to clear.")
+        val relevantFrom: String? = null,
+        @JsonPropertyDescription(
+            "REPLACES the entire tag set when present. Omit to keep the current tags; pass an empty " +
+                "array to remove all tags. Reuse an existing tag by passing its id, or create one with a new label " +
+                "(and optionally a color_id).",
+        )
+        val tags: List<TagArg>? = null,
+    )
 }
