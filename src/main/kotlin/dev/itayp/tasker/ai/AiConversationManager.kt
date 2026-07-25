@@ -1,7 +1,6 @@
 package dev.itayp.tasker.ai
 
 import dev.itayp.nescioquid.openrouter.AiCallContext
-import dev.itayp.nescioquid.openrouter.AiClient
 import dev.itayp.nescioquid.openrouter.ChatMessage
 import dev.itayp.nescioquid.openrouter.ChatRequest
 import dev.itayp.nescioquid.openrouter.ToolCall
@@ -22,7 +21,7 @@ import java.util.UUID
  */
 @Service
 class AiConversationManager(
-    private val aiClient: AiClient,
+    private val aiClient: ReasoningAwareAiClient,
     private val conversationService: ConversationService,
     private val toolRegistry: ToolRegistry,
     private val objectMapper: ObjectMapper,

@@ -1,6 +1,6 @@
 package dev.itayp.tasker.notification
 
-import dev.itayp.nescioquid.openrouter.AiClient
+import dev.itayp.tasker.ai.ReasoningAwareAiClient
 import dev.itayp.nescioquid.openrouter.ChatMessage
 import dev.itayp.nescioquid.openrouter.ChatResponse
 import dev.itayp.nescioquid.openrouter.Choice
@@ -20,7 +20,7 @@ import kotlin.test.assertNull
 
 class ReminderMessageAgentTest {
 
-    private val aiClient: AiClient = mock()
+    private val aiClient: ReasoningAwareAiClient = mock()
     private val userSettingsService: UserSettingsService = mock()
     private val agent = ReminderMessageAgent(aiClient, userSettingsService, PromptTemplateLoader(), "test-model")
 

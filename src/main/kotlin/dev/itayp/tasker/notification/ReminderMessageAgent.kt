@@ -1,7 +1,7 @@
 package dev.itayp.tasker.notification
 
 import dev.itayp.nescioquid.openrouter.AiCallContext
-import dev.itayp.nescioquid.openrouter.AiClient
+import dev.itayp.tasker.ai.ReasoningAwareAiClient
 import dev.itayp.tasker.ai.client.AiConversationType
 import dev.itayp.nescioquid.openrouter.ChatMessage
 import dev.itayp.nescioquid.openrouter.ChatRequest
@@ -28,7 +28,7 @@ import java.util.UUID
  */
 @Service
 class ReminderMessageAgent(
-    private val aiClient: AiClient,
+    private val aiClient: ReasoningAwareAiClient,
     private val userSettingsService: UserSettingsService,
     private val promptTemplateLoader: PromptTemplateLoader,
     @Value("\${tasker.ai.task-assistant-model}")
