@@ -1,5 +1,6 @@
 package dev.itayp.tasker.crypto
 
+import dev.itayp.nescioquid.crypto.EnvelopeCipher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock

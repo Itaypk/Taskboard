@@ -22,7 +22,7 @@ data class AiProperties(
  * Reasoning effort per functionality. Each value is an OpenRouter effort level
  * (`minimal|low|medium|high`) or null/blank for "no reasoning override" (default). Keyed by the
  * [dev.itayp.tasker.ai.client.AiConversationType] functionalities; resolved in
- * [dev.itayp.tasker.ai.client.ReasoningResolver].
+ * [dev.itayp.nescioquid.openrouter.ReasoningResolver].
  */
 data class AiReasoningProperties(
     val weeklyPlanning: String? = null,

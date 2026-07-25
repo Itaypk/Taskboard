@@ -1,16 +1,16 @@
 package dev.itayp.tasker.ai.usage
 
-import dev.itayp.tasker.ai.client.AiCallContext
+import dev.itayp.nescioquid.openrouter.AiCallContext
 import dev.itayp.tasker.ai.client.AiConversationType
-import dev.itayp.tasker.ai.client.ChatMessage
-import dev.itayp.tasker.ai.client.ChatRequest
-import dev.itayp.tasker.ai.client.ChatResponse
-import dev.itayp.tasker.ai.client.Choice
-import dev.itayp.tasker.ai.client.ModelCapabilities
-import dev.itayp.tasker.ai.client.ModelCapabilityService
-import dev.itayp.tasker.ai.client.PromptTokensDetails
-import dev.itayp.tasker.ai.client.ReasoningConfig
-import dev.itayp.tasker.ai.client.Usage
+import dev.itayp.nescioquid.openrouter.ChatMessage
+import dev.itayp.nescioquid.openrouter.ChatRequest
+import dev.itayp.nescioquid.openrouter.ChatResponse
+import dev.itayp.nescioquid.openrouter.Choice
+import dev.itayp.nescioquid.openrouter.ModelCapabilities
+import dev.itayp.nescioquid.openrouter.ModelCapabilityService
+import dev.itayp.nescioquid.openrouter.PromptTokensDetails
+import dev.itayp.nescioquid.openrouter.ReasoningConfig
+import dev.itayp.nescioquid.openrouter.Usage
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith

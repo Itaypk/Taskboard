@@ -1,6 +1,6 @@
 package dev.itayp.tasker.planning
 
-import dev.itayp.tasker.ai.tool.ToolKind
+import dev.itayp.nescioquid.openrouter.tool.ToolKind
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.mock
 import tools.jackson.module.kotlin.jacksonObjectMapper

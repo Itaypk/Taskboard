@@ -1,17 +1,17 @@
 package dev.itayp.tasker.ai.usage
 
-import dev.itayp.tasker.ai.client.AiCallContext
-import dev.itayp.tasker.ai.client.AiCallListener
-import dev.itayp.tasker.ai.client.ChatRequest
-import dev.itayp.tasker.ai.client.ChatResponse
-import dev.itayp.tasker.ai.client.ModelCapabilityService
+import dev.itayp.nescioquid.openrouter.AiCallContext
+import dev.itayp.nescioquid.openrouter.AiCallListener
+import dev.itayp.nescioquid.openrouter.ChatRequest
+import dev.itayp.nescioquid.openrouter.ChatResponse
+import dev.itayp.nescioquid.openrouter.ModelCapabilityService
 import io.micrometer.core.instrument.MeterRegistry
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.time.Clock
 
 /**
- * Records AI usage for every [dev.itayp.tasker.ai.client.AiClient.chat] call: a durable per-call
+ * Records AI usage for every [dev.itayp.nescioquid.openrouter.AiClient.chat] call: a durable per-call
  * row (per-user accounting, future rate-limit input), aggregate Prometheus counters, and a debug
  * log line. Tracking is best-effort — a tracking failure must never break the AI call — so all
  * persistence is wrapped and swallowed here.

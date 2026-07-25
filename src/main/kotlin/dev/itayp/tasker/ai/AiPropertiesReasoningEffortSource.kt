@@ -1,7 +1,7 @@
 package dev.itayp.tasker.ai
 
 import dev.itayp.tasker.ai.client.AiConversationType
-import dev.itayp.tasker.ai.client.ReasoningEffortSource
+import dev.itayp.nescioquid.openrouter.ReasoningEffortSource
 import org.springframework.stereotype.Component
 
 /**

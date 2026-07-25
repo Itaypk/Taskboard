@@ -31,11 +31,16 @@ java {
 
 repositories {
 	mavenCentral()
+	// Nescioquid — our own extracted libraries (envelope-crypto, openrouter-client), built on demand.
+	maven { url = uri("https://jitpack.io") }
 }
 
 dependencies {
 	implementation("org.springframework.boot:spring-boot-h2console")
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+	// Extracted libraries (JitPack). Multi-module repo github.com/Itaypk/Nescioquid; JVM 25.
+	implementation("com.github.Itaypk.Nescioquid:envelope-crypto:0.1.1")
+	implementation("com.github.Itaypk.Nescioquid:openrouter-client:0.1.1")
 	implementation("org.springframework.boot:spring-boot-starter-security")
 	// JWT/JWKS validation for the Telegram OIDC login flow (NimbusJwtDecoder).
 	implementation("org.springframework.security:spring-security-oauth2-jose")

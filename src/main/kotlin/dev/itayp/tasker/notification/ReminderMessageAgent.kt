@@ -1,10 +1,10 @@
 package dev.itayp.tasker.notification
 
-import dev.itayp.tasker.ai.client.AiCallContext
-import dev.itayp.tasker.ai.client.AiClient
+import dev.itayp.nescioquid.openrouter.AiCallContext
+import dev.itayp.nescioquid.openrouter.AiClient
 import dev.itayp.tasker.ai.client.AiConversationType
-import dev.itayp.tasker.ai.client.ChatMessage
-import dev.itayp.tasker.ai.client.ChatRequest
+import dev.itayp.nescioquid.openrouter.ChatMessage
+import dev.itayp.nescioquid.openrouter.ChatRequest
 import dev.itayp.tasker.ai.prompt.PromptTemplateLoader
 import dev.itayp.tasker.service.UserSettingsService
 import org.slf4j.LoggerFactory

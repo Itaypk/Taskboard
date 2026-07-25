@@ -4,9 +4,9 @@ import dev.itayp.tasker.ai.AiConversationManager
 import dev.itayp.tasker.ai.ConversationConfig
 import dev.itayp.tasker.ai.RequestedToolCall
 import dev.itayp.tasker.ai.TurnOutcome
-import dev.itayp.tasker.ai.tool.AiTool
-import dev.itayp.tasker.ai.tool.ToolKind
-import dev.itayp.tasker.ai.tool.ToolRegistry
+import dev.itayp.nescioquid.openrouter.tool.AiTool
+import dev.itayp.nescioquid.openrouter.tool.ToolKind
+import dev.itayp.nescioquid.openrouter.tool.ToolRegistry
 import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ChoiceOption

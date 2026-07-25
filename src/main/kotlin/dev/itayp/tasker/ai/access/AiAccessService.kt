@@ -15,7 +15,7 @@ import java.util.UUID
  * gates flow through here:
  *   - the per-user opt-out (`ai_enabled`) — a hard binary toggle the user controls in settings;
  *   - the per-tier rolling-window token budget (`ai_tier`) — currently STANDARD for everyone,
- *     enforced by the [dev.itayp.tasker.ai.client.AiCallGate].
+ *     enforced by the [dev.itayp.nescioquid.openrouter.AiCallGate].
  *
  * The shared-board veto is **per board**, not per user: a co-member's opt-out blocks AI on
  * the shared board only. The opted-in user keeps using AI on their own / other boards. Callers

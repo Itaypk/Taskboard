@@ -2,7 +2,7 @@ package dev.itayp.tasker.planning
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
-import dev.itayp.tasker.ai.client.ToolCall
+import dev.itayp.nescioquid.openrouter.ToolCall
 import dev.itayp.tasker.ai.conversation.ConversationService
 import dev.itayp.tasker.ai.conversation.StoredMessage
 import dev.itayp.tasker.channel.ChoiceOption
