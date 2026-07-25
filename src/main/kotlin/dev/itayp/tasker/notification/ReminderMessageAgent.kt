@@ -70,7 +70,10 @@ class ReminderMessageAgent(
                 ChatMessage(role = "user", content = userMessage),
             ),
             temperature = 0.7,
-            maxTokens = 200,
+            // On reasoning models OpenRouter counts reasoning tokens against max_tokens; a budget
+            // this small was fully consumed by reasoning, leaving an empty message that silently
+            // fell back to the static template. Keep headroom for the short reminder text itself.
+            maxTokens = 512,
         )
 
         val context = AiCallContext(userId = userId, conversationType = AiConversationType.SLOT_REMINDER)
