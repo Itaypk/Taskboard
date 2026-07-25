@@ -1,6 +1,8 @@
 package dev.itayp.tasker.planning
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.fasterxml.jackson.annotation.JsonPropertyDescription
+import dev.itayp.nescioquid.openrouter.jsonSchema
 import dev.itayp.nescioquid.openrouter.tool.AiTool
 import dev.itayp.nescioquid.openrouter.tool.ToolKind
 import dev.itayp.tasker.model.TaskPriority
@@ -36,36 +38,14 @@ class CreateTaskTool(
 
     override val kind: ToolKind = ToolKind.DATA_LOOKUP
 
-    override val parameters: Map<String, Any> = mapOf(
-        "type" to "object",
-        "properties" to mapOf(
-            "title" to mapOf("type" to "string", "description" to "Short, actionable task title."),
-            "category_id" to mapOf("type" to "string", "description" to "UUID of an existing category (see the categories list). It must belong to the target board."),
-            "board_id" to mapOf("type" to "string", "description" to "Optional UUID of the board to add the task to (from the categories list headers). Omit to use your default board."),
-            "description" to mapOf("type" to "string", "description" to "Optional longer description / notes."),
-            "priority" to mapOf("type" to "string", "enum" to TaskPriority.allowedValues.toList(), "description" to "Optional priority."),
-            "deadline" to mapOf("type" to "string", "description" to "Optional deadline, YYYY-MM-DD."),
-            "estimated_minutes" to mapOf("type" to "integer", "description" to "Optional time estimate in minutes."),
-            "tags" to mapOf(
-                "type" to "array",
-                "description" to "Optional tags. Reuse an existing tag by passing its id; or create one with a new label (and optionally a color_id).",
-                "items" to mapOf(
-                    "type" to "object",
-                    "properties" to mapOf(
-                        "id" to mapOf("type" to "string", "description" to "UUID of an existing tag, if reusing one."),
-                        "label" to mapOf("type" to "string", "description" to "Tag label."),
-                        "color_id" to mapOf(
-                            "type" to "string",
-                            "enum" to TagColorOptions.ALLOWED,
-                            "description" to "Color for a new tag. One of the allowed values; a color is assigned if omitted.",
-                        ),
-                    ),
-                    "required" to listOf("label"),
-                ),
-            ),
-        ),
-        "required" to listOf("title", "category_id"),
-    )
+    override val parameters: Map<String, Any> = jsonSchema<CreateTaskArgs>(strict = false) {
+        // Runtime enum lists the generator can't derive from the String-typed DTO fields.
+        property("priority").enum(TaskPriority.allowedValues)
+        property("tags").items().property("color_id").enum(TagColorOptions.ALLOWED)
+        // `tags` is a non-null List with an empty-list default (i.e. optional), which the generator
+        // would otherwise mark required; pin the required set to match the original schema.
+        put("required", listOf("title", "category_id"))
+    }
 
     override fun execute(arguments: String): String {
         val args = runCatching { objectMapper.readValue(arguments, CreateTaskArgs::class.java) }
@@ -105,13 +85,24 @@ class CreateTaskTool(
     }
 
     private data class CreateTaskArgs(
+        @JsonPropertyDescription("Short, actionable task title.")
         val title: String,
-        @JsonProperty("category_id") val categoryId: String,
-        @JsonProperty("board_id") val boardId: String? = null,
+        @JsonProperty("category_id")
+        @JsonPropertyDescription("UUID of an existing category (see the categories list). It must belong to the target board.")
+        val categoryId: String,
+        @JsonProperty("board_id")
+        @JsonPropertyDescription("Optional UUID of the board to add the task to (from the categories list headers). Omit to use your default board.")
+        val boardId: String? = null,
+        @JsonPropertyDescription("Optional longer description / notes.")
         val description: String? = null,
+        @JsonPropertyDescription("Optional priority.")
         val priority: String? = null,
+        @JsonPropertyDescription("Optional deadline, YYYY-MM-DD.")
         val deadline: String? = null,
-        @JsonProperty("estimated_minutes") val estimatedMinutes: Int? = null,
+        @JsonProperty("estimated_minutes")
+        @JsonPropertyDescription("Optional time estimate in minutes.")
+        val estimatedMinutes: Int? = null,
+        @JsonPropertyDescription("Optional tags. Reuse an existing tag by passing its id; or create one with a new label (and optionally a color_id).")
         val tags: List<TagArg> = emptyList(),
     )
 }

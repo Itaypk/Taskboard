@@ -57,8 +57,8 @@ tasker:
     reasoning:
       weekly-planning: ${TASKER_AI_REASONING_WEEKLY_PLANNING:low}
       task-search: ${TASKER_AI_REASONING_TASK_SEARCH:low}
-      task-suggestion: ${TASKER_AI_REASONING_TASK_SUGGESTION:high}
-      slot-reminder: ${TASKER_AI_REASONING_SLOT_REMINDER:high}
+      task-suggestion: ${TASKER_AI_REASONING_TASK_SUGGESTION:medium}
+      slot-reminder: ${TASKER_AI_REASONING_SLOT_REMINDER:low}
   telegram:
     bot-token: ${TASKER_TELEGRAM_BOT_TOKEN:}
     bot-username: ${TASKER_TELEGRAM_BOT_USERNAME:}

@@ -79,7 +79,7 @@ class TaskSuggestionAgent(
                 ChatMessage(role = "user", content = userMessage),
             ),
             temperature = 0.3,
-            maxTokens = 800,
+            maxTokens = MAX_TOKENS,
         )
 
         val context = AiCallContext(userId = userId, conversationType = AiConversationType.TASK_SUGGESTION)
@@ -185,7 +185,7 @@ class TaskSuggestionAgent(
                 ChatMessage(role = "user", content = userMessage),
             ),
             temperature = 0.3,
-            maxTokens = 800,
+            maxTokens = MAX_TOKENS,
         )
 
         val context = AiCallContext(userId = userId, conversationType = AiConversationType.TASK_SUGGESTION)
@@ -249,6 +249,14 @@ class TaskSuggestionAgent(
 
     companion object {
         private const val SAMPLE_SIZE = 15
+
+        /**
+         * Completion budget for a draft. On reasoning models OpenRouter counts reasoning tokens
+         * against `max_tokens`, so this must cover the model's thinking *plus* a multi-item JSON
+         * draft — too tight a budget truncated the JSON mid-object (finish_reason=length), which
+         * surfaced to the user as "I couldn't turn that into a task".
+         */
+        private const val MAX_TOKENS = 2048
     }
 }
 
