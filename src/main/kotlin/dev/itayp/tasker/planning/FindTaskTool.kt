@@ -1,5 +1,7 @@
 package dev.itayp.tasker.planning
 
+import com.fasterxml.jackson.annotation.JsonPropertyDescription
+import dev.itayp.nescioquid.openrouter.jsonSchema
 import dev.itayp.nescioquid.openrouter.tool.AiTool
 import dev.itayp.nescioquid.openrouter.tool.ToolKind
 import org.slf4j.LoggerFactory
@@ -31,16 +33,7 @@ class FindTaskTool(
 
     override val kind: ToolKind = ToolKind.DATA_LOOKUP
 
-    override val parameters: Map<String, Any> = mapOf(
-        "type" to "object",
-        "properties" to mapOf(
-            "query" to mapOf(
-                "type" to "string",
-                "description" to "What the user is looking for, in natural language (e.g. 'the taxes thing' or 'call the dentist').",
-            ),
-        ),
-        "required" to listOf("query"),
-    )
+    override val parameters: Map<String, Any> = jsonSchema<FindTaskArgs>(strict = false)
 
     override fun execute(arguments: String): String {
         val query = runCatching { objectMapper.readValue(arguments, FindTaskArgs::class.java).query }
@@ -53,5 +46,8 @@ class FindTaskTool(
         return objectMapper.writeValueAsString(mapOf("matches" to matches))
     }
 
-    private data class FindTaskArgs(val query: String)
+    private data class FindTaskArgs(
+        @JsonPropertyDescription("What the user is looking for, in natural language (e.g. 'the taxes thing' or 'call the dentist').")
+        val query: String,
+    )
 }
