@@ -105,7 +105,8 @@ Deferred from the `docs/I18N.md` design (see there for full rationale). Not bloc
   The library repos themselves are created in a separate session.
 
 ## Ideas that require more consideration
-- Open source the application under AGPL.
+- Open source the application under AGPL. A full git-history secret scan ahead of this switch
+  came back clean — see `docs/GIT-HISTORY-SECRET-SCAN.md` for methodology and findings.
 - Unlock more mascots for users over use time or patterns.
 - Additional themes.
 - Add "description" to a tag (the database field is already there - but would it be useful?).
