@@ -43,7 +43,6 @@ An AI-powered weekly planner that helps you actually get tasks done - not just w
 - Daily digest — might add noise; circle back if it proves useful
 - File attachments on tasks — URLs are sufficient for now
 - Offline support / PWA — a responsive web app is sufficient
-- Smart task creation from natural language — tasks are created manually via the UI
 - Real-time calendar sync — one-directional: read availability, write events at planning time
-- Shared tasks or collaboration features
+- Advanced collaboration features
 - Mobile app — responsive web covers this
