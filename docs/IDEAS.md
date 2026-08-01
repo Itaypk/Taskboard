@@ -110,6 +110,8 @@ Deferred from the `docs/I18N.md` design (see there for full rationale). Not bloc
 - Unlock more mascots for users over use time or patterns.
 - Additional themes.
 - Add "description" to a tag (the database field is already there - but would it be useful?).
+- Birthday calendar, or general reminders.
+- Support non-latin calendars.
 
 ## Large projects
 - WhatsApp as a communication channel support.
