@@ -29,7 +29,9 @@ class FindTaskTool(
         "Search the user's full backlog for an existing task matching a free-text description. " +
             "Use this before creating a new task, so an item the user mentions that's already in the " +
             "backlog (but not in the candidate list) is reused rather than duplicated. Returns matching " +
-            "tasks with their task_id; pick one if it's clearly the same task."
+            "tasks with their task_id; pick one if it's clearly the same task. The search spans the " +
+            "whole backlog, so a match may carry status=done or a future relevant_from — check those " +
+            "fields before scheduling it."
 
     override val kind: ToolKind = ToolKind.DATA_LOOKUP
 

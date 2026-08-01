@@ -18,6 +18,7 @@ import org.mockito.kotlin.verifyNoInteractions
 import org.mockito.kotlin.whenever
 import tools.jackson.module.kotlin.jacksonObjectMapper
 import java.time.Instant
+import java.time.LocalDate
 import java.util.UUID
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -59,6 +60,36 @@ class BacklogTaskSearchAgentTest {
     }
 
     @Test
+    fun `matches carry the live status and relevantFrom, not the sub-agent's echo`() {
+        val userId = UUID.randomUUID()
+        val taskId = UUID.randomUUID()
+        whenever(backlogTaskService.getTasksAcrossBoards(userId, null)).thenReturn(listOf(
+            backlogTask(taskId, "Do taxes", status = TaskStatus.DONE, relevantFrom = LocalDate.parse("2026-09-01")),
+        ))
+        whenever(aiClient.chat(any(), any())).thenReturn(
+            chatResponse("""{"matches":[{"task_id":"$taskId","title":"stale echo","confidence":"high"}]}"""),
+        )
+
+        val match = agent.search(userId, "taxes").single()
+
+        assertEquals("Do taxes", match.title)
+        assertEquals("done", match.status)
+        assertEquals("2026-09-01", match.relevantFrom)
+    }
+
+    @Test
+    fun `drops an id the sub-agent invented`() {
+        val userId = UUID.randomUUID()
+        whenever(backlogTaskService.getTasksAcrossBoards(userId, null))
+            .thenReturn(listOf(backlogTask(UUID.randomUUID(), "Do taxes")))
+        whenever(aiClient.chat(any(), any())).thenReturn(
+            chatResponse("""{"matches":[{"task_id":"${UUID.randomUUID()}","title":"Do taxes"}]}"""),
+        )
+
+        assertTrue(agent.search(userId, "taxes").isEmpty())
+    }
+
+    @Test
     fun `tolerates non-JSON output and returns no matches`() {
         val userId = UUID.randomUUID()
         whenever(backlogTaskService.getTasksAcrossBoards(userId, null))
@@ -80,7 +111,12 @@ class BacklogTaskSearchAgentTest {
         usage = null,
     )
 
-    private fun backlogTask(id: UUID, title: String) = BacklogTask(
+    private fun backlogTask(
+        id: UUID,
+        title: String,
+        status: TaskStatus = TaskStatus.TODO,
+        relevantFrom: LocalDate? = null,
+    ) = BacklogTask(
         id = id,
         boardId = UUID.randomUUID(),
         assigneeUserId = null,
@@ -90,7 +126,7 @@ class BacklogTaskSearchAgentTest {
         priority = null,
         deadline = null,
         estimatedMinutes = null,
-        status = TaskStatus.TODO,
+        status = status,
         category = BacklogTaskCategory(UUID.randomUUID(), UUID.randomUUID(), "Work", CategoryColor.SUNSHINE),
         tags = emptySet(),
         sortKey = "a",
@@ -98,6 +134,6 @@ class BacklogTaskSearchAgentTest {
         updatedAt = null,
         rescheduleCount = 0,
         lastScheduledInSessionId = null,
-        relevantFrom = null,
+        relevantFrom = relevantFrom,
     )
 }
