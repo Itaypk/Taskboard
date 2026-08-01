@@ -142,6 +142,7 @@ class BacklogTaskChangeService(
         val createdTaskIds = mutableSetOf<UUID>()
         val completed = mutableMapOf<UUID, ChangedTask>()
         val reopened = mutableMapOf<UUID, ChangedTask>()
+        val removed = mutableMapOf<UUID, ChangedTask>()
         val deleted = mutableMapOf<UUID, ChangedTask>()
         val createdInWindow = mutableMapOf<UUID, ChangedTask>()
 
@@ -160,10 +161,19 @@ class BacklogTaskChangeService(
                         event.newStatus == TaskStatus.DONE -> {
                             completed[taskId] = changed
                             reopened.remove(taskId)
+                            removed.remove(taskId)
                         }
                         event.newStatus == TaskStatus.TODO && event.previousStatus != TaskStatus.TODO -> {
                             reopened[taskId] = changed
                             completed.remove(taskId)
+                            removed.remove(taskId)
+                        }
+                        // A still-open task archived away is the reversible delete: it's gone from the
+                        // backlog, so it must not linger in "newly added" as work to propose.
+                        event.newStatus == TaskStatus.ARCHIVED && event.previousStatus != TaskStatus.DONE -> {
+                            removed[taskId] = changed
+                            reopened.remove(taskId)
+                            createdInWindow.remove(taskId)
                         }
                         // DONE → ARCHIVED: silent, already counted as completed
                     }
@@ -172,6 +182,7 @@ class BacklogTaskChangeService(
                     deleted[taskId] = ChangedTask(taskId, title)
                     completed.remove(taskId)
                     reopened.remove(taskId)
+                    removed.remove(taskId)
                     createdInWindow.remove(taskId)
                 }
                 null -> Unit
@@ -188,6 +199,7 @@ class BacklogTaskChangeService(
             completedFromBacklog = completedFromBacklog,
             completedAddedDuringWindow = completedAddedDuringWindow,
             reopened = reopened.values.toList(),
+            removed = removed.values.toList(),
             deleted = deleted.values.toList(),
             totalEvents = events.size,
         )
@@ -195,7 +207,7 @@ class BacklogTaskChangeService(
 
     companion object {
         val EMPTY_SUMMARY = TaskChangeSummary(
-            emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), 0,
+            emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), 0,
         )
     }
 }
@@ -215,6 +227,8 @@ data class TaskChangeSummary(
     val completedFromBacklog: List<ChangedTask>,
     val completedAddedDuringWindow: List<ChangedTask>,
     val reopened: List<ChangedTask>,
+    /** Still-open tasks archived during the window — gone from the backlog, but recoverable. */
+    val removed: List<ChangedTask>,
     val deleted: List<ChangedTask>,
     val totalEvents: Int,
 )
