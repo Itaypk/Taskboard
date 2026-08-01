@@ -235,6 +235,66 @@ class BacklogTaskChangeServiceTest {
     }
 
     @Test
+    fun `summarizeSince reports an archived open task as removed and drops it from newly added`() {
+        val taskId = UUID.randomUUID()
+        val since = now.minusSeconds(3600)
+        val boardIds = listOf(boardId)
+        val events = listOf(
+            event(BacklogTaskChangeType.CREATED, taskId, "x", newStatus = TaskStatus.TODO),
+            event(BacklogTaskChangeType.STATUS_CHANGED, taskId, "x",
+                  prev = TaskStatus.TODO, newStatus = TaskStatus.ARCHIVED),
+        )
+        whenever(eventRepository.findAllByBoardIdInAndOccurredAtGreaterThanEqualOrderByOccurredAtAsc(boardIds, since))
+            .thenReturn(events)
+
+        val summary = service.summarizeSince(boardIds, since)
+
+        assertTrue(summary.createdDuringWindow.isEmpty())
+        assertEquals(1, summary.removed.size)
+        assertEquals(taskId, summary.removed.single().taskId)
+    }
+
+    @Test
+    fun `summarizeSince keeps DONE-then-ARCHIVED as completed, not removed`() {
+        val taskId = UUID.randomUUID()
+        val since = now.minusSeconds(3600)
+        val boardIds = listOf(boardId)
+        val events = listOf(
+            event(BacklogTaskChangeType.STATUS_CHANGED, taskId, "x",
+                  prev = TaskStatus.TODO, newStatus = TaskStatus.DONE),
+            event(BacklogTaskChangeType.STATUS_CHANGED, taskId, "x",
+                  prev = TaskStatus.DONE, newStatus = TaskStatus.ARCHIVED),
+        )
+        whenever(eventRepository.findAllByBoardIdInAndOccurredAtGreaterThanEqualOrderByOccurredAtAsc(boardIds, since))
+            .thenReturn(events)
+
+        val summary = service.summarizeSince(boardIds, since)
+
+        assertEquals(1, summary.completed.size)
+        assertTrue(summary.removed.isEmpty())
+    }
+
+    @Test
+    fun `summarizeSince treats un-archiving as reopened`() {
+        val taskId = UUID.randomUUID()
+        val since = now.minusSeconds(3600)
+        val boardIds = listOf(boardId)
+        val events = listOf(
+            event(BacklogTaskChangeType.STATUS_CHANGED, taskId, "x",
+                  prev = TaskStatus.TODO, newStatus = TaskStatus.ARCHIVED),
+            event(BacklogTaskChangeType.STATUS_CHANGED, taskId, "x",
+                  prev = TaskStatus.ARCHIVED, newStatus = TaskStatus.TODO),
+        )
+        whenever(eventRepository.findAllByBoardIdInAndOccurredAtGreaterThanEqualOrderByOccurredAtAsc(boardIds, since))
+            .thenReturn(events)
+
+        val summary = service.summarizeSince(boardIds, since)
+
+        assertTrue(summary.removed.isEmpty())
+        assertEquals(1, summary.reopened.size)
+    }
+
+    @Test
     fun `summarizeSince cannot decrypt a snapshot under another board's key`() {
         // Snapshot sealed under boardId, but the event claims to belong to a different board:
         // the board DEK / AAD won't match, so decryption fails — a feed entry is bound to its board.

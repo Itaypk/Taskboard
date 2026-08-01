@@ -60,10 +60,7 @@ class PlannerTaskSelector(
         val tasks = if (boardIds.isEmpty()) emptyList() else backlogTaskRepository
             .findAllByBoardIdInAndStatusOrderBySortKeyAsc(boardIds, TaskStatus.TODO)
             .map { it.toDomain(boardCrypto) }
-            .filter { it.relevantFrom == null || !it.relevantFrom.isAfter(today) }
-            .filter { it.assigneeUserId == null || it.assigneeUserId == userId }
-            .filterNot { it.tutorial }
-            .filterNot { it.hiddenFromAssistant }
+            .filter { isPlannerVisible(it, userId, today) }
 
         val totalSlots = urgentSlots + staleSlots
         val (urgent, stale) = if (tasks.size <= totalSlots) {
@@ -97,6 +94,37 @@ class PlannerTaskSelector(
             boardNames = boardNames,
         )
     }
+
+    /**
+     * The subset of [taskIds] the planner may still propose as work: on an AI-allowed board, status
+     * TODO, and passing the same per-task rules [select] applies.
+     *
+     * Callers pass ids from sources that are *not* a live read of the backlog — chiefly the
+     * inter-session change feed, whose title snapshots are historical and deliberately outlive the
+     * task row. Without this check the prompt can name a task the model then can't schedule (it's
+     * future-dated, hidden from the assistant, someone else's, or archived since), which reads to the
+     * user as the assistant inventing a task.
+     */
+    @Transactional(readOnly = true)
+    fun visibleTaskIds(userId: UUID, today: LocalDate, taskIds: Collection<UUID>): Set<UUID> {
+        if (taskIds.isEmpty()) return emptySet()
+        val allowedBoardIds = aiAccessService.aiAllowedBoardIds(userId)
+        if (allowedBoardIds.isEmpty()) return emptySet()
+        return backlogTaskRepository.findAllByBoardIdInAndIdIn(allowedBoardIds, taskIds)
+            .map { it.toDomain(boardCrypto) }
+            .filter { it.status == TaskStatus.TODO && isPlannerVisible(it, userId, today) }
+            .mapTo(mutableSetOf()) { it.id }
+    }
+
+    /**
+     * Per-task planner visibility, shared by the candidate slate and [visibleTaskIds] so the two can't
+     * drift. Board-level AI access and task status are the caller's business.
+     */
+    private fun isPlannerVisible(task: BacklogTask, userId: UUID, today: LocalDate): Boolean =
+        (task.relevantFrom == null || !task.relevantFrom.isAfter(today)) &&
+            (task.assigneeUserId == null || task.assigneeUserId == userId) &&
+            !task.tutorial &&
+            !task.hiddenFromAssistant
 
     /**
      * For each candidate task, find its existing planned slots that fall *outside* the planning

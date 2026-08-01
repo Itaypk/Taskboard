@@ -1,5 +1,6 @@
 package dev.itayp.tasker.planning
 
+import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.repository.BacklogTaskRepository
 import dev.itayp.tasker.service.BoardMembershipService
@@ -20,6 +21,7 @@ class PlanningSessionService(
     private val userCrypto: UserCryptoService,
     private val userSettingsService: UserSettingsService,
     private val boardMembershipService: BoardMembershipService,
+    private val aiAccessService: AiAccessService,
     private val clock: Clock,
 ) {
 
@@ -192,8 +194,10 @@ class PlanningSessionService(
         val previous = findPreviousSummarizableSession(userId, beforeWeek)
             ?: return BacklogTaskChangeService.EMPTY_SUMMARY
         val since = previous.endedAt ?: previous.startedAt
-        // The change feed is board-keyed; aggregate across every board the user belongs to.
-        return backlogTaskChangeService.summarizeSince(boardMembershipService.listBoardIds(userId), since)
+        // The change feed is board-keyed; aggregate across the user's boards — but only those AI is
+        // allowed to read. A board with a member who opted out of AI is dropped here for the same
+        // reason PlannerTaskSelector drops it: this summary goes straight into the LLM prompt.
+        return backlogTaskChangeService.summarizeSince(aiAccessService.aiAllowedBoardIds(userId), since)
     }
 }
 

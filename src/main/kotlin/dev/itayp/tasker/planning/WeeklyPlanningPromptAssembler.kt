@@ -72,7 +72,7 @@ class WeeklyPlanningPromptAssembler(
             "user_context_block" to (settings.contextBlock?.takeIf { it.isNotBlank() }
                 ?: "No personal context shared yet."),
             "previous_session_summary" to (previousSummary ?: "No previous session on record."),
-            "task_change_summary" to renderDiff(diff),
+            "task_change_summary" to renderDiff(userId, today, diff),
             "carried_over_tasks" to renderCarriedOver(carriedOver),
             "urgent_tasks" to renderTaskList(selection.urgent, selection.alreadyPlanned, selection.alreadyScheduled, selection.boardNames),
             "stale_tasks" to renderTaskList(selection.stale, selection.alreadyPlanned, selection.alreadyScheduled, selection.boardNames),
@@ -142,7 +142,7 @@ class WeeklyPlanningPromptAssembler(
             "tags" to renderTagsForBoards(userId, boards),
             "plan_finalized_at" to plannedAt.toString(),
             "days_since_finalized" to daysSinceCompleted.toString(),
-            "task_change_summary" to renderDiff(diff),
+            "task_change_summary" to renderDiff(userId, today, diff),
             "calendar_window" to calendar,
             "delivery_methods" to inviteDeliveryResolver.describeDeliveryMethods(userId),
             "today_iso" to today.format(DateTimeFormatter.ISO_LOCAL_DATE),
@@ -274,26 +274,43 @@ class WeeklyPlanningPromptAssembler(
         return " The user chose to carry these unfinished tasks into this week: $titles."
     }
 
-    private fun renderDiff(diff: TaskChangeSummary): String {
-        if (diff.totalEvents == 0) return "No backlog changes recorded since the last session."
+    /**
+     * Renders the inter-session change feed. The past-tense buckets (completed/removed/deleted) are
+     * reported verbatim — they're statements about history, and their title snapshots intentionally
+     * survive the task row. The forward-looking ones ("newly added", "reopened") name tasks the model
+     * is invited to propose, so they're intersected with what the planner can actually schedule today;
+     * otherwise it offers work that isn't in the backlog (see [PlannerTaskSelector.visibleTaskIds]).
+     */
+    private fun renderDiff(userId: UUID, today: LocalDate, diff: TaskChangeSummary): String {
+        if (diff.totalEvents == 0) return NO_CHANGES_NOTE
+        val actionable = plannerTaskSelector.visibleTaskIds(
+            userId, today, (diff.createdDuringWindow + diff.reopened).map { it.taskId }.distinct(),
+        )
         val lines = mutableListOf<String>()
         if (diff.completed.isNotEmpty()) {
             lines += "Completed: " + diff.completed.joinToString(", ") { it.title }
         }
-        if (diff.createdDuringWindow.isNotEmpty()) {
-            lines += "Newly added: " + diff.createdDuringWindow.joinToString(", ") { it.title }
+        val newlyAdded = diff.createdDuringWindow.filter { it.taskId in actionable }
+        if (newlyAdded.isNotEmpty()) {
+            lines += "Newly added: " + newlyAdded.joinToString(", ") { it.title }
         }
-        if (diff.reopened.isNotEmpty()) {
-            lines += "Reopened: " + diff.reopened.joinToString(", ") { it.title }
+        val reopened = diff.reopened.filter { it.taskId in actionable }
+        if (reopened.isNotEmpty()) {
+            lines += "Reopened: " + reopened.joinToString(", ") { it.title }
+        }
+        if (diff.removed.isNotEmpty()) {
+            lines += "Removed from the backlog: " + diff.removed.joinToString(", ") { it.title }
         }
         if (diff.deleted.isNotEmpty()) {
             lines += "Deleted: " + diff.deleted.joinToString(", ") { it.title }
         }
-        return lines.joinToString("\n")
+        // Everything that happened was filtered out — say so plainly rather than emitting a blank block.
+        return if (lines.isEmpty()) NO_CHANGES_NOTE else lines.joinToString("\n")
     }
 
     companion object {
         const val ASSISTANT_NAME = "Backlog"
+        private const val NO_CHANGES_NOTE = "No backlog changes recorded since the last session."
         const val ASSISTANT_GENDER = "neutral"
     }
 }

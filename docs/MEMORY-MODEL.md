@@ -84,6 +84,25 @@ Fields that earn their keep:
 With these the planner can naturally say "this task has been kicked four weeks running" without
 any "memory" abstraction — it's just a column.
 
+### 4. The inter-session change feed
+
+`backlog_task_change_event` is an append-only log of creations, status transitions, and deletions,
+with an encrypted title snapshot so an entry survives its task row. It backs the "What changed since
+the last session" block.
+
+Because it is *history*, it deliberately doesn't know today's visibility rules — a snapshot exists for
+tasks that are now archived, future-dated, hidden from the assistant, or owned by another board member.
+So the split at render time (`WeeklyPlanningPromptAssembler.renderDiff`) is load-bearing:
+
+- **Past-tense buckets** (completed / removed / deleted) are rendered verbatim. Saying "you finished X"
+  must keep working after X is gone.
+- **Forward-looking buckets** (newly added / reopened) name tasks the model is invited to *propose*, so
+  they're intersected with `PlannerTaskSelector.visibleTaskIds` — the same per-task rules the candidate
+  slate applies. Skipping this makes the assistant suggest work that isn't in the backlog.
+
+The feed as a whole is also scoped to AI-allowed boards (`AiAccessService.aiAllowedBoardIds`), like
+every other prompt input.
+
 ## How a planning turn assembles its prompt
 
 Pseudocode for the system/context portion of each turn:

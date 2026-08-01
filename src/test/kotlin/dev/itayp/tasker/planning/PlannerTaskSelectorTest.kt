@@ -18,6 +18,8 @@ import org.mockito.Mock
 import org.mockito.Mockito.lenient
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
+import org.mockito.kotlin.never
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.time.Clock
 import java.time.Instant
@@ -356,6 +358,39 @@ class PlannerTaskSelectorTest {
         this.swatchId = CategoryColor.SUNSHINE
     }
 
+    @Test
+    fun `visibleTaskIds keeps only tasks the planner could still schedule`() {
+        val schedulable = task(title = "schedulable")
+        val futureDated = task(title = "later", relevantFrom = today.plusDays(3))
+        val hidden = task(title = "hidden", hiddenFromAssistant = true)
+        val theirs = task(title = "theirs", assignee = UUID.randomUUID())
+        val archived = task(title = "archived", status = TaskStatus.ARCHIVED)
+        val all = listOf(schedulable, futureDated, hidden, theirs, archived)
+        whenever(backlogTaskRepository.findAllByBoardIdInAndIdIn(any(), any())).thenReturn(all)
+
+        val visible = selector.visibleTaskIds(userId, today, all.map { it.id!! })
+
+        assertEquals(setOf(schedulable.id), visible)
+    }
+
+    @Test
+    fun `visibleTaskIds is empty when no board is AI-allowed`() {
+        whenever(aiAccessService.aiAllowedBoardIds(userId)).thenReturn(emptySet())
+
+        val visible = selector.visibleTaskIds(userId, today, listOf(UUID.randomUUID()))
+
+        assertTrue(visible.isEmpty())
+        verify(backlogTaskRepository, never()).findAllByBoardIdInAndIdIn(any(), any())
+    }
+
+    @Test
+    fun `visibleTaskIds short-circuits on an empty id list`() {
+        val visible = selector.visibleTaskIds(userId, today, emptyList())
+
+        assertTrue(visible.isEmpty())
+        verify(aiAccessService, never()).aiAllowedBoardIds(any())
+    }
+
     private fun task(
         title: String,
         priority: TaskPriority? = null,
@@ -366,11 +401,12 @@ class PlannerTaskSelectorTest {
         relevantFrom: LocalDate? = null,
         assignee: UUID? = null,
         hiddenFromAssistant: Boolean = false,
+        status: TaskStatus = TaskStatus.TODO,
     ): BacklogTaskEntity = BacklogTaskEntity().apply {
         this.id = UUID.randomUUID()
         this.boardId = this@PlannerTaskSelectorTest.boardId
         this.title = title.toByteArray(Charsets.UTF_8)
-        this.status = TaskStatus.TODO
+        this.status = status
         this.priority = priority
         this.deadline = deadline
         this.category = sharedCategory

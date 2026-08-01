@@ -32,6 +32,7 @@ class PlanningSessionServiceTest {
     @Mock lateinit var backlogTaskRepository: BacklogTaskRepository
     @Mock lateinit var userSettingsService: UserSettingsService
     @Mock lateinit var boardMembershipService: dev.itayp.tasker.service.BoardMembershipService
+    @Mock lateinit var aiAccessService: dev.itayp.tasker.ai.access.AiAccessService
 
     // 2026-05-01 is a Friday; the Monday-anchored week containing it starts 2026-04-27 (== weekStart).
     private val now = Instant.parse("2026-05-01T12:00:00Z")
@@ -47,6 +48,7 @@ class PlanningSessionServiceTest {
             crypto,
             userSettingsService,
             boardMembershipService,
+            aiAccessService,
             clock,
         )
     }
@@ -312,9 +314,11 @@ class PlanningSessionServiceTest {
         }
         whenever(planningSessionRepository.findFirstByUserIdAndStatusAndWeekStartLessThanOrderByWeekStartDesc(
             userId, PlanningSessionStatus.COMPLETED, weekStart)).thenReturn(previous)
-        whenever(boardMembershipService.listBoardIds(userId)).thenReturn(listOf(boardId))
-        val expected = TaskChangeSummary(emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), 7)
-        whenever(backlogTaskChangeService.summarizeSince(listOf(boardId), previous.endedAt!!)).thenReturn(expected)
+        whenever(aiAccessService.aiAllowedBoardIds(userId)).thenReturn(setOf(boardId))
+        val expected = TaskChangeSummary(
+            emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), 7,
+        )
+        whenever(backlogTaskChangeService.summarizeSince(setOf(boardId), previous.endedAt!!)).thenReturn(expected)
 
         val result = service.diffSincePreviousSession(userId, weekStart)
 
