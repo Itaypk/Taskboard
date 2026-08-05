@@ -27,3 +27,16 @@ updates:
       all-dependencies:
         patterns:
           - "*"
+
+  # The workflow pins actions by commit SHA, which is the safe way to use them and also the way
+  # that never updates on its own.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns:
+          - "*"
