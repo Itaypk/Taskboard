@@ -21,7 +21,6 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
-import org.mockito.kotlin.argThat
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
@@ -112,10 +111,11 @@ class BoardServiceTest {
         val sourceBoardId = UUID.fromString("00000000-0000-0000-0000-0000000000c0")
         whenever(boardMembershipService.requireMember(userId, sourceBoardId)).thenReturn(BoardRole.MEMBER)
         val sourceBoard = boardEntity(name = "Original").apply { id = sourceBoardId; mascot = "mr_roboto" }
-        whenever(boardRepository.findById(sourceBoardId)).thenReturn(Optional.of(sourceBoard))
         whenever(boardRepository.save(any<BoardEntity>())).thenAnswer { it.arguments[0] as BoardEntity }
-        whenever(boardRepository.findById(argThat<UUID> { it != sourceBoardId })).thenAnswer { inv ->
-            Optional.of(boardEntity(name = "ignored").apply { id = inv.arguments[0] as UUID; mascot = "mr_roboto" })
+        whenever(boardRepository.findById(any())).thenAnswer { inv ->
+            val id = inv.arguments[0] as UUID
+            if (id == sourceBoardId) Optional.of(sourceBoard)
+            else Optional.of(boardEntity(name = "ignored").apply { this.id = id; mascot = "mr_roboto" })
         }
 
         val sourceCategory = BacklogTaskCategoryEntity().apply {
@@ -164,10 +164,11 @@ class BoardServiceTest {
         val sourceBoardId = UUID.fromString("00000000-0000-0000-0000-0000000000c1")
         whenever(boardMembershipService.requireMember(userId, sourceBoardId)).thenReturn(BoardRole.OWNER)
         val sourceBoard = boardEntity(name = "Original").apply { id = sourceBoardId }
-        whenever(boardRepository.findById(sourceBoardId)).thenReturn(Optional.of(sourceBoard))
         whenever(boardRepository.save(any<BoardEntity>())).thenAnswer { it.arguments[0] as BoardEntity }
-        whenever(boardRepository.findById(argThat<UUID> { it != sourceBoardId })).thenAnswer { inv ->
-            Optional.of(boardEntity(name = "ignored").apply { id = inv.arguments[0] as UUID })
+        whenever(boardRepository.findById(any())).thenAnswer { inv ->
+            val id = inv.arguments[0] as UUID
+            if (id == sourceBoardId) Optional.of(sourceBoard)
+            else Optional.of(boardEntity(name = "ignored").apply { this.id = id })
         }
         whenever(categoryRepository.findAllByBoardId(sourceBoardId)).thenReturn(emptyList())
         whenever(tagRepository.findAllByBoardId(sourceBoardId)).thenReturn(emptyList())
