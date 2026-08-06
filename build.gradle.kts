@@ -55,9 +55,9 @@ dependencies {
 	implementation("org.liquibase:liquibase-core")
 	implementation("io.micrometer:micrometer-registry-prometheus:1.17.0")
 	implementation("net.logstash.logback:logstash-logback-encoder:9.0")
-	implementation("com.github.jknack:handlebars:4.5.3")
-	implementation("org.telegram:telegrambots-springboot-longpolling-starter:10.1.0")
-	implementation("org.telegram:telegrambots-client:10.1.0")
+	implementation("com.github.jknack:handlebars:4.5.4")
+	implementation("org.telegram:telegrambots-springboot-longpolling-starter:10.1.1")
+	implementation("org.telegram:telegrambots-client:10.1.1")
 	runtimeOnly("com.h2database:h2")
 	runtimeOnly("org.postgresql:postgresql")
 	// Required for the Telegram library
