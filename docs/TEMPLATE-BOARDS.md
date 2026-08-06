@@ -16,10 +16,10 @@ do arrive with a project in mind can type their own tasks (which the planner han
 way). So the engineering is downstream of a content/marketing bet, and that bet should be made
 deliberately, not as a side effect of an appealing feature.
 
-Revisit if: (a) we decide to invest in content marketing anyway, (b) beta users organically ask
-for reusable task lists (then build "duplicate board" first — see `docs/IDEAS.md`, board sharing
-follow-ups), or (c) a distribution channel appears where template links can be shared directly
-(communities, newsletters) without needing to rank.
+Revisit if: (a) we decide to invest in content marketing anyway, (b) usage of the "duplicate board"
+action (shipped since this doc's original assessment — see below) shows people want reusable task
+lists badly enough to justify curated starter content, or (c) a distribution channel appears where
+template links can be shared directly (communities, newsletters) without needing to rank.
 
 ## The idea
 
@@ -35,9 +35,10 @@ follow-ups), or (c) a distribution channel appears where template links can be s
 
 1. **Shared-checklist utility** ("easy interface for individuals/teams to track such projects").
    Real but mostly already served: board sharing gives any group a good-looking, assignable
-   checklist today; a template only saves the initial typing. The genuinely missing piece is a
+   checklist today; a template only saves the initial typing. The genuinely missing piece was a
    **"duplicate board"** action, which covers the recurring-project / private-template need at a
-   fraction of the cost — tracked separately in `docs/IDEAS.md`.
+   fraction of the cost — since shipped (`BoardService.duplicateBoard`, any member may copy a
+   board's categories/tags/tasks into a fresh board they solely own).
 2. **Public visibility / SEO** (gallery pages that can rank and bring users). The strategic
    motivation, and the expensive one. "Moving to Germany checklist" is a competitive query owned
    by content-marketing incumbents; a thin gallery page doesn't rank by existing. Ranking requires

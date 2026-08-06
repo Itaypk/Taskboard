@@ -47,9 +47,6 @@ The scope of the individual idea is varying - could be small UI improvements, or
   quiet one in the candidate pool (see `docs/BOARD-MODEL.md`).
 - No viewer/commenter role tier or per-task permissions beyond the assignee primitive — only add
   if real usage demands it.
-- A "duplicate board" action (copy tasks/categories/tags into a fresh board) — doesn't exist today;
-  would cover the "private template" / recurring-project use case far cheaper than a template
-  system, and export/import only partially substitutes for it.
 
 ## Production hardening
 - Support/abuse contact address, referenced from ToS + Privacy.
@@ -123,7 +120,8 @@ Deferred from the `docs/I18N.md` design (see there for full rationale). Not bloc
   intent-driven acquisition (someone searching for that checklist), which itself requires the
   costly SEO/content bet up front — and without that channel there's no strong starter-template
   story for existing sign-ups. Extended discussion and design sketch: `docs/TEMPLATE-BOARDS.md`.
-  The cheap adjacent win ("duplicate board") is tracked under board sharing follow-ups above.
+  The cheap adjacent win, a "duplicate board" action, has since shipped (any member can copy a
+  board's categories/tags/tasks into a fresh board they solely own — `BoardService.duplicateBoard`).
 - **Web UI i18n** — design and phased rollout live in `docs/I18N.md`. Phase 0 (trim the supported
   languages to en/he/ru/ar) and Phase 1 (i18next + locale-resolution infrastructure, `Intl`
   formatting helper, string-extraction pattern, key-parity test) are landing; the remaining phases
