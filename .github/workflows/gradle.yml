@@ -61,13 +61,23 @@ jobs:
         java-version: '25'
         distribution: 'temurin'
 
+    # The deployed JAR serves the SPA from its own static/, so this job builds the frontend too
+    # — `frontend/dist` is gitignored, and a JAR assembled without it is a backend that answers
+    # every page with a 404 while every check on the run stays green.
+    - name: Set up Node.js
+      uses: actions/setup-node@v7
+      with:
+        node-version: "22"
+        cache: "npm"
+        cache-dependency-path: tasker-frontend/package-lock.json
+
     # Configure Gradle for optimal use in GitHub Actions, including caching of downloaded dependencies.
     # See: https://github.com/gradle/actions/blob/main/setup-gradle/README.md
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
 
     - name: Build with Gradle Wrapper
-      run: ./gradlew build
+      run: ./gradlew release
 
     - name: Upload test results
       uses: actions/upload-artifact@v7
@@ -86,7 +96,7 @@ jobs:
       with:
         name: jar
         path: build/libs/Taskboard-*-SNAPSHOT.jar
-        retention-days: 90
+        retention-days: 1
 
   deploy:
 
