@@ -47,6 +47,9 @@ The scope of the individual idea is varying - could be small UI improvements, or
   quiet one in the candidate pool (see `docs/BOARD-MODEL.md`).
 - No viewer/commenter role tier or per-task permissions beyond the assignee primitive — only add
   if real usage demands it.
+- A "duplicate board" action (copy tasks/categories/tags into a fresh board) — doesn't exist today;
+  would cover the "private template" / recurring-project use case far cheaper than a template
+  system, and export/import only partially substitutes for it.
 
 ## Production hardening
 - Support/abuse contact address, referenced from ToS + Privacy.
@@ -113,38 +116,14 @@ Deferred from the `docs/I18N.md` design (see there for full rationale). Not bloc
 - Birthday calendar, or general reminders.
 - Support non-latin calendars.
 
-## Template task boards
-Pre-populated task boards ("relocating to Germany", "going on a long trip", …). Assessed 2026-08:
-worth doing, but the valuable core is smaller than the full pitch.
-
-- **Strongest argument** (stronger than "shared checklist" or SEO): templates attack the planner's
-  cold-start problem. A new user with an empty backlog has nothing for the flagship weekly-planning
-  loop to chew on; a life-event template is planner-shaped content (natural priorities, deadlines,
-  durations) that demos the core loop immediately. Templates are an *activation* feature first.
-- **Structural constraint**: public templates cannot be ordinary boards — board content is
-  encrypted under per-board DEKs, public content is plaintext by definition. The clean model is
-  "template = static read-only definition; instantiation copies it into a normal encrypted board".
-  A parallel content type, not a `public` flag on `board`.
-- **Staging**:
-  1. *Phase 1 (cheap, high value)*: a handful of hand-curated starter templates shipped as static
-     resources in the repo — no schema, no public pages, no moderation. Offered at onboarding /
-     empty-board state ("start from a template"). Natural place to reuse per-board mascots.
-  2. *Phase 2 (only if Phase 1 sees use)*: public gallery pages for the same curated templates,
-     with real prerendered content. This is where the SEO bet is placed — note the cost: first
-     unauthenticated content endpoints on a currently fully session-gated surface, prerendering
-     work (the `index.html` crawler fallback is already stale, see above), and the hard truth that
-     ranking for "moving to Germany checklist" requires genuinely good editorial content, not just
-     a page existing.
-  3. *Don't build*: private/user-authored templates (a "duplicate board" action + existing
-     export/import covers that need far cheaper) and user-*published* templates (moderation burden
-     + erodes the encryption promise — "we can't read your tasks, except when you publish them" —
-     wrong cost profile for a solo project).
-- **Failure mode to avoid**: building the gallery first because it's the exciting part — that
-  front-loads the security surface, prerendering, and content-writing burden before knowing
-  whether anyone instantiates a template at all.
-
 ## Large projects
 - WhatsApp as a communication channel support.
+- **Template task boards** — pre-populated boards for life events ("relocating to Germany", "long
+  trip"), possibly with a public SEO-facing gallery. **Deferred**: the value hinges on
+  intent-driven acquisition (someone searching for that checklist), which itself requires the
+  costly SEO/content bet up front — and without that channel there's no strong starter-template
+  story for existing sign-ups. Extended discussion and design sketch: `docs/TEMPLATE-BOARDS.md`.
+  The cheap adjacent win ("duplicate board") is tracked under board sharing follow-ups above.
 - **Web UI i18n** — design and phased rollout live in `docs/I18N.md`. Phase 0 (trim the supported
   languages to en/he/ru/ar) and Phase 1 (i18next + locale-resolution infrastructure, `Intl`
   formatting helper, string-extraction pattern, key-parity test) are landing; the remaining phases
