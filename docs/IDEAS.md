@@ -47,7 +47,6 @@ The scope of the individual idea is varying - could be small UI improvements, or
   quiet one in the candidate pool (see `docs/BOARD-MODEL.md`).
 - No viewer/commenter role tier or per-task permissions beyond the assignee primitive — only add
   if real usage demands it.
-- Duplicate board bug: do not duplicate tutorial tasks.
 
 ## Production hardening
 - Support/abuse contact address, referenced from ToS + Privacy.

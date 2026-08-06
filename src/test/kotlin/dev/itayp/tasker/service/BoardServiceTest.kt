@@ -190,6 +190,40 @@ class BoardServiceTest {
     }
 
     @Test
+    fun `duplicateBoard excludes seeded tutorial tasks`() {
+        val sourceBoardId = UUID.fromString("00000000-0000-0000-0000-0000000000c2")
+        whenever(boardMembershipService.requireMember(userId, sourceBoardId)).thenReturn(BoardRole.OWNER)
+        val sourceBoard = boardEntity(name = "Original").apply { id = sourceBoardId }
+        whenever(boardRepository.save(any<BoardEntity>())).thenAnswer { it.arguments[0] as BoardEntity }
+        whenever(boardRepository.findById(any())).thenAnswer { inv ->
+            val id = inv.arguments[0] as UUID
+            if (id == sourceBoardId) Optional.of(sourceBoard)
+            else Optional.of(boardEntity(name = "ignored").apply { this.id = id })
+        }
+        whenever(categoryRepository.findAllByBoardId(sourceBoardId)).thenReturn(emptyList())
+        whenever(tagRepository.findAllByBoardId(sourceBoardId)).thenReturn(emptyList())
+        val tutorialTask = BacklogTaskEntity().apply {
+            id = UUID.randomUUID(); boardId = sourceBoardId; title = "Try this out".toByteArray(Charsets.UTF_8)
+            status = TaskStatus.TODO; sortKey = "a0"; tutorial = true
+        }
+        val realTask = BacklogTaskEntity().apply {
+            id = UUID.randomUUID(); boardId = sourceBoardId; title = "Buy boxes".toByteArray(Charsets.UTF_8)
+            status = TaskStatus.TODO; sortKey = "a1"; tutorial = false
+        }
+        whenever(backlogTaskRepository.findAllByBoardIdOrderBySortKeyAsc(sourceBoardId))
+            .thenReturn(listOf(tutorialTask, realTask))
+        whenever(backlogTaskRepository.save(any<BacklogTaskEntity>())).thenAnswer { inv ->
+            (inv.arguments[0] as BacklogTaskEntity).also { if (it.id == null) it.id = UUID.randomUUID() }
+        }
+
+        service.duplicateBoard(userId, sourceBoardId, "Copy", resetTaskStatus = false)
+
+        val savedTask = org.mockito.kotlin.argumentCaptor<BacklogTaskEntity>()
+        verify(backlogTaskRepository).save(savedTask.capture())
+        assertEquals("Buy boxes", savedTask.firstValue.title?.toString(Charsets.UTF_8))
+    }
+
+    @Test
     fun `duplicateBoard requires membership on the source board`() {
         val sourceBoardId = UUID.randomUUID()
         whenever(boardMembershipService.requireMember(userId, sourceBoardId)).thenThrow(BoardAccessDeniedException(userId, sourceBoardId))

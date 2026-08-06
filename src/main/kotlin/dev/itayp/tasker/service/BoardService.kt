@@ -135,7 +135,9 @@ class BoardService(
         }
 
         val now = Instant.now(clock)
-        backlogTaskRepository.findAllByBoardIdOrderBySortKeyAsc(sourceBoardId).forEach { source ->
+        // Seeded tutorial tasks teach the product; they aren't the user's own data, so exclude them
+        // (mirrors AccountService/AccountImportService's treatment of tutorial tasks).
+        backlogTaskRepository.findAllByBoardIdOrderBySortKeyAsc(sourceBoardId).filterNot { it.tutorial }.forEach { source ->
             val title = boardCrypto.decrypt(sourceBoardId, source.title) ?: ""
             val description = boardCrypto.decrypt(sourceBoardId, source.description)
             val status = if (resetTaskStatus) TaskStatus.TODO else source.status ?: TaskStatus.TODO
