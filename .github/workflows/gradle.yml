@@ -10,6 +10,8 @@ name: Java CI with Gradle
 on:
   pull_request:
     branches: [ "main" ]
+  push:
+    branches: [ "main" ]
 
 jobs:
   frontend:
@@ -76,6 +78,28 @@ jobs:
           build/reports/tests/test
           build/reports/kover/html
         retention-days: 3
+
+    # Only needed to ship the release; skipped entirely on PR builds.
+    - name: Upload JAR for deploy
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      uses: actions/upload-artifact@v4
+      with:
+        name: jar
+        path: build/libs/Taskboard-*-SNAPSHOT.jar
+        retention-days: 90
+
+  deploy:
+
+    name: Deploy tasks
+    needs: [ frontend, build ]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: Itaypk/itayp-dev/.github/workflows/deploy-service.yml@main
+    with:
+      service: tasks
+      artifact: jar
+      jar-glob: 'Taskboard-*-SNAPSHOT.jar'
+    secrets:
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
 
   dependency-submission:
 
