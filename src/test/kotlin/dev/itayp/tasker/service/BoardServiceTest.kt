@@ -1,10 +1,19 @@
 package dev.itayp.tasker.service
 
 import dev.itayp.tasker.crypto.noopBoardCryptoService
+import dev.itayp.tasker.jpa.BacklogTaskCategoryEntity
+import dev.itayp.tasker.jpa.BacklogTaskEntity
+import dev.itayp.tasker.jpa.BacklogTaskTagEntity
 import dev.itayp.tasker.jpa.BoardEntity
 import dev.itayp.tasker.jpa.BoardMembershipEntity
 import dev.itayp.tasker.model.BoardRole
+import dev.itayp.tasker.model.CategoryColor
+import dev.itayp.tasker.model.TagColor
+import dev.itayp.tasker.model.TaskStatus
+import dev.itayp.tasker.planning.BacklogTaskChangeService
 import dev.itayp.tasker.repository.BacklogTaskCategoryRepository
+import dev.itayp.tasker.repository.BacklogTaskRepository
+import dev.itayp.tasker.repository.BacklogTaskTagRepository
 import dev.itayp.tasker.repository.BoardMembershipRepository
 import dev.itayp.tasker.repository.BoardRepository
 import org.junit.jupiter.api.Test
@@ -12,6 +21,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
+import org.mockito.kotlin.argThat
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
@@ -23,6 +33,8 @@ import java.util.Optional
 import java.util.UUID
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNotEquals
+import kotlin.test.assertNull
 
 @ExtendWith(MockitoExtension::class)
 class BoardServiceTest {
@@ -30,7 +42,10 @@ class BoardServiceTest {
     @Mock private lateinit var boardRepository: BoardRepository
     @Mock private lateinit var boardMembershipRepository: BoardMembershipRepository
     @Mock private lateinit var categoryRepository: BacklogTaskCategoryRepository
+    @Mock private lateinit var tagRepository: BacklogTaskTagRepository
+    @Mock private lateinit var backlogTaskRepository: BacklogTaskRepository
     @Mock private lateinit var boardMembershipService: BoardMembershipService
+    @Mock private lateinit var taskChangeService: BacklogTaskChangeService
     @Mock private lateinit var jdbcTemplate: org.springframework.jdbc.core.JdbcTemplate
 
     private val boardCrypto = noopBoardCryptoService()
@@ -38,8 +53,8 @@ class BoardServiceTest {
 
     private val service: BoardService by lazy {
         BoardService(
-            boardRepository, boardMembershipRepository, categoryRepository,
-            boardCrypto, boardMembershipService, jdbcTemplate, clock,
+            boardRepository, boardMembershipRepository, categoryRepository, tagRepository, backlogTaskRepository,
+            boardCrypto, boardMembershipService, taskChangeService, jdbcTemplate, clock,
         )
     }
 
@@ -90,6 +105,94 @@ class BoardServiceTest {
     @Test
     fun `createBoard rejects a blank name`() {
         assertFailsWith<IllegalArgumentException> { service.createBoard(userId, "   ") }
+    }
+
+    @Test
+    fun `duplicateBoard copies categories, tags, and tasks into a new board owned by the caller`() {
+        val sourceBoardId = UUID.fromString("00000000-0000-0000-0000-0000000000c0")
+        whenever(boardMembershipService.requireMember(userId, sourceBoardId)).thenReturn(BoardRole.MEMBER)
+        val sourceBoard = boardEntity(name = "Original").apply { id = sourceBoardId; mascot = "mr_roboto" }
+        whenever(boardRepository.findById(sourceBoardId)).thenReturn(Optional.of(sourceBoard))
+        whenever(boardRepository.save(any<BoardEntity>())).thenAnswer { it.arguments[0] as BoardEntity }
+        whenever(boardRepository.findById(argThat { it != sourceBoardId })).thenAnswer { inv ->
+            Optional.of(boardEntity(name = "ignored").apply { id = inv.arguments[0] as UUID; mascot = "mr_roboto" })
+        }
+
+        val sourceCategory = BacklogTaskCategoryEntity().apply {
+            id = UUID.randomUUID(); boardId = sourceBoardId; label = "Home"; swatchId = CategoryColor.SAGE
+        }
+        val sourceTag = BacklogTaskTagEntity().apply {
+            id = UUID.randomUUID(); boardId = sourceBoardId; label = "urgent"; colorId = TagColor.CORAL
+        }
+        whenever(categoryRepository.findAllByBoardId(sourceBoardId)).thenReturn(listOf(sourceCategory))
+        whenever(categoryRepository.save(any<BacklogTaskCategoryEntity>())).thenAnswer { it.arguments[0] as BacklogTaskCategoryEntity }
+        whenever(tagRepository.findAllByBoardId(sourceBoardId)).thenReturn(listOf(sourceTag))
+        whenever(tagRepository.save(any<BacklogTaskTagEntity>())).thenAnswer { it.arguments[0] as BacklogTaskTagEntity }
+
+        val sourceTask = BacklogTaskEntity().apply {
+            id = UUID.randomUUID()
+            boardId = sourceBoardId
+            title = "Buy boxes".toByteArray(Charsets.UTF_8)
+            status = TaskStatus.DONE
+            category = sourceCategory
+            tags = mutableSetOf(sourceTag)
+            sortKey = "a0"
+            assigneeUserId = UUID.randomUUID()
+        }
+        whenever(backlogTaskRepository.findAllByBoardIdOrderBySortKeyAsc(sourceBoardId)).thenReturn(listOf(sourceTask))
+        whenever(backlogTaskRepository.save(any<BacklogTaskEntity>())).thenAnswer { it.arguments[0] as BacklogTaskEntity }
+
+        val summary = service.duplicateBoard(userId, sourceBoardId, "  Original (copy)  ", resetTaskStatus = true)
+
+        assertEquals("Original (copy)", summary.name)
+        assertEquals(BoardRole.OWNER, summary.role)
+        assertEquals(1, summary.memberCount)
+        assertNotEquals(sourceBoardId, summary.id)
+
+        val savedTask = org.mockito.kotlin.argumentCaptor<BacklogTaskEntity>()
+        verify(backlogTaskRepository).save(savedTask.capture())
+        assertEquals(summary.id, savedTask.firstValue.boardId)
+        assertEquals("Buy boxes", savedTask.firstValue.title?.toString(Charsets.UTF_8))
+        assertEquals(TaskStatus.TODO, savedTask.firstValue.status) // reset from DONE
+        assertNull(savedTask.firstValue.assigneeUserId)
+        assertEquals("Home", savedTask.firstValue.category?.label)
+        assertEquals(setOf("urgent"), savedTask.firstValue.tags.map { it.label }.toSet())
+    }
+
+    @Test
+    fun `duplicateBoard keeps the original task status when resetTaskStatus is false`() {
+        val sourceBoardId = UUID.fromString("00000000-0000-0000-0000-0000000000c1")
+        whenever(boardMembershipService.requireMember(userId, sourceBoardId)).thenReturn(BoardRole.OWNER)
+        val sourceBoard = boardEntity(name = "Original").apply { id = sourceBoardId }
+        whenever(boardRepository.findById(sourceBoardId)).thenReturn(Optional.of(sourceBoard))
+        whenever(boardRepository.save(any<BoardEntity>())).thenAnswer { it.arguments[0] as BoardEntity }
+        whenever(boardRepository.findById(argThat { it != sourceBoardId })).thenAnswer { inv ->
+            Optional.of(boardEntity(name = "ignored").apply { id = inv.arguments[0] as UUID })
+        }
+        whenever(categoryRepository.findAllByBoardId(sourceBoardId)).thenReturn(emptyList())
+        whenever(tagRepository.findAllByBoardId(sourceBoardId)).thenReturn(emptyList())
+        val sourceTask = BacklogTaskEntity().apply {
+            id = UUID.randomUUID(); boardId = sourceBoardId; title = "Pack".toByteArray(Charsets.UTF_8); status = TaskStatus.DONE
+        }
+        whenever(backlogTaskRepository.findAllByBoardIdOrderBySortKeyAsc(sourceBoardId)).thenReturn(listOf(sourceTask))
+        whenever(backlogTaskRepository.save(any<BacklogTaskEntity>())).thenAnswer { it.arguments[0] as BacklogTaskEntity }
+
+        service.duplicateBoard(userId, sourceBoardId, "Copy", resetTaskStatus = false)
+
+        val savedTask = org.mockito.kotlin.argumentCaptor<BacklogTaskEntity>()
+        verify(backlogTaskRepository).save(savedTask.capture())
+        assertEquals(TaskStatus.DONE, savedTask.firstValue.status)
+    }
+
+    @Test
+    fun `duplicateBoard requires membership on the source board`() {
+        val sourceBoardId = UUID.randomUUID()
+        whenever(boardMembershipService.requireMember(userId, sourceBoardId)).thenThrow(BoardAccessDeniedException(userId, sourceBoardId))
+
+        assertFailsWith<BoardAccessDeniedException> {
+            service.duplicateBoard(userId, sourceBoardId, "Copy", resetTaskStatus = true)
+        }
+        verify(boardRepository, never()).save(any())
     }
 
     @Test

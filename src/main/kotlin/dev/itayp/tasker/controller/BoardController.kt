@@ -1,6 +1,7 @@
 package dev.itayp.tasker.controller
 
 import dev.itayp.tasker.model.request.CreateBoardRequest
+import dev.itayp.tasker.model.request.DuplicateBoardRequest
 import dev.itayp.tasker.model.request.UpdateBoardRequest
 import dev.itayp.tasker.model.response.BoardResponse
 import dev.itayp.tasker.model.response.toResponse
@@ -37,6 +38,17 @@ class BoardController(private val boardService: BoardService) {
         @Valid @RequestBody request: CreateBoardRequest,
     ): ResponseEntity<BoardResponse> {
         val board = boardService.createBoard(principal.userId, request.name)
+        return ResponseEntity.status(HttpStatus.CREATED).body(board.toResponse())
+    }
+
+    /** Copies a board's categories, tags, and tasks into a new board owned solely by the caller; returns the new board (201). */
+    @PostMapping("/{boardId}/duplicate")
+    fun duplicateBoard(
+        @AuthenticationPrincipal principal: TaskerPrincipal,
+        @PathVariable boardId: UUID,
+        @Valid @RequestBody request: DuplicateBoardRequest,
+    ): ResponseEntity<BoardResponse> {
+        val board = boardService.duplicateBoard(principal.userId, boardId, request.name, request.resetTaskStatus)
         return ResponseEntity.status(HttpStatus.CREATED).body(board.toResponse())
     }
 

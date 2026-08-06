@@ -2,12 +2,18 @@ package dev.itayp.tasker.service
 
 import dev.itayp.tasker.crypto.BoardCryptoService
 import dev.itayp.tasker.jpa.BacklogTaskCategoryEntity
+import dev.itayp.tasker.jpa.BacklogTaskEntity
+import dev.itayp.tasker.jpa.BacklogTaskTagEntity
 import dev.itayp.tasker.jpa.BoardEntity
 import dev.itayp.tasker.jpa.BoardMembershipEntity
 import dev.itayp.tasker.model.BoardMascot
 import dev.itayp.tasker.model.BoardRole
 import dev.itayp.tasker.model.BoardSummary
+import dev.itayp.tasker.model.TaskStatus
+import dev.itayp.tasker.planning.BacklogTaskChangeService
 import dev.itayp.tasker.repository.BacklogTaskCategoryRepository
+import dev.itayp.tasker.repository.BacklogTaskRepository
+import dev.itayp.tasker.repository.BacklogTaskTagRepository
 import dev.itayp.tasker.repository.BoardMembershipRepository
 import dev.itayp.tasker.repository.BoardRepository
 import org.springframework.http.HttpStatus
@@ -24,25 +30,45 @@ class BoardService(
     private val boardRepository: BoardRepository,
     private val boardMembershipRepository: BoardMembershipRepository,
     private val categoryRepository: BacklogTaskCategoryRepository,
+    private val tagRepository: BacklogTaskTagRepository,
+    private val backlogTaskRepository: BacklogTaskRepository,
     private val boardCrypto: BoardCryptoService,
     private val boardMembershipService: BoardMembershipService,
+    private val taskChangeService: BacklogTaskChangeService,
     private val jdbcTemplate: JdbcTemplate,
     private val clock: Clock,
 ) {
 
     /**
      * Creates a board owned by [userId]: the board row, its DEK, an OWNER membership, and the
-     * default category set (categories are board-owned). Returns the new board id. The board row is
-     * persisted before [BoardCryptoService.ensureBoardKey] so the `board_data_key` FK is satisfied;
-     * the name is encrypted only after the DEK exists.
+     * default category set (categories are board-owned). Returns the new board id.
      */
     @Transactional
     fun createBoardForOwner(userId: UUID, name: String): UUID {
+        val boardId = createBareBoard(userId, name, BoardMascot.DEFAULT.id)
+        UserService.DEFAULT_CATEGORIES.forEach { (label, color) ->
+            categoryRepository.save(BacklogTaskCategoryEntity().apply {
+                this.boardId = boardId
+                this.label = label
+                this.swatchId = color
+            })
+        }
+        return boardId
+    }
+
+    /**
+     * Creates the board row, its DEK, the encrypted name, and an OWNER membership for [userId] —
+     * no content (categories/tasks/tags). The board row is persisted before
+     * [BoardCryptoService.ensureBoardKey] so the `board_data_key` FK is satisfied; the name is
+     * encrypted only after the DEK exists. Shared by [createBoardForOwner] (which seeds the default
+     * categories) and [duplicateBoard] (which seeds copied ones instead).
+     */
+    private fun createBareBoard(userId: UUID, name: String, mascot: String): UUID {
         val now = Instant.now(clock)
         val boardId = UUID.randomUUID()
         val board = boardRepository.save(BoardEntity().apply {
             this.id = boardId
-            this.mascot = BoardMascot.DEFAULT.id
+            this.mascot = mascot
             this.createdAt = now
         })
         boardCrypto.ensureBoardKey(boardId)
@@ -56,14 +82,6 @@ class BoardService(
             this.role = BoardRole.OWNER
             this.joinedAt = now
         })
-
-        UserService.DEFAULT_CATEGORIES.forEach { (label, color) ->
-            categoryRepository.save(BacklogTaskCategoryEntity().apply {
-                this.boardId = boardId
-                this.label = label
-                this.swatchId = color
-            })
-        }
         return boardId
     }
 
@@ -79,6 +97,69 @@ class BoardService(
         val board = boardRepository.findById(boardId).orElseThrow()
         return BoardSummary(
             boardId, normalized, BoardRole.OWNER, board.createdAt!!,
+            memberCount = 1, mascot = BoardMascot.normalize(board.mascot),
+        )
+    }
+
+    /**
+     * Copies [sourceBoardId]'s categories, tags, and tasks into a brand-new board owned solely by
+     * [userId] — any member may duplicate (it doesn't touch the source), not just the owner. The
+     * source board's other members, task assignees, and change-event history are deliberately not
+     * carried over: the copy starts as a private, unshared board with its own fresh history. When
+     * [resetTaskStatus] is true every copied task's status is reset to TODO regardless of its status
+     * on the source board.
+     */
+    @Transactional
+    fun duplicateBoard(userId: UUID, sourceBoardId: UUID, name: String, resetTaskStatus: Boolean): BoardSummary {
+        boardMembershipService.requireMember(userId, sourceBoardId)
+        val sourceBoard = boardRepository.findById(sourceBoardId)
+            .orElseThrow { NoSuchElementException("Board $sourceBoardId not found") }
+        val normalized = normalizeName(name)
+
+        val newBoardId = createBareBoard(userId, normalized, BoardMascot.normalize(sourceBoard.mascot))
+
+        val categoryIdMap = categoryRepository.findAllByBoardId(sourceBoardId).associate { source ->
+            source.id to categoryRepository.save(BacklogTaskCategoryEntity().apply {
+                this.boardId = newBoardId
+                this.label = source.label
+                this.swatchId = source.swatchId
+            })
+        }
+        val tagIdMap = tagRepository.findAllByBoardId(sourceBoardId).associate { source ->
+            source.id to tagRepository.save(BacklogTaskTagEntity().apply {
+                this.boardId = newBoardId
+                this.label = source.label
+                this.colorId = source.colorId
+                this.description = source.description
+            })
+        }
+
+        val now = Instant.now(clock)
+        backlogTaskRepository.findAllByBoardIdOrderBySortKeyAsc(sourceBoardId).forEach { source ->
+            val title = boardCrypto.decrypt(sourceBoardId, source.title) ?: ""
+            val description = boardCrypto.decrypt(sourceBoardId, source.description)
+            val status = if (resetTaskStatus) TaskStatus.TODO else source.status ?: TaskStatus.TODO
+            val copy = backlogTaskRepository.save(BacklogTaskEntity().apply {
+                this.boardId = newBoardId
+                this.title = boardCrypto.encrypt(newBoardId, title)
+                this.description = boardCrypto.encrypt(newBoardId, description)
+                this.url = source.url
+                this.priority = source.priority
+                this.deadline = source.deadline
+                this.estimatedMinutes = source.estimatedMinutes
+                this.status = status
+                this.category = categoryIdMap[source.category?.id]
+                this.tags = source.tags.mapNotNull { tagIdMap[it.id] }.toMutableSet()
+                this.sortKey = source.sortKey
+                this.createdAt = now
+                this.relevantFrom = source.relevantFrom
+            })
+            taskChangeService.recordCreated(newBoardId, userId, copy.id!!, title, status)
+        }
+
+        val board = boardRepository.findById(newBoardId).orElseThrow()
+        return BoardSummary(
+            newBoardId, normalized, BoardRole.OWNER, board.createdAt!!,
             memberCount = 1, mascot = BoardMascot.normalize(board.mascot),
         )
     }

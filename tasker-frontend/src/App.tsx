@@ -25,6 +25,7 @@ import { BoardFilter } from './components/BoardFilter';
 import { SortMenu } from './components/SortMenu';
 import { BrandBoard } from './components/BrandBoard';
 import { BoardNameDialog } from './components/BoardNameDialog';
+import { DuplicateBoardDialog } from './components/DuplicateBoardDialog';
 import { WeeklyPlanDrawer } from './components/WeeklyPlanDrawer';
 import { ContextMenu, type ContextMenuAction } from './components/ContextMenu';
 import { ConfirmDialog } from './components/ConfirmDialog';
@@ -35,7 +36,7 @@ import { StatsModal } from './components/StatsModal';
 import { FeedbackModal } from './components/FeedbackModal';
 import { BoardSettingsModal } from './components/BoardSettingsModal';
 import { DEFAULT_SETTINGS } from './data';
-import { fetchBoards, createBoard, fetchTasks, fetchCategories, fetchUserSettings, fetchTags, updateTag, fetchCurrentPlan, fetchSync, createTask, updateTask, deleteTask, duplicateTask, moveTaskToBoard, reorderTask, removeTaskFromPlan, clearTutorialTasks, addTaskToPlan, changeTaskSlot, notifyError, fetchMembers, setTaskAssignee, type TaskStatusFilter, type Board, type BoardMember } from './api';
+import { fetchBoards, createBoard, duplicateBoard, fetchTasks, fetchCategories, fetchUserSettings, fetchTags, updateTag, fetchCurrentPlan, fetchSync, createTask, updateTask, deleteTask, duplicateTask, moveTaskToBoard, reorderTask, removeTaskFromPlan, clearTutorialTasks, addTaskToPlan, changeTaskSlot, notifyError, fetchMembers, setTaskAssignee, type TaskStatusFilter, type Board, type BoardMember } from './api';
 import { UpdateBanner } from './components/UpdateBanner';
 import type { Task, UserSettings, Tag, CurrentPlan, TaskFilter, ViewMode } from './types';
 import { sortTasks, isSortMode, type SortMode } from './sort';
@@ -137,6 +138,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   // The create dialog is a small name prompt; rename/mascot/members/delete all live in the settings modal.
   const [boardCreateOpen, setBoardCreateOpen] = useState(false);
   const [boardSettingsOpen, setBoardSettingsOpen] = useState(false);
+  const [boardDuplicateOpen, setBoardDuplicateOpen] = useState(false);
   const [tasks, setTasks]             = useState<Task[]>([]);
   const [tags, setTags]               = useState<Tag[]>([]);
   const [settings, setSettings]       = useState<UserSettings>({ ...DEFAULT_SETTINGS, categories: [] });
@@ -684,6 +686,13 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
     switchBoard(created.id);
   }, [switchBoard]);
 
+  const handleDuplicateBoard = useCallback(async (name: string, resetTaskStatus: boolean) => {
+    if (!activeBoardId) return;
+    const created = await duplicateBoard(activeBoardId, name, resetTaskStatus);
+    setBoards(prev => [...prev, created]);
+    switchBoard(created.id);
+  }, [activeBoardId, switchBoard]);
+
   // Name/mascot edits are persisted by the settings modal; here we only sync the local list.
   const handleBoardChanged = useCallback((updated: Board) => {
     setBoards(prev => prev.map(b => b.id === updated.id ? updated : b));
@@ -749,6 +758,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
           onSwitch={switchBoard}
           onCreate={() => setBoardCreateOpen(true)}
           onOpenSettings={() => setBoardSettingsOpen(true)}
+          onDuplicate={() => setBoardDuplicateOpen(true)}
         />
         <SortMenu value={sortMode} onChange={changeSortMode} />
         <ViewToggle value={viewMode} onChange={changeViewMode} />
@@ -988,6 +998,13 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
         confirmLabel={t('app.createBoard')}
         onConfirm={handleCreateBoard}
         onClose={() => setBoardCreateOpen(false)}
+      />
+
+      <DuplicateBoardDialog
+        open={boardDuplicateOpen}
+        sourceBoardName={activeBoard?.name ?? ''}
+        onConfirm={handleDuplicateBoard}
+        onClose={() => setBoardDuplicateOpen(false)}
       />
 
       {!claimed && !nudgeDismissed && (

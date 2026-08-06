@@ -100,6 +100,33 @@ class BoardControllerTest(@Autowired val mockMvc: MockMvc) {
     }
 
     @Test
+    fun `POST boards duplicate returns 201 with the new board`() {
+        whenever(boardService.duplicateBoard(eq(userId), eq(boardId), eq("Work (copy)"), eq(true)))
+            .thenReturn(BoardSummary(UUID.randomUUID(), "Work (copy)", BoardRole.OWNER, Instant.parse("2026-01-01T00:00:00Z")))
+
+        mockMvc.perform(
+            post("/api/v1/boards/$boardId/duplicate")
+                .with(authentication(auth)).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"name":"Work (copy)","resetTaskStatus":true}""")
+        )
+            .andExpect(status().isCreated)
+            .andExpect(jsonPath("$.name").value("Work (copy)"))
+            .andExpect(jsonPath("$.role").value("OWNER"))
+    }
+
+    @Test
+    fun `POST boards duplicate rejects a blank name with 400`() {
+        mockMvc.perform(
+            post("/api/v1/boards/$boardId/duplicate")
+                .with(authentication(auth)).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"name":"   "}""")
+        )
+            .andExpect(status().isBadRequest)
+    }
+
+    @Test
     fun `PATCH boards updates the name and mascot`() {
         whenever(boardService.updateBoard(eq(userId), eq(boardId), eq("Renamed"), eq("mr_roboto")))
             .thenReturn(BoardSummary(boardId, "Renamed", BoardRole.OWNER, Instant.parse("2026-01-01T00:00:00Z"), mascot = "mr_roboto"))
