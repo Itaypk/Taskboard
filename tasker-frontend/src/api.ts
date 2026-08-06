@@ -208,6 +208,10 @@ export const fetchBoards = (): Promise<Board[]> =>
 export const createBoard = (name: string): Promise<Board> =>
     apiRequest('/boards', { method: 'POST', ...jsonBody({ name }) });
 
+/** Copies a board's categories, tags, and tasks into a new board owned solely by the caller. */
+export const duplicateBoard = (boardId: string, name: string, resetTaskStatus: boolean): Promise<Board> =>
+    apiRequest(`/boards/${boardId}/duplicate`, { method: 'POST', ...jsonBody({ name, resetTaskStatus }) });
+
 /** Updates a board's name and/or mascot (owner only). Omitting `mascot` leaves it unchanged. */
 export const updateBoard = (boardId: string, payload: { name: string; mascot?: string }): Promise<Board> =>
     apiRequest(`/boards/${boardId}`, { method: 'PATCH', ...jsonBody(payload) });

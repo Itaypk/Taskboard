@@ -370,6 +370,12 @@
     "namePlaceholder": "Board name",
     "cancel": "Cancel"
   },
+  "duplicateBoardDialog": {
+    "title": "Duplicate board",
+    "defaultName": "{{name}} (copy)",
+    "resetTaskStatus": "Set all copied tasks to To-do",
+    "confirm": "Duplicate"
+  },
   "brandBoard": {
     "members_one": "{{count}} member",
     "members_other": "{{count}} members",
@@ -377,6 +383,7 @@
     "switchBoard": "Switch board",
     "boardFallback": "Board",
     "boardSettings": "Board settings…",
+    "duplicateBoard": "Duplicate board…",
     "newBoard": "+ New board"
   },
   "categoryEditor": {

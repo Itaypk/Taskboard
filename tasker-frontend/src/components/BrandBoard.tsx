@@ -10,6 +10,8 @@ interface BrandBoardProps {
   onCreate: () => void;
   /** Opens the unified board settings dialog (rename, mascot, members, delete). */
   onOpenSettings: () => void;
+  /** Opens the duplicate-board dialog for the active board. */
+  onDuplicate: () => void;
   /** Brand wordmark shown on the Dymo tape. */
   brandName?: string;
 }
@@ -63,6 +65,7 @@ export function BrandBoard({
   onSwitch,
   onCreate,
   onOpenSettings,
+  onDuplicate,
   brandName = 'Backlog.fyi',
 }: BrandBoardProps) {
   const { t } = useTranslation();
@@ -127,6 +130,9 @@ export function BrandBoard({
             <li className={styles.divider} role="separator" />
             <li role="none">
               <button type="button" role="menuitem" className={styles.item} onClick={() => run(onOpenSettings)}>{t('brandBoard.boardSettings')}</button>
+            </li>
+            <li role="none">
+              <button type="button" role="menuitem" className={styles.item} onClick={() => run(onDuplicate)}>{t('brandBoard.duplicateBoard')}</button>
             </li>
             <li role="none">
               <button type="button" role="menuitem" className={styles.item} onClick={() => run(onCreate)}>{t('brandBoard.newBoard')}</button>
