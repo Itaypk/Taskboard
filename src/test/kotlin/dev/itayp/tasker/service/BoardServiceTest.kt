@@ -140,7 +140,9 @@ class BoardServiceTest {
             assigneeUserId = UUID.randomUUID()
         }
         whenever(backlogTaskRepository.findAllByBoardIdOrderBySortKeyAsc(sourceBoardId)).thenReturn(listOf(sourceTask))
-        whenever(backlogTaskRepository.save(any<BacklogTaskEntity>())).thenAnswer { it.arguments[0] as BacklogTaskEntity }
+        whenever(backlogTaskRepository.save(any<BacklogTaskEntity>())).thenAnswer { inv ->
+            (inv.arguments[0] as BacklogTaskEntity).also { if (it.id == null) it.id = UUID.randomUUID() }
+        }
 
         val summary = service.duplicateBoard(userId, sourceBoardId, "  Original (copy)  ", resetTaskStatus = true)
 
@@ -176,7 +178,9 @@ class BoardServiceTest {
             id = UUID.randomUUID(); boardId = sourceBoardId; title = "Pack".toByteArray(Charsets.UTF_8); status = TaskStatus.DONE
         }
         whenever(backlogTaskRepository.findAllByBoardIdOrderBySortKeyAsc(sourceBoardId)).thenReturn(listOf(sourceTask))
-        whenever(backlogTaskRepository.save(any<BacklogTaskEntity>())).thenAnswer { it.arguments[0] as BacklogTaskEntity }
+        whenever(backlogTaskRepository.save(any<BacklogTaskEntity>())).thenAnswer { inv ->
+            (inv.arguments[0] as BacklogTaskEntity).also { if (it.id == null) it.id = UUID.randomUUID() }
+        }
 
         service.duplicateBoard(userId, sourceBoardId, "Copy", resetTaskStatus = false)
 
