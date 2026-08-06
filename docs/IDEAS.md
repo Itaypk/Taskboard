@@ -113,6 +113,36 @@ Deferred from the `docs/I18N.md` design (see there for full rationale). Not bloc
 - Birthday calendar, or general reminders.
 - Support non-latin calendars.
 
+## Template task boards
+Pre-populated task boards ("relocating to Germany", "going on a long trip", …). Assessed 2026-08:
+worth doing, but the valuable core is smaller than the full pitch.
+
+- **Strongest argument** (stronger than "shared checklist" or SEO): templates attack the planner's
+  cold-start problem. A new user with an empty backlog has nothing for the flagship weekly-planning
+  loop to chew on; a life-event template is planner-shaped content (natural priorities, deadlines,
+  durations) that demos the core loop immediately. Templates are an *activation* feature first.
+- **Structural constraint**: public templates cannot be ordinary boards — board content is
+  encrypted under per-board DEKs, public content is plaintext by definition. The clean model is
+  "template = static read-only definition; instantiation copies it into a normal encrypted board".
+  A parallel content type, not a `public` flag on `board`.
+- **Staging**:
+  1. *Phase 1 (cheap, high value)*: a handful of hand-curated starter templates shipped as static
+     resources in the repo — no schema, no public pages, no moderation. Offered at onboarding /
+     empty-board state ("start from a template"). Natural place to reuse per-board mascots.
+  2. *Phase 2 (only if Phase 1 sees use)*: public gallery pages for the same curated templates,
+     with real prerendered content. This is where the SEO bet is placed — note the cost: first
+     unauthenticated content endpoints on a currently fully session-gated surface, prerendering
+     work (the `index.html` crawler fallback is already stale, see above), and the hard truth that
+     ranking for "moving to Germany checklist" requires genuinely good editorial content, not just
+     a page existing.
+  3. *Don't build*: private/user-authored templates (a "duplicate board" action + existing
+     export/import covers that need far cheaper) and user-*published* templates (moderation burden
+     + erodes the encryption promise — "we can't read your tasks, except when you publish them" —
+     wrong cost profile for a solo project).
+- **Failure mode to avoid**: building the gallery first because it's the exciting part — that
+  front-loads the security surface, prerendering, and content-writing burden before knowing
+  whether anyone instantiates a template at all.
+
 ## Large projects
 - WhatsApp as a communication channel support.
 - **Web UI i18n** — design and phased rollout live in `docs/I18N.md`. Phase 0 (trim the supported
