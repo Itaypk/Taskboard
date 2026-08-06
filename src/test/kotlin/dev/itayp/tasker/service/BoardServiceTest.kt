@@ -114,7 +114,7 @@ class BoardServiceTest {
         val sourceBoard = boardEntity(name = "Original").apply { id = sourceBoardId; mascot = "mr_roboto" }
         whenever(boardRepository.findById(sourceBoardId)).thenReturn(Optional.of(sourceBoard))
         whenever(boardRepository.save(any<BoardEntity>())).thenAnswer { it.arguments[0] as BoardEntity }
-        whenever(boardRepository.findById(argThat { it != sourceBoardId })).thenAnswer { inv ->
+        whenever(boardRepository.findById(argThat<UUID> { it != sourceBoardId })).thenAnswer { inv ->
             Optional.of(boardEntity(name = "ignored").apply { id = inv.arguments[0] as UUID; mascot = "mr_roboto" })
         }
 
@@ -166,7 +166,7 @@ class BoardServiceTest {
         val sourceBoard = boardEntity(name = "Original").apply { id = sourceBoardId }
         whenever(boardRepository.findById(sourceBoardId)).thenReturn(Optional.of(sourceBoard))
         whenever(boardRepository.save(any<BoardEntity>())).thenAnswer { it.arguments[0] as BoardEntity }
-        whenever(boardRepository.findById(argThat { it != sourceBoardId })).thenAnswer { inv ->
+        whenever(boardRepository.findById(argThat<UUID> { it != sourceBoardId })).thenAnswer { inv ->
             Optional.of(boardEntity(name = "ignored").apply { id = inv.arguments[0] as UUID })
         }
         whenever(categoryRepository.findAllByBoardId(sourceBoardId)).thenReturn(emptyList())
