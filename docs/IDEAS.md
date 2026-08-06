@@ -47,6 +47,7 @@ The scope of the individual idea is varying - could be small UI improvements, or
   quiet one in the candidate pool (see `docs/BOARD-MODEL.md`).
 - No viewer/commenter role tier or per-task permissions beyond the assignee primitive — only add
   if real usage demands it.
+- Duplicate board bug: do not duplicate tutorial tasks.
 
 ## Production hardening
 - Support/abuse contact address, referenced from ToS + Privacy.
@@ -69,6 +70,8 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Filter chips can still wrap on very small screens even after the "Week" shortening. If it keeps bugging us, consider a segmented control or horizontally-scrollable chip row on mobile.
 - Board management: custom board color pin marker (the member count pin)?
 - Center pill bar on mobile; consider dropping the "done" pill.
+- Categories and tags should go in the "Board Settings" menu. 
+- Setting dialog - notifications tab?
 
 ## Assistant - Mid-week response
 - When texting the assistant out of the blue, respond with the correct context. 
@@ -96,13 +99,6 @@ Deferred from the `docs/I18N.md` design (see there for full rationale). Not bloc
 - Hebrew/Arabic display typography that preserves the paper/post-it aesthetic — a product/design
   decision to make early in Phase 2 (this is the same concern as the "Fonts look bad in Hebrew"
   note above).
-
-## Reusable libraries
-- Extract the envelope-encryption infrastructure and the OpenRouter client into two standalone,
-  JitPack-published libraries. The in-app code has already been decoupled behind stable seams
-  (`DekStore`; `AiCallGate` / `AiCallListener` / `ReasoningEffortSource` + `AiClientProperties`) so
-  the switch to the published dependency is mechanical. Design plan: `docs/LIBRARY-EXTRACTION.md`.
-  The library repos themselves are created in a separate session.
 
 ## Ideas that require more consideration
 - Open source the application under AGPL. A full git-history secret scan ahead of this switch
