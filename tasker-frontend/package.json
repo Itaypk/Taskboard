@@ -21,9 +21,9 @@
     "@tiptap/markdown": "^3.29.2",
     "@tiptap/react": "^3.29.2",
     "@tiptap/starter-kit": "^3.29.2",
-    "dompurify": "^3.4.12",
+    "dompurify": "^3.4.13",
     "i18next": "26.3.6",
-    "marked": "^18.0.7",
+    "marked": "^18.0.9",
     "marked-bidi": "^1.0.15",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
@@ -43,9 +43,9 @@
     "eslint-plugin-react-refresh": "^0.5.3",
     "globals": "^17.8.0",
     "jsdom": "30.0.1",
-    "typescript": "~6.0.3",
+    "typescript": "~7.0.2",
     "typescript-eslint": "^8.65.0",
-    "vite": "^8.1.5",
+    "vite": "^8.2.0",
     "vitest": "4.1.10"
   }
 }
