@@ -9,7 +9,6 @@ import org.springframework.http.HttpHeaders
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.core.authority.SimpleGrantedAuthority
 import org.springframework.security.core.context.SecurityContextHolder
-import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
 
 /**
@@ -23,8 +22,11 @@ import org.springframework.web.filter.OncePerRequestFilter
  *
  * An absent or unusable token leaves the context empty; the chain's entry point turns that into
  * a 401. We never distinguish unknown / revoked / expired to the caller.
+ *
+ * Deliberately **not** a `@Component`: Spring Boot auto-registers a `Filter` bean in the servlet
+ * chain for every request, and this one must run only inside the external security chain.
+ * [dev.itayp.tasker.config.SecurityConfiguration] constructs it there instead.
  */
-@Component
 class ApiTokenAuthenticationFilter(
     private val apiTokenService: ApiTokenService,
 ) : OncePerRequestFilter() {

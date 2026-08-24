@@ -50,7 +50,7 @@ import java.util.UUID
  * cannot silently destroy fields the caller didn't mention.
  */
 @WebMvcTest(ExternalTaskController::class)
-@Import(SecurityConfiguration::class, ApiTokenAuthenticationFilter::class)
+@Import(SecurityConfiguration::class)
 class ExternalTaskControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @MockitoBean lateinit var backlogTaskService: BacklogTaskService
@@ -59,9 +59,10 @@ class ExternalTaskControllerTest(@Autowired val mockMvc: MockMvc) {
     @MockitoBean lateinit var categoryService: BacklogTaskCategoryService
 
     /**
-     * The imported [ApiTokenAuthenticationFilter] needs it. No test here sends a bearer token —
-     * authentication comes from the `authentication(...)` post-processor, so the filter is a
-     * pass-through. Token auth itself is covered by `ExternalApiSecurityIntegrationTest`.
+     * Its presence is what makes [SecurityConfiguration] build a token filter for this chain, so
+     * the slice matches production wiring. No test here sends a bearer token — authentication
+     * comes from the `authentication(...)` post-processor and the filter passes through. Real
+     * token auth is covered by `ExternalApiSecurityIntegrationTest`.
      */
     @MockitoBean lateinit var apiTokenService: ApiTokenService
 

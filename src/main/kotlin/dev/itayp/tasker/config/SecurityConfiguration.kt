@@ -19,6 +19,7 @@ import org.springframework.security.core.userdetails.User
 import org.springframework.security.core.userdetails.UserDetailsService
 import org.springframework.security.provisioning.InMemoryUserDetailsManager
 import dev.itayp.tasker.security.ApiTokenAuthenticationFilter
+import dev.itayp.tasker.service.ApiTokenService
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.HttpStatusEntryPoint
@@ -100,14 +101,14 @@ class SecurityConfiguration(
     @Order(2)
     fun externalApiFilterChain(
         http: HttpSecurity,
-        apiTokenAuthenticationFilters: ObjectProvider<ApiTokenAuthenticationFilter>,
+        apiTokenServices: ObjectProvider<ApiTokenService>,
     ): SecurityFilterChain {
-        // Optional purely so `@WebMvcTest` slices keep working: they `@Import` this class but do
-        // not component-scan the filter, and a hard dependency would fail every slice's context.
-        // Without it the chain still matches and simply accepts no credential, which is the right
-        // default — those slices never call this API. The running application always has the
-        // `@Component`, and `ExternalApiSecurityIntegrationTest` covers the real wiring.
-        val tokenFilter = apiTokenAuthenticationFilters.getIfAvailable()
+        // The service is optional purely so `@WebMvcTest` slices keep working: they `@Import` this
+        // class but have no service layer, and a hard dependency would fail every slice's context.
+        // Without it the chain still matches and simply accepts no credential — the right default
+        // for slices, which never call this API. The running application always has the `@Service`,
+        // and `ExternalApiSecurityIntegrationTest` covers the real wiring.
+        val tokenFilter = apiTokenServices.getIfAvailable()?.let { ApiTokenAuthenticationFilter(it) }
         http {
             securityMatcher("/api/external/**")
             authorizeHttpRequests {

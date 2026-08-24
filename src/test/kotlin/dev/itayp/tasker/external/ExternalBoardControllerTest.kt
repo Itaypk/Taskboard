@@ -28,7 +28,7 @@ import java.time.Instant
 import java.util.UUID
 
 @WebMvcTest(ExternalBoardController::class)
-@Import(SecurityConfiguration::class, ApiTokenAuthenticationFilter::class)
+@Import(SecurityConfiguration::class)
 class ExternalBoardControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @MockitoBean lateinit var boardService: BoardService
