@@ -76,7 +76,7 @@ class ReminderMessageAgent(
             maxTokens = 512,
         )
 
-        val context = AiCallContext(userId = userId, conversationType = AiConversationType.SLOT_REMINDER)
+        val context = AiCallContext(userId = userId.toString(), conversationType = AiConversationType.SLOT_REMINDER)
         val reply = aiClient.chat(request, context).choices.firstOrNull()?.message?.contentText?.trim()
         reply?.takeIf { it.isNotBlank() }
     }.getOrElse {

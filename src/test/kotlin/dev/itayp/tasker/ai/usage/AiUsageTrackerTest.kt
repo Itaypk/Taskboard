@@ -51,7 +51,7 @@ class AiUsageTrackerTest {
     @Test
     fun `success persists a row and increments counters with resolved model and provider`() {
         whenever(repository.save(any<AiUsageEventEntity>())).thenAnswer { it.arguments[0] }
-        val context = AiCallContext(userId, AiConversationType.WEEKLY_PLANNING, conversationId = conversationId)
+        val context = AiCallContext(userId.toString(), AiConversationType.WEEKLY_PLANNING, conversationId = conversationId.toString())
 
         tracker.recordSuccess(context, request(), response(Usage(promptTokens = 100, completionTokens = 40)))
 
@@ -96,7 +96,7 @@ class AiUsageTrackerTest {
     @Test
     fun `success emits cached and cache_write token counters when prompt_tokens_details is present`() {
         whenever(repository.save(any<AiUsageEventEntity>())).thenAnswer { it.arguments[0] }
-        val context = AiCallContext(userId, AiConversationType.WEEKLY_PLANNING, conversationId = conversationId)
+        val context = AiCallContext(userId.toString(), AiConversationType.WEEKLY_PLANNING, conversationId = conversationId.toString())
 
         tracker.recordSuccess(
             context,
@@ -137,7 +137,7 @@ class AiUsageTrackerTest {
     @Test
     fun `success without prompt_tokens_details emits no cache counters`() {
         whenever(repository.save(any<AiUsageEventEntity>())).thenAnswer { it.arguments[0] }
-        val context = AiCallContext(userId, AiConversationType.WEEKLY_PLANNING, conversationId = conversationId)
+        val context = AiCallContext(userId.toString(), AiConversationType.WEEKLY_PLANNING, conversationId = conversationId.toString())
 
         tracker.recordSuccess(context, request(), response(Usage(promptTokens = 100, completionTokens = 40)))
 
@@ -155,7 +155,7 @@ class AiUsageTrackerTest {
     @Test
     fun `failure records an error row with the requested model and no tokens`() {
         whenever(repository.save(any<AiUsageEventEntity>())).thenAnswer { it.arguments[0] }
-        val context = AiCallContext(userId, AiConversationType.TASK_SEARCH)
+        val context = AiCallContext(userId.toString(), AiConversationType.TASK_SEARCH)
 
         tracker.recordFailure(context, request())
 
@@ -183,7 +183,7 @@ class AiUsageTrackerTest {
     @Test
     fun `effort label reflects the request's reasoning effort`() {
         whenever(repository.save(any<AiUsageEventEntity>())).thenAnswer { it.arguments[0] }
-        val context = AiCallContext(userId, AiConversationType.WEEKLY_PLANNING, conversationId = conversationId)
+        val context = AiCallContext(userId.toString(), AiConversationType.WEEKLY_PLANNING, conversationId = conversationId.toString())
         val request = ChatRequest(
             model = "configured/model",
             messages = emptyList(),
@@ -210,7 +210,7 @@ class AiUsageTrackerTest {
         whenever(repository.save(any<AiUsageEventEntity>())).thenAnswer { it.arguments[0] }
         whenever(modelCapabilityService.get("configured/model"))
             .thenReturn(ModelCapabilities(supportsReasoning = true, defaultEffort = "minimal"))
-        val context = AiCallContext(userId, AiConversationType.WEEKLY_PLANNING, conversationId = conversationId)
+        val context = AiCallContext(userId.toString(), AiConversationType.WEEKLY_PLANNING, conversationId = conversationId.toString())
 
         // No explicit reasoning on the request → label reflects the model's default effort.
         tracker.recordSuccess(context, request(), response(Usage(promptTokens = 5, completionTokens = 2)))
@@ -231,7 +231,7 @@ class AiUsageTrackerTest {
     @Test
     fun `a persistence failure does not propagate`() {
         whenever(repository.save(any<AiUsageEventEntity>())).thenThrow(RuntimeException("db down"))
-        val context = AiCallContext(userId, AiConversationType.TASK_SUGGESTION)
+        val context = AiCallContext(userId.toString(), AiConversationType.TASK_SUGGESTION)
 
         // Should not throw — accounting is best-effort.
         tracker.recordSuccess(context, request(), response(Usage(promptTokens = 1, completionTokens = 1)))

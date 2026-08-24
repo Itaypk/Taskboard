@@ -102,9 +102,9 @@ class AiConversationManager(
         )
 
         val context = AiCallContext(
-            userId = conversation.userId,
+            userId = conversation.userId.toString(),
             conversationType = conversation.conversationType,
-            conversationId = conversationId,
+            conversationId = conversationId.toString(),
         )
         val response = aiClient.chat(request, context)
         val choice = response.choices.first()
