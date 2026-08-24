@@ -4,6 +4,7 @@ import dev.itayp.tasker.config.DEV_USER_ID
 import dev.itayp.tasker.jpa.ApiTokenScope
 import dev.itayp.tasker.service.ApiTokenService
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
@@ -34,6 +35,16 @@ class ExternalApiSecurityIntegrationTest(
 ) {
 
     private fun devUserId(): UUID = DEV_USER_ID
+
+    /**
+     * Every test here mints against the same dev user, and `ApiTokenService` caps live tokens per
+     * user — without this, whichever tests ran last would fail on the cap rather than on what they
+     * assert. Deleting rows directly (not revoking) also keeps `listTokens` clean between tests.
+     */
+    @AfterEach
+    fun clearTokens() {
+        jdbcTemplate.update("DELETE FROM api_token WHERE user_id = ?", DEV_USER_ID)
+    }
 
     private fun mintToken(scope: String = ApiTokenScope.WRITE): String =
         apiTokenService.createToken(devUserId(), "integration-test", scope).plaintext

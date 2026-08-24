@@ -20,6 +20,7 @@ import dev.itayp.tasker.service.BoardMembershipService
 import dev.itayp.tasker.service.BoardService
 import dev.itayp.tasker.service.SortKeyGenerator
 import org.assertj.core.api.Assertions.assertThat
+import org.hamcrest.Matchers.containsString
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
@@ -184,7 +185,7 @@ class ExternalTaskControllerTest(@Autowired val mockMvc: MockMvc) {
     fun `an unknown status is a 400 that names the allowed values`() {
         mockMvc.perform(get("$basePath?status=finished").with(authentication(auth)))
             .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("todo")))
+            .andExpect(jsonPath("$.detail").value(containsString("todo")))
     }
 
     @Test
@@ -305,7 +306,7 @@ class ExternalTaskControllerTest(@Autowired val mockMvc: MockMvc) {
                 .content("""{"priority":"urgent"}""")
         )
             .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("low")))
+            .andExpect(jsonPath("$.detail").value(containsString("low")))
     }
 
     // --- Create ---

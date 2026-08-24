@@ -27,7 +27,7 @@ a new token, and you cannot widen an existing one.
 
 The full contract is at `/external-api/openapi.yaml` if you need exact schemas.
 
-## The five things worth knowing
+## The six things worth knowing
 
 1. **Use `PATCH`, never reconstruct a task.** `PATCH` changes only the fields you send. Do not
    read a task, modify it, and send the whole thing back — you will not need to, and the app's
@@ -41,11 +41,13 @@ The full contract is at `/external-api/openapi.yaml` if you need exact schemas.
    a specific one.
 5. **There is no delete.** `POST /archive` is the reversible equivalent. Archiving is a normal
    action; if the user genuinely wants a task gone forever, tell them to do it in the app.
+6. **Resolve relative dates against the user's time zone**, from `GET /me` — not your own clock.
 
 ## Endpoints
 
 | | |
 |---|---|
+| `GET /api/external/v1/me` | who the token acts as, and the user's time zone |
 | `GET /api/external/v1/tasks` | search + list |
 | `GET /api/external/v1/tasks/{id}` | fetch one |
 | `POST /api/external/v1/tasks` | create |
@@ -55,6 +57,20 @@ The full contract is at `/external-api/openapi.yaml` if you need exact schemas.
 | `GET /api/external/v1/boards` | boards; the first is the default |
 | `GET /api/external/v1/categories` | categories (`?board=` to narrow) |
 | `GET /api/external/v1/tags` | tags (`?board=` to narrow) |
+
+### Dates and time zone
+
+`deadline` and `relevantFrom` are plain `YYYY-MM-DD`, and the server hides future-dated tasks
+relative to the **user's** time zone — not yours, and not UTC. Before turning "tomorrow" or "next
+Friday" into a date, get the zone:
+
+```bash
+curl -sH "Authorization: Bearer $BACKLOG_TOKEN" "$BACKLOG_URL/api/external/v1/me"
+# {"userId":"…","displayName":"Itay","timeZone":"Asia/Jerusalem",
+#  "preferredLanguage":"en","defaultBoardId":"…","tokenScope":"write"}
+```
+
+`/me` is also the cheapest way to check a token works and whether it may write.
 
 ### Searching
 

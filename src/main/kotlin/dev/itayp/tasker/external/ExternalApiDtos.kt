@@ -48,6 +48,23 @@ data class ExternalCategoryResponse(
     val colorId: String,
 )
 
+/**
+ * Who the calling token acts as, and the context a caller needs to interpret dates correctly.
+ *
+ * [timeZone] is the load-bearing field: deadlines and `relevantFrom` are plain `YYYY-MM-DD`, and
+ * the server hides future-dated tasks relative to the *user's* zone — so a caller resolving
+ * "tomorrow" from its own clock will get it wrong for anyone not sitting in that zone.
+ */
+data class ExternalMeResponse(
+    val userId: String,
+    val displayName: String?,
+    val timeZone: String,
+    val preferredLanguage: String,
+    val defaultBoardId: String?,
+    /** What this token may do: `read` or `write`. Lets a caller check before attempting a write. */
+    val tokenScope: String,
+)
+
 data class ExternalBoardResponse(
     val id: String,
     val name: String,

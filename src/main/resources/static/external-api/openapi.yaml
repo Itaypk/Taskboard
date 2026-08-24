@@ -29,6 +29,23 @@ tags:
     description: Boards, categories and tags — the values a write call may refer to.
 
 paths:
+  /api/external/v1/me:
+    get:
+      tags: [reference]
+      summary: Identity and context for the calling token
+      description: |
+        Who this token acts as, plus the context needed to interpret dates. `timeZone` matters:
+        `deadline` and `relevantFrom` are plain calendar dates, and the server hides future-dated
+        tasks relative to the *user's* zone — so resolve "tomorrow" against this, not your own
+        clock. Also the cheapest way to check that a token is valid and what it may do.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Me" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
   /api/external/v1/boards:
     get:
       tags: [reference]
@@ -247,6 +264,25 @@ components:
         title: { type: string }
         status: { type: integer }
         detail: { type: string, description: Human- and model-readable explanation. }
+
+    Me:
+      type: object
+      required: [userId, timeZone, preferredLanguage, tokenScope]
+      properties:
+        userId: { type: string, format: uuid }
+        displayName: { type: [string, "null"] }
+        timeZone:
+          type: string
+          description: IANA zone, e.g. `Europe/Berlin`. Resolve relative dates against this.
+        preferredLanguage: { type: string }
+        defaultBoardId:
+          type: [string, "null"]
+          format: uuid
+          description: The board write calls target when none is named.
+        tokenScope:
+          type: string
+          enum: [read, write]
+          description: What this token may do. Check before attempting a write.
 
     Board:
       type: object

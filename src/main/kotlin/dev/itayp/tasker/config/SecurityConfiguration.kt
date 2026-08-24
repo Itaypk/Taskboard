@@ -19,6 +19,7 @@ import org.springframework.security.core.userdetails.User
 import org.springframework.security.core.userdetails.UserDetailsService
 import org.springframework.security.provisioning.InMemoryUserDetailsManager
 import dev.itayp.tasker.security.ApiTokenAuthenticationFilter
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.HttpStatusEntryPoint
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
@@ -99,8 +100,14 @@ class SecurityConfiguration(
     @Order(2)
     fun externalApiFilterChain(
         http: HttpSecurity,
-        apiTokenAuthenticationFilter: ApiTokenAuthenticationFilter,
+        apiTokenAuthenticationFilters: ObjectProvider<ApiTokenAuthenticationFilter>,
     ): SecurityFilterChain {
+        // Optional purely so `@WebMvcTest` slices keep working: they `@Import` this class but do
+        // not component-scan the filter, and a hard dependency would fail every slice's context.
+        // Without it the chain still matches and simply accepts no credential, which is the right
+        // default — those slices never call this API. The running application always has the
+        // `@Component`, and `ExternalApiSecurityIntegrationTest` covers the real wiring.
+        val tokenFilter = apiTokenAuthenticationFilters.getIfAvailable()
         http {
             securityMatcher("/api/external/**")
             authorizeHttpRequests {
@@ -108,7 +115,7 @@ class SecurityConfiguration(
                 authorize(HttpMethod.GET, "/api/external/**", hasAuthority(ApiTokenAuthenticationFilter.EXTERNAL_READ))
                 authorize(anyRequest, hasAuthority(ApiTokenAuthenticationFilter.EXTERNAL_WRITE))
             }
-            addFilterBefore<UsernamePasswordAuthenticationFilter>(apiTokenAuthenticationFilter)
+            if (tokenFilter != null) addFilterBefore<UsernamePasswordAuthenticationFilter>(tokenFilter)
             sessionManagement {
                 sessionCreationPolicy = SessionCreationPolicy.STATELESS
             }

@@ -1,12 +1,16 @@
 package dev.itayp.tasker.external
 
+import dev.itayp.tasker.jpa.ApiTokenScope
+import dev.itayp.tasker.security.ApiTokenAuthenticationFilter
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.BacklogTaskCategoryService
 import dev.itayp.tasker.service.BacklogTaskTagService
 import dev.itayp.tasker.service.BoardService
+import dev.itayp.tasker.service.UserSettingsService
 import org.springframework.http.HttpStatus
 import org.springframework.http.ProblemDetail
 import org.springframework.http.ResponseEntity
+import org.springframework.security.core.Authentication
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
@@ -24,7 +28,37 @@ class ExternalBoardController(
     private val boardService: BoardService,
     private val categoryService: BacklogTaskCategoryService,
     private val tagService: BacklogTaskTagService,
+    private val userSettingsService: UserSettingsService,
 ) {
+
+    /**
+     * Identity and context for the calling token. Doubles as the cheapest way to verify a token
+     * works, and — more usefully — tells a caller the user's time zone, without which it cannot
+     * turn "tomorrow" into the right `YYYY-MM-DD`.
+     */
+    @GetMapping("/me")
+    fun me(
+        @AuthenticationPrincipal principal: TaskerPrincipal,
+        authentication: Authentication,
+    ): ResponseEntity<ExternalMeResponse> {
+        val userId = principal.userId
+        val settings = userSettingsService.getOrCreate(userId)
+        val scope = if (
+            authentication.authorities.any { it.authority == ApiTokenAuthenticationFilter.EXTERNAL_WRITE }
+        ) ApiTokenScope.WRITE else ApiTokenScope.READ
+
+        return ResponseEntity.ok(
+            ExternalMeResponse(
+                userId = userId.toString(),
+                displayName = settings.displayName,
+                timeZone = settings.timeZone,
+                preferredLanguage = settings.preferredLanguage,
+                // Null only when the user somehow belongs to no board; write calls would 422 too.
+                defaultBoardId = boardService.listBoardsForUser(userId).firstOrNull()?.id?.toString(),
+                tokenScope = scope,
+            )
+        )
+    }
 
     /** The user's boards. The first is the default one that write calls target when none is named. */
     @GetMapping("/boards")
