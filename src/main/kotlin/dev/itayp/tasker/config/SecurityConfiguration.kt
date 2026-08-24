@@ -90,7 +90,7 @@ class SecurityConfiguration(
      * never consults the HTTP session — the bearer token is the only accepted credential. (This
      * is the same mechanism [prometheusFilterChain] relies on.) The converse holds for free: the
      * token filter is registered on this chain only, so a token is worthless against
-     * `/api/v1/**`. `ExternalApiSecurityIntegrationTest` pins both directions.
+     * the `/api/v1` chain. `ExternalApiSecurityIntegrationTest` pins both directions.
      *
      * No CORS configuration: this is a server-to-server surface and browsers have no business
      * calling it cross-origin.

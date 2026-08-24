@@ -45,7 +45,7 @@ data class CreatedApiTokenResponse(
 /**
  * Manages the API tokens used by the external API.
  *
- * Deliberately mounted on `/api/v1/**` — the **session** chain — and not under `/api/external/**`.
+ * Deliberately mounted under `/api/v1` — the session chain — and not under `/api/external`.
  * Minting a token therefore requires a logged-in browser session with a valid CSRF token, so a
  * leaked API token can never mint another one, widen its own scope, or enumerate its siblings.
  */

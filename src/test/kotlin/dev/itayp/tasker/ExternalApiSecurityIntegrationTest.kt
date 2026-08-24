@@ -20,8 +20,8 @@ import java.util.UUID
 
 /**
  * Pins the isolation between the two authentication surfaces. The valuable assertions here are
- * the negative ones: a session cookie must not work on `/api/external/**`, and a bearer token
- * must not work on `/api/v1/**`. Those two properties are what keep a leaked token's blast
+ * the negative ones: a session cookie must not work on the `/api/external` chain, and a bearer
+ * token must not work on `/api/v1`. Those two properties are what keep a leaked token's blast
  * radius bounded to task content.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)

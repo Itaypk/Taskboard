@@ -10,7 +10,7 @@ import java.util.UUID
 /**
  * A long-lived personal API token, used to authenticate an external caller (an AI assistant,
  * a script, an automation) against
- * `/api/external/v1/**`. One user may hold several (capped by `ApiTokenService`).
+ * the `/api/external/v1` API. One user may hold several (capped by `ApiTokenService`).
  *
  * Only [tokenHash] — the SHA-256 hex digest of the secret — is persisted. The plaintext is
  * returned to the user exactly once, at creation, and is unrecoverable afterwards. This is
