@@ -18,8 +18,10 @@ import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.core.userdetails.User
 import org.springframework.security.core.userdetails.UserDetailsService
 import org.springframework.security.provisioning.InMemoryUserDetailsManager
+import dev.itayp.tasker.security.ApiTokenAuthenticationFilter
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.HttpStatusEntryPoint
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
 import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler
 import org.springframework.security.web.csrf.*
 import org.springframework.util.StringUtils
@@ -73,8 +75,57 @@ class SecurityConfiguration(
         return http.build()
     }
 
+    /**
+     * External API: long-lived bearer tokens instead of a session cookie. Modelled on
+     * [prometheusFilterChain] — the other stateless chain — but authenticating against the
+     * `api_token` table via [ApiTokenAuthenticationFilter].
+     *
+     * Deliberately a separate path prefix rather than token auth bolted onto the session chain,
+     * so a leaked token's blast radius stops at task content: it cannot reach account deletion,
+     * settings, planning, board administration, or minting further tokens (which lives on the
+     * session chain at `/api/v1/api-tokens`).
+     *
+     * A browser `SESSION` cookie cannot authenticate here: `SessionCreationPolicy.STATELESS`
+     * makes the chain's context repository a `RequestAttributeSecurityContextRepository`, which
+     * never consults the HTTP session — the bearer token is the only accepted credential. (This
+     * is the same mechanism [prometheusFilterChain] relies on.) The converse holds for free: the
+     * token filter is registered on this chain only, so a token is worthless against
+     * `/api/v1/**`. `ExternalApiSecurityIntegrationTest` pins both directions.
+     *
+     * No CORS configuration: this is a server-to-server surface and browsers have no business
+     * calling it cross-origin.
+     */
     @Bean
     @Order(2)
+    fun externalApiFilterChain(
+        http: HttpSecurity,
+        apiTokenAuthenticationFilter: ApiTokenAuthenticationFilter,
+    ): SecurityFilterChain {
+        http {
+            securityMatcher("/api/external/**")
+            authorizeHttpRequests {
+                // Reads need any valid token; every mutation needs a write-scoped one.
+                authorize(HttpMethod.GET, "/api/external/**", hasAuthority(ApiTokenAuthenticationFilter.EXTERNAL_READ))
+                authorize(anyRequest, hasAuthority(ApiTokenAuthenticationFilter.EXTERNAL_WRITE))
+            }
+            addFilterBefore<UsernamePasswordAuthenticationFilter>(apiTokenAuthenticationFilter)
+            sessionManagement {
+                sessionCreationPolicy = SessionCreationPolicy.STATELESS
+            }
+            // No cookie is involved, so there is no CSRF vector to defend against.
+            csrf { disable() }
+            headers {
+                cacheControl { disable() }
+            }
+            exceptionHandling {
+                authenticationEntryPoint = HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)
+            }
+        }
+        return http.build()
+    }
+
+    @Bean
+    @Order(3)
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
         http {
             authorizeHttpRequests {

@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Long-lived personal API tokens for the agent API (/api/external/v1). Unlike the single-use
+        capability tokens elsewhere in the schema, only the SHA-256 hash of the secret is stored —
+        the plaintext is shown to the user once at creation and is unrecoverable afterwards.
+        `prefix` is a non-secret fragment kept purely so the UI can tell two tokens apart.
+        No user content lives here, so no column needs at-rest encryption.
+    -->
+    <changeSet id="012-1-api-token" author="tasker">
+        <createTable tableName="api_token">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="token_hash" type="VARCHAR(64)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uq_api_token_hash"/>
+            </column>
+            <column name="prefix" type="VARCHAR(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="scope" type="VARCHAR(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_used_at" type="TIMESTAMP">
+                <constraints nullable="true"/>
+            </column>
+            <column name="expires_at" type="TIMESTAMP">
+                <constraints nullable="true"/>
+            </column>
+            <column name="revoked_at" type="TIMESTAMP">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+
+        <!-- Settings listing + account-deletion cleanup. -->
+        <createIndex tableName="api_token" indexName="idx_api_token_user">
+            <column name="user_id"/>
+        </createIndex>
+
+        <addForeignKeyConstraint
+                baseTableName="api_token"
+                baseColumnNames="user_id"
+                constraintName="fk_api_token_user"
+                referencedTableName="users"
+                referencedColumnNames="id"/>
+    </changeSet>
+
+</databaseChangeLog>

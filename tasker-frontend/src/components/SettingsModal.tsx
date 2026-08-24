@@ -9,6 +9,7 @@ import { ConnectedAccounts } from './ConnectedAccounts';
 import { ImportResultDialog } from './ImportResultDialog';
 import { categorizeImportError, type ImportResult } from './importResult';
 import { HelpTip } from './HelpTip';
+import { ApiTokens } from './ApiTokens';
 import { Tabs } from './Tabs';
 import { Toggle } from './Toggle';
 import { createCategory, updateCategory, deleteCategory, updateTag, deleteTag, updateUserSettings, fetchSettingsOptions, deleteAccount, exportAccount, importAccount, requestEmailVerification } from '../api';
@@ -33,11 +34,12 @@ interface SettingsModalProps {
   onAccountDeleted: () => void;
 }
 
-const SETTINGS_TAB_IDS = ['general', 'categories', 'assistant'] as const;
+const SETTINGS_TAB_IDS = ['general', 'categories', 'assistant', 'integrations'] as const;
 const SETTINGS_TAB_LABEL_KEYS: Record<(typeof SETTINGS_TAB_IDS)[number], string> = {
   general: 'settingsModal.tabs.general',
   categories: 'settingsModal.tabs.categories',
   assistant: 'settingsModal.tabs.assistant',
+  integrations: 'settingsModal.tabs.integrations',
 };
 
 const DAY_VALUES: { value: string; cron: string; labelKey: string }[] = [
@@ -647,6 +649,8 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
               </fieldset>
             </>
           )}
+
+          {activeTab === 'integrations' && <ApiTokens />}
         </div>
 
         <div className="modal__footer">

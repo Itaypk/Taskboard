@@ -34,6 +34,9 @@ An AI-powered weekly planner that helps you actually get tasks done - not just w
 #### Integrations
 - **Google Calendar** (OAuth): read availability, write time blocks. "Test" app — no verification needed for personal use
 - **Telegram Bot**: planning conversations
+- **External API** (`/api/external/v1`): token-authenticated task CRUD for scripts, automations
+  and AI assistants. Contract at `/external-api/openapi.yaml`, agent skill at
+  `/external-api/SKILL.md`; design note in `docs/EXTERNAL-API.md`
 
 #### Per-User Context
 - A personal context block (free-text facts) stored per user — e.g. "I prefer deep work in the morning", "Tuesdays I leave early for pickup"

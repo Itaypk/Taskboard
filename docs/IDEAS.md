@@ -48,6 +48,28 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - No viewer/commenter role tier or per-task permissions beyond the assignee primitive — only add
   if real usage demands it.
 
+## External API follow-ups
+- **Hash the remaining capability tokens.** `email_login_token.token`, `board_invitation.token`
+  and `users.email_verification_token` are all stored **unhashed**, and are generated from
+  `UUID.randomUUID()` rather than `SecureRandom` (`EmailLoginService.kt`,
+  `EmailVerificationService.kt`). Anyone with a DB dump or read replica can mint a login as any
+  user with a pending magic link. `ApiTokenService` now has the right pattern to copy
+  (SecureRandom + store only the SHA-256 digest); the migration needs a cutover plan since
+  existing rows can't be re-hashed without invalidating them — probably just expire them all,
+  given the 30-minute TTL.
+- Remote MCP server over the external API. The REST surface is the substrate; MCP adds transport
+  and tool schemas. Only worth it if a client appears that can't read `/external-api/SKILL.md`.
+- Free-text search (`?q=`) decrypts every one of the user's tasks per call, because titles and
+  descriptions are envelope-encrypted and can't be filtered in SQL. Fine at current scale; if a
+  user ever holds thousands of tasks this needs a searchable index (blind index on tokenised
+  terms, or a per-user encrypted search structure).
+- Token scope is coarse — read vs. write, all boards. Per-board or per-operation scoping only if
+  real usage demands it.
+- Token expiry is supported by the schema (`expires_at`) but not yet exposed in the UI; every
+  token minted today is non-expiring until revoked.
+- `InMemoryRateLimiter` and the `last_used_at` write throttle both assume a single instance.
+  Both need Redis if the app is ever replicated.
+
 ## Production hardening
 - Support/abuse contact address, referenced from ToS + Privacy.
 - Smoke test asserting `dev-login` actually 404s/401s in prod, rather than trusting the
