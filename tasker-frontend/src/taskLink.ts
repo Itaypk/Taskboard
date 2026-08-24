@@ -51,9 +51,9 @@ function prettifyUrl(href: string, maxLen = 28): string {
   return stripped.length > maxLen ? stripped.slice(0, maxLen - 1) + '…' : stripped;
 }
 
-export type SettingsTab = 'general' | 'categories' | 'assistant';
+export type SettingsTab = 'general' | 'categories' | 'assistant' | 'integrations';
 
-const SETTINGS_TABS: readonly SettingsTab[] = ['general', 'categories', 'assistant'];
+const SETTINGS_TABS: readonly SettingsTab[] = ['general', 'categories', 'assistant', 'integrations'];
 
 /** Maps a `/settings[/<tab>]` pathname to a settings tab; bare `/settings` or unknown → 'general'. */
 export function settingsTabFromPath(pathname: string): SettingsTab {

@@ -1,6 +1,7 @@
 package dev.itayp.tasker.controller
 
 import dev.itayp.tasker.service.BlockedEmailDomainException
+import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ProblemDetail
 import org.springframework.web.bind.MethodArgumentNotValidException
@@ -41,4 +42,26 @@ class ApiExceptionHandler {
         ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.message ?: "This email domain isn't allowed").apply {
             title = "Email domain not allowed"
         }
+
+    /**
+     * Bad client input that reaches a service as an [IllegalArgumentException] — most visibly
+     * `TaskStatus.valueOf` / `TaskPriority.valueOf` in `BacklogTaskService`, whose DTO fields are
+     * only length-constrained, so `{"status": "finished"}` used to surface as a 500. It is a
+     * client error, so answer 400.
+     *
+     * The message is not echoed back: these come from arbitrary internal call sites and may name
+     * internals. Callers that want a specific, actionable message (the agent API does) validate up
+     * front and return their own ProblemDetail before reaching here.
+     */
+    @ExceptionHandler(IllegalArgumentException::class)
+    fun handleIllegalArgument(ex: IllegalArgumentException): ProblemDetail {
+        logger.warn("Rejected request with invalid argument: {}", ex.message)
+        return ProblemDetail.forStatusAndDetail(
+            HttpStatus.BAD_REQUEST, "Some of those values are not valid.",
+        ).apply { title = "Invalid request" }
+    }
+
+    companion object {
+        private val logger = LoggerFactory.getLogger(ApiExceptionHandler::class.java)
+    }
 }

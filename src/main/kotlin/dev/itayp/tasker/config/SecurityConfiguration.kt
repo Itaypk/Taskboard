@@ -18,8 +18,12 @@ import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.core.userdetails.User
 import org.springframework.security.core.userdetails.UserDetailsService
 import org.springframework.security.provisioning.InMemoryUserDetailsManager
+import dev.itayp.tasker.security.ApiTokenAuthenticationFilter
+import dev.itayp.tasker.service.ApiTokenService
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.HttpStatusEntryPoint
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
 import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler
 import org.springframework.security.web.csrf.*
 import org.springframework.util.StringUtils
@@ -73,8 +77,63 @@ class SecurityConfiguration(
         return http.build()
     }
 
+    /**
+     * External API: long-lived bearer tokens instead of a session cookie. Modelled on
+     * [prometheusFilterChain] — the other stateless chain — but authenticating against the
+     * `api_token` table via [ApiTokenAuthenticationFilter].
+     *
+     * Deliberately a separate path prefix rather than token auth bolted onto the session chain,
+     * so a leaked token's blast radius stops at task content: it cannot reach account deletion,
+     * settings, planning, board administration, or minting further tokens (which lives on the
+     * session chain at `/api/v1/api-tokens`).
+     *
+     * A browser `SESSION` cookie cannot authenticate here: `SessionCreationPolicy.STATELESS`
+     * makes the chain's context repository a `RequestAttributeSecurityContextRepository`, which
+     * never consults the HTTP session — the bearer token is the only accepted credential. (This
+     * is the same mechanism [prometheusFilterChain] relies on.) The converse holds for free: the
+     * token filter is registered on this chain only, so a token is worthless against
+     * the `/api/v1` chain. `ExternalApiSecurityIntegrationTest` pins both directions.
+     *
+     * No CORS configuration: this is a server-to-server surface and browsers have no business
+     * calling it cross-origin.
+     */
     @Bean
     @Order(2)
+    fun externalApiFilterChain(
+        http: HttpSecurity,
+        apiTokenServices: ObjectProvider<ApiTokenService>,
+    ): SecurityFilterChain {
+        // The service is optional purely so `@WebMvcTest` slices keep working: they `@Import` this
+        // class but have no service layer, and a hard dependency would fail every slice's context.
+        // Without it the chain still matches and simply accepts no credential — the right default
+        // for slices, which never call this API. The running application always has the `@Service`,
+        // and `ExternalApiSecurityIntegrationTest` covers the real wiring.
+        val tokenFilter = apiTokenServices.getIfAvailable()?.let { ApiTokenAuthenticationFilter(it) }
+        http {
+            securityMatcher("/api/external/**")
+            authorizeHttpRequests {
+                // Reads need any valid token; every mutation needs a write-scoped one.
+                authorize(HttpMethod.GET, "/api/external/**", hasAuthority(ApiTokenAuthenticationFilter.EXTERNAL_READ))
+                authorize(anyRequest, hasAuthority(ApiTokenAuthenticationFilter.EXTERNAL_WRITE))
+            }
+            if (tokenFilter != null) addFilterBefore<UsernamePasswordAuthenticationFilter>(tokenFilter)
+            sessionManagement {
+                sessionCreationPolicy = SessionCreationPolicy.STATELESS
+            }
+            // No cookie is involved, so there is no CSRF vector to defend against.
+            csrf { disable() }
+            headers {
+                cacheControl { disable() }
+            }
+            exceptionHandling {
+                authenticationEntryPoint = HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)
+            }
+        }
+        return http.build()
+    }
+
+    @Bean
+    @Order(3)
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
         http {
             authorizeHttpRequests {
@@ -83,6 +142,11 @@ class SecurityConfiguration(
                 authorize("/robots.txt", permitAll)
                 authorize("/sitemap.xml", permitAll)
                 authorize("/BingSiteAuth.xml", permitAll)
+                // Discovery documents for the external API. Redundant while `anyRequest` below is
+                // permitAll, but listed like their neighbours so the intent survives that changing.
+                authorize("/llms.txt", permitAll)
+                authorize("/.well-known/**", permitAll)
+                authorize("/external-api/**", permitAll)
                 authorize("/assets/**", permitAll)
                 authorize("/favicon.ico", permitAll)
                 authorize("/api/auth/me", permitAll)

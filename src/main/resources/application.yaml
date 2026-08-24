@@ -84,6 +84,10 @@ tasker:
     feedback:
       limit: 10
       window-seconds: 3600
+    # Agent API (/api/external/v1) gets its own per-user budget, separate from the SPA's.
+    external-api:
+      limit: 120
+      window-seconds: 60
   feedback:
     # Mailbox that in-app feedback is forwarded to (via the auth email sender). When blank,
     # falls back to the auth sender's own `from` address.

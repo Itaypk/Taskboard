@@ -16,6 +16,8 @@ class RateLimitInterceptor(
     private val demoLoginLimiter: RateLimiter,
     /** Applied per client IP on the telegram-login endpoint, before a session exists. */
     private val telegramLoginLimiter: RateLimiter,
+    /** Applied per token-authenticated user on the external API, which has its own tighter budget. */
+    private val externalApiLimiter: RateLimiter,
 ) : HandlerInterceptor {
 
     override fun preHandle(request: HttpServletRequest, response: HttpServletResponse, handler: Any): Boolean {
@@ -32,6 +34,17 @@ class RateLimitInterceptor(
         }
 
         val principal = SecurityContextHolder.getContext().authentication?.principal
+
+        // External API gets its own budget rather than sharing the SPA's, so a chatty script can't
+        // starve the owner's browser session (and vice versa). Keyed per user, like the main
+        // limiter — the token filter installs a TaskerPrincipal exactly so this keeps working.
+        if (servletPath.startsWith(EXTERNAL_API_PREFIX)) {
+            if (principal is TaskerPrincipal && !externalApiLimiter.tryConsume(principal.userId.toString())) {
+                return reject(response)
+            }
+            return true
+        }
+
         if (principal is TaskerPrincipal) {
             if (!apiLimiter.tryConsume(principal.userId.toString())) return reject(response)
         }
@@ -49,5 +62,6 @@ class RateLimitInterceptor(
     companion object {
         private const val DEMO_LOGIN_PATH = "/api/auth/demo-login"
         private const val TELEGRAM_LOGIN_PREFIX = "/api/auth/telegram"
+        private const val EXTERNAL_API_PREFIX = "/api/external/"
     }
 }

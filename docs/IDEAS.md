@@ -48,6 +48,28 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - No viewer/commenter role tier or per-task permissions beyond the assignee primitive — only add
   if real usage demands it.
 
+## External API follow-ups
+- **Hash the remaining capability tokens.** `email_login_token.token`, `board_invitation.token`
+  and `users.email_verification_token` are all stored **unhashed**, and are generated from
+  `UUID.randomUUID()` rather than `SecureRandom` (`EmailLoginService.kt`,
+  `EmailVerificationService.kt`). Anyone with a DB dump or read replica can mint a login as any
+  user with a pending magic link. `ApiTokenService` now has the right pattern to copy
+  (SecureRandom + store only the SHA-256 digest); the migration needs a cutover plan since
+  existing rows can't be re-hashed without invalidating them — probably just expire them all,
+  given the 30-minute TTL.
+- Remote MCP server over the external API. The REST surface is the substrate; MCP adds transport
+  and tool schemas. Only worth it if a client appears that can't read `/external-api/SKILL.md`.
+- Free-text search (`?q=`) decrypts every one of the user's tasks per call, because titles and
+  descriptions are envelope-encrypted and can't be filtered in SQL. Fine at current scale; if a
+  user ever holds thousands of tasks this needs a searchable index (blind index on tokenised
+  terms, or a per-user encrypted search structure).
+- Token scope is coarse — read vs. write, all boards. Per-board or per-operation scoping only if
+  real usage demands it.
+- Token expiry is supported by the schema (`expires_at`) but not yet exposed in the UI; every
+  token minted today is non-expiring until revoked.
+- `InMemoryRateLimiter` and the `last_used_at` write throttle both assume a single instance.
+  Both need Redis if the app is ever replicated.
+
 ## Production hardening
 - Support/abuse contact address, referenced from ToS + Privacy.
 - Smoke test asserting `dev-login` actually 404s/401s in prod, rather than trusting the
@@ -64,12 +86,18 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Work on tagline and satellite notes in the welcome page with better texts. See if we need to move a few things around 
 - Better - more satisfying - "mark as done"
 - Drawer improvements (buttons are too dense, for example)
-- Settings dialog - each tab has a different height; switching tabs move the modal. Also, consider moving some fields from the "General" area to somewhere more relevant.
+- Settings dialog - each tab has a different height; switching tabs move the modal. Also, consider
+  moving some fields from the "General" area to somewhere more relevant. **Raised priority**: the
+  Integrations tab (API tokens) makes four tabs, which overflows the tab row on most mobile widths.
+  Shipped as-is deliberately; see the "Categories and tags" item below for the intended fix.
 - Task list Markdown (subtasks) checkboxes - makes it possible to check directly from the main screen
 - Filter chips can still wrap on very small screens even after the "Week" shortening. If it keeps bugging us, consider a segmented control or horizontally-scrollable chip row on mobile.
 - Board management: custom board color pin marker (the member count pin)?
 - Center pill bar on mobile; consider dropping the "done" pill.
-- Categories and tags should go in the "Board Settings" menu. 
+- Categories and tags should go in the "Board Settings" menu — they are board-scoped, while the rest
+  of the settings dialog is user-scoped. **Now the leading candidate for the mobile tab overflow
+  above**: moving them out drops the settings dialog back to three tabs (General, Assistant,
+  Integrations) without dropping any functionality.
 - Setting dialog - notifications tab?
 
 ## Assistant - Mid-week response

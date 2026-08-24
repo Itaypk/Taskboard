@@ -552,3 +552,33 @@ export const importAccount = (payload: unknown): Promise<ImportSummary> =>
     // Suppress the global error toast: the import result dialog surfaces success and failure itself,
     // so a toast would just duplicate (and out-shout) the dialog's detailed message.
     apiRequest('/account/import', { method: 'POST', ...jsonBody(payload) }, { emitErrors: false });
+
+// --- Agent API tokens ---
+
+export type ApiTokenScope = 'read' | 'write';
+
+export interface ApiToken {
+    id: string;
+    name: string;
+    /** Non-secret leading fragment, e.g. `blf_a1b2c3d4` — enough to tell two tokens apart. */
+    prefix: string;
+    scope: ApiTokenScope;
+    createdAt: string;
+    lastUsedAt: string | null;
+    expiresAt: string | null;
+}
+
+export interface CreatedApiToken {
+    /** The plaintext secret. Returned only here, only once — it is never recoverable. */
+    token: string;
+    apiToken: ApiToken;
+}
+
+export const fetchApiTokens = (): Promise<ApiToken[]> =>
+    apiRequest('/api-tokens');
+
+export const createApiToken = (name: string, scope: ApiTokenScope): Promise<CreatedApiToken> =>
+    apiRequest('/api-tokens', { method: 'POST', ...jsonBody({ name, scope }) });
+
+export const revokeApiToken = (id: string): Promise<void> =>
+    apiRequest(`/api-tokens/${id}`, { method: 'DELETE' });

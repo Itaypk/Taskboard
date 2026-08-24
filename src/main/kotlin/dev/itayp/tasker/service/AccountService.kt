@@ -75,6 +75,8 @@ class AccountService(
         // cleared before the user row is deleted. (The change feed and watermark are board-keyed
         // now: sole boards' rows were deleted above; shared boards keep them with a nulled actor.)
         jdbcTemplate.update("DELETE FROM ai_usage_event WHERE user_id = ?", userId)
+        // Agent API tokens FK users(id) with no cascade, so they must go before the user row.
+        jdbcTemplate.update("DELETE FROM api_token WHERE user_id = ?", userId)
         // planned_task_slot → planned_task → planning_session; no user_id on slot, so use a subquery
         jdbcTemplate.update(
             "DELETE FROM planned_task_slot WHERE planned_task_id IN (SELECT id FROM planned_task WHERE user_id = ?)",

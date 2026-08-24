@@ -15,5 +15,6 @@
     <include file="db/changelog/changesets/009-app-notifications.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changesets/010-one-off-events.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changesets/011-task-hidden-from-assistant.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changesets/012-api-token.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

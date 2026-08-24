@@ -1,0 +1,411 @@
+openapi: 3.1.0
+info:
+  title: Backlog.fyi External API
+  version: "1.0"
+  description: |
+    Task API for anything outside the web app — scripts, automations, AI assistants —
+    authenticated with a long-lived personal API token. Create one in the app under
+    Settings -> Integrations.
+
+    This is a narrower surface than the web app's own API: it covers task content only. It
+    cannot reach account settings, planning sessions, board administration, or token
+    management.
+
+    All bodies are JSON. Errors are RFC 7807 `application/problem+json`; the `detail` field
+    names what was wrong and, where relevant, the allowed values.
+servers:
+  - url: https://backlog.fyi
+    description: Production
+  - url: http://localhost:8080
+    description: Local development
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: tasks
+    description: Read and modify backlog tasks.
+  - name: reference
+    description: Boards, categories and tags — the values a write call may refer to.
+
+paths:
+  /api/external/v1/me:
+    get:
+      tags: [reference]
+      summary: Identity and context for the calling token
+      description: |
+        Who this token acts as, plus the context needed to interpret dates. `timeZone` matters:
+        `deadline` and `relevantFrom` are plain calendar dates, and the server hides future-dated
+        tasks relative to the *user's* zone — so resolve "tomorrow" against this, not your own
+        clock. Also the cheapest way to check that a token is valid and what it may do.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Me" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/external/v1/boards:
+    get:
+      tags: [reference]
+      summary: List the caller's boards
+      description: The first board is the default one that write calls target when none is named.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Board" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/external/v1/categories:
+    get:
+      tags: [reference]
+      summary: List categories
+      description: Every board's categories unless `board` narrows it. Each carries its `boardId`.
+      parameters:
+        - { name: board, in: query, required: false, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Category" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/external/v1/tags:
+    get:
+      tags: [reference]
+      summary: List tags
+      parameters:
+        - { name: board, in: query, required: false, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Tag" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/external/v1/tasks:
+    get:
+      tags: [tasks]
+      summary: Search and list tasks
+      description: |
+        Spans every board the caller belongs to unless `board` narrows it. Tasks the user has
+        hidden from the assistant are excluded unless `includeHidden=true`.
+      parameters:
+        - { name: board, in: query, schema: { type: string, format: uuid },
+            description: Restrict to one board. }
+        - { name: status, in: query, schema: { type: string, enum: [todo, done, archived, all], default: todo },
+            description: "`all` means everything except archived." }
+        - { name: q, in: query, schema: { type: string },
+            description: Case-insensitive substring match on title and description. }
+        - { name: tag, in: query, schema: { type: string },
+            description: Exact tag label, case-insensitive. }
+        - { name: priority, in: query, schema: { type: string, enum: [low, medium, high] } }
+        - { name: includeHidden, in: query, schema: { type: boolean, default: false } }
+        - { name: limit, in: query, schema: { type: integer, default: 50, minimum: 1, maximum: 200 } }
+        - { name: offset, in: query, schema: { type: integer, default: 0, minimum: 0 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TaskList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [tasks]
+      summary: Create a task
+      description: |
+        Only `title` is required. `boardId` defaults to the caller's default board and
+        `categoryId` to that board's first category, so `{"title": "..."}` is a valid call.
+        Requires a write-scoped token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateTaskRequest" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+
+  /api/external/v1/tasks/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [tasks]
+      summary: Fetch one task
+      description: Finds the task on whichever of the caller's boards it lives on.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [tasks]
+      summary: Partially update a task
+      description: |
+        Only the fields present in the body change; everything else is left alone. Unsetting a
+        field is a separate, explicit operation — name it in `clear`. Requires a write-scoped
+        token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateTaskRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+
+  /api/external/v1/tasks/{id}/complete:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [tasks]
+      summary: Mark a task done
+      description: |
+        Idempotent — completing an already-done task succeeds and returns it unchanged.
+        Prefer this over writing `status` yourself. Requires a write-scoped token.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/external/v1/tasks/{id}/archive:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [tasks]
+      summary: Archive a task
+      description: |
+        The reversible delete — this API has no hard delete. Idempotent. Requires a
+        write-scoped token.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        `Authorization: Bearer blf_...`. Tokens are created in the app under
+        Settings -> Integrations and shown exactly once. A read-scoped token may call GET
+        endpoints only; anything else needs a write-scoped token.
+
+  responses:
+    BadRequest:
+      description: Malformed input. `detail` names the offending field and its allowed values.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Unauthorized:
+      description: Missing, unknown, revoked or expired token.
+    Forbidden:
+      description: |
+        The token's scope does not permit this operation, or the task belongs to a board the
+        caller is not a member of. The two are not distinguished.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    NotFound:
+      description: No such task on any of the caller's boards.
+    Unprocessable:
+      description: Well-formed but not actionable — e.g. a category that isn't on the target board.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+
+  schemas:
+    Problem:
+      type: object
+      description: RFC 7807 problem detail.
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string, description: Human- and model-readable explanation. }
+
+    Me:
+      type: object
+      required: [userId, timeZone, preferredLanguage, tokenScope]
+      properties:
+        userId: { type: string, format: uuid }
+        displayName: { type: [string, "null"] }
+        timeZone:
+          type: string
+          description: IANA zone, e.g. `Europe/Berlin`. Resolve relative dates against this.
+        preferredLanguage: { type: string }
+        defaultBoardId:
+          type: [string, "null"]
+          format: uuid
+          description: The board write calls target when none is named.
+        tokenScope:
+          type: string
+          enum: [read, write]
+          description: What this token may do. Check before attempting a write.
+
+    Board:
+      type: object
+      required: [id, name, role, isDefault]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        role: { type: string, enum: [owner, member] }
+        isDefault:
+          type: boolean
+          description: True for the board that write calls target when none is named.
+
+    Category:
+      type: object
+      required: [id, boardId, label, colorId]
+      properties:
+        id: { type: string, format: uuid }
+        boardId: { type: string, format: uuid }
+        label: { type: string }
+        colorId: { type: string }
+
+    Tag:
+      type: object
+      required: [id, label, colorId]
+      properties:
+        id: { type: string, format: uuid }
+        label: { type: string }
+        colorId: { type: string }
+
+    Task:
+      type: object
+      required: [id, boardId, boardName, title, status, categoryId, categoryLabel, tags, hiddenFromAssistant, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        boardId: { type: string, format: uuid }
+        boardName: { type: string }
+        title: { type: string, maxLength: 500 }
+        description: { type: [string, "null"], maxLength: 5000 }
+        url: { type: [string, "null"], maxLength: 2000 }
+        priority: { type: [string, "null"], enum: [low, medium, high, null] }
+        deadline: { type: [string, "null"], description: "YYYY-MM-DD" }
+        estimatedMinutes: { type: [integer, "null"] }
+        status: { type: string, enum: [todo, done, archived] }
+        categoryId: { type: string, format: uuid }
+        categoryLabel: { type: string }
+        tags:
+          type: array
+          items: { $ref: "#/components/schemas/Tag" }
+        assigneeUserId: { type: [string, "null"], format: uuid }
+        relevantFrom:
+          type: [string, "null"]
+          description: "YYYY-MM-DD. A task dated in the future is hidden from the todo list until then."
+        hiddenFromAssistant:
+          type: boolean
+          description: When true the task is excluded from every AI read path, this API included.
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, "null"], format: date-time }
+
+    TaskList:
+      type: object
+      required: [tasks, count, truncated]
+      properties:
+        tasks:
+          type: array
+          items: { $ref: "#/components/schemas/Task" }
+        count: { type: integer, description: Number of tasks in this page. }
+        truncated:
+          type: boolean
+          description: True when results were cut off by `limit` — narrow the query or page with `offset`.
+
+    CreateTaskRequest:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string, maxLength: 500 }
+        boardId:
+          type: string
+          format: uuid
+          description: Defaults to the caller's default board.
+        categoryId:
+          type: string
+          format: uuid
+          description: Must belong to the target board. Defaults to that board's first category.
+        description: { type: string, maxLength: 5000 }
+        url: { type: string, maxLength: 2000 }
+        priority: { type: string, enum: [low, medium, high] }
+        deadline: { type: string, description: "YYYY-MM-DD" }
+        estimatedMinutes: { type: integer }
+        tags:
+          type: array
+          items: { type: string }
+          description: |
+            Plain labels. An existing tag is matched case-insensitively; an unknown one is
+            created with an auto-assigned colour.
+        relevantFrom: { type: string, description: "YYYY-MM-DD" }
+        hiddenFromAssistant: { type: boolean, default: false }
+
+    UpdateTaskRequest:
+      type: object
+      description: |
+        Every field is optional. An omitted or null field is left unchanged — this is a partial
+        update, not a replace. To unset a field, name it in `clear`.
+      properties:
+        title: { type: string, maxLength: 500 }
+        description: { type: string, maxLength: 5000 }
+        url: { type: string, maxLength: 2000 }
+        priority: { type: string, enum: [low, medium, high] }
+        deadline: { type: string, description: "YYYY-MM-DD" }
+        estimatedMinutes: { type: integer }
+        status:
+          type: string
+          enum: [todo, done, archived]
+          description: Prefer POST /complete and POST /archive over writing this directly.
+        categoryId: { type: string, format: uuid }
+        tags:
+          type: array
+          items: { type: string }
+          description: Replaces the task's tags entirely. Omit to leave them alone.
+        relevantFrom: { type: string, description: "YYYY-MM-DD" }
+        hiddenFromAssistant: { type: boolean }
+        clear:
+          type: array
+          items:
+            type: string
+            enum: [description, url, priority, deadline, estimatedMinutes, relevantFrom, tags]
+          description: 'Fields to unset, e.g. {"clear": ["deadline"]}.'

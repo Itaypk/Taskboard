@@ -61,6 +61,12 @@ class WebConfiguration(
     )
 
     @Bean
+    fun externalApiRateLimiter(): RateLimiter = InMemoryRateLimiter(
+        limit = rateLimitProperties.externalApi.limit,
+        windowMillis = rateLimitProperties.externalApi.windowSeconds * 1_000,
+    )
+
+    @Bean
     fun feedbackRateLimiter(): RateLimiter = InMemoryRateLimiter(
         limit = rateLimitProperties.feedback.limit,
         windowMillis = rateLimitProperties.feedback.windowSeconds * 1_000,
@@ -78,7 +84,9 @@ class WebConfiguration(
         logger.info("Registering MdcUserInterceptor and RateLimitInterceptor")
         registry.addInterceptor(MdcUserInterceptor())
         registry.addInterceptor(
-            RateLimitInterceptor(apiRateLimiter(), demoLoginRateLimiter(), telegramLoginRateLimiter()),
+            RateLimitInterceptor(
+                apiRateLimiter(), demoLoginRateLimiter(), telegramLoginRateLimiter(), externalApiRateLimiter(),
+            ),
         )
         activityTrackerProvider.ifAvailable { tracker ->
             registry.addInterceptor(ActivityTrackingInterceptor(tracker))

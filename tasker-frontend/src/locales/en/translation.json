@@ -139,6 +139,32 @@
       "unlinkFailed": "Could not unlink. Please try again."
     }
   },
+  "apiTokens": {
+    "label": "API tokens",
+    "hint": "Let an AI assistant or script read and update your tasks. Each token acts as you — share it like a password.",
+    "none": "No API tokens yet.",
+    "create": "Create token",
+    "revoke": "Revoke",
+    "namePlaceholder": "What is this for? e.g. Claude Code",
+    "scopeLabel": "Access level",
+    "copyNow": "Copy this now — it won't be shown again.",
+    "copy": "Copy",
+    "copied": "Copied",
+    "dismiss": "Done",
+    "lastUsed": "last used {{date}}",
+    "neverUsed": "never used",
+    "confirmRevoke": "Revoke “{{name}}”? Anything using this token will stop working immediately.",
+    "docsHint": "Point your assistant at /external-api/SKILL.md to teach it how to use these.",
+    "scopes": {
+      "read": "Read only",
+      "write": "Read and write"
+    },
+    "errors": {
+      "limit": "You can have at most {{max}} active tokens. Revoke one first.",
+      "createFailed": "Could not create the token. Please try again.",
+      "revokeFailed": "Could not revoke the token. Please try again."
+    }
+  },
   "emailLoginConfirm": {
     "loading": "Loading…",
     "invalid": {
@@ -452,7 +478,8 @@
     "tabs": {
       "general": "General",
       "categories": "Labels",
-      "assistant": "Assistant"
+      "assistant": "Assistant",
+      "integrations": "Integrations"
     },
     "days": {
       "monday": "Monday",
