@@ -142,6 +142,11 @@ class SecurityConfiguration(
                 authorize("/robots.txt", permitAll)
                 authorize("/sitemap.xml", permitAll)
                 authorize("/BingSiteAuth.xml", permitAll)
+                // Discovery documents for the external API. Redundant while `anyRequest` below is
+                // permitAll, but listed like their neighbours so the intent survives that changing.
+                authorize("/llms.txt", permitAll)
+                authorize("/.well-known/**", permitAll)
+                authorize("/external-api/**", permitAll)
                 authorize("/assets/**", permitAll)
                 authorize("/favicon.ico", permitAll)
                 authorize("/api/auth/me", permitAll)

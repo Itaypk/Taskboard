@@ -2,3 +2,6 @@ User-agent: *
 Allow: /
 
 Sitemap: https://backlog.fyi/sitemap.xml
+
+# Machine-readable index for language models and agents:
+# https://backlog.fyi/llms.txt

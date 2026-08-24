@@ -72,6 +72,32 @@ opens with `requireMember`. Do not reimplement access checks here.
 Error responses are RFC 7807. Write `detail` for a model to read: name what was wrong and what
 the allowed values are, so an agent can self-correct without a human.
 
+## Discoverability
+
+The contract and the skill are served from `/external-api/` (that prefix, not `/api/...`, so the
+`/api/**` authenticated rule doesn't hide them). Four places advertise them; if any endpoint,
+filename or base URL changes, all four move together:
+
+| Where | What it says | Source |
+|---|---|---|
+| `/.well-known/api-catalog` | RFC 9727 linkset: the API, plus RFC 8631 `service-desc` (openapi.yaml) and `service-doc` (SKILL.md) links | `controller/ApiCatalogController.kt` |
+| `/llms.txt` | The llmstxt.org index — what this site is and where the API docs are | `static/llms.txt` |
+| `/sitemap.xml` | Both files as crawlable URLs | `static/sitemap.xml` |
+| `index.html` `<head>` | `service-desc` / `service-doc` link relations | `tasker-frontend/index.html` |
+
+The catalogue is **generated**, unlike every other discovery file in the repo, because RFC 9727
+requires `application/linkset+json` (an extensionless static file would be served as
+`application/octet-stream`) and absolute URLs (a hardcoded `backlog.fyi` would be wrong in dev).
+Both come out of `AppProperties.baseUrl`. A side benefit is that no dotted `.well-known/`
+directory has to exist on disk.
+
+`DiscoveryIntegrationTest` pins all of it, asserting response **bodies** rather than status codes:
+`SpaErrorController` forwards unmatched paths to `index.html`, so a broken path would otherwise
+answer with a page instead of an error.
+
+Not added: `/.well-known/ai-plugin.json`. That was the ChatGPT plugin manifest, and plugins were
+sunset in 2024.
+
 ## Deliberate omissions
 
 - **No hard delete.** `POST /{id}/archive` is the reversible equivalent.

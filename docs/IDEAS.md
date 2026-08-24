@@ -86,12 +86,18 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Work on tagline and satellite notes in the welcome page with better texts. See if we need to move a few things around 
 - Better - more satisfying - "mark as done"
 - Drawer improvements (buttons are too dense, for example)
-- Settings dialog - each tab has a different height; switching tabs move the modal. Also, consider moving some fields from the "General" area to somewhere more relevant.
+- Settings dialog - each tab has a different height; switching tabs move the modal. Also, consider
+  moving some fields from the "General" area to somewhere more relevant. **Raised priority**: the
+  Integrations tab (API tokens) makes four tabs, which overflows the tab row on most mobile widths.
+  Shipped as-is deliberately; see the "Categories and tags" item below for the intended fix.
 - Task list Markdown (subtasks) checkboxes - makes it possible to check directly from the main screen
 - Filter chips can still wrap on very small screens even after the "Week" shortening. If it keeps bugging us, consider a segmented control or horizontally-scrollable chip row on mobile.
 - Board management: custom board color pin marker (the member count pin)?
 - Center pill bar on mobile; consider dropping the "done" pill.
-- Categories and tags should go in the "Board Settings" menu. 
+- Categories and tags should go in the "Board Settings" menu — they are board-scoped, while the rest
+  of the settings dialog is user-scoped. **Now the leading candidate for the mobile tab overflow
+  above**: moving them out drops the settings dialog back to three tabs (General, Assistant,
+  Integrations) without dropping any functionality.
 - Setting dialog - notifications tab?
 
 ## Assistant - Mid-week response

@@ -1,0 +1,22 @@
+# Backlog.fyi
+
+> An AI-powered weekly planner: a task backlog plus a planning conversation that reads your
+> calendar and blocks time for the tasks you agree to. Tasks can be read and edited from outside
+> the app through a token-authenticated HTTP API.
+
+Task titles and descriptions are encrypted at rest and are private to their owner. Every API
+request is authenticated as one specific user and can only reach that user's boards.
+
+## External API
+
+- [Usage guide](https://backlog.fyi/external-api/SKILL.md): how to search, create, update, complete and archive tasks, written for AI assistants. Start here.
+- [OpenAPI description](https://backlog.fyi/external-api/openapi.yaml): the full contract — endpoints, schemas and error shapes (OpenAPI 3.1).
+- [API catalog](https://backlog.fyi/.well-known/api-catalog): RFC 9727 linkset pointing at the above.
+
+Access needs a personal API token, created in the app under Settings -> Integrations and shown
+once. Send it as `Authorization: Bearer <token>`.
+
+## Optional
+
+- [Terms of Service](https://backlog.fyi/terms)
+- [Privacy Policy](https://backlog.fyi/privacy)
