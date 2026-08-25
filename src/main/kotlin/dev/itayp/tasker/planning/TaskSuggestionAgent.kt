@@ -82,7 +82,7 @@ class TaskSuggestionAgent(
             maxTokens = MAX_TOKENS,
         )
 
-        val context = AiCallContext(userId = userId, conversationType = AiConversationType.TASK_SUGGESTION)
+        val context = AiCallContext(userId = userId.toString(), conversationType = AiConversationType.TASK_SUGGESTION)
         val raw = aiClient.chat(request, context).choices.firstOrNull()?.message?.contentText.orEmpty()
         val draft = parseAssistantJsonResponseOrNull(
             objectMapper, raw, TaskDraft::class.java,
@@ -188,7 +188,7 @@ class TaskSuggestionAgent(
             maxTokens = MAX_TOKENS,
         )
 
-        val context = AiCallContext(userId = userId, conversationType = AiConversationType.TASK_SUGGESTION)
+        val context = AiCallContext(userId = userId.toString(), conversationType = AiConversationType.TASK_SUGGESTION)
         val raw = aiClient.chat(chatRequest, context).choices.firstOrNull()?.message?.contentText.orEmpty()
         return parseOutcome(raw)
     }

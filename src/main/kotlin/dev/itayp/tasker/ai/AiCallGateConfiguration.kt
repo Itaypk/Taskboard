@@ -5,6 +5,7 @@ import dev.itayp.tasker.ai.access.AiAccessService
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import java.util.UUID
 
 /**
  * Provides the app's [AiCallGate] — the `openrouter-client` library ships no default gate, so the
@@ -20,7 +21,8 @@ class AiCallGateConfiguration {
     @ConditionalOnMissingBean(AiCallGate::class)
     fun defaultAiCallGate(aiAccessService: AiAccessService): AiCallGate =
         AiCallGate { context, _ ->
-            aiAccessService.requireAiEnabledForUser(context.userId)
-            aiAccessService.requireWithinTierLimit(context.userId)
+            val userId = UUID.fromString(context.userId)
+            aiAccessService.requireAiEnabledForUser(userId)
+            aiAccessService.requireWithinTierLimit(userId)
         }
 }

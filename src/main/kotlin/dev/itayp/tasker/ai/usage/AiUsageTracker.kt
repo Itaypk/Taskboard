@@ -2,13 +2,15 @@ package dev.itayp.tasker.ai.usage
 
 import dev.itayp.nescioquid.openrouter.AiCallContext
 import dev.itayp.nescioquid.openrouter.AiCallListener
+import dev.itayp.nescioquid.openrouter.AiRequest
+import dev.itayp.nescioquid.openrouter.AiResponse
 import dev.itayp.nescioquid.openrouter.ChatRequest
-import dev.itayp.nescioquid.openrouter.ChatResponse
 import dev.itayp.nescioquid.openrouter.ModelCapabilityService
 import io.micrometer.core.instrument.MeterRegistry
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.time.Clock
+import java.util.UUID
 
 /**
  * Records AI usage for every [dev.itayp.nescioquid.openrouter.AiClient.chat] call: a durable per-call
@@ -31,18 +33,20 @@ class AiUsageTracker(
      * Effort level to tag the call with. The explicit request effort wins; otherwise, for a
      * reasoning model called without an explicit level, it's the model's default effort; for a
      * non-reasoning model it's "none". [DEFAULT_EFFORT_UNKNOWN] covers a reasoning model that didn't
-     * advertise a default.
+     * advertise a default. Non-chat requests (e.g. image generation) have no reasoning concept, so
+     * they're tagged [EFFORT_NONE] too.
      */
-    private fun effortLabel(request: ChatRequest): String {
-        request.reasoning?.effort?.let { return it }
-        val capabilities = modelCapabilityService.get(request.model)
+    private fun effortLabel(request: AiRequest): String {
+        val chatRequest = request as? ChatRequest ?: return EFFORT_NONE
+        chatRequest.reasoning?.effort?.let { return it }
+        val capabilities = modelCapabilityService.get(chatRequest.model)
         return when {
             capabilities == null || !capabilities.supportsReasoning -> EFFORT_NONE
             else -> capabilities.defaultEffort ?: DEFAULT_EFFORT_UNKNOWN
         }
     }
 
-    override fun recordSuccess(context: AiCallContext, request: ChatRequest, response: ChatResponse) {
+    override fun recordSuccess(context: AiCallContext, request: AiRequest, response: AiResponse) {
         val usage = response.usage
         // OpenRouter echoes the resolved model/provider; fall back to the requested model.
         val model = response.model ?: request.model
@@ -61,7 +65,7 @@ class AiUsageTracker(
         )
     }
 
-    override fun recordFailure(context: AiCallContext, request: ChatRequest) {
+    override fun recordFailure(context: AiCallContext, request: AiRequest) {
         // No usage body on failure — record the attempt so failed calls are still accounted for.
         record(
             context = context,
@@ -163,10 +167,10 @@ class AiUsageTracker(
     ) {
         try {
             repository.save(AiUsageEventEntity().apply {
-                this.userId = context.userId
+                this.userId = UUID.fromString(context.userId)
                 this.conversationType = context.conversationType
-                this.sessionId = context.sessionId
-                this.conversationId = context.conversationId
+                this.sessionId = context.sessionId?.let { UUID.fromString(it) }
+                this.conversationId = context.conversationId?.let { UUID.fromString(it) }
                 this.model = model
                 this.provider = provider
                 this.promptTokens = promptTokens

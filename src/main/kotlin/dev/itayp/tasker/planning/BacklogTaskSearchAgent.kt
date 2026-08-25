@@ -55,7 +55,7 @@ class BacklogTaskSearchAgent(
             maxTokens = 512,
         )
 
-        val context = AiCallContext(userId = userId, conversationType = AiConversationType.TASK_SEARCH)
+        val context = AiCallContext(userId = userId.toString(), conversationType = AiConversationType.TASK_SEARCH)
         val raw = aiClient.chat(request, context).choices.firstOrNull()?.message?.contentText.orEmpty()
         val parsed = parseAssistantJsonResponseOrNull(
             objectMapper, raw, SearchResult::class.java,
