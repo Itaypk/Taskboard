@@ -201,11 +201,71 @@ class ExternalTaskControllerTest(@Autowired val mockMvc: MockMvc) {
     }
 
     @Test
-    fun `GET an unknown task is a 404`() {
+    fun `GET an unknown task is a 404 carrying a problem detail`() {
         whenever(backlogTaskService.findTask(userId, taskId)).thenReturn(null)
 
         mockMvc.perform(get("$basePath/$taskId").with(authentication(auth)))
             .andExpect(status().isNotFound)
+            .andExpect(jsonPath("$.status").value(404))
+            .andExpect(jsonPath("$.detail").value(containsString(taskId.toString())))
+    }
+
+    // --- Error shape: every failure is an RFC 7807 body an AI caller can act on, never an empty response ---
+
+    @Test
+    fun `a task id that is not a UUID is a 400 naming the parameter`() {
+        mockMvc.perform(get("$basePath/not-a-uuid").with(authentication(auth)))
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.detail").value(containsString("'id'")))
+    }
+
+    @Test
+    fun `POST without a title is a 400 naming the missing field`() {
+        mockMvc.perform(
+            post(basePath)
+                .with(authentication(auth))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}")
+        )
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.detail").value(containsString("'title'")))
+    }
+
+    @Test
+    fun `POST with a blank title is a 400 naming the field`() {
+        mockMvc.perform(
+            post(basePath)
+                .with(authentication(auth))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"title":"   "}""")
+        )
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.detail").value(containsString("'title'")))
+    }
+
+    @Test
+    fun `POST with malformed JSON is a 400 with a detail`() {
+        mockMvc.perform(
+            post(basePath)
+                .with(authentication(auth))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"title": """)
+        )
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.title").value("Malformed request body"))
+            .andExpect(jsonPath("$.detail").value(containsString("JSON object")))
+    }
+
+    @Test
+    fun `PATCH with a body field of the wrong type is a 400 with a detail`() {
+        mockMvc.perform(
+            patch("$basePath/$taskId")
+                .with(authentication(auth))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"estimatedMinutes":"soon"}""")
+        )
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.detail").value(containsString("JSON object")))
     }
 
     // --- PATCH merge semantics: the reason this API exists ---

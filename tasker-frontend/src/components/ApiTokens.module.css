@@ -48,7 +48,9 @@
 }
 
 .scopeSelect {
+  /* field__select is width:100%; keep the scope picker sized to its own content in the flex row. */
   flex: 0 0 auto;
+  width: auto;
 }
 
 /* The one-time secret reveal. Deliberately loud: this is the only moment the value exists. */
