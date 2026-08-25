@@ -89,7 +89,13 @@ data class ExternalTaskListResponse(
  * created with an auto-assigned colour.
  */
 data class ExternalCreateTaskRequest(
-    @field:Size(max = 500) val title: String,
+    /**
+     * Required, but typed nullable on purpose: a non-null Kotlin field makes Jackson fail
+     * construction before the controller runs, and that failure surfaces as a bodyless 400. Taking
+     * it as nullable lets [ExternalTaskController.createTask] answer with a problem detail that
+     * actually says which field is missing.
+     */
+    @field:Size(max = 500) val title: String? = null,
     val boardId: String? = null,
     val categoryId: String? = null,
     @field:Size(max = 5000) val description: String? = null,

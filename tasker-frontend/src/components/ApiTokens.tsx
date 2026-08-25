@@ -148,7 +148,7 @@ export function ApiTokens() {
             <div className={styles.createRow}>
                 <input
                     type="text"
-                    className={styles.nameInput}
+                    className={`field__input ${styles.nameInput}`}
                     value={name}
                     maxLength={100}
                     placeholder={t('apiTokens.namePlaceholder')}
@@ -156,7 +156,7 @@ export function ApiTokens() {
                     disabled={busy || atLimit}
                 />
                 <select
-                    className={styles.scopeSelect}
+                    className={`field__select ${styles.scopeSelect}`}
                     value={scope}
                     onChange={event => setScope(event.target.value as ApiTokenScope)}
                     disabled={busy || atLimit}

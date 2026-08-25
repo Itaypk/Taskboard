@@ -126,9 +126,9 @@ class ExternalTaskController(
     fun getTask(
         @AuthenticationPrincipal principal: TaskerPrincipal,
         @PathVariable id: UUID,
-    ): ResponseEntity<ExternalTaskResponse> {
+    ): ResponseEntity<*> {
         val task = backlogTaskService.findTask(principal.userId, id)
-            ?: return ResponseEntity.notFound().build()
+            ?: return taskNotFound(id)
         return ResponseEntity.ok(task.toExternalResponse(boardNames(principal.userId)[task.boardId] ?: ""))
     }
 
@@ -138,7 +138,8 @@ class ExternalTaskController(
         @Valid @RequestBody request: ExternalCreateTaskRequest,
     ): ResponseEntity<*> {
         val userId = principal.userId
-        if (request.title.isBlank()) return badRequest("'title' is required.")
+        val title = request.title?.trim()
+        if (title.isNullOrEmpty()) return badRequest("'title' is required and must not be blank.")
 
         val boardId = if (request.boardId != null) {
             request.boardId.toUuidOrNull() ?: return badRequest("'boardId' is not a valid id.")
@@ -175,7 +176,7 @@ class ExternalTaskController(
         val created = backlogTaskService.createTask(
             userId, boardId,
             CreateBacklogTaskRequest(
-                title = request.title.trim(),
+                title = title,
                 description = request.description,
                 url = request.url,
                 priority = request.priority?.lowercase(),
@@ -206,7 +207,7 @@ class ExternalTaskController(
         @Valid @RequestBody request: ExternalUpdateTaskRequest,
     ): ResponseEntity<*> {
         val userId = principal.userId
-        val current = backlogTaskService.findTask(userId, id) ?: return ResponseEntity.notFound().build<Any>()
+        val current = backlogTaskService.findTask(userId, id) ?: return taskNotFound(id)
 
         val clear = request.clear.orEmpty().map { it.trim() }.toSet()
         val unknownClear = clear - ExternalUpdateTaskRequest.CLEARABLE_FIELDS
@@ -269,9 +270,9 @@ class ExternalTaskController(
     fun completeTask(
         @AuthenticationPrincipal principal: TaskerPrincipal,
         @PathVariable id: UUID,
-    ): ResponseEntity<ExternalTaskResponse> {
+    ): ResponseEntity<*> {
         val task = backlogTaskService.markDone(principal.userId, id)
-            ?: return ResponseEntity.notFound().build()
+            ?: return taskNotFound(id)
         logger.info("External API completed task {}", id)
         return ResponseEntity.ok(task.toExternalResponse(boardNames(principal.userId)[task.boardId] ?: ""))
     }
@@ -281,9 +282,9 @@ class ExternalTaskController(
     fun archiveTask(
         @AuthenticationPrincipal principal: TaskerPrincipal,
         @PathVariable id: UUID,
-    ): ResponseEntity<ExternalTaskResponse> {
+    ): ResponseEntity<*> {
         val task = backlogTaskService.archive(principal.userId, id)
-            ?: return ResponseEntity.notFound().build()
+            ?: return taskNotFound(id)
         logger.info("External API archived task {}", id)
         return ResponseEntity.ok(task.toExternalResponse(boardNames(principal.userId)[task.boardId] ?: ""))
     }
@@ -341,6 +342,14 @@ class ExternalTaskController(
 
     private fun badRequest(detail: String): ResponseEntity<ProblemDetail> =
         problem(HttpStatus.BAD_REQUEST, detail)
+
+    /**
+     * A 404 with a body. `findTask` spans every board the caller belongs to, so "not found" and
+     * "not yours" are the same answer here — the detail says so rather than leaving a caller to
+     * retry the same id against each board.
+     */
+    private fun taskNotFound(id: UUID): ResponseEntity<ProblemDetail> =
+        problem(HttpStatus.NOT_FOUND, "No task $id on any board you are a member of.")
 
     private fun unprocessable(detail: String): ResponseEntity<ProblemDetail> =
         problem(HttpStatus.UNPROCESSABLE_ENTITY, detail)
