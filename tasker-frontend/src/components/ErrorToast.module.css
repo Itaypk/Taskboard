@@ -1,7 +1,7 @@
 .stack {
   position: fixed;
   bottom: 24px;
-  right: 24px;
+  inset-inline-end: 24px;
   display: flex;
   flex-direction: column;
   gap: 8px;

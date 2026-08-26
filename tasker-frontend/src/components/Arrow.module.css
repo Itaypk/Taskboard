@@ -1,0 +1,14 @@
+/* The glyph is authored once as "→" and mirrored with a transform, so it follows the document
+   direction instead of being frozen into a catalog string (docs/I18N.md, D5). A back arrow in
+   LTR and a forward arrow in RTL are the same mirrored shape. */
+.arrow {
+    display: inline-block;
+    /* Nudges the mirrored glyph back onto its own baseline box. */
+    vertical-align: baseline;
+}
+
+.forward { transform: none; }
+.back { transform: scaleX(-1); }
+
+:global([dir='rtl']) .forward { transform: scaleX(-1); }
+:global([dir='rtl']) .back { transform: none; }

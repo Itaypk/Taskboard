@@ -57,7 +57,7 @@
   display: block;
 }
 .tbtnRight {
-  margin-left: auto;
+  margin-inline-start: auto;
 }
 .divider {
   width: 1px;
@@ -100,14 +100,14 @@
   font-size: 0.72rem;
   font-weight: 500;
   color: #b91c1c;
-  text-align: right;
+  text-align: end;
 }
 
 /* ─── Rendered content (mirrors .markdown-content) ────── */
 .content :global(p.is-editor-empty:first-child)::before {
   content: attr(data-placeholder);
   color: var(--ink-ghost);
-  float: left;
+  float: inline-start;
   height: 0;
   pointer-events: none;
 }
@@ -169,6 +169,6 @@
 .content td {
   border: 1px solid var(--paper-border);
   padding: 4px 8px;
-  text-align: left;
+  text-align: start;
 }
 .content th { background: rgba(0, 0, 0, 0.04); font-weight: 600; color: var(--ink); }

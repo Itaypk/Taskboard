@@ -36,7 +36,7 @@
 .knob {
   position: absolute;
   top: 2px;
-  left: 2px;
+  inset-inline-start: 2px;
   width: 16px;
   height: 16px;
   border-radius: 50%;
@@ -49,8 +49,12 @@
   background: var(--ink);
 }
 
+/* `translateX` is physical, so the travel direction flips with the document direction. */
 .input:checked + .track .knob {
   transform: translateX(16px);
+}
+:global([dir='rtl']) .input:checked + .track .knob {
+  transform: translateX(-16px);
 }
 
 .input:focus-visible + .track {

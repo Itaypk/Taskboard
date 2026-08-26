@@ -111,7 +111,7 @@
   opacity: 0.72;
   white-space: nowrap;
 }
-.meta svg { vertical-align: -1px; margin-right: 3px; }
+.meta svg { vertical-align: -1px; margin-inline-end: 3px; }
 .dur {
   font-family: var(--font-mono);
   font-style: normal;
@@ -140,7 +140,9 @@
 }
 
 /* Curled dog-ear — the peel affordance for the note. The button is a generous transparent hit
-   target (touch-friendly on small screens); the visible curl is drawn small via ::after. */
+   target (touch-friendly on small screens); the visible curl is drawn small via ::after.
+   Physical `right`/`bottom` on purpose: the curl bakes a top-left light source into its
+   135deg gradient and `clip-path`, so the affordance stays on the paper's drawn corner in RTL. */
 .dogear {
   position: absolute;
   right: 0;
@@ -251,7 +253,7 @@
 @media (max-width: 620px) {
   .cat { display: none; }   /* color carries the category; reclaim the title width */
   .dur { display: none; }   /* keep the tighter deadline signal only */
-  .line { padding-left: 14px; }
+  .line { padding-inline-start: 14px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

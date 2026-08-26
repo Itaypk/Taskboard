@@ -15,9 +15,34 @@ const FALLBACK_LOCALE = 'en-US';
 
 let activeLocale = FALLBACK_LOCALE;
 
-/** Sets the locale tag all formatting helpers use by default. Idempotent; blank falls back to en-US. */
+/**
+ * Whether `Intl` will accept a tag at all.
+ *
+ * This matters because a *structurally* invalid tag makes every `Intl` constructor throw a
+ * `RangeError` rather than degrade — and dates are formatted during render, so one bad tag would
+ * take down the screen instead of merely mis-formatting it. Such tags are not hypothetical: POSIX
+ * environments hand `navigator.languages` values like `en-US@posix` or `C.UTF-8`, and the tag can
+ * also arrive from a stale `localStorage` cache or a stored preference.
+ *
+ * `Intl.getCanonicalLocales` is exactly the right test: it throws on malformed tags but accepts
+ * well-formed unknown ones (`zz-ZZ`), which `Intl` itself resolves by its own fallback.
+ */
+export function isUsableLocale(tag: string): boolean {
+    try {
+        Intl.getCanonicalLocales(tag);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Sets the locale tag all formatting helpers use by default. Idempotent; a blank, missing, or
+ * `Intl`-unusable tag falls back to en-US.
+ */
 export function setActiveLocale(tag: string | null | undefined): void {
-    activeLocale = tag && tag.trim().length > 0 ? tag : FALLBACK_LOCALE;
+    const candidate = tag?.trim();
+    activeLocale = candidate && isUsableLocale(candidate) ? candidate : FALLBACK_LOCALE;
 }
 
 /** The active full locale tag (e.g. `en-US`). Pass to `toLocale*` for ad-hoc formatting. */

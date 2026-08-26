@@ -5,8 +5,11 @@ import styles from './Tooltip.module.css';
 interface TooltipProps {
   /** The text shown in the bubble and announced to assistive tech. */
   text: string;
-  /** Side the bubble grows towards. Defaults to right; pick "left" near the right edge. */
-  side?: 'right' | 'left';
+  /**
+   * Inline side the bubble grows towards, in reading order. Defaults to "end" (rightwards in
+   * LTR, leftwards in RTL); pick "start" for a trigger near the container's inline-end edge.
+   */
+  side?: 'end' | 'start';
   /** The trigger element the bubble describes (e.g. an icon button). */
   children: ReactElement;
 }
@@ -16,7 +19,7 @@ interface TooltipProps {
  * the overflow clipping and stacking context of whatever container it lives in (modals, scrollable
  * drawers). Position is measured from the trigger each time it opens.
  */
-export function Tooltip({ text, side = 'right', children }: TooltipProps) {
+export function Tooltip({ text, side = 'end', children }: TooltipProps) {
   const tipId = useId();
   const triggerRef = useRef<HTMLSpanElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -26,7 +29,12 @@ export function Tooltip({ text, side = 'right', children }: TooltipProps) {
     const el = triggerRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    setPos({ top: rect.top, left: side === 'left' ? rect.right : rect.left });
+    // `left` here is a viewport coordinate, so the logical side has to be resolved against the
+    // document direction: growing towards inline-start anchors the bubble's far edge to the
+    // trigger's leading corner, which is the trigger's right edge in LTR and its left in RTL.
+    const rtl = document.documentElement.dir === 'rtl';
+    const growsBack = side === 'start';
+    setPos({ top: rect.top, left: growsBack !== rtl ? rect.right : rect.left });
     // Mount first, then flip to visible on the next frame so the fade/slide-in transition runs.
     requestAnimationFrame(() => setVisible(true));
   };
@@ -57,7 +65,7 @@ export function Tooltip({ text, side = 'right', children }: TooltipProps) {
             role="tooltip"
             className={[
               styles.bubble,
-              side === 'left' ? styles.bubbleLeft : styles.bubbleRight,
+              side === 'start' ? styles.bubbleStart : styles.bubbleEnd,
               visible ? styles.bubbleVisible : '',
             ].join(' ')}
             style={{ top: pos.top, left: pos.left }}

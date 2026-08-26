@@ -73,5 +73,5 @@
   font-size: 14px;
   font-weight: 600;
   color: var(--ink);
-  text-align: right;
+  text-align: end;
 }

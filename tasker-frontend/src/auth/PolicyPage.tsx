@@ -6,6 +6,7 @@ import { SUPPORT_EMAIL } from '../config';
 import tosContent from './tos.md?raw';
 import ppContent from './privacy-policy.md?raw';
 import styles from './PolicyPage.module.css';
+import { Arrow } from '../components/Arrow';
 
 /** Fill build-time placeholders (e.g. the support email) into the raw policy markdown. */
 function fillPlaceholders(md: string): string {
@@ -30,7 +31,7 @@ function PolicyPage({ title, body }: PolicyPageProps) {
             <article className={styles.page}>
                 <header className={styles.header}>
                     <h1>{title}</h1>
-                    <Link to="/" className="link-btn">{t('policyPage.backHome')}</Link>
+                    <Link to="/" className="link-btn"><Arrow direction="back" /> {t('policyPage.backHome')}</Link>
                 </header>
                 <MarkdownRenderer content={body} showExpandButton={false} />
             </article>

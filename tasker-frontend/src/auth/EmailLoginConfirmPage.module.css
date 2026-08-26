@@ -31,7 +31,9 @@
     border-radius: 2px;
 }
 
-/* Peeled corner — matches .sat::after in LoginPage.module.css */
+/* Peeled corner. Physical `right`/`bottom` on purpose: the fold bakes a top-left light source
+   into its 135deg/315deg gradient pair, so it must not mirror in RTL. */
+/* Matches .sat::after in LoginPage.module.css. */
 .card::after {
     content: '';
     position: absolute;
