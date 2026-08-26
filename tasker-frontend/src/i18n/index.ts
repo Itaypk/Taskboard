@@ -2,21 +2,21 @@
  * i18next setup for the web UI (docs/I18N.md, D3/D7). English is bundled eagerly (it is the
  * fallback and always needed); other languages load as lazy chunks when they launch.
  *
- * Phase 1 note: only `en` is *launched*, so `resolveUiLanguage` maps every preference to `en` for
- * catalog purposes — the UI stays English while comms keep using the stored preference (D7). The
- * full preference tag still flows to `Intl` via `setActiveLocale`, and `<html lang/dir>` is set
- * from the resolved language so RTL wiring is in place ahead of the Hebrew launch.
+ * Launched languages (`LAUNCHED_UI_LANGUAGES`) render in their own catalog; every other preference
+ * degrades to `en` for catalog purposes while comms keep using the stored preference (D7). The full
+ * preference tag still flows to `Intl` via `setActiveLocale`, and `<html lang/dir>` is set from the
+ * *resolved* language, so a `ru` preference reads English text with `lang="en"` rather than lying.
  *
- * Because nothing RTL is launched yet, the direction pass (D5) would otherwise be unreachable in a
- * browser; `?uiLang=he` forces it in dev builds only. See `devPreviewLanguage`.
+ * `?uiLang=<code>` forces an unlaunched language in dev builds only, so its catalog and direction
+ * can be exercised before launch. See `devPreviewLanguage`.
  */
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import enTranslation from '../locales/en/translation.json';
 import { isUsableLocale, setActiveLocale } from './format';
 
-/** Languages whose UI catalog is complete and QA'd. Add `he`, `ru`, `ar` as each ships (D7). */
-export const LAUNCHED_UI_LANGUAGES = ['en'] as const;
+/** Languages whose UI catalog is complete and QA'd. Add `ru`, `ar` as each ships (D7). */
+export const LAUNCHED_UI_LANGUAGES = ['en', 'he'] as const;
 
 /** All languages the picker may offer; matches the backend's trimmed supported list (D1). */
 export const SUPPORTED_UI_LANGUAGES = ['en', 'he', 'ru', 'ar'] as const;
@@ -28,7 +28,7 @@ const FALLBACK_LOCALE = 'en-US';
 
 /** Lazy loaders for non-English catalogs, wired up as languages launch. */
 const catalogLoaders: Partial<Record<UiLanguage, () => Promise<{ default: Record<string, unknown> }>>> = {
-    // he: () => import('../locales/he/translation.json'),
+    he: () => import('../locales/he/translation.json'),
     // ru: () => import('../locales/ru/translation.json'),
     // ar: () => import('../locales/ar/translation.json'),
 };
@@ -133,12 +133,30 @@ i18n.use(initReactI18next).init({
     missingKeyHandler: import.meta.env.DEV
         ? (_lngs, ns, key) => console.warn(`[i18n] missing key: ${ns}:${key}`)
         : undefined,
-    react: { useSuspense: false },
+    react: {
+        useSuspense: false,
+        // Non-English catalogs arrive as lazy chunks via `addResourceBundle` after init, which is a
+        // store event, not a language change. Without this the new strings sit in the store and the
+        // tree keeps showing the English fallback until something else happens to re-render it.
+        bindI18nStore: 'added',
+    },
 });
 
 // Apply the boot locale to Intl + <html> immediately so first paint matches (no flash).
 setActiveLocale(bootTag);
 applyDocumentLanguage(resolveUiLanguage(bootTag), bootTag);
+
+/**
+ * Resolves once the boot language's catalog is loaded. `main.tsx` awaits it before mounting.
+ *
+ * Two reasons this cannot wait for `applyLocale`: that only runs once `/me` returns a user, so the
+ * entire unauthenticated surface (login, policy and invite pages) would never be translated at all;
+ * and `<html lang/dir>` is set synchronously above, so an RTL language would paint English text
+ * inside mirrored chrome before swapping. For `en` the promise is already settled and nothing is
+ * delayed. A failed chunk load resolves too — the English fallback is a fine outcome, a blank page
+ * is not.
+ */
+export const bootCatalogReady: Promise<void> = loadCatalog(resolveUiLanguage(bootTag)).catch(() => {});
 
 /**
  * Switches the active locale everywhere: loads the catalog if needed, flips i18next's UI language,
