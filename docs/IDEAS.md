@@ -16,7 +16,7 @@ The scope of the individual idea is varying - could be small UI improvements, or
   previous headline/pitch. Update them to match the redesigned landing (new headline "Tasks you keep /
   actually doing.", multi-provider sign-in: Telegram + Google + Email). Verbiage needs a human pass
   before shipping.
-- Fonts look bad in Hebrew (especially the header - serif - ones). Either choose one that support multilanguage, or use language-specific ones. **Now on the critical path**: this is the same call as `docs/I18N.md` open question 1, and Phase 2b (the Hebrew UI launch) is blocked on it.
+- Fonts look bad in Hebrew (especially the header - serif - ones). Either choose one that support multilanguage, or use language-specific ones. **Now visible in the product**: with `he` launched, the display face falls through to a generic serif, and italic-styled text gets a *synthetic oblique* — Hebrew has no true italic, so it reads as a rendering fault rather than emphasis. Same call as `docs/I18N.md` open question 1. Cheapest correct floor is `font-synthesis: none` under `[dir="rtl"]` plus a Hebrew display stack; choosing the face is the product decision.
 - Persisted calendar invite SEQUENCE counter. Plan-revise updates re-send same-time slot edits (label/title/notes) with a fixed `SEQUENCE:1`. A second same-slot edit in a later session sends `SEQUENCE:1` again, which strict calendar clients may not re-apply. Persisting a per-slot revision counter (incremented on each update) would make repeated updates robust. Low priority: time moves go through cancel + fresh invite, which is unaffected.
 - Currently, a single task is tied to a single time-block; would we like to change that, so that a single task might have multiple (or zero) time blocks attached?
 - Add a search functionality.
@@ -124,8 +124,12 @@ Deferred from the `docs/I18N.md` design (see there for full rationale). Not bloc
 - Re-adding any of the dormant language bundles (`de/es/fr/it/ja/ko/nl/pt/zh`) if demand appears;
   they're frozen, not deleted.
 - Hebrew/Arabic display typography that preserves the paper/post-it aesthetic — a product/design
-  decision to make early in Phase 2 (this is the same concern as the "Fonts look bad in Hebrew"
-  note above).
+  decision (this is the same concern as the "Fonts look bad in Hebrew" note above).
+- Retrofit the channel bundles (`messages_he.properties`, `messages_ar.properties`) to the
+  gender-neutral phrasing the web UI catalog uses. They currently rely on slash forms
+  (`תרצה/תרצי`, `סמן/י`), which `CLAUDE.md` rules out; the web catalog shows the alternative —
+  verbal nouns for actions, impersonal phrasing for instructions. Mechanical but not trivial:
+  Telegram copy is conversational, so some lines need rewriting rather than substitution.
 
 ## Ideas that require more consideration
 - Open source the application under AGPL. A full git-history secret scan ahead of this switch
@@ -149,7 +153,8 @@ Deferred from the `docs/I18N.md` design (see there for full rationale). Not bloc
   languages to en/he/ru/ar), Phase 1 (i18next + locale-resolution infrastructure, `Intl` formatting
   helper, full string extraction, key-parity test) and Phase 2a (the RTL direction pass: CSS logical
   properties, direction-aware components, mirrorable arrows, `?uiLang=he` dev preview, guard tests)
-  have landed. Remaining: Phase 2b — the Hebrew catalog, the Hebrew display-type decision, RTL
-  visual QA, and launching `he` — then Russian and Arabic (Phase 3).
+  have landed, as has Phase 2b (the Hebrew catalog and the `he` launch). Remaining before Hebrew
+  can be called done: the Hebrew display-type decision (see "Fonts look bad in Hebrew" above) and
+  RTL visual QA. Then Russian and Arabic (Phase 3).
   `docs/I18N-INVENTORY.md` tracks per-component extraction status.
 - Multi-modal support: the assistant can process images and voice messages. 

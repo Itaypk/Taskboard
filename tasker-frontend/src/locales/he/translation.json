@@ -1,0 +1,768 @@
+{
+  "login": {
+    "nav": {
+      "terms": "תנאי שימוש",
+      "privacy": "פרטיות",
+      "logIn": "כניסה"
+    },
+    "hero": {
+      "tag": "השבוע · בראש סדר העדיפויות",
+      "titleLine1": "המשימות שנרשמות",
+      "titleLine2": "באמת נעשות.",
+      "sub": "כאן אוספים את כל מה שעל הפרק. אחר כך שיחה קצרה עם העוזר מסדרת שבוע ריאלי, והמשימות שסוכמו נוחתות ביומן כבלוקים של זמן.",
+      "getStarted": "מתחילים — בחינם",
+      "startNow": "או פשוט להתחיל, בלי הרשמה"
+    },
+    "satellites": {
+      "problemTag": "הבעיה",
+      "problemTitle": "משימות נרשמות — ואז נקברות בשקט.",
+      "payoffTag": "התמורה",
+      "payoffTitle": "שבוע שאפשר באמת להתחייב אליו.",
+      "payoffMeta": "לא עוד רשימה שמתעלמים ממנה.",
+      "methodTag": "השיטה",
+      "methodTitle": "חלוקה לבלוקים של זמן — בלי לעשות את התכנון לבד.",
+      "methodMeta": "העוזר מציע, ואפשר להתווכח.",
+      "privacyTag": "שלך בלבד",
+      "privacyTitle": "בלי פרסומות. בלי מעקב. מוצפן בשרת. AI ללא שמירת נתונים."
+    },
+    "modal": {
+      "close": "סגירה",
+      "tag": "ברוכים הבאים",
+      "title": "איך להמשיך?",
+      "sub": "הקשה אחת. אם זו הפעם הראשונה, ניצור לוח חדש.",
+      "telegram": "כניסה עם Telegram",
+      "google": "המשך עם Google",
+      "soon": "בקרוב",
+      "emailSent": "שלחנו קישור כניסה ל<strong>{{email}}</strong> — כדאי לבדוק את תיבת הדואר. הקישור יפוג בעוד 30 דקות.",
+      "emailPlaceholder": "you@example.com",
+      "sending": "שולח…",
+      "sendLink": "שליחת קישור כניסה",
+      "continueEmail": "המשך עם אימייל",
+      "moreWays": "דרכי כניסה נוספות בדרך",
+      "justLooking": "רק מסתכלים?",
+      "sandbox": "להתחיל עכשיו — בלי הרשמה",
+      "sandboxSub": "לוח אמיתי באופן מיידי. אפשר לחבר אימייל או Telegram מאוחר יותר כדי לשמור אותו.",
+      "fine": "המשך השימוש מהווה הסכמה ל<terms>תנאי השימוש</terms> ול<privacy>מדיניות הפרטיות</privacy>. בלי פרסומות, בלי מעקב — אף פעם.",
+      "devLogin": "כניסת פיתוח (דילוג על Telegram)"
+    },
+    "notices": {
+      "telegramFailed": "הכניסה דרך Telegram לא הושלמה. אפשר לנסות שוב.",
+      "telegramUnavailable": "הכניסה דרך Telegram אינה זמינה כרגע. כדאי לנסות דרך אחרת."
+    },
+    "errors": {
+      "demoFailed": "לא הצלחנו לפתוח חשבון חדש. אפשר לנסות שוב.",
+      "devFailed": "כניסת הפיתוח נכשלה. האם השרת רץ עם פרופיל dev?",
+      "emailSendFailed": "לא הצלחנו לשלוח את קישור הכניסה. אפשר לנסות שוב."
+    }
+  },
+  "notFound": {
+    "heading": "הדף לא נמצא",
+    "body": "הדף הזה לא קיים. ייתכן שהוא הועבר, או שהכתובת שגויה.",
+    "homeLink": "מעבר ל‑Backlog.fyi"
+  },
+  "confirmDialog": {
+    "cancel": "ביטול",
+    "confirm": "אישור"
+  },
+  "errorToast": {
+    "region": "התראות",
+    "dismiss": "סגירה"
+  },
+  "api": {
+    "errors": {
+      "network": "אין תקשורת עם השרת. כדאי לבדוק את החיבור ולנסות שוב.",
+      "badRequest": "הבקשה נראית שגויה. כדאי לבדוק אותה ולנסות שוב.",
+      "forbidden": "אין הרשאה לפעולה הזו.",
+      "notFound": "לא מצאנו את מה שחיפשתם.",
+      "conflict": "השינוי מתנגש עם המצב הנוכחי. כדאי לרענן ולנסות שוב.",
+      "payloadTooLarge": "הבקשה גדולה מדי.",
+      "unprocessable": "חלק מהערכים אינם תקינים.",
+      "rateLimited": "יותר מדי בקשות. כדאי להמתין רגע ולנסות שוב.",
+      "serverError": "השרת נתקל בשגיאה בלתי צפויה. אפשר לנסות שוב בעוד רגע.",
+      "requestFailed": "הבקשה נכשלה.",
+      "generic": "משהו השתבש.",
+      "sessionExpired": "פג תוקף החיבור. יש להיכנס מחדש."
+    }
+  },
+  "utils": {
+    "today": "היום",
+    "tomorrow": "מחר",
+    "overdue_one": "יום אחד באיחור",
+    "overdue_other": "{{count}} ימים באיחור",
+    "justNow": "ממש עכשיו",
+    "hoursAgo_one": "לפני שעה",
+    "hoursAgo_other": "לפני {{count}} שעות",
+    "daysAgo_one": "לפני יום",
+    "daysAgo_other": "לפני {{count}} ימים",
+    "overdue_two": "יומיים באיחור",
+    "hoursAgo_two": "לפני שעתיים",
+    "daysAgo_two": "לפני יומיים"
+  },
+  "statsModal": {
+    "title": "הנתונים שלך",
+    "close": "סגירת הנתונים",
+    "loading": "טוען…",
+    "loadError": "לא הצלחנו לטעון את הנתונים. אפשר לנסות שוב.",
+    "empty": "אין עדיין נתונים — כדאי להוסיף כמה משימות ולתכנן שבוע, ואז לחזור לכאן.",
+    "openTasks": "משימות פתוחות",
+    "completed": "הושלמו",
+    "joined": "תאריך הצטרפות",
+    "totalCreated": "משימות שנוצרו (מאז ומתמיד)",
+    "totalCompleted": "משימות שהושלמו (מאז ומתמיד)",
+    "newPerWeek": "משימות חדשות / שבוע",
+    "completedPerWeek": "הושלמו / שבוע",
+    "avgCompletionTime": "זמן ממוצע להשלמה",
+    "planningSessions": "סשני תכנון",
+    "notEnoughData": "עדיין אין מספיק משימות שהושלמו",
+    "days_one": "יום אחד",
+    "days_other": "{{count}} ימים",
+    "hours_one": "שעה אחת",
+    "hours_other": "{{count}} שעות",
+    "days_two": "יומיים",
+    "hours_two": "שעתיים"
+  },
+  "connectedAccounts": {
+    "label": "חשבונות מקושרים",
+    "hint": "הדרכים להיכנס לחשבון. חייבת להישאר לפחות אחת.",
+    "unlink": "ניתוק",
+    "none": "עדיין לא קושרו שיטות כניסה.",
+    "linkTelegram": "קישור Telegram",
+    "linkAnotherFirst": "יש לקשר שיטה נוספת לפני הסרת זו",
+    "providers": {
+      "telegram": "Telegram",
+      "email": "אימייל",
+      "google": "Google"
+    },
+    "linkNotices": {
+      "conflict": "חשבון ה‑Telegram הזה כבר מקושר לחשבון Backlog.fyi אחר.",
+      "exists": "כבר קיים חשבון Telegram מקושר.",
+      "failed": "לא הצלחנו לקשר את Telegram. אפשר לנסות שוב.",
+      "unavailable": "קישור Telegram אינו זמין כרגע."
+    },
+    "errors": {
+      "lastMethod": "אי אפשר להסיר את שיטת הכניסה היחידה. יש לקשר שיטה נוספת קודם.",
+      "unlinkFailed": "הניתוק נכשל. אפשר לנסות שוב."
+    }
+  },
+  "apiTokens": {
+    "label": "טוקנים ל‑API",
+    "hint": "מאפשר לעוזר AI או לסקריפט לקרוא ולעדכן את המשימות שלך. כל טוקן פועל בשמך — כדאי לשמור עליו כמו על סיסמה.",
+    "none": "אין עדיין טוקנים.",
+    "create": "יצירת טוקן",
+    "revoke": "ביטול",
+    "namePlaceholder": "למה זה משמש? למשל Claude Code",
+    "scopeLabel": "רמת גישה",
+    "copyNow": "כדאי להעתיק עכשיו — הטוקן לא יוצג שוב.",
+    "copy": "העתקה",
+    "copied": "הועתק",
+    "dismiss": "סיום",
+    "lastUsed": "שימוש אחרון {{date}}",
+    "neverUsed": "מעולם לא היה בשימוש",
+    "confirmRevoke": "לבטל את „{{name}}”? כל מה שמשתמש בטוקן הזה יפסיק לעבוד מיד.",
+    "docsHint": "כדי ללמד את העוזר להשתמש בזה, אפשר להפנות אותו אל /external-api/SKILL.md.",
+    "scopes": {
+      "read": "קריאה בלבד",
+      "write": "קריאה וכתיבה"
+    },
+    "errors": {
+      "limit": "אפשר להחזיק עד {{max}} טוקנים פעילים. יש לבטל אחד קודם.",
+      "createFailed": "יצירת הטוקן נכשלה. אפשר לנסות שוב.",
+      "revokeFailed": "ביטול הטוקן נכשל. אפשר לנסות שוב."
+    }
+  },
+  "emailLoginConfirm": {
+    "loading": "טוען…",
+    "invalid": {
+      "tag": "קישור כניסה",
+      "title": "הקישור פג",
+      "body": "קישור הכניסה אינו תקין או שפג תוקפו. קישורי הקסם הם חד‑פעמיים ופגים אחרי 30 דקות.",
+      "requestNew": "בקשת קישור חדש"
+    },
+    "ready": {
+      "tag": "עוד צעד אחד",
+      "title": "אישור זהות",
+      "body": "לחיצה על הכפתור למטה תשלים את הכניסה. כך אנחנו מוודאים שהקישור נפתח מתוך תיבת הדואר."
+    },
+    "signingIn": "נכנס…",
+    "signIn": "כניסה ל‑Backlog.fyi",
+    "backToSignIn": "חזרה למסך הכניסה",
+    "errors": {
+      "unverified": "האימייל הזה כבר מקושר לחשבון לא מאומת. אפשר להיכנס עם Telegram ולאמת את האימייל בהגדרות.",
+      "expired": "קישור הכניסה אינו תקין או שפג תוקפו.",
+      "generic": "משהו השתבש. אפשר לנסות שוב."
+    }
+  },
+  "emailVerifyConfirm": {
+    "success": {
+      "tag": "הכול מוכן",
+      "title": "האימייל אומת",
+      "body": "כתובת האימייל אושרה. מעכשיו אפשר להשתמש בה לכניסה עם קישור קסם.",
+      "goToBoard": "מעבר ללוח שלי"
+    },
+    "ready": {
+      "tag": "אימות אימייל",
+      "title": "אישור הכתובת",
+      "body": "לחיצה על הכפתור למטה תאמת את כתובת האימייל ותקשר אותה לחשבון, כדי שאפשר יהיה להשתמש בה לכניסה."
+    },
+    "verifying": "מאמת…",
+    "verifyButton": "אימות האימייל שלי",
+    "backToApp": "חזרה לאפליקציה",
+    "errors": {
+      "expired": "קישור האימות אינו תקין או שפג תוקפו.",
+      "generic": "משהו השתבש. אפשר לנסות שוב."
+    }
+  },
+  "feedbackModal": {
+    "title": "שליחת משוב",
+    "close": "סגירת המשוב",
+    "thanks": "תודה על המשוב — הוא בדרך אלינו. 🙏",
+    "hint": "מצאתם באג, יש רעיון, או סתם בא לכם להגיד שלום? אנחנו קוראים הכול.",
+    "messageLabel": "המשוב שלך",
+    "messagePlaceholder": "מה עובר לכם בראש?",
+    "emailLabel": "אימייל לתשובה (לא חובה)",
+    "emailPlaceholder": "you@example.com — רק אם מעניין אתכם לקבל תשובה",
+    "done": "סיום",
+    "cancel": "ביטול",
+    "sending": "שולח…",
+    "send": "שליחה",
+    "errors": {
+      "generic": "משהו השתבש. אפשר לנסות שוב."
+    }
+  },
+  "invitePage": {
+    "loading": "טוען…",
+    "yourAccount": "החשבון שלך",
+    "invalid": {
+      "tag": "הזמנה",
+      "title": "ההזמנה לא נמצאה",
+      "body": "ההזמנה אינה תקפה, פג תוקפה או שהיא בוטלה. כדאי לבקש הזמנה חדשה מבעלי הלוח.",
+      "backHome": "מעבר ל‑Backlog.fyi"
+    },
+    "ready": {
+      "tag": "הזמנה ללוח",
+      "title": "הצטרפות ל„{{boardName}}”",
+      "body": "<strong>{{inviterName}}</strong> הזמין/ה אתכם ללוח הזה. כל מי שנמצא בלוח רואה ועורך את כל המשימות שבו, והשם שלכם יוצג לשאר החברים. הכניסה הנוכחית היא כ<strong>{{signedInAs}}</strong>."
+    },
+    "joining": "מצטרף…",
+    "joinBoard": "הצטרפות ללוח",
+    "notNow": "לא עכשיו",
+    "errors": {
+      "acceptFailed": "לא הצלחנו לאשר את ההזמנה. ייתכן שפג תוקפה או שהיא בוטלה."
+    }
+  },
+  "scheduleTaskModal": {
+    "scheduleTitle": "שיבוץ משימה",
+    "rescheduleTitle": "שינוי שיבוץ",
+    "subtitleSchedule": "הוספת <strong>{{taskTitle}}</strong> לתוכנית השבוע.",
+    "subtitleReschedule": "העברת <strong>{{taskTitle}}</strong> לזמן חדש.",
+    "day": "יום",
+    "startTime": "שעת התחלה",
+    "endTime": "שעת סיום",
+    "endTimeError": "שעת הסיום חייבת להיות אחרי שעת ההתחלה.",
+    "cancel": "ביטול",
+    "addToPlan": "הוספה לתוכנית",
+    "updateSlot": "עדכון המשבצת"
+  },
+  "moveTaskModal": {
+    "title": "העברת משימה",
+    "subtitle": "העברת <strong>{{taskTitle}}</strong> ללוח אחר. יש לבחור את לוח היעד ואת הקטגוריה שאליה תיכנס; התגיות ייווצרו מחדש בלוח היעד.",
+    "destinationBoard": "לוח יעד",
+    "members_one": "חבר אחד",
+    "members_other": "{{count}} חברים",
+    "category": "קטגוריה",
+    "loadingCategories": "טוען קטגוריות…",
+    "loadError": "לא הצלחנו לטעון את הקטגוריות של הלוח הזה. אפשר לנסות שוב.",
+    "cancel": "ביטול",
+    "move": "העברה",
+    "members_two": "שני חברים"
+  },
+  "tagEditModal": {
+    "title": "עריכת תגית",
+    "close": "סגירה",
+    "label": "תווית",
+    "labelPlaceholder": "שם התגית",
+    "color": "צבע",
+    "persistsHint": "השינוי ישנה את שם התגית בכל המשימות שמשתמשות בה.",
+    "cancel": "ביטול",
+    "save": "שמירה"
+  },
+  "importResultDialog": {
+    "successTitle": "הייבוא הושלם",
+    "imported": "יובאו {{tasks}}, {{tags}} ו־{{categories}}.",
+    "tasksCount_one": "משימה אחת",
+    "tasksCount_other": "{{count}} משימות",
+    "tagsCount_one": "תגית אחת",
+    "tagsCount_other": "{{count}} תגיות",
+    "categoriesCount_one": "קטגוריה אחת",
+    "categoriesCount_other": "{{count}} קטגוריות",
+    "emailSkip": {
+      "accountHasEmail": "בחשבון שלך כבר קיים אימייל, ולכן זה שבקובץ לא יובא.",
+      "taken": "האימייל שבקובץ שייך לחשבון אחר, ולכן הוא לא יובא. האימייל הנוכחי נשאר ללא שינוי."
+    },
+    "errors": {
+      "corruptedFile": {
+        "title": "לא הצלחנו לייבא את הקובץ הזה",
+        "body": "הקובץ לא נראה כמו ייצוא תקין של Backlog. כדאי לוודא שמדובר בקובץ שיוצא מ‑Backlog ולא נערך מאז."
+      },
+      "unsupportedVersion": {
+        "title": "גרסת ייצוא לא נתמכת",
+        "body": "הקובץ נוצר בגרסה אחרת של Backlog. כדאי לייצא את הנתונים מחדש מהגרסה הזו ואז לייבא."
+      },
+      "accountNotEmpty": {
+        "title": "הייבוא דורש חשבון ריק",
+        "body": "אפשר לייבא רק לחשבון שאין בו משימות משלו. כדאי להתחיל מחשבון חדש ואז לייבא."
+      },
+      "internalError": {
+        "title": "משהו השתבש אצלנו",
+        "body": "לא הצלחנו להשלים את הייבוא. אפשר לנסות שוב בעוד רגע."
+      }
+    },
+    "stillStuck": "עדיין תקועים?",
+    "contactSupport": "פנייה לתמיכה",
+    "reload": "רענון",
+    "close": "סגירה",
+    "tasksCount_two": "שתי משימות",
+    "tagsCount_two": "שתי תגיות",
+    "categoriesCount_two": "שתי קטגוריות"
+  },
+  "userMenu": {
+    "account": "חשבון",
+    "accountMenu": "תפריט החשבון",
+    "stats": "נתונים",
+    "settings": "הגדרות",
+    "sendFeedback": "שליחת משוב",
+    "signOut": "יציאה"
+  },
+  "taskCard": {
+    "highPriority": "עדיפות גבוהה",
+    "inCurrentPlan": "בתוכנית השבוע",
+    "categoryTitle": "קטגוריה: {{label}}",
+    "openTask": "פתיחת המשימה: {{title}}",
+    "claimedByYou": "באחריותך",
+    "claimedByYouWithName": "באחריותך ({{name}})",
+    "assignedTo": "באחריות {{name}}",
+    "openLink": "פתיחת הקישור: {{label}}",
+    "dragToReorder": "גרירה לשינוי הסדר",
+    "taskActions": "פעולות על המשימה",
+    "foldAway": "קיפול הפתק",
+    "peekNote": "הצצה בפתק"
+  },
+  "planDetails": {
+    "inProgress": "בתהליך",
+    "finalized": "סופית",
+    "timestampStarted": "התחיל {{started}}",
+    "timestampRange": "התחיל {{started}} · הסתיים {{ended}}",
+    "summaryHeading": "סיכום",
+    "noSummary": "לא נרשם סיכום עבור הסשן הזה.",
+    "tasksHeading": "משימות ({{count}})",
+    "noTasks": "לא נקבעו משימות בתוכנית הזו.",
+    "done": "בוצע",
+    "todo": "לביצוע"
+  },
+  "aiUsageMeter": {
+    "loadError": "לא הצלחנו לטעון כרגע את נתוני השימוש ב‑AI.",
+    "loading": "טוען נתוני שימוש…",
+    "unlimited": "ללא הגבלה",
+    "unlimitedNote": "למסלול שלך אין תקרת טוקנים. אפשר להשתמש ביכולות ה‑AI כרצונך.",
+    "left": "נותרו",
+    "ariaLabel": "טוקני AI שנוצלו בתקופה הנוכחית",
+    "caption_one": "נוצלו {{pct}}% · מתחדש בהדרגה לאורך היום האחרון",
+    "caption_other": "נוצלו {{pct}}% · מתחדש בהדרגה לאורך {{count}} הימים האחרונים",
+    "caption_two": "נוצלו {{pct}}% · מתחדש בהדרגה לאורך היומיים האחרונים"
+  },
+  "policyPage": {
+    "termsTitle": "תנאי שימוש",
+    "privacyTitle": "מדיניות פרטיות",
+    "backHome": "חזרה ל‑Backlog.fyi"
+  },
+  "boardFilter": {
+    "todo": "לביצוע",
+    "thisWeeksPlan": "תוכנית השבוע",
+    "week": "שבוע",
+    "done": "בוצע",
+    "all": "הכול",
+    "filterTasks": "סינון משימות",
+    "noPlanYet": "אין עדיין תוכנית פעילה או אחרונה"
+  },
+  "markdownRenderer": {
+    "showLess": "הצגה מקוצרת",
+    "showMore": "הצגת הכול"
+  },
+  "noteEditor": {
+    "bold": "מודגש",
+    "italic": "נטוי",
+    "bulletedList": "רשימת תבליטים",
+    "numberedList": "רשימה ממוספרת",
+    "checklist": "רשימת סימון",
+    "indent": "הגדלת כניסה",
+    "outdent": "הקטנת כניסה",
+    "link": "קישור",
+    "editAsMarkdown": "עריכה כ‑Markdown",
+    "richEditor": "עורך מעוצב",
+    "formatting": "עיצוב",
+    "linkUrlPrompt": "כתובת הקישור"
+  },
+  "boardNameDialog": {
+    "namePlaceholder": "שם הלוח",
+    "cancel": "ביטול"
+  },
+  "duplicateBoardDialog": {
+    "title": "שכפול לוח",
+    "defaultName": "{{name}} (עותק)",
+    "resetTaskStatus": "סימון כל המשימות המשוכפלות כ„לביצוע”",
+    "confirm": "שכפול"
+  },
+  "brandBoard": {
+    "members_one": "חבר אחד",
+    "members_other": "{{count}} חברים",
+    "currentBoard": "הלוח הנוכחי: {{name}}. מעבר ללוח אחר",
+    "switchBoard": "מעבר ללוח אחר",
+    "boardFallback": "לוח",
+    "boardSettings": "הגדרות הלוח…",
+    "duplicateBoard": "שכפול הלוח…",
+    "newBoard": "+ לוח חדש",
+    "members_two": "שני חברים"
+  },
+  "categoryEditor": {
+    "changeColor": "שינוי הצבע של {{label}}",
+    "namePlaceholder": "שם הקטגוריה",
+    "delete": "מחיקת {{label}}",
+    "inUseBy_one": "בשימוש במשימה אחת",
+    "inUseBy_other": "בשימוש ב‑{{count}} משימות",
+    "deleteTitle": "מחיקה",
+    "addCategory": "+ הוספת קטגוריה",
+    "newCategoryDefault": "קטגוריה חדשה",
+    "inUseBy_two": "בשימוש בשתי משימות"
+  },
+  "tagEditor": {
+    "empty": "אין עדיין תגיות. אפשר להוסיף תגית מתוך כל משימה, והיא תופיע כאן לשינוי שם, צבע או מחיקה.",
+    "changeColor": "שינוי הצבע של {{label}}",
+    "labelPlaceholder": "שם התגית",
+    "onTasks_one": "על משימה אחת",
+    "onTasks_other": "על {{count}} משימות",
+    "unused": "לא בשימוש",
+    "delete": "מחיקת {{label}}",
+    "deleteAndRemove_one": "מחיקה והסרה ממשימה אחת",
+    "deleteAndRemove_other": "מחיקה והסרה מ‑{{count}} משימות",
+    "deleteTitle": "מחיקה",
+    "onTasks_two": "על שתי משימות",
+    "deleteAndRemove_two": "מחיקה והסרה משתי משימות"
+  },
+  "updateBanner": {
+    "message": "גרסה חדשה של Backlog.fyi זמינה.",
+    "refresh": "רענון"
+  },
+  "viewToggle": {
+    "switchToCard": "מעבר לתצוגת כרטיסים",
+    "cardView": "תצוגת כרטיסים",
+    "switchToCompact": "מעבר לתצוגה מצומצמת",
+    "compactView": "תצוגה מצומצמת"
+  },
+  "eventsSection": {
+    "heading": "אירועים ({{count}})",
+    "cancelEvent": "ביטול {{title}}",
+    "cancelling": "מבטל…",
+    "cancel": "ביטול"
+  },
+  "washiTape": {
+    "editTag": "עריכת התגית {{label}}",
+    "removeTag": "הסרת התגית {{label}}"
+  },
+  "paperSwatchPicker": {
+    "ariaLabel": "צבע הנייר"
+  },
+  "sortMenu": {
+    "fields": {
+      "deadline": "תאריך יעד",
+      "priority": "עדיפות",
+      "created": "נוספו לאחרונה",
+      "title": "א׳–ת׳",
+      "longest": "הארוכות ביותר",
+      "shortest": "הקצרות ביותר"
+    },
+    "sortedByChange": "ממוין לפי {{label}}. שינוי סדר המיון",
+    "sortedBy": "ממוין לפי {{label}}",
+    "sortTasks": "מיון משימות",
+    "sortTasksBy": "מיון משימות לפי",
+    "none": "ללא"
+  },
+  "settingsModal": {
+    "title": "הגדרות",
+    "close": "סגירת ההגדרות",
+    "tabs": {
+      "general": "כללי",
+      "categories": "תוויות",
+      "assistant": "העוזר",
+      "integrations": "חיבורים"
+    },
+    "days": {
+      "monday": "יום שני",
+      "tuesday": "יום שלישי",
+      "wednesday": "יום רביעי",
+      "thursday": "יום חמישי",
+      "friday": "יום שישי",
+      "saturday": "יום שבת",
+      "sunday": "יום ראשון"
+    },
+    "general": {
+      "displayName": "שם לתצוגה",
+      "displayNamePlaceholder": "השם שלך",
+      "emailAddress": "כתובת אימייל",
+      "emailVerified": "{{email}} — מאומת",
+      "emailHint": "משמש לשליחת הזמנות יומן למשימות מתוכננות.",
+      "emailNotVerified": "עדיין לא אומת.",
+      "emailPlaceholder": "you@example.com",
+      "sending": "שולח…",
+      "sent": "נשלח!",
+      "sendVerification": "שליחת אימות",
+      "verificationSentHint": "כדאי לבדוק את תיבת הדואר וללחוץ על הקישור לאימות.",
+      "autoArchive": "העברה אוטומטית לארכיון",
+      "autoArchiveHelp": "משימות שבוצעו יועברו לארכיון אחרי מספר הימים הזה. השארה ריקה מבטלת את התכונה.",
+      "autoArchivePlaceholder": "7",
+      "notifications": "התראות",
+      "calendarInvites": "שליחת הזמנות יומן במייל למשימות שתוכננו לשבוע",
+      "verifyEmailFirst": "(יש לאמת קודם את האימייל)",
+      "appReminders": "תזכורות באפליקציה לפני תחילת משימה מתוכננת",
+      "sentOverTelegram": "(נשלחות דרך Telegram, אם הוא מחובר)",
+      "timeZone": "אזור זמן",
+      "timeZonePlaceholder": "למשל Asia/Jerusalem",
+      "language": "שפה",
+      "firstDayOfWeek": "היום הראשון בשבוע",
+      "firstDayOfWeekHelp": "קובע מהו „השבוע הזה” בסשני התכנון.",
+      "notSet": "לא הוגדר",
+      "dangerZone": "אזור מסוכן",
+      "exporting": "מייצא…",
+      "exportData": "ייצוא הנתונים שלי",
+      "importing": "מייבא…",
+      "importData": "ייבוא נתונים",
+      "deleteWarning": "פעולה זו תמחק לצמיתות את החשבון ואת כל הנתונים. אין דרך חזרה.",
+      "deleting": "מוחק…",
+      "confirmDelete": "כן, למחוק הכול",
+      "cancel": "ביטול",
+      "deleteAccount": "מחיקת החשבון"
+    },
+    "categories": {
+      "categoriesLabel": "קטגוריות",
+      "categoriesHint": "צבע הפתק על הלוח. כל משימה שייכת לאחת מהן.",
+      "tagsLabel": "תגיות",
+      "tagsHint": "תוויות נייר דבק שמשימה יכולה לשאת כמה מהן. אפשר לשנות שם, צבע או להסיר."
+    },
+    "assistant": {
+      "aiAccess": "גישת AI",
+      "aiAccessHelp": "מכבה את כל היכולות המבוססות AI בחשבון: תכנון שבועי, הצעות בעת הוספה מהירה, ופקודות /plan ו‑/add ב‑Telegram. בלוח משותף, יכולות ה‑AI של הלוח מפסיקות לעבוד עבור כולם כל עוד הגישה כבויה.",
+      "aiAccessToggle": "לאפשר ליכולות AI לקרוא את הנתונים שלי",
+      "aiPlan": "מסלול AI",
+      "aiPlanHelp": "תקציב הטוקנים ליכולות מבוססות AI בחלון מתגלגל של 30 יום.",
+      "weeklyPlanning": "סשן תכנון שבועי",
+      "weeklyPlanningHelp": "נפתח את שיחת התכנון דרך Telegram בשעה הזו בכל שבוע.",
+      "weeklyPlanningToggle": "לפתוח סשן תכנון שבועי",
+      "planningDay": "יום התכנון",
+      "planningTime": "שעת התכנון",
+      "reminders": "תזכורות",
+      "remindersHelp": "כשהאפשרות דלוקה, התזכורת שנשלחת לפני תחילת משימה מתוכננת נכתבת על ידי העוזר — דחיפה קצרה ואישית במקום תבנית קבועה. כפתורי התזכורת (נודניק, סימון כבוצע) עובדים כך או כך.",
+      "remindersToggle": "לתת לעוזר לכתוב את תזכורות המשימות שלי",
+      "addressYou": "איך על העוזר לפנות אליך?",
+      "addressYouHelp": "קובע את לשון הפנייה והמין הדקדוקי בשיחות התכנון.",
+      "noPreference": "— ללא העדפה",
+      "personalContext": "הקשר אישי",
+      "personalContextHelp": "עובדות שמתכנן ה‑AI ייקח בחשבון בעת סידור השבוע — העדפות, מחויבויות קבועות, דפוסי אנרגיה.",
+      "personalContextPlaceholder": "למשל: עדיף לי לעבוד לעומק בבוקר…"
+    },
+    "footer": {
+      "cancel": "ביטול",
+      "saving": "שומר…",
+      "save": "שמירה"
+    }
+  },
+  "taskDrawer": {
+    "validation": {
+      "titleRequired": "חובה להזין כותרת.",
+      "titleTooLong": "הכותרת יכולה להכיל עד 500 תווים.",
+      "descriptionTooLong": "התיאור יכול להכיל עד 5000 תווים.",
+      "urlInvalid": "הקישור חייב להתחיל ב‑http:// או ב‑https://",
+      "urlTooLong": "הקישור יכול להכיל עד 2000 תווים."
+    },
+    "saveError": "משהו השתבש. אפשר לנסות שוב.",
+    "newTaskAria": "משימה חדשה",
+    "taskDetailsAria": "פרטי המשימה",
+    "newTaskLabel": "משימה חדשה",
+    "taskLabel": "משימה",
+    "close": "סגירה",
+    "tutorialHint": "זו משימת הדרכה. אפשר לסמן אותה כבוצעה או לנקות את ההדרכה בכל שלב.",
+    "titlePlaceholder": "כותרת המשימה…",
+    "category": "קטגוריה",
+    "priority": "עדיפות",
+    "priorityNone": "ללא",
+    "priorityHigh": "גבוהה",
+    "priorityMedium": "בינונית",
+    "priorityLow": "נמוכה",
+    "assignee": "אחריות",
+    "unassigned": "ללא אחראי",
+    "assigneeYou": "{{name}} (אני)",
+    "description": "תיאור",
+    "descriptionPlaceholder": "הערות והקשר, לא חובה…",
+    "link": "קישור",
+    "urlPlaceholder": "https://…",
+    "deadline": "תאריך יעד",
+    "availableFrom": "זמין החל מ‑",
+    "estMinutes": "אומדן בדקות",
+    "estMinutesPlaceholder": "90",
+    "tags": "תגיות",
+    "tagsCount": "({{count}}/3)",
+    "noTagsYet": "אין עדיין תגיות",
+    "addFromYourTags": "הוספה מהתגיות שלך",
+    "addTagAria": "הוספת התגית {{label}}",
+    "addTagTitle": "הוספת {{label}}",
+    "showLess": "הצגה מקוצרת",
+    "moreTags": "+{{count}} נוספות",
+    "addTag": "+ הוספת תגית",
+    "tagLabelPlaceholder": "שם התגית…",
+    "add": "הוספה",
+    "cancel": "ביטול",
+    "visibility": "נראות",
+    "visibilityHelp": "כשהמשימה מוסתרת, היא לא נכללת בהצעות של עוזר התכנון ולא בחיפוש. היא עדיין מופיעה על הלוח כרגיל.",
+    "hideFromAssistant": "הסתרה מהעוזר",
+    "created": "נוצרה {{relative}}",
+    "updated": "· עודכנה {{relative}}",
+    "unarchive": "↺ הוצאה מהארכיון",
+    "markTodo": "↺ סימון כלביצוע",
+    "markDone": "סימון כבוצעה",
+    "delete": "מחיקה",
+    "pinItUp": "תלייה על הלוח",
+    "save": "שמירה"
+  },
+  "app": {
+    "loading": "טוען…",
+    "loadError": "טעינת הנתונים נכשלה. האם השרת פועל?",
+    "emptyTodo": "אין כלום על הלוח. כדאי להוסיף משימה ראשונה.",
+    "emptyPlan": "אין עדיין כלום בתוכנית השבוע.",
+    "emptyDone": "אין עדיין משימות שהושלמו.",
+    "emptyAll": "אין עדיין משימות.",
+    "addTaskAria": "הוספת משימה חדשה",
+    "addTaskTitle": "תלייה של משימה חדשה",
+    "openPlanAria": "פתיחת התוכנית השבועית",
+    "openPlanTitle": "תוכנית שבועית",
+    "taskListAria": "רשימת המשימות",
+    "hideArchived": "הסתרת הארכיון",
+    "showArchived": "הצגת הארכיון",
+    "member": "חבר",
+    "addToPlanFailed": "לא הצלחנו להוסיף את המשימה לתוכנית השבוע. אפשר לנסות שוב.",
+    "changeSlotFailed": "לא הצלחנו להעביר את המשימה לזמן הזה. אפשר לנסות שוב.",
+    "contextMenu": {
+      "markTodo": "סימון כלביצוע",
+      "markDone": "סימון כבוצעה",
+      "edit": "עריכה",
+      "unclaim": "ביטול האחריות",
+      "claim": "לקיחת אחריות",
+      "addToPlan": "הוספה לתוכנית השבוע",
+      "changeSlot": "שינוי המשבצת…",
+      "removeFromPlan": "הסרה מתוכנית השבוע",
+      "duplicate": "שכפול",
+      "moveToBoard": "העברה ללוח…",
+      "delete": "מחיקה"
+    },
+    "deleteTaskTitle": "מחיקת משימה",
+    "deleteTaskMessage": "למחוק את „{{title}}”? אי אפשר לבטל את הפעולה.",
+    "deleteConfirmLabel": "מחיקה",
+    "newBoardTitle": "לוח חדש",
+    "createBoard": "יצירה",
+    "nudgeText": "כדאי לחבר אימייל או Telegram כדי לשמור על המשימות שלך.",
+    "nudgeCta": "שמירת החשבון שלי",
+    "dismiss": "סגירה"
+  },
+  "boardSettingsModal": {
+    "title": "הגדרות הלוח",
+    "close": "סגירה",
+    "name": "שם",
+    "namePlaceholder": "שם הלוח",
+    "mascot": "קמע",
+    "mascotHint": "הדמות הקטנה בפינת הלוח.",
+    "mascotAria": "קמע הלוח",
+    "members": "חברי הלוח",
+    "loading": "טוען…",
+    "youTag": " (אני)",
+    "joinedOn": "הצטרפות {{date}}",
+    "roleOwner": "בעלים",
+    "roleMember": "חבר",
+    "makeMember": "הגדרה כחבר",
+    "makeOwner": "הגדרה כבעלים",
+    "remove": "הסרה",
+    "inviteHint": "כדי להזמין אנשים ללוח הזה, יש לקשר שיטת כניסה (Telegram או אימייל מאומת) בהגדרות.",
+    "invitePlaceholder": "הזמנה לפי אימייל…",
+    "invite": "הזמנה",
+    "pendingInvitations": "הזמנות ממתינות",
+    "invitedExpires": "נשלחה {{invited}} · פגה {{expires}}",
+    "revoke": "ביטול",
+    "onlyMemberHint": "זהו החבר היחיד בלוח — עדיף למחוק את הלוח במקום",
+    "leaveBoard": "עזיבת הלוח",
+    "onlyBoardHint": "זהו הלוח היחיד שלך — יש ליצור לוח נוסף קודם",
+    "deleteBoard": "מחיקת הלוח",
+    "cancel": "ביטול",
+    "done": "סיום",
+    "saving": "שומר…",
+    "save": "שמירה",
+    "consent": "כל מי שיתווסף יוכל לראות ולערוך כל משימה בלוח הזה — כולל משימות שכבר קיימות — עד להסרתו. הוא גם יראה את השם שלך. לשלוח את ההזמנה?",
+    "confirm": {
+      "inviteTitle": "לשתף את הלוח הזה?",
+      "inviteLabel": "שליחת הזמנה",
+      "removeTitle": "להסיר את החבר?",
+      "removeMessage": "להסיר את {{name}} מ„{{board}}”? המשימות שלו יישארו על הלוח.",
+      "leaveTitle": "לעזוב את הלוח הזה?",
+      "leaveMessage": "לעזוב את „{{board}}”? המשימות שהוספת יישארו לשאר החברים. חזרה ללוח אפשרית רק דרך הזמנה חדשה.",
+      "deleteTitle": "למחוק את הלוח הזה?",
+      "deleteMessage": "למחוק את „{{board}}” ואת כל המשימות, הקטגוריות והתגיות שבו? אי אפשר לבטל את הפעולה.",
+      "defaultLabel": "אישור"
+    }
+  },
+  "weeklyPlanDrawer": {
+    "ariaLabel": "תוכנית שבועית",
+    "backToPlan": "חזרה לתוכנית",
+    "titleChat": "תכנון שבועי",
+    "titleOverview": "תוכנית שבועית",
+    "leaveSession": "יציאה מהסשן",
+    "close": "סגירה",
+    "prevWeekAria": "השבוע הקודם",
+    "nextWeekAria": "השבוע הבא",
+    "loading": "טוען…",
+    "noPlanTitle": "אין תוכנית לשבוע הזה.",
+    "emptyHintPast": "התכנון זמין לשבוע הנוכחי ולשבועות הקרובים בלבד.",
+    "emptyHintFuture": "אפשר לתכנן אותו עם העוזר למטה, או לפתוח סשן ב‑Telegram.",
+    "planFinalized": "התוכנית סופית",
+    "thinkingPlaceholder": "חושב…",
+    "typeMessagePlaceholder": "אפשר לכתוב הודעה…",
+    "messageAria": "הודעה",
+    "send": "שליחה",
+    "confirmLeave": {
+      "title": "לצאת מסשן התכנון?",
+      "message": "היציאה מוחקת את השיחה שבתהליך. התוכנית הקיימת נשארת כפי שהיא.",
+      "confirmLabel": "יציאה"
+    },
+    "thisWeekWord": "השבוע הזה",
+    "nextWeekWord": "השבוע הבא",
+    "override": {
+      "title": "כבר יש תוכנית ל{{week}}",
+      "body": "תכנון {{week}} מאפס פותח סשן חדש שיחליף את התוכנית הקיימת בסיומו. עדיף לערוך את התוכנית הנוכחית כדי לשמור על מה שכבר משובץ.",
+      "cancel": "ביטול",
+      "planFromScratch": "תכנון מאפס",
+      "revise": "עריכה"
+    },
+    "aiDisabledHint": "תכנון ה‑AI מושבת. אפשר להפעיל אותו מחדש בהגדרות ← העוזר, או לבקש מחבר לוח שביטל את הגישה לעשות את אותו הדבר בלוח משותף.",
+    "sessionInProgress": "סשן תכנון נמצא בתהליך.",
+    "continuePlanning": "המשך התכנון",
+    "abandonStartOver": "ביטול והתחלה מחדש",
+    "revisePlan": "עריכת התוכנית",
+    "planThisWeek": "תכנון השבוע הזה",
+    "planNextWeek": "תכנון השבוע הבא",
+    "relative": {
+      "thisWeek": "השבוע הזה",
+      "nextWeek": "השבוע הבא",
+      "lastWeek": "השבוע שעבר",
+      "weeksAgo_one": "לפני שבוע",
+      "weeksAgo_other": "לפני {{count}} שבועות",
+      "inWeeks_one": "בעוד שבוע",
+      "inWeeks_other": "בעוד {{count}} שבועות",
+      "weeksAgo_two": "לפני שבועיים",
+      "inWeeks_two": "בעוד שבועיים"
+    }
+  }
+}
