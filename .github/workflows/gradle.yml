@@ -79,9 +79,13 @@ jobs:
     - name: Build with Gradle Wrapper
       run: ./gradlew release
 
+    # The reports are a debugging aid, not a verdict: the verdict is the Gradle step above. A
+    # storage-quota rejection here was failing builds whose compilation and entire test suite had
+    # already passed, so an upload problem must never decide whether this job is green.
     - name: Upload test results
       uses: actions/upload-artifact@v7
       if: success() || failure()
+      continue-on-error: true
       with:
         name: test-reports
         path: |
@@ -128,5 +132,13 @@ jobs:
 
     # Generates and submits a dependency graph, enabling Dependabot Alerts for all project dependencies.
     # See: https://github.com/gradle/actions/blob/main/dependency-submission/README.md
+    # `generate-and-submit` rather than the default `generate-submit-and-upload`: submitting the
+    # snapshot is what enables Dependabot Alerts, and that half already succeeds on its own. The
+    # extra workflow-artifact copy is only a debugging aid, yet it uploaded on every run under the
+    # repository's default retention (the action's `artifact-retention-days` is unset), making it a
+    # steady drain on the account's artifact storage — and its rejection was the sole reason this
+    # job reported failure. Restore the default if the graph artifact is ever needed to debug.
     - name: Generate and submit dependency graph
       uses: gradle/actions/dependency-submission@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+      with:
+        dependency-graph: generate-and-submit
