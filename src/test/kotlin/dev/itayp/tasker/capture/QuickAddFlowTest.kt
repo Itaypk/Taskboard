@@ -1,8 +1,10 @@
 package dev.itayp.tasker.capture
 
+import dev.itayp.tasker.channel.AttachmentKind
 import dev.itayp.tasker.channel.BufferedConversationChannel
 import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.ChannelMessage
+import dev.itayp.tasker.channel.InboundAttachment
 import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.CategoryColor
@@ -18,6 +20,7 @@ import dev.itayp.tasker.planning.EventDraft
 import dev.itayp.tasker.planning.SuggestionOutcome
 import dev.itayp.tasker.planning.TaskDraft
 import dev.itayp.tasker.planning.TaskSuggestionAgent
+import dev.itayp.tasker.planning.UnsupportedModalityException
 import dev.itayp.tasker.service.BacklogTaskCategoryService
 import dev.itayp.tasker.service.BacklogTaskService
 import dev.itayp.tasker.service.BoardMembershipService
@@ -26,6 +29,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.check
 import org.mockito.kotlin.eq
@@ -311,6 +315,72 @@ class QuickAddFlowTest {
 
         assertIs<QuickAddState.AwaitingConfirmation>(next)
         verify(suggestionAgent).quickAddDraft(eq(userId), eq("fix it"), any(), eq(true))
+    }
+
+    @Test
+    fun `a photo starts a capture, echoes what was read, and shows the card`() {
+        val png = InboundAttachment(AttachmentKind.IMAGE, byteArrayOf(1, 2, 3), "image/jpeg")
+        whenever(suggestionAgent.quickAddDraftFromMedia(eq(userId), eq(listOf(png)), anyOrNull()))
+            .thenReturn(SuggestionOutcome.Draft(listOf(eventItem()), sourceText = "Party at 4pm on Saturday"))
+        val channel = channel()
+
+        val state = flow.beginFromMedia(userId, channel, listOf(png), caption = null)
+
+        val confirmation = assertIs<QuickAddState.AwaitingConfirmation>(state)
+        // The model's read-back replaces the typed request, so later rounds need no attachment.
+        assertEquals("Party at 4pm on Saturday", confirmation.originalRequest)
+        val messages = channel.drain()
+        val echo = assertIs<ChannelMessage.Text>(messages.first())
+        assertTrue(echo.text.contains("Party at 4pm on Saturday"))
+        assertIs<ChannelMessage.Choice>(messages.last())
+        assertEquals(1.0, meterRegistry.counter("tasker.quickadd.media", "kind", "image", "result", "captured").count())
+    }
+
+    @Test
+    fun `a voice note whose modality the model cannot accept ends the flow with an explanation`() {
+        val voice = InboundAttachment(AttachmentKind.AUDIO, byteArrayOf(1), "audio/ogg", format = "ogg")
+        whenever(suggestionAgent.quickAddDraftFromMedia(any(), any(), anyOrNull()))
+            .thenThrow(UnsupportedModalityException(listOf(AttachmentKind.AUDIO)))
+        val channel = channel()
+
+        val next = flow.beginFromMedia(userId, channel, listOf(voice), caption = null)
+
+        assertNull(next)
+        val reply = assertIs<ChannelMessage.Text>(channel.drain().single())
+        assertTrue(reply.text.contains("voice messages"))
+        assertEquals(1.0, meterRegistry.counter("tasker.quickadd.media", "kind", "audio", "result", "unsupported").count())
+    }
+
+    @Test
+    fun `media falls back to its caption when the model reads nothing back`() {
+        val png = InboundAttachment(AttachmentKind.IMAGE, byteArrayOf(1), "image/jpeg")
+        whenever(suggestionAgent.quickAddDraftFromMedia(any(), any(), anyOrNull()))
+            .thenReturn(SuggestionOutcome.Draft(listOf(taskItem())))
+        val channel = channel()
+
+        val state = flow.beginFromMedia(userId, channel, listOf(png), caption = "add this")
+
+        assertEquals("add this", assertIs<QuickAddState.AwaitingConfirmation>(state).originalRequest)
+        // No read-back, so nothing is echoed — just the card.
+        assertIs<ChannelMessage.Choice>(channel.drain().single())
+    }
+
+    @Test
+    fun `media sent mid-capture restarts the capture from the attachment`() {
+        val png = InboundAttachment(AttachmentKind.IMAGE, byteArrayOf(1), "image/jpeg")
+        val state = QuickAddState.AwaitingAdjustment(
+            items = listOf(taskItem()),
+            originalRequest = "buy milk",
+            clarifications = emptyList(),
+            createdAt = clock.instant(),
+        )
+        whenever(suggestionAgent.quickAddDraftFromMedia(any(), any(), anyOrNull()))
+            .thenReturn(SuggestionOutcome.Draft(listOf(eventItem()), sourceText = "Party at 4pm"))
+
+        val next = flow.handleInbound(userId, channel(), state, ChannelInbound.Media(listOf(png)))
+
+        assertEquals("Party at 4pm", assertIs<QuickAddState.AwaitingConfirmation>(next).originalRequest)
+        verify(suggestionAgent, never()).quickAddRevise(any(), any(), any(), any(), any(), any())
     }
 
     @Test

@@ -7,8 +7,12 @@ import dev.itayp.tasker.ai.client.AiConversationType
 import dev.itayp.tasker.ai.ReasoningAwareAiClient
 import dev.itayp.nescioquid.openrouter.ChatMessage
 import dev.itayp.nescioquid.openrouter.ChatRequest
+import dev.itayp.nescioquid.openrouter.ContentPart
+import dev.itayp.tasker.ai.InputModalitySupport
 import dev.itayp.tasker.ai.prompt.PromptTemplateLoader
 import dev.itayp.tasker.ai.parseAssistantJsonResponseOrNull
+import dev.itayp.tasker.channel.AttachmentKind
+import dev.itayp.tasker.channel.InboundAttachment
 import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.BacklogTaskTag
@@ -43,6 +47,7 @@ class TaskSuggestionAgent(
     private val tagService: BacklogTaskTagService,
     private val userSettingsService: UserSettingsService,
     private val promptTemplateLoader: PromptTemplateLoader,
+    private val inputModalitySupport: InputModalitySupport,
     private val objectMapper: ObjectMapper,
     private val clock: Clock,
     private val meterRegistry: MeterRegistry,
@@ -112,6 +117,39 @@ class TaskSuggestionAgent(
     )
 
     /**
+     * Quick-add drafting from media — a forwarded photo of an invitation, a voice note. The
+     * attachments are sent to the multimodal capture model alongside [caption] (whatever text the
+     * user sent with them, often nothing); the model reads/listens, writes down what it found in
+     * `source_text`, and drafts from that in one call.
+     *
+     * That `source_text` comes back on the outcome and becomes the capture's `originalRequest`, so
+     * every later round of the flow (clarify, adjust, revise) is plain text against the normal
+     * model — the bytes are used exactly once and then dropped.
+     *
+     * Callers must check [InputModalitySupport.supportsAll] first; this throws
+     * [UnsupportedModalityException] rather than sending a request OpenRouter would reject.
+     */
+    fun quickAddDraftFromMedia(
+        userId: UUID,
+        attachments: List<InboundAttachment>,
+        caption: String? = null,
+    ): SuggestionOutcome {
+        require(attachments.isNotEmpty()) { "quickAddDraftFromMedia called with no attachments" }
+        if (!inputModalitySupport.supportsAll(attachments.map { it.kind })) {
+            throw UnsupportedModalityException(attachments.map { it.kind }.distinct())
+        }
+        return runQuickAdd(
+            userId = userId,
+            request = caption?.trim().orEmpty(),
+            adjustment = null,
+            previousItems = null,
+            clarifications = emptyList(),
+            mustDraft = false,
+            attachments = attachments,
+        )
+    }
+
+    /**
      * Quick-add revision: re-draft [previousItems] given a free-text [instruction] (and any prior
      * clarification Q&A). May itself ask a clarifying question when the instruction is ambiguous,
      * unless [mustDraft] forces a draft.
@@ -139,6 +177,7 @@ class TaskSuggestionAgent(
         previousItems: List<CapturedItem>?,
         clarifications: List<ClarificationExchange>,
         mustDraft: Boolean,
+        attachments: List<InboundAttachment> = emptyList(),
     ): SuggestionOutcome {
         val settings = userSettingsService.getOrCreate(userId)
         val zone = runCatching { ZoneId.of(settings.timeZone) }.getOrDefault(ZoneId.of("UTC"))
@@ -155,7 +194,8 @@ class TaskSuggestionAgent(
         val systemPrompt = promptTemplateLoader.load("task-suggestion/system-clarify.md")
             .render(mapOf("language" to languageName))
         val userMessage = promptTemplateLoader.load("task-suggestion/quickadd-user.md").render(mapOf(
-            "request" to request,
+            "request" to (if (request.isBlank() && attachments.isNotEmpty()) "(no text — see the attachment)" else request),
+            "media_block" to renderMediaBlock(attachments),
             "adjustment_block" to (adjustment?.let { "\nThe user then asked to adjust the draft: $it\n" } ?: ""),
             "previous_draft_block" to (previousItems?.takeIf { it.isNotEmpty() }?.let {
                 val rendered = it.map { item ->
@@ -178,19 +218,64 @@ class TaskSuggestionAgent(
                 "\nYou MUST return a task draft now (shape 1) — do not ask another question."
             } else "",
         ))
+        val userChatMessage = if (attachments.isEmpty()) {
+            ChatMessage(role = "user", content = userMessage)
+        } else {
+            ChatMessage.withAttachments(
+                role = "user",
+                text = userMessage,
+                attachments = attachments.map { it.toContentPart() },
+            )
+        }
         val chatRequest = ChatRequest(
-            model = model,
+            model = if (attachments.isEmpty()) model else inputModalitySupport.captureModel,
             messages = listOf(
                 ChatMessage(role = "system", content = systemPrompt),
-                ChatMessage(role = "user", content = userMessage),
+                userChatMessage,
             ),
             temperature = 0.3,
             maxTokens = MAX_TOKENS,
         )
 
         val context = AiCallContext(userId = userId.toString(), conversationType = AiConversationType.TASK_SUGGESTION)
+        if (attachments.isNotEmpty()) {
+            log.debug(
+                "quick-add media capture: {} attachment(s) ({}), model={}",
+                attachments.size,
+                attachments.joinToString(",") { "${it.kind}:${it.bytes.size}B" },
+                inputModalitySupport.captureModel,
+            )
+        }
         val raw = aiClient.chat(chatRequest, context).choices.firstOrNull()?.message?.contentText.orEmpty()
         return parseOutcome(raw)
+    }
+
+    /**
+     * The attachment as the wire part its modality needs. Images go as a base64 `data:` URL (we
+     * have the bytes already, and a Telegram file URL carries the bot token); audio has no URL form
+     * at all on OpenRouter, so base64 is the only option there.
+     */
+    private fun InboundAttachment.toContentPart(): ContentPart = when (kind) {
+        AttachmentKind.IMAGE -> ContentPart.ImageUrl.ofBytes(bytes, mediaType = mediaType)
+        AttachmentKind.AUDIO -> ContentPart.InputAudio.ofBytes(bytes, format = format ?: "ogg")
+    }
+
+    private fun renderMediaBlock(attachments: List<InboundAttachment>): String {
+        if (attachments.isEmpty()) return ""
+        val kinds = attachments.map { it.kind }.distinct()
+        val what = when {
+            kinds == listOf(AttachmentKind.IMAGE) -> if (attachments.size == 1) "an image" else "${attachments.size} images"
+            kinds == listOf(AttachmentKind.AUDIO) -> "a voice message"
+            else -> "attachments"
+        }
+        return """
+
+The user sent $what along with (or instead of) the text above. Read/listen to it and capture from
+it. Set `source_text` in your reply to a short first-person restatement of what the attachment says
+— a transcript for audio, the relevant details for an image — in the user's own language. Keep it to
+the part that matters for the capture; the user sees it echoed back, so it must be faithful, not a
+summary of your reasoning.
+"""
     }
 
     private fun parseOutcome(raw: String): SuggestionOutcome {
@@ -199,13 +284,14 @@ class TaskSuggestionAgent(
             AiConversationType.TASK_SUGGESTION, meterRegistry, log, "quick-add",
         ) ?: return SuggestionOutcome.Unparseable
 
+        val sourceText = parsed.sourceText?.trim()?.takeIf { it.isNotBlank() }
         val question = parsed.clarify?.question?.takeIf { it.isNotBlank() }
         if (question != null) {
             val options = parsed.clarify.options.mapNotNull { opt ->
                 val label = opt.label?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
                 ClarifyOption(id = opt.id?.takeIf { it.isNotBlank() } ?: label, label = label)
             }
-            return SuggestionOutcome.Clarify(question = question, options = options)
+            return SuggestionOutcome.Clarify(question = question, options = options, sourceText = sourceText)
         }
         val items = parsed.items.orEmpty().mapNotNull { it.toCapturedItem() }
         if (items.isEmpty()) {
@@ -215,7 +301,7 @@ class TaskSuggestionAgent(
             log.warn("quick-add output had neither a clarify question nor any captured items")
             return SuggestionOutcome.Unparseable
         }
-        return SuggestionOutcome.Draft(items = items)
+        return SuggestionOutcome.Draft(items = items, sourceText = sourceText)
     }
 
     private fun renderClarifications(clarifications: List<ClarificationExchange>): String {
@@ -274,12 +360,30 @@ data class TaskDraft(
  * The result of a quick-add drafting/revision call: a non-empty list of captured items, a single
  * clarifying question, or a parse failure. A "draft" outcome can mix tasks and events — the user's
  * request determines what comes out.
+ *
+ * [sourceText] is set only for a capture that came from media — it's what the model read in the
+ * image or heard in the voice note, and it stands in for the user's typed request from there on.
  */
 sealed interface SuggestionOutcome {
-    data class Draft(val items: List<CapturedItem>) : SuggestionOutcome
-    data class Clarify(val question: String, val options: List<ClarifyOption>) : SuggestionOutcome
+    val sourceText: String? get() = null
+
+    data class Draft(
+        val items: List<CapturedItem>,
+        override val sourceText: String? = null,
+    ) : SuggestionOutcome
+
+    data class Clarify(
+        val question: String,
+        val options: List<ClarifyOption>,
+        override val sourceText: String? = null,
+    ) : SuggestionOutcome
+
     data object Unparseable : SuggestionOutcome
 }
+
+/** Thrown when a media capture is attempted against a model that doesn't accept those modalities. */
+class UnsupportedModalityException(val kinds: List<AttachmentKind>) :
+    RuntimeException("capture model does not accept input modalities: $kinds")
 
 data class ClarifyOption(val id: String, val label: String)
 
@@ -295,6 +399,8 @@ data class ClarificationExchange(val question: String, val answer: String)
 private data class QuickAddRaw(
     val clarify: ClarifyRaw? = null,
     val items: List<CapturedItemRaw>? = null,
+    /** Only produced for media captures: what the model read/heard in the attachment. */
+    @JsonProperty("source_text") val sourceText: String? = null,
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)

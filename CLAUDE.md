@@ -31,6 +31,7 @@ A few things to consider while working on the project:
 - `tasker-frontend/` — React + TypeScript + Vite app. **Bundled into the backend** at build time: the Gradle `buildFrontend` task runs `npm run build`, and `processResources` copies `tasker-frontend/dist/` into `src/main/resources/static/`. At runtime everything is served same-origin.
 - `compose.yaml` — Postgres service for local dev. `spring-boot-docker-compose` starts it automatically on `bootRun`.
 - `docs/SPEC.md` — product spec (source of truth for intent).
+- `docs/MULTIMODAL-CAPTURE.md` — how Telegram quick-add captures from photos and voice notes.
 - `tools/` — ad-hoc asset-prep scripts (background removal, bottom-gap leveling, WebP conversion). See `tools/README.md` for the "add a new board mascot" workflow.
 - `.github/workflows/gradle.yml` — PR verification (triggers on PRs to `main`): a `frontend` job (`npm ci` + `lint` + `test` + `build` in `tasker-frontend/`), the backend `build` job (`./gradlew build` — compiles, runs backend tests, bundles the frontend), and a `dependency-submission` job for Dependabot. Keep both the frontend job and the backend job green — neither subsumes the other (Gradle's `buildFrontend` task runs `npm run build` as a side effect, but never `lint` or `test`).
 
@@ -158,6 +159,12 @@ All HTTP response security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-O
   - `TASKER_TELEGRAM_CLIENT_SECRET` — OIDC client secret (HTTP Basic credential for the token exchange). From the same BotFather screen.
   - `TASKER_TELEGRAM_BOT_TOKEN` — bot messaging token (planning conversation); not used by login anymore.
   - `TASKER_TELEGRAM_BOT_USERNAME` — cosmetic / future use.
+- Backend env var for multimodal quick-add (photos / voice notes sent to the Telegram bot):
+  - `TASKER_AI_MULTIMODAL_MODEL` — model slug used for captures that carry an attachment; defaults to
+    the task-assistant model. Media capture is **declined** (with a "describe it in text" reply)
+    unless the resolved model advertises the matching `input_modalities` in OpenRouter's model
+    capabilities, so leaving this unset keeps the feature dark. See `docs/MULTIMODAL-CAPTURE.md`.
+    Attachment bytes are never persisted or logged.
 - Backend env vars (read via `PrometheusAuthProperties`) — **required in prod, dev defaults apply otherwise**:
   - `TASKER_PROMETHEUS_USERNAME` — Basic Auth username for `/actuator/prometheus` (default: `prometheus`).
   - `TASKER_PROMETHEUS_PASSWORD` — Basic Auth password for `/actuator/prometheus` (default: `prometheus-dev`).

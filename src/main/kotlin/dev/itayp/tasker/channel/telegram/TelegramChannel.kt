@@ -1,5 +1,6 @@
 package dev.itayp.tasker.channel.telegram
 
+import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.capture.QuickAddFlow
 import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.ChannelMessage
@@ -53,7 +54,9 @@ class TelegramChannel(
     private val planConfirmationRegistry: PlanConfirmationRegistry,
     private val quickAddRegistry: QuickAddRegistry,
     private val quickAddFlow: QuickAddFlow,
+    private val mediaExtractor: TelegramMediaExtractor,
     private val reminderActionHandler: ReminderActionHandler,
+    private val aiAccessService: AiAccessService,
     private val userSettingsService: UserSettingsService,
     private val messageSource: MessageSource,
     private val telegramClient: TelegramClient,
@@ -78,7 +81,7 @@ class TelegramChannel(
     private fun notifyUpdateFailed(update: Update) {
         try {
             val chatId = when {
-                update.hasMessage() && update.message.hasText() -> update.message.chatId
+                update.hasMessage() -> update.message.chatId
                 update.hasCallbackQuery() -> update.callbackQuery.message.chatId
                 else -> return
             }
@@ -100,9 +103,16 @@ class TelegramChannel(
     }
 
     private fun handleUpdate(update: Update) {
-        val (chatId, telegramUserId, inbound) = when {
+        // A photo/voice message needs the user resolved (for its locale, and for the AI opt-out
+        // check) before we spend a download on it, so it's carried as a null inbound here and
+        // extracted further down.
+        val mediaMessage = update.message?.takeIf { !it.hasText() && mediaExtractor.carriesMedia(it) }
+        val (chatId, telegramUserId, inbound): Triple<Long, Long, ChannelInbound?> = when {
             update.hasMessage() && update.message.hasText() ->
                 Triple(update.message.chatId, update.message.from.id, ChannelInbound.Text(update.message.text))
+
+            mediaMessage != null ->
+                Triple(mediaMessage.chatId, mediaMessage.from.id, null)
 
             update.hasCallbackQuery() -> {
                 telegramClient.execute(AnswerCallbackQuery(update.callbackQuery.id))
@@ -132,11 +142,34 @@ class TelegramChannel(
         }
         val userId = user.id!!
 
-        if (inbound is ChannelInbound.Text && inbound.text.startsWith("/")) {
+        val resolvedInbound = inbound ?: run {
+            val locale = userSettingsService.getLocale(userId)
+            if (!aiAccessService.isAiAvailableForUser(userId)) {
+                channel.send(ChannelMessage.Text(messageSource.getMessage("command.ai_disabled", null, locale)))
+                return
+            }
+            // Media mid-planning would need the planner to read it too; that's not built, and
+            // silently dropping the photo is worse than saying so.
+            val activeSessionId = sessionRegistry.get(chatId)
+            if (activeSessionId != null && orchestrator.phase(activeSessionId) != null) {
+                channel.send(ChannelMessage.Text(messageSource.getMessage("quickadd.media.in_session", null, locale)))
+                return
+            }
+            when (val extraction = mediaExtractor.extract(mediaMessage!!)) {
+                is TelegramMediaExtractor.Extraction.Media -> extraction.inbound
+                is TelegramMediaExtractor.Extraction.Rejected -> {
+                    channel.send(ChannelMessage.Text(messageSource.getMessage(rejectionKey(extraction.reason), null, locale)))
+                    return
+                }
+                TelegramMediaExtractor.Extraction.None -> return
+            }
+        }
+
+        if (resolvedInbound is ChannelInbound.Text && resolvedInbound.text.startsWith("/")) {
             // A new command always supersedes an in-progress quick-add capture (latest intent wins).
             quickAddRegistry.remove(chatId)
             val context = BotCommandContext(userId, chatId, "", channel, sessionRegistry)
-            val handled = commandDispatcher.dispatch(inbound.text, context)
+            val handled = commandDispatcher.dispatch(resolvedInbound.text, context)
             if (!handled) {
                 channel.send(ChannelMessage.Text("Unknown command. Send /help to see what I can do."))
             }
@@ -146,8 +179,8 @@ class TelegramChannel(
         // A tap on a slot-reminder button is self-describing (the notification id rides in the callback
         // data), so it's handled straight from the payload — ahead of the session/quick-add registries,
         // since a reminder can land mid-session.
-        if (inbound is ChannelInbound.Selection &&
-            reminderActionHandler.processReminderResponse(userId, channel, inbound.optionId)
+        if (resolvedInbound is ChannelInbound.Selection &&
+            reminderActionHandler.processReminderResponse(userId, channel, resolvedInbound.optionId)
         ) {
             return
         }
@@ -156,7 +189,7 @@ class TelegramChannel(
         val pendingConfirmation = planConfirmationRegistry.get(chatId)
         if (pendingConfirmation != null) {
             val locale = userSettingsService.getLocale(pendingConfirmation.userId)
-            val selection = inbound as? ChannelInbound.Selection
+            val selection = resolvedInbound as? ChannelInbound.Selection
             when (selection?.optionId) {
                 OPTION_KEEP -> {
                     planConfirmationRegistry.remove(chatId)
@@ -194,7 +227,7 @@ class TelegramChannel(
         // Drive an in-progress quick-add ("/add") capture, if any.
         val quickAddState = quickAddRegistry.get(chatId)
         if (quickAddState != null) {
-            val next = quickAddFlow.handleInbound(userId, channel, quickAddState, inbound)
+            val next = quickAddFlow.handleInbound(userId, channel, quickAddState, resolvedInbound)
             if (next != null) {
                 quickAddRegistry.set(chatId, next)
             } else {
@@ -206,15 +239,30 @@ class TelegramChannel(
         val sessionId = sessionRegistry.get(chatId)
         if (sessionId == null || orchestrator.phase(sessionId) == null) {
             sessionRegistry.remove(chatId)
+            // A forwarded photo or a voice note *is* the request — it needs no "/add" in front of it,
+            // which is the whole point of accepting media: forward the invitation and be done.
+            if (resolvedInbound is ChannelInbound.Media) {
+                val next = quickAddFlow.beginFromMedia(
+                    userId, channel, resolvedInbound.attachments, resolvedInbound.caption,
+                )
+                if (next != null) quickAddRegistry.set(chatId, next) else quickAddRegistry.remove(chatId)
+                return
+            }
             channel.send(ChannelMessage.Text("Send /add to capture a task, or /help to see what I can do."))
             return
         }
 
-        orchestrator.handleInbound(sessionId, inbound, channel)
+        orchestrator.handleInbound(sessionId, resolvedInbound, channel)
 
         if (orchestrator.phase(sessionId) == Phase.DONE) {
             sessionRegistry.remove(chatId)
         }
+    }
+
+    private fun rejectionKey(reason: TelegramMediaExtractor.Reason): String = when (reason) {
+        TelegramMediaExtractor.Reason.TOO_LARGE -> "quickadd.media.too_large"
+        TelegramMediaExtractor.Reason.UNSUPPORTED_TYPE -> "quickadd.media.unsupported_type"
+        TelegramMediaExtractor.Reason.DOWNLOAD_FAILED -> "quickadd.media.download_failed"
     }
 
     /** Recognizes "/start", "/start@BotName", and deep-link forms like "/start payload". */
