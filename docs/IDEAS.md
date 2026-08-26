@@ -16,7 +16,7 @@ The scope of the individual idea is varying - could be small UI improvements, or
   previous headline/pitch. Update them to match the redesigned landing (new headline "Tasks you keep /
   actually doing.", multi-provider sign-in: Telegram + Google + Email). Verbiage needs a human pass
   before shipping.
-- Fonts look bad in Hebrew (especially the header - serif - ones). Either choose one that support multilanguage, or use language-specific ones.
+- Fonts look bad in Hebrew (especially the header - serif - ones). Either choose one that support multilanguage, or use language-specific ones. **Now on the critical path**: this is the same call as `docs/I18N.md` open question 1, and Phase 2b (the Hebrew UI launch) is blocked on it.
 - Persisted calendar invite SEQUENCE counter. Plan-revise updates re-send same-time slot edits (label/title/notes) with a fixed `SEQUENCE:1`. A second same-slot edit in a later session sends `SEQUENCE:1` again, which strict calendar clients may not re-apply. Persisting a per-slot revision counter (incremented on each update) would make repeated updates robust. Low priority: time moves go through cancel + fresh invite, which is unaffected.
 - Currently, a single task is tied to a single time-block; would we like to change that, so that a single task might have multiple (or zero) time blocks attached?
 - Add a search functionality.
@@ -146,9 +146,10 @@ Deferred from the `docs/I18N.md` design (see there for full rationale). Not bloc
   The cheap adjacent win, a "duplicate board" action, has since shipped (any member can copy a
   board's categories/tags/tasks into a fresh board they solely own — `BoardService.duplicateBoard`).
 - **Web UI i18n** — design and phased rollout live in `docs/I18N.md`. Phase 0 (trim the supported
-  languages to en/he/ru/ar) and Phase 1 (i18next + locale-resolution infrastructure, `Intl`
-  formatting helper, string-extraction pattern, key-parity test) are landing; the remaining phases
-  are Hebrew + full RTL (Phase 2), then Russian and Arabic (Phase 3). Bulk string extraction
-  proceeds screen-by-screen in follow-up PRs (untranslated keys fall back to English, so it's safe
-  to land incrementally) — `docs/I18N-INVENTORY.md` tracks per-component status.
+  languages to en/he/ru/ar), Phase 1 (i18next + locale-resolution infrastructure, `Intl` formatting
+  helper, full string extraction, key-parity test) and Phase 2a (the RTL direction pass: CSS logical
+  properties, direction-aware components, mirrorable arrows, `?uiLang=he` dev preview, guard tests)
+  have landed. Remaining: Phase 2b — the Hebrew catalog, the Hebrew display-type decision, RTL
+  visual QA, and launching `he` — then Russian and Arabic (Phase 3).
+  `docs/I18N-INVENTORY.md` tracks per-component extraction status.
 - Multi-modal support: the assistant can process images and voice messages. 

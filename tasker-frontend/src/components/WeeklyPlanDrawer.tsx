@@ -24,6 +24,7 @@ import { PlanDetails } from './PlanDetails';
 import { formatDate } from '../i18n/format';
 import i18n from '../i18n';
 import styles from './WeeklyPlanDrawer.module.css';
+import { Arrow } from './Arrow';
 
 interface WeeklyPlanDrawerProps {
   open: boolean;
@@ -310,7 +311,7 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
         <div className="drawer__header">
           <div className={styles.headerLeft}>
             {view === 'chat' && (
-              <button type="button" className={styles.backBtn} onClick={backToOverview} aria-label={t('weeklyPlanDrawer.backToPlan')}>←</button>
+              <button type="button" className={styles.backBtn} onClick={backToOverview} aria-label={t('weeklyPlanDrawer.backToPlan')}><Arrow direction="back" /></button>
             )}
             <div className={styles.titleGroup}>
               <span className="drawer__label">{view === 'chat' ? t('weeklyPlanDrawer.titleChat') : t('weeklyPlanDrawer.titleOverview')}</span>

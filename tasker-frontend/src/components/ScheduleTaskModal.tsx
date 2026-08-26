@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { formatDate } from '../i18n/format';
 import styles from './ScheduleTaskModal.module.css';
+import { Arrow } from './Arrow';
 
 interface ScheduleTaskModalProps {
   open: boolean;
@@ -176,7 +177,7 @@ export function ScheduleTaskModal({
                 onChange={e => handleStartChange(e.target.value)}
               />
             </div>
-            <div className={styles.timeSep}>→</div>
+            <div className={styles.timeSep}><Arrow direction="forward" /></div>
             <div className="field">
               <label className="field__label">{t('scheduleTaskModal.endTime')}</label>
               <input

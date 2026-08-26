@@ -199,7 +199,7 @@
 }
 
 .choiceBtn {
-  text-align: left;
+  text-align: start;
   padding: 9px 14px;
   border: 1px solid var(--paper-border);
   border-radius: var(--r);
@@ -327,7 +327,7 @@
   justify-content: space-between;
   gap: 10px;
   width: 100%;
-  text-align: left;
+  text-align: start;
   padding: 13px 16px;
   border: 1px solid var(--paper-border);
   border-radius: var(--r);

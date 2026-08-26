@@ -6,6 +6,7 @@ import { LoginPage } from './LoginPage';
 import { acceptInvitation, fetchInvitationPreview, type InvitationPreview } from '../api';
 import layout from './LoginPage.module.css';
 import styles from './EmailLoginConfirmPage.module.css';
+import { Arrow } from '../components/Arrow';
 
 const ACTIVE_BOARD_KEY = 'backlog.activeBoardId';
 
@@ -87,7 +88,7 @@ export function InvitePage() {
                         <p className={styles.cardBody}>
                             {t('invitePage.invalid.body')}
                         </p>
-                        <Link to="/" className={styles.backLink}>{t('invitePage.invalid.backHome')}</Link>
+                        <Link to="/" className={styles.backLink}><Arrow direction="back" /> {t('invitePage.invalid.backHome')}</Link>
                     </div>
                 )}
 
@@ -116,7 +117,7 @@ export function InvitePage() {
 
                         {error && <p className={styles.errorMsg} role="alert">{error}</p>}
 
-                        <Link to="/" className={styles.backLink}>{t('invitePage.notNow')}</Link>
+                        <Link to="/" className={styles.backLink}><Arrow direction="back" /> {t('invitePage.notNow')}</Link>
                     </div>
                 )}
             </div>

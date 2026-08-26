@@ -28,24 +28,23 @@
   white-space: normal;
 }
 
-/* Anchored at the trigger's top-left, floated above it (default). */
-.bubbleRight {
-  transform: translateY(calc(-100% - 4px));
+/* The bubble is portalled and positioned with a viewport `left`, so its own horizontal pull-back
+   is a physical transform: `--tip-pull` is 0 when the bubble grows away from its anchor and -100%
+   when it grows back over it, and RTL flips the sign of both cases. */
+.bubbleEnd  { --tip-pull: 0; }
+.bubbleStart { --tip-pull: -100%; }
+:global([dir='rtl']) .bubbleEnd  { --tip-pull: -100%; }
+:global([dir='rtl']) .bubbleStart { --tip-pull: 0; }
+
+.bubbleEnd,
+.bubbleStart {
+  transform: translate(var(--tip-pull), calc(-100% - 4px));
 }
 
-/* Anchored at the trigger's top-right, growing leftwards — for controls near the dialog edge. */
-.bubbleLeft {
-  transform: translate(-100%, calc(-100% - 4px));
-}
-
-.bubbleRight.bubbleVisible {
+.bubbleEnd.bubbleVisible,
+.bubbleStart.bubbleVisible {
   opacity: 1;
-  transform: translateY(calc(-100% - 6px));
-}
-
-.bubbleLeft.bubbleVisible {
-  opacity: 1;
-  transform: translate(-100%, calc(-100% - 6px));
+  transform: translate(var(--tip-pull), calc(-100% - 6px));
 }
 
 .bubble code {

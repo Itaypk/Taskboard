@@ -547,7 +547,7 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
                 <label className="field__label">
                   {t('settingsModal.assistant.aiAccess')}
                   <HelpTip
-                    side="left"
+                    side="start"
                     text={t('settingsModal.assistant.aiAccessHelp')}
                   />
                 </label>
@@ -561,7 +561,7 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
               <div className="field">
                 <label className="field__label">
                   {t('settingsModal.assistant.aiPlan')}
-                  <HelpTip side="left" text={t('settingsModal.assistant.aiPlanHelp')} />
+                  <HelpTip side="start" text={t('settingsModal.assistant.aiPlanHelp')} />
                 </label>
                 <AiUsageMeter />
               </div>

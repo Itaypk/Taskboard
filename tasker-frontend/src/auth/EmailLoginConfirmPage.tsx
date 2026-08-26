@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { precheckEmailLogin, completeEmailLogin } from './authApi';
 import layout from './LoginPage.module.css';
 import styles from './EmailLoginConfirmPage.module.css';
+import { Arrow } from '../components/Arrow';
 
 type PageState =
     | { phase: 'loading' }
@@ -84,7 +85,7 @@ export function EmailLoginConfirmPage() {
                             {t('emailLoginConfirm.invalid.body')}
                         </p>
                         <Link to="/" className={styles.backLink}>
-                            {t('emailLoginConfirm.invalid.requestNew')}
+                            <Arrow direction="back" /> {t('emailLoginConfirm.invalid.requestNew')}
                         </Link>
                     </div>
                 )}
@@ -117,7 +118,7 @@ export function EmailLoginConfirmPage() {
                         )}
 
                         <Link to="/" className={styles.backLink}>
-                            {t('emailLoginConfirm.backToSignIn')}
+                            <Arrow direction="back" /> {t('emailLoginConfirm.backToSignIn')}
                         </Link>
                     </div>
                 )}

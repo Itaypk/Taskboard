@@ -5,6 +5,7 @@ import { useAuth } from './AuthContext';
 import { demoLogin, devLogin, requestEmailLogin, telegramLoginUrl } from './authApi';
 import pineappleUrl from '../assets/pineapple.webp';
 import styles from './LoginPage.module.css';
+import { Arrow } from '../components/Arrow';
 
 // The Telegram OIDC callback redirects back here with a notice code if login didn't complete;
 // `unavailable` maps to its own copy, every other value degrades to the generic "failed" message.
@@ -114,7 +115,7 @@ export function LoginPage({ next }: { next?: string } = {}) {
                                 onClick={handleDemoLogin}
                                 disabled={busy}
                             >
-                                {t('login.hero.startNow')}
+                                {t('login.hero.startNow')} <Arrow direction="forward" />
                             </button>
                         </div>
                     </div>
@@ -272,7 +273,7 @@ function LoginModal({
                 </div>
 
                 <button type="button" className={styles.sandboxCard} onClick={onSandbox} disabled={busy}>
-                    {t('login.modal.sandbox')}
+                    {t('login.modal.sandbox')} <Arrow direction="forward" />
                     <span className={styles.sandboxSub}>{t('login.modal.sandboxSub')}</span>
                 </button>
 

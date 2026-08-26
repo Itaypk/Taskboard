@@ -11,7 +11,7 @@
       "titleLine2": "actually doing.",
       "sub": "Capture what's on your plate. Talk through a realistic week with the assistant. Agreed tasks land on your calendar as time blocks.",
       "getStarted": "Get started — it's free",
-      "startNow": "or start now, no sign-up →"
+      "startNow": "or start now, no sign-up"
     },
     "satellites": {
       "problemTag": "The problem",
@@ -40,7 +40,7 @@
       "continueEmail": "Continue with email",
       "moreWays": "More ways to sign in are on the way",
       "justLooking": "just looking?",
-      "sandbox": "Start now — no sign-up →",
+      "sandbox": "Start now — no sign-up",
       "sandboxSub": "Get a real board instantly. Add an email or Telegram later to keep it.",
       "fine": "By continuing you agree to our <terms>Terms</terms> and <privacy>Privacy Policy</privacy>. No ads, no trackers — ever.",
       "devLogin": "Dev login (skip Telegram)"
@@ -171,7 +171,7 @@
       "tag": "Sign-in link",
       "title": "Link expired",
       "body": "This sign-in link is invalid or has expired. Magic links are single-use and expire after 30 minutes.",
-      "requestNew": "← Request a new link"
+      "requestNew": "Request a new link"
     },
     "ready": {
       "tag": "One more step",
@@ -180,7 +180,7 @@
     },
     "signingIn": "Signing in…",
     "signIn": "Sign in to Backlog.fyi",
-    "backToSignIn": "← Back to sign in",
+    "backToSignIn": "Back to sign in",
     "errors": {
       "unverified": "That email is already linked to an unverified account. Sign in with Telegram and verify your email under Settings.",
       "expired": "This sign-in link is invalid or has expired.",
@@ -192,7 +192,7 @@
       "tag": "All done",
       "title": "Email verified",
       "body": "Your email address has been confirmed. You can now use it to sign in with a magic link.",
-      "goToBoard": "Go to my board →"
+      "goToBoard": "Go to my board"
     },
     "ready": {
       "tag": "Verify email",
@@ -201,7 +201,7 @@
     },
     "verifying": "Verifying…",
     "verifyButton": "Verify my email",
-    "backToApp": "← Back to app",
+    "backToApp": "Back to app",
     "errors": {
       "expired": "This verification link is invalid or has expired.",
       "generic": "Something went wrong. Please try again."
@@ -231,7 +231,7 @@
       "tag": "Invitation",
       "title": "Invitation not found",
       "body": "This invitation is invalid, has expired, or was revoked. Ask the board owner to send you a new one.",
-      "backHome": "← Go to Backlog.fyi"
+      "backHome": "Go to Backlog.fyi"
     },
     "ready": {
       "tag": "Board invitation",
@@ -240,7 +240,7 @@
     },
     "joining": "Joining…",
     "joinBoard": "Join board",
-    "notNow": "← Not now",
+    "notNow": "Not now",
     "errors": {
       "acceptFailed": "We couldn’t accept this invitation. It may have expired or been revoked."
     }
@@ -363,7 +363,7 @@
   "policyPage": {
     "termsTitle": "Terms of Service",
     "privacyTitle": "Privacy Policy",
-    "backHome": "← Back to Backlog.fyi"
+    "backHome": "Back to Backlog.fyi"
   },
   "boardFilter": {
     "todo": "To do",

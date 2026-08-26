@@ -28,7 +28,7 @@
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.55);
   cursor: pointer;
-  text-align: left;
+  text-align: start;
   font: inherit;
   color: var(--ink);
   transition: border-color 0.15s, background 0.15s;

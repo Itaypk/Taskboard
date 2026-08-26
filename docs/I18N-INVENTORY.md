@@ -97,6 +97,27 @@ Not `.tsx`, so outside the script's scan, but both are explicitly called out in 
 | `src/api.ts` | ✅ Done | `defaultMessageFor` (the D6 "client-side generic fallbacks") and the 401 `sessionExpired` message now call `i18n.t(...)` directly (plain module, no React context — uses the `i18n` singleton exported from `src/i18n/index.ts`, not the `useTranslation` hook) |
 | `src/utils.ts` | ✅ Done | Extracted — `formatDeadline`/`formatRelative` now call the `i18n` singleton directly (plain module, like `api.ts`), with `utils.overdue`/`utils.hoursAgo`/`utils.daysAgo` as count-based keys (`_one`/`_other`) so i18next's `Intl.PluralRules`-backed pluralization applies once a language with different plural forms launches. The naive `plural(n, one, many)` helper had only one caller (`ImportResultDialog.tsx`); once that component moved to its own `_one`/`_other` keys, `plural()` was dead code and was deleted |
 
+## Direction pass (Phase 2a) follow-up
+
+String extraction is complete, but the RTL pass changed a few of the extracted strings and one
+component contract. Worth knowing before touching these files again:
+
+- **Arrows are no longer part of the copy.** Nine values had a directional glyph baked in
+  ("← Back to sign in", "Go to my board →"); the glyph moved to `components/Arrow.tsx`, which
+  mirrors with the document direction, and the catalog values are text only. When adding a link or
+  button that needs an arrow, render `<Arrow direction="forward|back" />` beside the label rather
+  than putting a character in the catalog. The `Settings → Assistant` breadcrumb inside
+  `weeklyPlanDrawer.aiDisabledHint` deliberately stays in the string — it is mid-sentence prose and
+  the translator should render it in their own direction.
+- **`Tooltip`/`HelpTip` take a logical `side`.** The prop is now `'end' | 'start'` (reading order),
+  not `'right' | 'left'`; `SettingsModal` is the only caller.
+- **New CSS needs logical properties.** `src/i18n/logical-css.test.ts` fails on a physical
+  `margin-left`, `padding-right`, `left`/`right` offset, or `float: left` anywhere under `src/`.
+  If a declaration genuinely must not mirror (paper artwork with a baked light source, the mascot),
+  add it to that test's exception list with a comment at the site saying why.
+- **RTL is previewable in dev with `?uiLang=he`**, which forces direction and the (still English)
+  catalog. Use it when changing layout.
+
 ## Summary
 
 - **All ~44 tracked components/modules are done** (the untracked remainder is ➖ No copy):

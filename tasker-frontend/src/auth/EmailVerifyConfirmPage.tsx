@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { confirmEmailVerification } from './authApi';
 import layout from './LoginPage.module.css';
 import styles from './EmailLoginConfirmPage.module.css';
+import { Arrow } from '../components/Arrow';
 
 type PageState =
     | { phase: 'ready' }
@@ -56,7 +57,7 @@ export function EmailVerifyConfirmPage() {
                             {t('emailVerifyConfirm.success.body')}
                         </p>
                         <Link to="/" className={styles.actionBtn}>
-                            {t('emailVerifyConfirm.success.goToBoard')}
+                            {t('emailVerifyConfirm.success.goToBoard')} <Arrow direction="forward" />
                         </Link>
                     </div>
                 ) : (
@@ -87,7 +88,7 @@ export function EmailVerifyConfirmPage() {
                         )}
 
                         <Link to="/" className={styles.backLink}>
-                            {t('emailVerifyConfirm.backToApp')}
+                            <Arrow direction="back" /> {t('emailVerifyConfirm.backToApp')}
                         </Link>
                     </div>
                 )}

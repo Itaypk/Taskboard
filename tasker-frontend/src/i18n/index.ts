@@ -6,11 +6,14 @@
  * catalog purposes — the UI stays English while comms keep using the stored preference (D7). The
  * full preference tag still flows to `Intl` via `setActiveLocale`, and `<html lang/dir>` is set
  * from the resolved language so RTL wiring is in place ahead of the Hebrew launch.
+ *
+ * Because nothing RTL is launched yet, the direction pass (D5) would otherwise be unreachable in a
+ * browser; `?uiLang=he` forces it in dev builds only. See `devPreviewLanguage`.
  */
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import enTranslation from '../locales/en/translation.json';
-import { setActiveLocale } from './format';
+import { isUsableLocale, setActiveLocale } from './format';
 
 /** Languages whose UI catalog is complete and QA'd. Add `he`, `ru`, `ar` as each ships (D7). */
 export const LAUNCHED_UI_LANGUAGES = ['en'] as const;
@@ -34,10 +37,30 @@ function baseLanguage(tag: string): string {
     return tag.toLowerCase().split('-')[0];
 }
 
+/**
+ * Dev-only preview override: `?uiLang=he` forces an unlaunched language (and, for `he`/`ar`, RTL)
+ * so the direction pass can be exercised before the catalog is complete. It is read from the URL
+ * on every resolve rather than cached, is gated on `import.meta.env.DEV`, and never reaches
+ * production — `resolveUiLanguage` is the single choke point every locale decision flows through.
+ */
+function devPreviewLanguage(): UiLanguage | null {
+    if (!import.meta.env.DEV || typeof window === 'undefined') return null;
+    const requested = new URLSearchParams(window.location.search).get('uiLang');
+    const base = baseLanguage(requested ?? '');
+    return (SUPPORTED_UI_LANGUAGES as readonly string[]).includes(base) ? (base as UiLanguage) : null;
+}
+
 /** The launched UI language for a preference/browser tag; unlaunched languages degrade to `en` (D7). */
 export function resolveUiLanguage(tag?: string | null): UiLanguage {
+    const preview = devPreviewLanguage();
+    if (preview) return preview;
     const base = baseLanguage(tag ?? '');
     return (LAUNCHED_UI_LANGUAGES as readonly string[]).includes(base) ? (base as UiLanguage) : 'en';
+}
+
+/** Whether a UI language is written right-to-left. Drives `<html dir>`; see docs/I18N.md D5. */
+export function isRtl(language: string): boolean {
+    return RTL_UI_LANGUAGES.includes(baseLanguage(language));
 }
 
 function readCachedLocale(): string | null {
@@ -63,18 +86,29 @@ function cacheLocale(tag: string): void {
  */
 function detectPreferredTag(): string {
     const cached = readCachedLocale();
-    if (cached) return cached;
+    if (cached && isUsableLocale(cached)) return cached;
     const candidates = navigator.languages ?? [navigator.language];
     for (const c of candidates) {
-        if (c && (SUPPORTED_UI_LANGUAGES as readonly string[]).includes(baseLanguage(c))) return c;
+        // POSIX-flavoured environments report tags like `en-US@posix`, which `Intl` rejects
+        // outright; skip them here so a malformed tag is never selected, cached, or set as
+        // `<html lang>` (`setActiveLocale` guards the `Intl` call sites independently).
+        if (c && (SUPPORTED_UI_LANGUAGES as readonly string[]).includes(baseLanguage(c)) && isUsableLocale(c)) {
+            return c;
+        }
     }
     return FALLBACK_LOCALE;
 }
 
+/**
+ * Points `<html lang/dir>` at the language actually being *rendered*, which is not always the
+ * user's preference: an unlaunched preference degrades to an English catalog (D7), and announcing
+ * `lang="he"` over English text would mislead screen readers and hyphenation. The region subtag is
+ * kept only when it belongs to the rendered language (`en-GB` stays `en-GB`).
+ */
 function applyDocumentLanguage(ui: UiLanguage, fullTag: string): void {
     const el = document.documentElement;
-    el.lang = fullTag;
-    el.dir = RTL_UI_LANGUAGES.includes(ui) ? 'rtl' : 'ltr';
+    el.lang = baseLanguage(fullTag) === ui ? fullTag : ui;
+    el.dir = isRtl(ui) ? 'rtl' : 'ltr';
 }
 
 async function loadCatalog(ui: UiLanguage): Promise<void> {

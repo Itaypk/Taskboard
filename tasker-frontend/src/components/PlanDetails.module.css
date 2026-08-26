@@ -82,7 +82,7 @@
   align-items: flex-start;
   gap: 10px;
   width: 100%;
-  text-align: left;
+  text-align: start;
   padding: 8px 10px;
   border-radius: var(--r);
   transition: background var(--t);

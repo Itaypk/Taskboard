@@ -55,7 +55,7 @@
 .beta {
   position: absolute;
   top: -6px;
-  right: -12px;
+  inset-inline-end: -12px;
   font-family: var(--font-mono);
   font-size: 8px;
   font-weight: 600;
@@ -127,7 +127,8 @@
     0 12px 26px rgba(70,50,20,0.14),
     0 32px 64px -16px rgba(70,50,20,0.32);
 }
-/* Peeled corner */
+/* Peeled corner. Physical `right`/`bottom` on purpose: the fold bakes a top-left light source
+   into its 135deg/315deg gradient pair, so it must not mirror in RTL. */
 .heroSticky::after {
   content: '';
   position: absolute;
@@ -235,6 +236,8 @@
     0 4px 10px rgba(70,50,20,0.10),
     0 14px 28px -8px rgba(70,50,20,0.18);
 }
+/* Peeled corner. Physical `right`/`bottom` on purpose: the fold bakes a top-left light source
+   into its 135deg/315deg gradient pair, so it must not mirror in RTL. */
 .sat::after {
   content: '';
   position: absolute;
@@ -249,7 +252,9 @@
 }
 
 /* The board pineapple owns the lower-right corner, so both right-margin notes
-   sit in the upper half; the left margin carries the full vertical spread. */
+   sit in the upper half; the left margin carries the full vertical spread.
+   Physical `left`/`right` on purpose: this is a decorative scatter tuned against the mascot's
+   fixed corner and the hero's rotation, so it stays put in RTL rather than mirroring. */
 .satPink  { --fill: #f3b5b5; --edge: #d59999; top: 5%;  left: 0;   transform: rotate(-5deg); }
 .satPeach { --fill: #f4c896; --edge: #d6ab7c; top: 55%; left: 2%;  transform: rotate(3.5deg); }
 .satBlue  { --fill: #b8c8e0; --edge: #9bacc7; top: 3%;  right: 0;  transform: rotate(4.5deg); }
@@ -318,7 +323,7 @@
 .modalClose {
   position: absolute;
   top: 16px;
-  right: 16px;
+  inset-inline-end: 16px;
   width: 30px;
   height: 30px;
   border-radius: 50%;
@@ -434,7 +439,7 @@
   border: 1px solid currentColor;
   border-radius: 999px;
   padding: 2px 7px;
-  margin-left: 2px;
+  margin-inline-start: 2px;
 }
 
 .moreNote {
