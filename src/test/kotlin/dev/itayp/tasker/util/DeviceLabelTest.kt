@@ -20,7 +20,7 @@ class DeviceLabelTest {
             "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Mobile Safari/537.36|Chrome on Android",
         ],
     )
-    fun `recognises common browser and OS combinations`(userAgent: String, expected: String) {
+    fun `recognizes common browser and OS combinations`(userAgent: String, expected: String) {
         assertThat(deviceLabel(userAgent)).isEqualTo(expected)
     }
 
@@ -31,7 +31,7 @@ class DeviceLabelTest {
     }
 
     @Test
-    fun `returns null rather than leaking an unrecognised agent`() {
+    fun `returns null rather than leaking an unrecognized agent`() {
         assertThat(deviceLabel("curl/8.5.0")).isNull()
         assertThat(deviceLabel(null)).isNull()
         assertThat(deviceLabel("   ")).isNull()

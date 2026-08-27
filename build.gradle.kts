@@ -3,7 +3,7 @@ import org.gradle.language.jvm.tasks.ProcessResources
 plugins {
 	kotlin("jvm") version "2.4.10"
 	kotlin("plugin.spring") version "2.4.10"
-	id("org.springframework.boot") version "4.1.0"
+	id("org.springframework.boot") version "4.1.1"
 	id("io.spring.dependency-management") version "1.1.7"
 	kotlin("plugin.jpa") version "2.4.10"
 }
@@ -56,8 +56,8 @@ dependencies {
 	implementation("io.micrometer:micrometer-registry-prometheus:1.17.0")
 	implementation("net.logstash.logback:logstash-logback-encoder:9.0")
 	implementation("com.github.jknack:handlebars:4.5.4")
-	implementation("org.telegram:telegrambots-springboot-longpolling-starter:10.2.0")
-	implementation("org.telegram:telegrambots-client:10.2.0")
+	implementation("org.telegram:telegrambots-springboot-longpolling-starter:10.2.1")
+	implementation("org.telegram:telegrambots-client:10.2.1")
 	runtimeOnly("com.h2database:h2")
 	runtimeOnly("org.postgresql:postgresql")
 	// Required for the Telegram library

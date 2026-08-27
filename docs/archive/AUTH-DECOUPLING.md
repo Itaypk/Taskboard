@@ -174,7 +174,7 @@ callback must decide whether to log into that account, create a new one, or refu
 | Situation | Behaviour |
 |-----------|-----------|
 | Email matches an existing user with that email **verified** | Log into that existing user (attach an `email` identity if one isn't already present). |
-| Email matches an existing user with that email **unverified** | **Fail** the login: ask the user to sign in with Telegram and verify the email in settings, and show a support/help email for "I don't recognise this account". This is a rare edge case — keep it cheap, do not auto-merge. |
+| Email matches an existing user with that email **unverified** | **Fail** the login: ask the user to sign in with Telegram and verify the email in settings, and show a support/help email for "I don't recognize this account". This is a rare edge case — keep it cheap, do not auto-merge. |
 | Email belongs to no user | Create a new account with an `email` identity (the normal registration path). |
 | User has a Telegram account with **no** email, then signs in by email | Two separate accounts result. If they later authenticate with the *other* method from within one of these accounts, **offer account linking**; if they decline, disallow the cross-login. (Linking itself is Phase 4 — see below.) |
 

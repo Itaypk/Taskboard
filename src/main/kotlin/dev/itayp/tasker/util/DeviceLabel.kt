@@ -2,8 +2,8 @@ package dev.itayp.tasker.util
 
 /**
  * Best-effort human label for a User-Agent, e.g. "Chrome on macOS", shown in the active-sessions
- * list so a user can recognise their own devices. Deliberately coarse and dependency-free: the
- * only job is "is this me?", not analytics, so an unrecognised agent degrades to a browser name,
+ * list so a user can recognize their own devices. Deliberately coarse and dependency-free: the
+ * only job is "is this me?", not analytics, so an unrecognized agent degrades to a browser name,
  * an OS name, or null rather than exposing the raw string.
  *
  * The raw User-Agent is never stored or logged — only this label.

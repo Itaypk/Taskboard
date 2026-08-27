@@ -28,7 +28,7 @@ class ApiTokenEntity {
     @Column(name = "user_id", nullable = false)
     var userId: UUID? = null
 
-    /** User-supplied label, shown in Settings so a token can be recognised before revoking it. */
+    /** User-supplied label, shown in Settings so a token can be recognized before revoking it. */
     @Column(nullable = false, length = 100)
     var name: String? = null
 
