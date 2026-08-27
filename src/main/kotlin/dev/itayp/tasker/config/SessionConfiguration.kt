@@ -14,7 +14,7 @@ import java.time.Duration
  * is never registered and sessions stay in the servlet container's in-memory map.
  *
  * `spring.session.jdbc.initialize-schema: never` in application.yaml keeps Spring Session from
- * trying to create the SPRING_SESSION tables on startup — Liquibase (changeset 002) owns the schema.
+ * trying to create the SPRING_SESSION tables on startup — Liquibase (changeset 001) owns the schema.
  */
 @Configuration
 @EnableJdbcHttpSession(cleanupCron = "0 0 * * * *") // top of every hour

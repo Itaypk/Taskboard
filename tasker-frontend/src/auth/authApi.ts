@@ -76,3 +76,18 @@ export const fetchIdentities = (): Promise<LinkedIdentity[]> =>
 
 export const unlinkIdentity = (provider: string): Promise<void> =>
     request<void>(`/api/auth/identities/${provider}`, { method: 'DELETE' });
+
+/** One place the account is signed in. Carries no session id — revocation is all-others-at-once. */
+export interface ActiveSession {
+    current: boolean;
+    device: string | null;
+    ipAddress: string | null;
+    signedInAt: string;
+    lastActiveAt: string;
+}
+
+export const fetchSessions = (): Promise<ActiveSession[]> =>
+    request<ActiveSession[]>('/api/auth/sessions');
+
+export const revokeOtherSessions = (): Promise<{ revoked: number }> =>
+    request<{ revoked: number }>('/api/auth/sessions/revoke-others', { method: 'POST' });

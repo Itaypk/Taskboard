@@ -20,7 +20,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
 import java.time.Clock
 
 @Configuration
-@EnableConfigurationProperties(RateLimitProperties::class)
+@EnableConfigurationProperties(RateLimitProperties::class, SessionProperties::class)
 class WebConfiguration(
     private val rateLimitProperties: RateLimitProperties,
     // ObjectProvider so @WebMvcTest slices (which don't load service beans) still construct this config.
@@ -75,10 +75,24 @@ class WebConfiguration(
     // Only registered when a Clock bean is present (i.e. full app context, not @WebMvcTest slices,
     // which don't load TimeConfiguration). The filter is non-essential for slice tests anyway —
     // they exercise individual controllers, not session lifetime.
+    //
+    // Order matters: one slot ahead of springSecurityFilterChain, so an
+    // over-age session is invalidated before authorization runs. It still sits well behind Spring
+    // Session's SessionRepositoryFilter (Integer.MIN_VALUE + 50), so getSession(false) resolves the
+    // JDBC-backed session rather than a container one.
     @Bean
     @ConditionalOnBean(Clock::class)
-    fun absoluteSessionLifetimeFilter(clock: Clock): AbsoluteSessionLifetimeFilter =
-        AbsoluteSessionLifetimeFilter(clock)
+    fun absoluteSessionLifetimeFilter(
+        clock: Clock,
+        sessionProperties: SessionProperties,
+    ): FilterRegistrationBean<AbsoluteSessionLifetimeFilter> {
+        val registration = FilterRegistrationBean(
+            AbsoluteSessionLifetimeFilter(clock, sessionProperties.maxLifetime),
+        )
+        registration.order = SECURITY_FILTER_ORDER - 1
+        logger.info("Registering AbsoluteSessionLifetimeFilter (max lifetime {})", sessionProperties.maxLifetime)
+        return registration
+    }
 
     override fun addInterceptors(registry: InterceptorRegistry) {
         logger.info("Registering MdcUserInterceptor and RateLimitInterceptor")
@@ -95,5 +109,10 @@ class WebConfiguration(
 
     companion object {
         private val logger = LoggerFactory.getLogger(WebConfiguration::class.java)
+
+        // Spring Boot registers springSecurityFilterChain at SecurityProperties.DEFAULT_FILTER_ORDER.
+        // Inlined rather than imported: Boot 4 relocated the autoconfigure packages, and the value
+        // itself is stable public API.
+        private const val SECURITY_FILTER_ORDER = -100
     }
 }

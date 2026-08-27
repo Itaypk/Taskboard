@@ -78,6 +78,12 @@ tasker:
     # checked-in key so the app boots without configuration. Prod MUST set
     # TASKER_DATA_KEK — never reuse the dev key for any data that matters.
     kek: ${TASKER_DATA_KEK:AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=}
+  session:
+    # Absolute cap on a session's life, no matter how active it is — the counterweight to the
+    # sliding 30-day idle timeout above, which on its own never expires a session an attacker
+    # keeps warm. Re-stamped on each login, so this is "a year since last sign-in". Users can
+    # see and revoke their own sessions from Settings.
+    max-lifetime: ${TASKER_SESSION_MAX_LIFETIME:365d}
   rate-limit:
     api:
       limit: 300
