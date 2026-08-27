@@ -198,6 +198,9 @@ class QuickAddFlow(
                 state.options.firstOrNull { it.id == inbound.optionId }?.label ?: inbound.optionId
             }
             is ChannelInbound.Text -> inbound.text.trim()
+            // Unreachable: handleInbound routes media to a fresh capture before any state handler
+            // sees it. Kept so this stays exhaustive rather than silently answering with an else.
+            is ChannelInbound.Media -> inbound.caption.orEmpty()
         }
         if (answer.isBlank()) return state
 

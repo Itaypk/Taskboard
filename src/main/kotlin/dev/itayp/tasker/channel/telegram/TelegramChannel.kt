@@ -107,7 +107,7 @@ class TelegramChannel(
         // check) before we spend a download on it, so it's carried as a null inbound here and
         // extracted further down.
         val mediaMessage = update.message?.takeIf { !it.hasText() && mediaExtractor.carriesMedia(it) }
-        val (chatId, telegramUserId, inbound): Triple<Long, Long, ChannelInbound?> = when {
+        val routed: Triple<Long, Long, ChannelInbound?> = when {
             update.hasMessage() && update.message.hasText() ->
                 Triple(update.message.chatId, update.message.from.id, ChannelInbound.Text(update.message.text))
 
@@ -125,6 +125,7 @@ class TelegramChannel(
 
             else -> return
         }
+        val (chatId, telegramUserId, inbound) = routed
 
         val channel = TelegramConversationChannel(chatId, telegramClient)
 
