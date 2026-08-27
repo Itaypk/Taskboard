@@ -5,6 +5,7 @@ import type { UserSettings, Task, SettingsOptions, Tag } from '../types';
 import { AiUsageMeter } from './AiUsageMeter';
 import { CategoryEditor } from './CategoryEditor';
 import { TagEditor } from './TagEditor';
+import { ActiveSessions } from './ActiveSessions';
 import { ConnectedAccounts } from './ConnectedAccounts';
 import { ImportResultDialog } from './ImportResultDialog';
 import { categorizeImportError, type ImportResult } from './importResult';
@@ -201,7 +202,7 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
 
       onSave({ ...form, categories: finalCategories });
       // Apply a language change immediately (i18n UI language + document lang/dir + Intl locale),
-      // no reload needed (docs/I18N.md, D3). No-op in Phase 1 while the UI stays English-only.
+      // no reload needed (docs/I18N.md, D3). Live since the `he` launch.
       void applyLocale(form.preferredLanguage);
       // A tag rename/recolor fans out to tasks (they embed the label/colour), so refetch both.
       if (tagsTouched) onTagsChanged();
@@ -361,6 +362,8 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
               </div>
 
               <ConnectedAccounts />
+
+              <ActiveSessions />
 
               <div className="field">
                 <label className="field__label" htmlFor="settings-auto-archive">

@@ -116,6 +116,23 @@
     "hours_one": "{{count}} hour",
     "hours_other": "{{count}} hours"
   },
+  "activeSessions": {
+    "label": "Active sessions",
+    "hint": "Where your account is signed in. Sign out everywhere else if you see something you don't recognise.",
+    "current": "This device",
+    "unknownDevice": "Unknown device",
+    "lastActive": "Last active {{when}}",
+    "signedIn": "Signed in {{when}}",
+    "revokeOthers": "Sign out everywhere else",
+    "onlyThisDevice": "This is your only active session",
+    "confirm": "Sign out of all other sessions ({{n}})?",
+    "confirmYes": "Sign out others",
+    "revoking": "Signing out\u2026",
+    "cancel": "Cancel",
+    "errors": {
+      "revokeFailed": "Could not sign out the other sessions. Please try again."
+    }
+  },
   "connectedAccounts": {
     "label": "Connected accounts",
     "hint": "Ways you can sign in. Keep at least one.",

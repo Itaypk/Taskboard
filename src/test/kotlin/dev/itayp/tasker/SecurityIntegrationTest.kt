@@ -113,6 +113,76 @@ class SecurityIntegrationTest(
     }
 
     @Test
+    fun `PRINCIPAL_NAME is populated with the user id so sessions can be found per user`() {
+        // The whole active-sessions feature is built on findByPrincipalName. SessionAuthenticator
+        // stamps the index attribute explicitly; this pins that it actually reaches the column.
+        val login = rest.postForEntity("/api/auth/dev-login", null, String::class.java)
+        assertThat(login.statusCode).isEqualTo(HttpStatus.OK)
+
+        val principalNames = jdbcTemplate.queryForList(
+            "SELECT PRINCIPAL_NAME FROM SPRING_SESSION", String::class.java,
+        )
+        val devUserId = java.util.UUID.nameUUIDFromBytes("tasker-dev-user".toByteArray()).toString()
+        assertThat(principalNames).contains(devUserId)
+    }
+
+    @Test
+    fun `active sessions lists every login and revoke-others leaves only the current one`() {
+        // Two dev-logins are two sessions for the same (deterministic) dev user.
+        val first = sessionHeaders(devLoginCookies())
+        val second = devLoginCookies()
+        val secondHeaders = sessionHeaders(second)
+
+        val listed = rest.exchange(
+            "/api/auth/sessions", HttpMethod.GET, HttpEntity<Void>(secondHeaders), String::class.java,
+        )
+        assertThat(listed.statusCode).isEqualTo(HttpStatus.OK)
+        // Exactly one entry is flagged as the requesting device, whatever else is in the list.
+        assertThat(Regex("\"current\":true").findAll(listed.body!!).count()).isEqualTo(1)
+        assertThat(listed.body).doesNotContain("sessionId")
+
+        val xsrf = second.first { it.startsWith("XSRF-TOKEN=") }
+            .substringAfter("XSRF-TOKEN=").substringBefore(";")
+        val revokeHeaders = sessionHeaders(second).apply { add("X-XSRF-TOKEN", xsrf) }
+        val revoked = rest.exchange(
+            "/api/auth/sessions/revoke-others", HttpMethod.POST, HttpEntity<Void>(revokeHeaders), String::class.java,
+        )
+        assertThat(revoked.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(revoked.body).contains("\"revoked\"")
+
+        // The revoking session still works; the other one is gone.
+        val stillAlive = rest.exchange(
+            "/api/auth/sessions", HttpMethod.GET, HttpEntity<Void>(secondHeaders), String::class.java,
+        )
+        assertThat(stillAlive.statusCode).isEqualTo(HttpStatus.OK)
+
+        val killed = rest.exchange(
+            "/api/v1/boards", HttpMethod.GET, HttpEntity<Void>(first), String::class.java,
+        )
+        assertThat(killed.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
+    }
+
+    @Test
+    fun `active sessions requires authentication`() {
+        val response = rest.getForEntity("/api/auth/sessions", String::class.java)
+        assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
+    }
+
+    @Test
+    fun `revoke-others without a CSRF token returns 403`() {
+        // Unlike the login endpoints, this one is not CSRF-exempt: the user already has a session.
+        val headers = sessionHeaders(devLoginCookies())
+        val response = rest.exchange(
+            "/api/auth/sessions/revoke-others", HttpMethod.POST, HttpEntity<Void>(headers), String::class.java,
+        )
+        assertThat(response.statusCode).isEqualTo(HttpStatus.FORBIDDEN)
+    }
+
+    private fun devLoginCookies(): List<String> =
+        rest.postForEntity("/api/auth/dev-login", null, String::class.java)
+            .headers[HttpHeaders.SET_COOKIE] ?: emptyList()
+
+    @Test
     fun `the app layer does not emit a Content-Security-Policy header`() {
         // CSP is owned entirely by Nginx (per-vhost, in the itayp_dev Ansible repo), not the app:
         // Spring's HeaderWriterFilter can't cover the forwarded SPA document anyway, and a second

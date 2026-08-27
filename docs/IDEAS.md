@@ -140,6 +140,17 @@ Deferred from the `docs/I18N.md` design (see there for full rationale). Not bloc
 - Birthday calendar, or general reminders.
 - Support non-latin calendars.
 
+- **Per-session revoke in "active sessions"** — today Settings only offers "sign out everywhere
+  else". Per-session revocation would mean stamping an opaque random ref per session (never the
+  real session id, which must not be handed to a browser that might be the attacker's) and mapping
+  ref → session on delete. Not worth the surface for the current user count.
+- **New-sign-in notification** (Telegram / auth email: "new sign-in from Chrome on macOS"). This is
+  what would turn the active-sessions list from forensics into actual detection — a user only
+  revokes a session if something tells them to look. The highest-value follow-up now that the
+  absolute session lifetime is a year rather than 90 days.
+- **Expiry for external API tokens** — `api_token` rows never expire, which now makes them the
+  longest-lived credential in the system.
+
 ## Large projects
 - WhatsApp as a communication channel support.
 - **Template task boards** — pre-populated boards for life events ("relocating to Germany", "long
