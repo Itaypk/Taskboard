@@ -166,9 +166,14 @@ Deferred from the `docs/I18N.md` design (see there for full rationale). Not bloc
   properties, direction-aware components, mirrorable arrows, `?uiLang=he` dev preview, guard tests)
   have landed, as has Phase 2b (the Hebrew catalog and the `he` launch, RTL-QA'd) and all of Phase 3
   (`ru` and `ar` both launched, catalog-only for both — Arabic reused the RTL/CSS investment from
-  2a untouched). The web UI i18n project is functionally complete for the four planned languages.
-  The Hebrew/Arabic display-type decision (see "Fonts look bad in Hebrew" above) is deliberately
-  left open — not blocking.
+  2a untouched). **The web UI i18n project is done** — all four planned languages are launched and
+  the guard rails (`catalog.test.ts`'s key-parity/plural-category/interpolation checks,
+  `logical-css.test.ts`, `direction.test.ts`) keep future string additions honest per-catalog; the
+  session-lifetime feature's new `activeSessions` strings landed translated in all three
+  non-English catalogs and the parity suite caught nothing, which is the intended steady state.
+  Two decisions remain, both explicitly deferred to the product owner, not blocking anything:
+  the Hebrew/Arabic display-type call (see "Fonts look bad in Hebrew" above) and the 12h/24h time
+  format (`docs/I18N.md` open question 2, currently forced to 24h for everyone).
   `docs/I18N-INVENTORY.md` tracks per-component extraction status.
 - Multi-modal support: the assistant can process images and voice messages. **Partly shipped** —
   a Telegram quick-add can now be described with a photo or a voice note instead of typed text
