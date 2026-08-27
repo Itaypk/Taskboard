@@ -158,8 +158,9 @@ Deferred from the `docs/I18N.md` design (see there for full rationale). Not bloc
   RTL visual QA. Then Russian and Arabic (Phase 3).
   `docs/I18N-INVENTORY.md` tracks per-component extraction status.
 - Multi-modal support: the assistant can process images and voice messages. **Partly shipped** —
-  Telegram quick-add now captures from a forwarded photo or a voice note (design and decisions:
-  `docs/MULTIMODAL-CAPTURE.md`). It is off until `TASKER_AI_MULTIMODAL_MODEL` names a model that
+  a Telegram quick-add can now be described with a photo or a voice note instead of typed text
+  (design and decisions: `docs/MULTIMODAL-CAPTURE.md`). It is off until `TASKER_AI_MULTIMODAL_MODEL` names a model that
   advertises the matching input modality; until then the bot declines media with a "describe it"
-  reply. Still open: PDFs, albums (`media_group_id` grouping), media inside the planning
-  conversation, and media on the web UI.
+  reply. Still open: what an out-of-band attachment (one sent with no quick-add in progress) should
+  do, PDFs, albums (`media_group_id` grouping), media inside the planning conversation, and media on
+  the web UI.

@@ -81,10 +81,13 @@ class QuickAddFlow(
     }
 
     /**
-     * Opens a flow from media the user sent — a forwarded photo of an invitation, a voice note.
-     * The attachment is read once, by the capture model, which hands back what it found; from the
+     * Captures from media the user sent — a forwarded photo of an invitation, a voice note. The
+     * attachment is read once, by the capture model, which hands back what it found; from the
      * confirmation card on, the capture behaves exactly like a typed one (that read-back stands in
      * for the user's request), so no bytes are held past this call.
+     *
+     * Reached through [handleInbound]: an attachment only counts while a quick-add is in progress
+     * (`docs/MULTIMODAL-CAPTURE.md` D8), so channels gate on that before calling in.
      *
      * Returns null — the flow is over — when the configured model can't accept the modality, or the
      * capture failed; both paths tell the user what to do instead.

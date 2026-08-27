@@ -19,9 +19,12 @@ receive them.
 
 ## What shipped
 
-Sending a photo or a voice note to the bot **starts a quick-add capture directly** — no `/add` in
-front of it. The attachment is the request. From the confirmation card onward the capture is exactly
-the existing flow (Save / Adjust / Cancel, the clarify loop, the same validation).
+Media is captured **inside a quick-add**: send `/add`, then send the photo or the voice note instead
+of typing the description. The attachment is the request. From the confirmation card onward the
+capture is exactly the existing flow (Save / Adjust / Cancel, the clarify loop, the same validation).
+
+An attachment that arrives with no quick-add in progress gets a pointer to `/add` and nothing else —
+see D8.
 
 One extra step is visible: before the card, the bot echoes **what it read or heard**
 (`🖼 From the image: …` / `🗣 I heard: …`). A misread date on a blurry invitation is far easier to
@@ -105,10 +108,27 @@ drag-and-drop reuses it whole. Only `TelegramMediaExtractor` knows about `PhotoS
 
 ### D7. Not during a planning session
 
-Media that arrives mid-planning is declined with a note to say it in a message. The planner would
-need its own reading of the attachment (its own model call, its own prompt surface), and silently
-dropping the photo is worse than saying so. The orchestrator's `ChannelInbound` branches degrade to
-the caption defensively; they are not a path the channel takes.
+The planner takes no attachments: it would need its own reading of one (its own model call, its own
+prompt surface). It never sees them either — media is gated on an in-progress quick-add (D8), and
+`/add` is already refused mid-planning. The orchestrator's `ChannelInbound` branches degrade to the
+caption defensively; they are not a path the channel takes.
+
+### D8. An attachment must land inside a quick-add, not start one
+
+The obvious design is the opposite one: a forwarded photo *is* a capture request, so let it open the
+flow with no `/add` in front of it. That was the first cut, and it was pulled back on review —
+treating every inbound photo as a quick-add locks in an answer to a question that is still open
+(what the bot should do with out-of-band messages generally), and it is much easier to add that
+entry point later than to take it away from users who got used to it.
+
+So: media is accepted only while a quick-add is in progress. A photo arriving on its own is answered
+with "send /add first". The gate sits in `TelegramChannel.handleMedia`, ahead of the download, so an
+unsolicited attachment costs no `getFile` round-trip either.
+
+`QuickAddFlow.beginFromMedia` remains the single entry point for capturing *from* an attachment, now
+reached only through `handleInbound` — when the flow is waiting for a description, or when media
+arrives against an existing draft (which restarts the capture from the attachment). Wiring a new
+surface to it, or reinstating the out-of-band entry, is a call-site change and nothing more.
 
 ## Privacy
 
@@ -134,6 +154,7 @@ users are trying to send.
   as separate updates, so each photo currently starts its own capture. Grouping by `media_group_id`
   is the follow-up if anyone forwards multi-page invitations.
 - **Media in the planning conversation** (see D7) and on the web UI.
+- **An out-of-band attachment opening a capture on its own** — deliberately deferred, see D8.
 
 ## Key components
 
@@ -141,7 +162,7 @@ users are trying to send.
 | --- | --- |
 | `ChannelInbound.Media` / `InboundAttachment` (`channel/ConversationChannel.kt`) | Channel-agnostic inbound media. |
 | `TelegramMediaExtractor` | `getFile` + download, size caps, mime→codec mapping, photo-size choice. |
-| `TelegramChannel` | Routes a media message: AI opt-out check, planning-session refusal, then capture. |
+| `TelegramChannel.handleMedia` | Routes a media message: AI opt-out check, the in-progress-quick-add gate (D8), then capture. |
 | `QuickAddFlow.beginFromMedia` | Runs the capture, echoes `source_text`, hands over to the existing card flow. |
 | `TaskSuggestionAgent.quickAddDraftFromMedia` | Builds the multimodal `ChatMessage`, picks the capture model. |
 | `InputModalitySupport` | The capability gate (`ModelCapabilityService.inputModalities`). |
