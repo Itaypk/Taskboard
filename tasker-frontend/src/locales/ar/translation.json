@@ -1,0 +1,816 @@
+{
+  "login": {
+    "nav": {
+      "terms": "الشروط",
+      "privacy": "الخصوصية",
+      "logIn": "تسجيل الدخول"
+    },
+    "hero": {
+      "tag": "هذا الأسبوع · الأولوية",
+      "titleLine1": "مهام تُنجَز",
+      "titleLine2": "فعلًا، لا تُكتب فقط.",
+      "sub": "تدوين كل ما يجب إنجازه، ثم نقاش أسبوع واقعي مع المساعد. المهام المتفق عليها تُضاف إلى التقويم كفترات زمنية محددة.",
+      "getStarted": "البدء — مجانًا",
+      "startNow": "أو البدء الآن بلا تسجيل"
+    },
+    "satellites": {
+      "problemTag": "المشكلة",
+      "problemTitle": "المهام تُكتب — ثم تُنسى بهدوء.",
+      "payoffTag": "النتيجة",
+      "payoffTitle": "أسبوع يمكن الالتزام به فعلًا.",
+      "payoffMeta": "ليست قائمة أخرى تُهمَل.",
+      "methodTag": "الطريقة",
+      "methodTitle": "تقسيم زمني — لكن التخطيط ليس يدويًا وحده.",
+      "methodMeta": "المساعد يقترح، والتعديل متاح دائمًا.",
+      "privacyTag": "خاص تمامًا",
+      "privacyTitle": "بلا إعلانات. بلا متتبعات. تشفير للبيانات. ZDR AI."
+    },
+    "modal": {
+      "close": "إغلاق",
+      "tag": "أهلًا بك",
+      "title": "اختيار طريقة المتابعة",
+      "sub": "نقرة واحدة. عند أول استخدام يتم إنشاء اللوحة تلقائيًا.",
+      "telegram": "الدخول عبر Telegram",
+      "google": "المتابعة عبر Google",
+      "soon": "قريبًا",
+      "emailSent": "يُرجى تفقّد البريد — تم إرسال رابط الدخول إلى <strong>{{email}}</strong>. صلاحيته 30 دقيقة.",
+      "emailPlaceholder": "you@example.com",
+      "sending": "جارٍ الإرسال…",
+      "sendLink": "إرسال رابط الدخول",
+      "continueEmail": "المتابعة عبر البريد الإلكتروني",
+      "moreWays": "طرق دخول إضافية قادمة قريبًا",
+      "justLooking": "مجرد اطّلاع؟",
+      "sandbox": "البدء الآن — بلا تسجيل",
+      "sandboxSub": "لوحة حقيقية متاحة فورًا. يمكن ربط بريد إلكتروني أو Telegram لاحقًا للحفاظ عليها.",
+      "fine": "بالمتابعة، تتم الموافقة على <terms>شروط الاستخدام</terms> و<privacy>سياسة الخصوصية</privacy>. بلا إعلانات ولا متتبعات — أبدًا.",
+      "devLogin": "دخول المطورين (تجاوز Telegram)"
+    },
+    "notices": {
+      "telegramFailed": "لم يكتمل الدخول عبر Telegram. يُرجى المحاولة مجددًا.",
+      "telegramUnavailable": "الدخول عبر Telegram غير متاح مؤقتًا. تجربة طريقة أخرى."
+    },
+    "errors": {
+      "demoFailed": "تعذّر إنشاء حساب جديد. يُرجى المحاولة مجددًا.",
+      "devFailed": "فشل دخول المطورين. هل الخادم يعمل بوضع dev؟",
+      "emailSendFailed": "تعذّر إرسال رابط الدخول. يُرجى المحاولة مجددًا."
+    }
+  },
+  "notFound": {
+    "heading": "الصفحة غير موجودة",
+    "body": "هذه الصفحة غير موجودة. ربما تم نقلها أو أن الرابط غير صحيح.",
+    "homeLink": "الانتقال إلى Backlog.fyi"
+  },
+  "confirmDialog": {
+    "cancel": "إلغاء",
+    "confirm": "تأكيد"
+  },
+  "errorToast": {
+    "region": "إشعارات",
+    "dismiss": "إخفاء"
+  },
+  "api": {
+    "errors": {
+      "network": "تعذّر الوصول إلى الخادم. التحقق من الاتصال والمحاولة مجددًا.",
+      "badRequest": "يبدو أن الطلب غير صالح. مراجعة البيانات والمحاولة مجددًا.",
+      "forbidden": "لا توجد صلاحية لتنفيذ هذا الإجراء.",
+      "notFound": "تعذّر العثور على المطلوب.",
+      "conflict": "هذا التغيير يتعارض مع الحالة الحالية. إعادة تحميل الصفحة والمحاولة مجددًا.",
+      "payloadTooLarge": "حجم الطلب كبير جدًا.",
+      "unprocessable": "بعض القيم غير صالحة.",
+      "rateLimited": "عدد الطلبات كبير جدًا. الانتظار قليلًا ثم المحاولة مجددًا.",
+      "serverError": "حدث خطأ غير متوقع في الخادم. يُرجى المحاولة مجددًا بعد قليل.",
+      "requestFailed": "فشل تنفيذ الطلب.",
+      "generic": "حدث خطأ ما.",
+      "sessionExpired": "انتهت صلاحية الجلسة. يُرجى تسجيل الدخول مجددًا."
+    }
+  },
+  "utils": {
+    "today": "اليوم",
+    "tomorrow": "غدًا",
+    "overdue_zero": "{{count}} يوم تأخير",
+    "overdue_one": "{{count}} يوم تأخير",
+    "overdue_two": "{{count}} يوم تأخير",
+    "overdue_few": "{{count}} يوم تأخير",
+    "overdue_many": "{{count}} يوم تأخير",
+    "overdue_other": "{{count}} يوم تأخير",
+    "justNow": "الآن",
+    "hoursAgo_zero": "قبل {{count}} ساعة",
+    "hoursAgo_one": "قبل {{count}} ساعة",
+    "hoursAgo_two": "قبل {{count}} ساعة",
+    "hoursAgo_few": "قبل {{count}} ساعة",
+    "hoursAgo_many": "قبل {{count}} ساعة",
+    "hoursAgo_other": "قبل {{count}} ساعة",
+    "daysAgo_zero": "قبل {{count}} يوم",
+    "daysAgo_one": "قبل {{count}} يوم",
+    "daysAgo_two": "قبل {{count}} يوم",
+    "daysAgo_few": "قبل {{count}} يوم",
+    "daysAgo_many": "قبل {{count}} يوم",
+    "daysAgo_other": "قبل {{count}} يوم"
+  },
+  "statsModal": {
+    "title": "إحصائياتك",
+    "close": "إغلاق الإحصائيات",
+    "loading": "جارٍ التحميل…",
+    "loadError": "تعذّر تحميل الإحصائيات. يُرجى المحاولة مجددًا.",
+    "empty": "لا توجد إحصائيات بعد — إضافة بعض المهام وتخطيط الأسبوع، ثم العودة لاحقًا.",
+    "openTasks": "المهام المفتوحة",
+    "completed": "المُنجَزة",
+    "joined": "تاريخ الانضمام",
+    "totalCreated": "إجمالي المهام المُنشأة",
+    "totalCompleted": "إجمالي المهام المُنجزة",
+    "newPerWeek": "مهام جديدة / أسبوع",
+    "completedPerWeek": "مُنجَزة / أسبوع",
+    "avgCompletionTime": "متوسط وقت الإنجاز",
+    "planningSessions": "جلسات التخطيط",
+    "notEnoughData": "لا توجد مهام مُنجزة كافية بعد",
+    "days_zero": "{{count}} أيام",
+    "days_one": "يوم واحد",
+    "days_two": "يومان",
+    "days_few": "{{count}} أيام",
+    "days_many": "{{count}} يومًا",
+    "days_other": "{{count}} يوم",
+    "hours_zero": "{{count}} ساعات",
+    "hours_one": "ساعة واحدة",
+    "hours_two": "ساعتان",
+    "hours_few": "{{count}} ساعات",
+    "hours_many": "{{count}} ساعةً",
+    "hours_other": "{{count}} ساعة"
+  },
+  "connectedAccounts": {
+    "label": "الحسابات المرتبطة",
+    "hint": "طرق تسجيل الدخول. الإبقاء على طريقة واحدة على الأقل.",
+    "unlink": "إلغاء الربط",
+    "none": "لا توجد طرق دخول مرتبطة بعد.",
+    "linkTelegram": "ربط Telegram",
+    "linkAnotherFirst": "ربط طريقة أخرى أولًا قبل إزالة هذه",
+    "providers": {
+      "telegram": "Telegram",
+      "email": "البريد الإلكتروني",
+      "google": "Google"
+    },
+    "linkNotices": {
+      "conflict": "حساب Telegram هذا مرتبط بالفعل بحساب Backlog.fyi آخر.",
+      "exists": "يوجد بالفعل حساب Telegram مرتبط.",
+      "failed": "تعذّر ربط Telegram. يُرجى المحاولة مجددًا.",
+      "unavailable": "ربط Telegram غير متاح مؤقتًا."
+    },
+    "errors": {
+      "lastMethod": "لا يمكن إزالة طريقة الدخول الوحيدة. ربط طريقة أخرى أولًا.",
+      "unlinkFailed": "تعذّر إلغاء الربط. يُرجى المحاولة مجددًا."
+    }
+  },
+  "apiTokens": {
+    "label": "رموز API",
+    "hint": "يتيح لمساعد ذكاء اصطناعي أو سكربت قراءة المهام وتحديثها. كل رمز يعمل نيابة عن صاحب الحساب — الحفاظ عليه كما تُحفَظ كلمة المرور.",
+    "none": "لا توجد رموز API بعد.",
+    "create": "إنشاء رمز",
+    "revoke": "إبطال",
+    "namePlaceholder": "ما الغرض من هذا؟ مثال: Claude Code",
+    "scopeLabel": "مستوى الوصول",
+    "copyNow": "نسخ الآن — لن يُعرض مرة أخرى.",
+    "copy": "نسخ",
+    "copied": "تم النسخ",
+    "dismiss": "تم",
+    "lastUsed": "آخر استخدام {{date}}",
+    "neverUsed": "لم يُستخدم من قبل",
+    "confirmRevoke": "إبطال «{{name}}»؟ كل ما يستخدم هذا الرمز سيتوقف عن العمل فورًا.",
+    "docsHint": "توجيه المساعد إلى /external-api/SKILL.md لتعليمه كيفية استخدام هذه الرموز.",
+    "scopes": {
+      "read": "قراءة فقط",
+      "write": "قراءة وكتابة"
+    },
+    "errors": {
+      "limit": "الحد الأقصى {{max}} رموز نشطة. إبطال رمز أولًا.",
+      "createFailed": "تعذّر إنشاء الرمز. يُرجى المحاولة مجددًا.",
+      "revokeFailed": "تعذّر إبطال الرمز. يُرجى المحاولة مجددًا."
+    }
+  },
+  "emailLoginConfirm": {
+    "loading": "جارٍ التحميل…",
+    "invalid": {
+      "tag": "رابط الدخول",
+      "title": "انتهت صلاحية الرابط",
+      "body": "رابط الدخول هذا غير صالح أو منتهي الصلاحية. الروابط تُستخدم مرة واحدة وتنتهي بعد 30 دقيقة.",
+      "requestNew": "طلب رابط جديد"
+    },
+    "ready": {
+      "tag": "خطوة أخيرة",
+      "title": "تأكيد الدخول",
+      "body": "الضغط على الزر أدناه لإتمام الدخول. هذا يؤكد أن الرابط فُتح من البريد الإلكتروني."
+    },
+    "signingIn": "جارٍ تسجيل الدخول…",
+    "signIn": "الدخول إلى Backlog.fyi",
+    "backToSignIn": "العودة إلى صفحة الدخول",
+    "errors": {
+      "unverified": "هذا البريد مرتبط بالفعل بحساب غير مؤكَّد. الدخول عبر Telegram وتأكيد البريد من الإعدادات.",
+      "expired": "رابط الدخول هذا غير صالح أو منتهي الصلاحية.",
+      "generic": "حدث خطأ ما. يُرجى المحاولة مجددًا."
+    }
+  },
+  "emailVerifyConfirm": {
+    "success": {
+      "tag": "تم",
+      "title": "تم تأكيد البريد الإلكتروني",
+      "body": "تم تأكيد البريد الإلكتروني. يمكن الآن استخدامه للدخول عبر رابط.",
+      "goToBoard": "الانتقال إلى اللوحة"
+    },
+    "ready": {
+      "tag": "تأكيد البريد الإلكتروني",
+      "title": "تأكيد العنوان",
+      "body": "الضغط على الزر أدناه لتأكيد البريد الإلكتروني. هذا يربطه بالحساب لاستخدامه في الدخول."
+    },
+    "verifying": "جارٍ التأكيد…",
+    "verifyButton": "تأكيد البريد الإلكتروني",
+    "backToApp": "العودة إلى التطبيق",
+    "errors": {
+      "expired": "رابط التأكيد هذا غير صالح أو منتهي الصلاحية.",
+      "generic": "حدث خطأ ما. يُرجى المحاولة مجددًا."
+    }
+  },
+  "feedbackModal": {
+    "title": "إرسال ملاحظات",
+    "close": "إغلاق الملاحظات",
+    "thanks": "شكرًا على الملاحظات — في طريقها إلينا. 🙏",
+    "hint": "وُجدت مشكلة، أو لديك فكرة، أو مجرد رغبة بالتحية؟ كل شيء يُقرأ هنا.",
+    "messageLabel": "الملاحظات",
+    "messagePlaceholder": "ما الذي يستحق المشاركة؟",
+    "emailLabel": "بريد للرد (اختياري)",
+    "emailPlaceholder": "you@example.com — فقط إذا كان الرد مطلوبًا",
+    "done": "تم",
+    "cancel": "إلغاء",
+    "sending": "جارٍ الإرسال…",
+    "send": "إرسال",
+    "errors": {
+      "generic": "حدث خطأ ما. يُرجى المحاولة مجددًا."
+    }
+  },
+  "invitePage": {
+    "loading": "جارٍ التحميل…",
+    "yourAccount": "حسابك",
+    "invalid": {
+      "tag": "دعوة",
+      "title": "الدعوة غير موجودة",
+      "body": "هذه الدعوة غير صالحة، أو منتهية الصلاحية، أو تم إبطالها. طلب دعوة جديدة من صاحب اللوحة.",
+      "backHome": "الانتقال إلى Backlog.fyi"
+    },
+    "ready": {
+      "tag": "دعوة إلى لوحة",
+      "title": "الانضمام إلى «{{boardName}}»",
+      "body": "تمت دعوتك إلى هذه اللوحة من قِبل <strong>{{inviterName}}</strong>. يمكن لكل عضو في اللوحة رؤية جميع مهامها وتعديلها، وسيصبح الاسم مرئيًا لبقية الأعضاء. تسجيل الدخول جارٍ باسم <strong>{{signedInAs}}</strong>."
+    },
+    "joining": "جارٍ الانضمام…",
+    "joinBoard": "الانضمام إلى اللوحة",
+    "notNow": "ليس الآن",
+    "errors": {
+      "acceptFailed": "تعذّر قبول الدعوة. ربما انتهت صلاحيتها أو تم إبطالها."
+    }
+  },
+  "scheduleTaskModal": {
+    "scheduleTitle": "جدولة مهمة",
+    "rescheduleTitle": "إعادة جدولة مهمة",
+    "subtitleSchedule": "إضافة <strong>{{taskTitle}}</strong> إلى خطة هذا الأسبوع.",
+    "subtitleReschedule": "نقل <strong>{{taskTitle}}</strong> إلى وقت جديد.",
+    "day": "اليوم",
+    "startTime": "وقت البدء",
+    "endTime": "وقت الانتهاء",
+    "endTimeError": "يجب أن يكون وقت الانتهاء بعد وقت البدء.",
+    "cancel": "إلغاء",
+    "addToPlan": "إضافة إلى الخطة",
+    "updateSlot": "تحديث الفترة"
+  },
+  "moveTaskModal": {
+    "title": "نقل المهمة",
+    "subtitle": "نقل <strong>{{taskTitle}}</strong> إلى لوحة أخرى. اختيار لوحة الوجهة والفئة التي ستنتمي إليها المهمة؛ الوسوم تُعاد إنشاؤها في اللوحة الجديدة.",
+    "destinationBoard": "لوحة الوجهة",
+    "members_zero": "{{count}} أعضاء",
+    "members_one": "عضو واحد",
+    "members_two": "عضوان",
+    "members_few": "{{count}} أعضاء",
+    "members_many": "{{count}} عضوًا",
+    "members_other": "{{count}} عضو",
+    "category": "الفئة",
+    "loadingCategories": "جارٍ تحميل الفئات…",
+    "loadError": "تعذّر تحميل فئات هذه اللوحة. المحاولة مجددًا.",
+    "cancel": "إلغاء",
+    "move": "نقل"
+  },
+  "tagEditModal": {
+    "title": "تعديل الوسم",
+    "close": "إغلاق",
+    "label": "الاسم",
+    "labelPlaceholder": "اسم الوسم",
+    "color": "اللون",
+    "persistsHint": "إعادة تسمية هذا الوسم في جميع المهام التي تستخدمه.",
+    "cancel": "إلغاء",
+    "save": "حفظ"
+  },
+  "importResultDialog": {
+    "successTitle": "اكتمل الاستيراد",
+    "imported": "تم الاستيراد: {{tasks}}، {{tags}}، {{categories}}.",
+    "tasksCount_zero": "{{count}} مهام",
+    "tasksCount_one": "مهمة واحدة",
+    "tasksCount_two": "مهمتان",
+    "tasksCount_few": "{{count}} مهام",
+    "tasksCount_many": "{{count}} مهمةً",
+    "tasksCount_other": "{{count}} مهمة",
+    "tagsCount_zero": "{{count}} وسوم",
+    "tagsCount_one": "وسم واحد",
+    "tagsCount_two": "وسمان",
+    "tagsCount_few": "{{count}} وسوم",
+    "tagsCount_many": "{{count}} وسمًا",
+    "tagsCount_other": "{{count}} وسم",
+    "categoriesCount_zero": "{{count}} فئات",
+    "categoriesCount_one": "فئة واحدة",
+    "categoriesCount_two": "فئتان",
+    "categoriesCount_few": "{{count}} فئات",
+    "categoriesCount_many": "{{count}} فئةً",
+    "categoriesCount_other": "{{count}} فئة",
+    "emailSkip": {
+      "accountHasEmail": "الحساب يحتوي بالفعل على بريد إلكتروني، لذلك لم يُستورد البريد الموجود في الملف.",
+      "taken": "البريد الإلكتروني في الملف يخص حسابًا آخر، لذلك لم يُستورد. البريد الحالي دون تغيير."
+    },
+    "errors": {
+      "corruptedFile": {
+        "title": "تعذّر استيراد هذا الملف",
+        "body": "الملف لا يبدو كتصدير صالح من Backlog. التأكد من استيراد ملف مُصدَّر من Backlog دون تعديل."
+      },
+      "unsupportedVersion": {
+        "title": "إصدار تصدير غير مدعوم",
+        "body": "هذا الملف تم إنشاؤه بإصدار مختلف من Backlog. إعادة تصدير البيانات من هذا الإصدار، ثم استيرادها."
+      },
+      "accountNotEmpty": {
+        "title": "الاستيراد يتطلب حسابًا فارغًا",
+        "body": "الاستيراد ممكن فقط إلى حساب لا يحتوي على مهام خاصة به. البدء بحساب جديد، ثم الاستيراد."
+      },
+      "internalError": {
+        "title": "حدث خطأ ما من جانبنا",
+        "body": "تعذّر إتمام الاستيراد. يُرجى المحاولة مجددًا بعد قليل."
+      }
+    },
+    "stillStuck": "ما زالت هناك مشكلة؟",
+    "contactSupport": "التواصل مع الدعم",
+    "reload": "إعادة التحميل",
+    "close": "إغلاق"
+  },
+  "userMenu": {
+    "account": "الحساب",
+    "accountMenu": "قائمة الحساب",
+    "stats": "الإحصائيات",
+    "settings": "الإعدادات",
+    "sendFeedback": "إرسال ملاحظات",
+    "signOut": "تسجيل الخروج"
+  },
+  "taskCard": {
+    "highPriority": "أولوية عالية",
+    "inCurrentPlan": "ضمن خطة هذا الأسبوع",
+    "categoryTitle": "الفئة: {{label}}",
+    "openTask": "فتح المهمة: {{title}}",
+    "claimedByYou": "مُستلَمة",
+    "claimedByYouWithName": "مُستلَمة ({{name}})",
+    "assignedTo": "مُسندة إلى {{name}}",
+    "openLink": "فتح الرابط: {{label}}",
+    "dragToReorder": "السحب لإعادة الترتيب",
+    "taskActions": "إجراءات المهمة",
+    "foldAway": "طي الملاحظة",
+    "peekNote": "عرض الملاحظة"
+  },
+  "planDetails": {
+    "inProgress": "قيد التنفيذ",
+    "finalized": "مكتملة",
+    "timestampStarted": "البدء {{started}}",
+    "timestampRange": "البدء {{started}} · الانتهاء {{ended}}",
+    "summaryHeading": "الملخص",
+    "noSummary": "لا يوجد ملخص لهذه الجلسة.",
+    "tasksHeading": "المهام ({{count}})",
+    "noTasks": "لم تُجدوَل أي مهمة في هذه الخطة.",
+    "done": "مُنجَزة",
+    "todo": "قيد الإنجاز"
+  },
+  "aiUsageMeter": {
+    "loadError": "تعذّر تحميل استخدام الذكاء الاصطناعي الآن.",
+    "loading": "جارٍ تحميل الاستخدام…",
+    "unlimited": "بلا حدود",
+    "unlimitedNote": "لا يوجد حد للرموز في هذه الخطة. ميزات الذكاء الاصطناعي متاحة دون قيود.",
+    "left": "متبقٍّ",
+    "ariaLabel": "رموز الذكاء الاصطناعي المستخدَمة في هذه الفترة",
+    "caption_zero": "تم استخدام {{pct}}% · يتم التحديث كل {{count}} يوم",
+    "caption_one": "تم استخدام {{pct}}% · يتم التحديث كل {{count}} يوم",
+    "caption_two": "تم استخدام {{pct}}% · يتم التحديث كل {{count}} يوم",
+    "caption_few": "تم استخدام {{pct}}% · يتم التحديث كل {{count}} يوم",
+    "caption_many": "تم استخدام {{pct}}% · يتم التحديث كل {{count}} يوم",
+    "caption_other": "تم استخدام {{pct}}% · يتم التحديث كل {{count}} يوم"
+  },
+  "policyPage": {
+    "termsTitle": "شروط الاستخدام",
+    "privacyTitle": "سياسة الخصوصية",
+    "backHome": "العودة إلى Backlog.fyi"
+  },
+  "boardFilter": {
+    "todo": "قيد الإنجاز",
+    "thisWeeksPlan": "خطة هذا الأسبوع",
+    "week": "الأسبوع",
+    "done": "مُنجَزة",
+    "all": "الكل",
+    "filterTasks": "تصفية المهام",
+    "noPlanYet": "لا توجد خطة نشطة أو حديثة بعد"
+  },
+  "markdownRenderer": {
+    "showLess": "عرض أقل",
+    "showMore": "عرض المزيد"
+  },
+  "noteEditor": {
+    "bold": "عريض",
+    "italic": "مائل",
+    "bulletedList": "قائمة نقطية",
+    "numberedList": "قائمة مرقّمة",
+    "checklist": "قائمة مهام",
+    "indent": "زيادة المسافة البادئة",
+    "outdent": "تقليل المسافة البادئة",
+    "link": "رابط",
+    "editAsMarkdown": "التحرير بصيغة Markdown",
+    "richEditor": "المحرر المرئي",
+    "formatting": "التنسيق",
+    "linkUrlPrompt": "رابط URL"
+  },
+  "boardNameDialog": {
+    "namePlaceholder": "اسم اللوحة",
+    "cancel": "إلغاء"
+  },
+  "duplicateBoardDialog": {
+    "title": "تكرار اللوحة",
+    "defaultName": "{{name}} (نسخة)",
+    "resetTaskStatus": "تعيين جميع المهام المنسوخة كقيد الإنجاز",
+    "confirm": "تكرار"
+  },
+  "brandBoard": {
+    "members_zero": "{{count}} أعضاء",
+    "members_one": "عضو واحد",
+    "members_two": "عضوان",
+    "members_few": "{{count}} أعضاء",
+    "members_many": "{{count}} عضوًا",
+    "members_other": "{{count}} عضو",
+    "currentBoard": "اللوحة الحالية: {{name}}. تبديل اللوحة",
+    "switchBoard": "تبديل اللوحة",
+    "boardFallback": "لوحة",
+    "boardSettings": "إعدادات اللوحة…",
+    "duplicateBoard": "تكرار اللوحة…",
+    "newBoard": "+ لوحة جديدة"
+  },
+  "categoryEditor": {
+    "changeColor": "تغيير لون {{label}}",
+    "namePlaceholder": "اسم الفئة",
+    "delete": "حذف {{label}}",
+    "inUseBy_zero": "مستخدَمة في {{count}} مهام",
+    "inUseBy_one": "مستخدَمة في مهمة واحدة",
+    "inUseBy_two": "مستخدَمة في مهمتين",
+    "inUseBy_few": "مستخدَمة في {{count}} مهام",
+    "inUseBy_many": "مستخدَمة في {{count}} مهمةً",
+    "inUseBy_other": "مستخدَمة في {{count}} مهمة",
+    "deleteTitle": "حذف",
+    "addCategory": "+ إضافة فئة",
+    "newCategoryDefault": "فئة جديدة"
+  },
+  "tagEditor": {
+    "empty": "لا توجد وسوم بعد. إضافة وسم من أي مهمة يجعله يظهر هنا لإعادة تسميته أو تغيير لونه أو حذفه.",
+    "changeColor": "تغيير لون {{label}}",
+    "labelPlaceholder": "اسم الوسم",
+    "onTasks_zero": "على {{count}} مهام",
+    "onTasks_one": "على مهمة واحدة",
+    "onTasks_two": "على مهمتين",
+    "onTasks_few": "على {{count}} مهام",
+    "onTasks_many": "على {{count}} مهمةً",
+    "onTasks_other": "على {{count}} مهمة",
+    "unused": "غير مستخدَم",
+    "delete": "حذف {{label}}",
+    "deleteAndRemove_zero": "حذف وإزالة من {{count}} مهام",
+    "deleteAndRemove_one": "حذف وإزالة من مهمة واحدة",
+    "deleteAndRemove_two": "حذف وإزالة من مهمتين",
+    "deleteAndRemove_few": "حذف وإزالة من {{count}} مهام",
+    "deleteAndRemove_many": "حذف وإزالة من {{count}} مهمةً",
+    "deleteAndRemove_other": "حذف وإزالة من {{count}} مهمة",
+    "deleteTitle": "حذف"
+  },
+  "updateBanner": {
+    "message": "يتوفر إصدار جديد من Backlog.fyi.",
+    "refresh": "تحديث"
+  },
+  "viewToggle": {
+    "switchToCard": "التبديل إلى عرض البطاقات",
+    "cardView": "عرض البطاقات",
+    "switchToCompact": "التبديل إلى العرض المضغوط",
+    "compactView": "العرض المضغوط"
+  },
+  "eventsSection": {
+    "heading": "الأحداث ({{count}})",
+    "cancelEvent": "إلغاء {{title}}",
+    "cancelling": "جارٍ الإلغاء…",
+    "cancel": "إلغاء"
+  },
+  "washiTape": {
+    "editTag": "تعديل الوسم {{label}}",
+    "removeTag": "إزالة الوسم {{label}}"
+  },
+  "paperSwatchPicker": {
+    "ariaLabel": "لون الورقة"
+  },
+  "sortMenu": {
+    "fields": {
+      "deadline": "الموعد النهائي",
+      "priority": "الأولوية",
+      "created": "الأحدث إضافةً",
+      "title": "أ–ي",
+      "longest": "الأطول أولًا",
+      "shortest": "الأقصر أولًا"
+    },
+    "sortedByChange": "الترتيب حسب {{label}}. تغيير ترتيب الفرز",
+    "sortedBy": "الترتيب حسب {{label}}",
+    "sortTasks": "ترتيب المهام",
+    "sortTasksBy": "ترتيب المهام حسب",
+    "none": "بلا"
+  },
+  "settingsModal": {
+    "title": "الإعدادات",
+    "close": "إغلاق الإعدادات",
+    "tabs": {
+      "general": "عام",
+      "categories": "التصنيفات",
+      "assistant": "المساعد",
+      "integrations": "التكاملات"
+    },
+    "days": {
+      "monday": "الاثنين",
+      "tuesday": "الثلاثاء",
+      "wednesday": "الأربعاء",
+      "thursday": "الخميس",
+      "friday": "الجمعة",
+      "saturday": "السبت",
+      "sunday": "الأحد"
+    },
+    "general": {
+      "displayName": "الاسم المعروض",
+      "displayNamePlaceholder": "الاسم",
+      "emailAddress": "البريد الإلكتروني",
+      "emailVerified": "{{email}} — تم التأكيد",
+      "emailHint": "يُستخدم لإرسال دعوات التقويم للمهام المخطَّطة.",
+      "emailNotVerified": "لم يُؤكَّد بعد.",
+      "emailPlaceholder": "you@example.com",
+      "sending": "جارٍ الإرسال…",
+      "sent": "تم الإرسال!",
+      "sendVerification": "إرسال رابط التأكيد",
+      "verificationSentHint": "تفقّد البريد الإلكتروني والضغط على الرابط للتأكيد.",
+      "autoArchive": "أرشفة المهام المُنجزة تلقائيًا",
+      "autoArchiveHelp": "تُؤرشَف المهام المُنجزة بعد هذا العدد من الأيام. ترك الحقل فارغًا للتعطيل.",
+      "autoArchivePlaceholder": "7",
+      "notifications": "الإشعارات",
+      "calendarInvites": "دعوات تقويم عبر البريد للمهام المخطَّطة هذا الأسبوع",
+      "verifyEmailFirst": "(يلزم تأكيد البريد الإلكتروني أولًا)",
+      "appReminders": "تذكيرات داخل التطبيق قبل بدء مهمة مخطَّطة",
+      "sentOverTelegram": "(تُرسَل عبر Telegram إن كان متصلًا)",
+      "timeZone": "المنطقة الزمنية",
+      "timeZonePlaceholder": "مثال: Europe/London",
+      "language": "اللغة",
+      "firstDayOfWeek": "أول أيام الأسبوع",
+      "firstDayOfWeekHelp": "يحدد المقصود بـ«هذا الأسبوع» أثناء جلسات التخطيط.",
+      "notSet": "غير محدَّد",
+      "dangerZone": "منطقة الخطر",
+      "exporting": "جارٍ التصدير…",
+      "exportData": "تصدير البيانات",
+      "importing": "جارٍ الاستيراد…",
+      "importData": "استيراد البيانات",
+      "deleteWarning": "سيؤدي هذا إلى حذف الحساب وكل بياناته نهائيًا، دون إمكانية التراجع.",
+      "deleting": "جارٍ الحذف…",
+      "confirmDelete": "نعم، حذف كل شيء",
+      "cancel": "إلغاء",
+      "deleteAccount": "حذف الحساب"
+    },
+    "categories": {
+      "categoriesLabel": "الفئات",
+      "categoriesHint": "لون الورقة اللاصقة في اللوحة. لكل مهمة فئة واحدة.",
+      "tagsLabel": "الوسوم",
+      "tagsHint": "ملصقات يمكن أن تحمل المهمة عدة منها. يمكن إعادة تسميتها أو تغيير لونها أو حذفها."
+    },
+    "assistant": {
+      "aiAccess": "وصول الذكاء الاصطناعي",
+      "aiAccessHelp": "يعطّل كل ميزات الذكاء الاصطناعي لهذا الحساب: التخطيط الأسبوعي، اقتراحات الإضافة السريعة، وأوامر /plan و/add في Telegram. على لوحة مشتركة، تتوقف ميزات الذكاء الاصطناعي للجميع ما دام هذا الوصول معطَّلًا.",
+      "aiAccessToggle": "السماح لميزات الذكاء الاصطناعي بقراءة بيانات هذا الحساب",
+      "aiPlan": "خطة الذكاء الاصطناعي",
+      "aiPlanHelp": "ميزانية الرموز لميزات الذكاء الاصطناعي على مدى نافذة متحركة مدتها 30 يومًا.",
+      "weeklyPlanning": "جلسة التخطيط الأسبوعية",
+      "weeklyPlanningHelp": "ستبدأ محادثة التخطيط عبر Telegram في هذا الوقت كل أسبوع.",
+      "weeklyPlanningToggle": "بدء جلسة تخطيط أسبوعية",
+      "planningDay": "يوم التخطيط",
+      "planningTime": "وقت التخطيط",
+      "reminders": "التذكيرات",
+      "remindersHelp": "عند التفعيل، يكتب المساعد التذكير المُرسَل قبل بدء مهمة مخطَّطة — رسالة قصيرة مخصَّصة بدلًا من القالب الافتراضي. أزرار التذكير (تأجيل، تعليم كمُنجَزة) تعمل في الحالتين.",
+      "remindersToggle": "السماح للمساعد بكتابة تذكيرات المهام",
+      "addressYou": "بأي صيغة يخاطب المساعد المستخدم؟",
+      "addressYouHelp": "يحدد الضمائر والصيغة اللغوية المستخدَمة أثناء محادثات التخطيط.",
+      "noPreference": "— بلا تفضيل",
+      "personalContext": "سياق شخصي",
+      "personalContextHelp": "حقائق يستخدمها المخطِّط الذكي عند جدولة الأسبوع — تفضيلات، التزامات متكررة، أنماط الطاقة.",
+      "personalContextPlaceholder": "مثال: المهام الصعبة يُفضَّل جدولتها صباحًا…"
+    },
+    "footer": {
+      "cancel": "إلغاء",
+      "saving": "جارٍ الحفظ…",
+      "save": "حفظ"
+    }
+  },
+  "taskDrawer": {
+    "validation": {
+      "titleRequired": "العنوان مطلوب.",
+      "titleTooLong": "يجب ألا يتجاوز العنوان 500 حرف.",
+      "descriptionTooLong": "يجب ألا يتجاوز الوصف 5000 حرف.",
+      "urlInvalid": "يجب أن يبدأ الرابط بـ http:// أو https://",
+      "urlTooLong": "يجب ألا يتجاوز الرابط 2000 حرف."
+    },
+    "saveError": "حدث خطأ ما. يُرجى المحاولة مجددًا.",
+    "newTaskAria": "مهمة جديدة",
+    "taskDetailsAria": "تفاصيل المهمة",
+    "newTaskLabel": "مهمة جديدة",
+    "taskLabel": "مهمة",
+    "close": "إغلاق",
+    "tutorialHint": "هذه مهمة تعليمية. تعليمها كمُنجَزة أو إزالة التعليم عند الاستعداد.",
+    "titlePlaceholder": "عنوان المهمة…",
+    "category": "الفئة",
+    "priority": "الأولوية",
+    "priorityNone": "بلا",
+    "priorityHigh": "عالية",
+    "priorityMedium": "متوسطة",
+    "priorityLow": "منخفضة",
+    "assignee": "المُكلَّف",
+    "unassigned": "غير مُسندة",
+    "assigneeYou": "{{name}} (أنا)",
+    "description": "الوصف",
+    "descriptionPlaceholder": "ملاحظات اختيارية، سياق…",
+    "link": "رابط",
+    "urlPlaceholder": "https://…",
+    "deadline": "الموعد النهائي",
+    "availableFrom": "متاحة ابتداءً من",
+    "estMinutes": "الوقت المقدَّر، دقيقة",
+    "estMinutesPlaceholder": "90",
+    "tags": "الوسوم",
+    "tagsCount": "({{count}}/3)",
+    "noTagsYet": "لا توجد وسوم بعد",
+    "addFromYourTags": "إضافة من الوسوم الحالية",
+    "addTagAria": "إضافة الوسم {{label}}",
+    "addTagTitle": "إضافة {{label}}",
+    "showLess": "عرض أقل",
+    "moreTags": "+{{count}} أخرى",
+    "addTag": "+ إضافة وسم",
+    "tagLabelPlaceholder": "اسم الوسم…",
+    "add": "إضافة",
+    "cancel": "إلغاء",
+    "visibility": "الظهور",
+    "visibilityHelp": "عند الإخفاء، تُستبعَد هذه المهمة من اقتراحات مساعد التخطيط والبحث. تبقى ظاهرة على اللوحة كالمعتاد.",
+    "hideFromAssistant": "إخفاء عن المساعد",
+    "created": "أُنشئت {{relative}}",
+    "updated": "· آخر تحديث {{relative}}",
+    "unarchive": "↺ إلغاء الأرشفة",
+    "markTodo": "↺ تعليم كقيد الإنجاز",
+    "markDone": "تعليم كمُنجَزة",
+    "delete": "حذف",
+    "pinItUp": "تثبيت",
+    "save": "حفظ"
+  },
+  "app": {
+    "loading": "جارٍ التحميل…",
+    "loadError": "تعذّر تحميل البيانات. هل الخادم يعمل؟",
+    "emptyTodo": "لا شيء مثبَّت هنا. إضافة أول مهمة.",
+    "emptyPlan": "خطة هذا الأسبوع فارغة حتى الآن.",
+    "emptyDone": "لا توجد مهام مُنجزة بعد.",
+    "emptyAll": "لا توجد مهام بعد.",
+    "addTaskAria": "إضافة مهمة جديدة",
+    "addTaskTitle": "تثبيت مهمة جديدة",
+    "openPlanAria": "فتح خطة الأسبوع",
+    "openPlanTitle": "خطة الأسبوع",
+    "taskListAria": "قائمة المهام",
+    "hideArchived": "إخفاء الأرشيف",
+    "showArchived": "عرض الأرشيف",
+    "member": "عضو",
+    "addToPlanFailed": "تعذّرت إضافة المهمة إلى خطة هذا الأسبوع. يُرجى المحاولة مجددًا.",
+    "changeSlotFailed": "تعذّر نقل المهمة إلى هذا الوقت. يُرجى المحاولة مجددًا.",
+    "contextMenu": {
+      "markTodo": "تعليم كقيد الإنجاز",
+      "markDone": "تعليم كمُنجَزة",
+      "edit": "تعديل",
+      "unclaim": "التراجع عن الاستلام",
+      "claim": "استلام المهمة",
+      "addToPlan": "إضافة إلى خطة هذا الأسبوع",
+      "changeSlot": "تغيير الوقت…",
+      "removeFromPlan": "إزالة من خطة هذا الأسبوع",
+      "duplicate": "تكرار",
+      "moveToBoard": "نقل إلى لوحة…",
+      "delete": "حذف"
+    },
+    "deleteTaskTitle": "حذف المهمة",
+    "deleteTaskMessage": "حذف «{{title}}»؟ لا يمكن التراجع عن هذا الإجراء.",
+    "deleteConfirmLabel": "حذف",
+    "newBoardTitle": "لوحة جديدة",
+    "createBoard": "إنشاء",
+    "nudgeText": "إضافة بريد إلكتروني أو Telegram للحفاظ على المهام.",
+    "nudgeCta": "حفظ الحساب",
+    "dismiss": "إخفاء"
+  },
+  "boardSettingsModal": {
+    "title": "إعدادات اللوحة",
+    "close": "إغلاق",
+    "name": "الاسم",
+    "namePlaceholder": "اسم اللوحة",
+    "mascot": "الشعار",
+    "mascotHint": "الشخصية الصغيرة في زاوية هذه اللوحة.",
+    "mascotAria": "شعار اللوحة",
+    "members": "الأعضاء",
+    "loading": "جارٍ التحميل…",
+    "youTag": " (أنا)",
+    "joinedOn": "في اللوحة منذ {{date}}",
+    "roleOwner": "مالك",
+    "roleMember": "عضو",
+    "makeMember": "تعيين كعضو",
+    "makeOwner": "تعيين كمالك",
+    "remove": "إزالة",
+    "inviteHint": "ربط طريقة دخول (Telegram أو بريد مؤكَّد) من الإعدادات لدعوة أشخاص إلى هذه اللوحة.",
+    "invitePlaceholder": "الدعوة عبر بريد إلكتروني…",
+    "invite": "دعوة",
+    "pendingInvitations": "الدعوات المُرسَلة",
+    "invitedExpires": "أُرسلت الدعوة {{invited}} · تنتهي {{expires}}",
+    "revoke": "إبطال",
+    "onlyMemberHint": "العضو الوحيد في اللوحة — يمكن حذف اللوحة بدلًا من ذلك",
+    "leaveBoard": "مغادرة اللوحة",
+    "onlyBoardHint": "هذه اللوحة الوحيدة — إنشاء لوحة أخرى أولًا",
+    "deleteBoard": "حذف اللوحة",
+    "cancel": "إلغاء",
+    "done": "تم",
+    "saving": "جارٍ الحفظ…",
+    "save": "حفظ",
+    "consent": "سيتمكن كل عضو يُضاف من رؤية جميع مهام هذه اللوحة وتعديلها — بما فيها المهام الموجودة مسبقًا — إلى أن تتم إزالته. سيصبح اسم الداعي مرئيًا أيضًا. إرسال الدعوة؟",
+    "confirm": {
+      "inviteTitle": "مشاركة هذه اللوحة؟",
+      "inviteLabel": "إرسال الدعوة",
+      "removeTitle": "إزالة العضو؟",
+      "removeMessage": "إزالة {{name}} من «{{board}}»؟ ستبقى المهام التي أضافها هذا العضو في اللوحة.",
+      "leaveTitle": "مغادرة هذه اللوحة؟",
+      "leaveMessage": "مغادرة «{{board}}»؟ ستبقى المهام المُضافة لبقية الأعضاء. العودة ممكنة فقط عبر دعوة جديدة.",
+      "deleteTitle": "حذف هذه اللوحة؟",
+      "deleteMessage": "حذف «{{board}}» وجميع مهامها وفئاتها ووسومها؟ لا يمكن التراجع عن هذا الإجراء.",
+      "defaultLabel": "تأكيد"
+    }
+  },
+  "weeklyPlanDrawer": {
+    "ariaLabel": "خطة الأسبوع",
+    "backToPlan": "العودة إلى الخطة",
+    "titleChat": "تخطيط الأسبوع",
+    "titleOverview": "خطة الأسبوع",
+    "leaveSession": "مغادرة الجلسة",
+    "close": "إغلاق",
+    "prevWeekAria": "الأسبوع السابق",
+    "nextWeekAria": "الأسبوع التالي",
+    "loading": "جارٍ التحميل…",
+    "noPlanTitle": "لا توجد خطة لهذا الأسبوع.",
+    "emptyHintPast": "التخطيط متاح للأسبوع الحالي والأسابيع القادمة فقط.",
+    "emptyHintFuture": "يمكن تخطيطه مع المساعد أدناه، أو بدء جلسة عبر Telegram.",
+    "planFinalized": "الخطة مكتملة",
+    "thinkingPlaceholder": "جارٍ التفكير…",
+    "typeMessagePlaceholder": "كتابة رسالة…",
+    "messageAria": "رسالة",
+    "send": "إرسال",
+    "confirmLeave": {
+      "title": "مغادرة جلسة التخطيط؟",
+      "message": "سيؤدي هذا إلى إلغاء المحادثة الجارية. الخطة الحالية تبقى كما هي.",
+      "confirmLabel": "مغادرة"
+    },
+    "thisWeekWord": "هذا الأسبوع",
+    "nextWeekWord": "الأسبوع القادم",
+    "override": {
+      "title": "توجد بالفعل خطة لـ{{week}}",
+      "body": "تخطيط {{week}} من البداية يبدأ جلسة جديدة ستحل محل الخطة الحالية عند إتمامها. لإبقاء ما تمت جدولته، الأفضل تعديل الخطة الحالية بدلًا من ذلك.",
+      "cancel": "إلغاء",
+      "planFromScratch": "التخطيط من البداية",
+      "revise": "تعديل"
+    },
+    "aiDisabledHint": "التخطيط بالذكاء الاصطناعي معطَّل. يمكن تفعيله من الإعدادات ← المساعد، أو طلب ذلك من عضو في اللوحة المشتركة عطَّله.",
+    "sessionInProgress": "جلسة تخطيط جارية بالفعل.",
+    "continuePlanning": "متابعة التخطيط",
+    "abandonStartOver": "التخلي والبدء من جديد",
+    "revisePlan": "تعديل هذه الخطة",
+    "planThisWeek": "تخطيط هذا الأسبوع",
+    "planNextWeek": "تخطيط الأسبوع القادم",
+    "relative": {
+      "thisWeek": "هذا الأسبوع",
+      "nextWeek": "الأسبوع القادم",
+      "lastWeek": "الأسبوع الماضي",
+      "weeksAgo_zero": "قبل {{count}} أسابيع",
+      "weeksAgo_one": "قبل أسبوع",
+      "weeksAgo_two": "قبل أسبوعين",
+      "weeksAgo_few": "قبل {{count}} أسابيع",
+      "weeksAgo_many": "قبل {{count}} أسبوعًا",
+      "weeksAgo_other": "قبل {{count}} أسبوع",
+      "inWeeks_zero": "خلال {{count}} أسابيع",
+      "inWeeks_one": "خلال أسبوع",
+      "inWeeks_two": "خلال أسبوعين",
+      "inWeeks_few": "خلال {{count}} أسابيع",
+      "inWeeks_many": "خلال {{count}} أسبوعًا",
+      "inWeeks_other": "خلال {{count}} أسبوع"
+    }
+  }
+}
