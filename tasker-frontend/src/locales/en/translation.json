@@ -127,7 +127,7 @@
     "onlyThisDevice": "This is your only active session",
     "confirm": "Sign out of all other sessions ({{n}})?",
     "confirmYes": "Sign out others",
-    "revoking": "Signing out\u2026",
+    "revoking": "Signing out…",
     "cancel": "Cancel",
     "errors": {
       "revokeFailed": "Could not sign out the other sessions. Please try again."
