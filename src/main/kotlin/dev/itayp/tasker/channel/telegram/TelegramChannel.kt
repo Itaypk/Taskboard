@@ -1,5 +1,6 @@
 package dev.itayp.tasker.channel.telegram
 
+import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.capture.QuickAddFlow
 import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.ChannelMessage
@@ -21,6 +22,7 @@ import java.time.Clock
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Locale
+import java.util.UUID
 import dev.itayp.tasker.planning.WeeklyPlanningOrchestrator.Phase
 import dev.itayp.tasker.repository.UserRepository
 import org.slf4j.LoggerFactory
@@ -37,6 +39,7 @@ import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage
 import org.telegram.telegrambots.meta.api.objects.Update
 import org.telegram.telegrambots.meta.api.objects.commands.BotCommand
+import org.telegram.telegrambots.meta.api.objects.message.Message
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException
 import org.telegram.telegrambots.meta.generics.TelegramClient
 
@@ -53,7 +56,9 @@ class TelegramChannel(
     private val planConfirmationRegistry: PlanConfirmationRegistry,
     private val quickAddRegistry: QuickAddRegistry,
     private val quickAddFlow: QuickAddFlow,
+    private val mediaExtractor: TelegramMediaExtractor,
     private val reminderActionHandler: ReminderActionHandler,
+    private val aiAccessService: AiAccessService,
     private val userSettingsService: UserSettingsService,
     private val messageSource: MessageSource,
     private val telegramClient: TelegramClient,
@@ -78,7 +83,7 @@ class TelegramChannel(
     private fun notifyUpdateFailed(update: Update) {
         try {
             val chatId = when {
-                update.hasMessage() && update.message.hasText() -> update.message.chatId
+                update.hasMessage() -> update.message.chatId
                 update.hasCallbackQuery() -> update.callbackQuery.message.chatId
                 else -> return
             }
@@ -100,9 +105,16 @@ class TelegramChannel(
     }
 
     private fun handleUpdate(update: Update) {
-        val (chatId, telegramUserId, inbound) = when {
+        // A photo/voice message needs the user resolved (for its locale, and for the AI opt-out
+        // check) before we spend a download on it, so it's carried as a null inbound here and
+        // extracted further down.
+        val mediaMessage = update.message?.takeIf { !it.hasText() && mediaExtractor.carriesMedia(it) }
+        val routed: Triple<Long, Long, ChannelInbound?> = when {
             update.hasMessage() && update.message.hasText() ->
                 Triple(update.message.chatId, update.message.from.id, ChannelInbound.Text(update.message.text))
+
+            mediaMessage != null ->
+                Triple(mediaMessage.chatId, mediaMessage.from.id, null)
 
             update.hasCallbackQuery() -> {
                 telegramClient.execute(AnswerCallbackQuery(update.callbackQuery.id))
@@ -115,6 +127,7 @@ class TelegramChannel(
 
             else -> return
         }
+        val (chatId, telegramUserId, inbound) = routed
 
         val channel = TelegramConversationChannel(chatId, telegramClient)
 
@@ -131,6 +144,11 @@ class TelegramChannel(
             return
         }
         val userId = user.id!!
+
+        if (inbound == null) {
+            handleMedia(userId, chatId, channel, mediaMessage!!)
+            return
+        }
 
         if (inbound is ChannelInbound.Text && inbound.text.startsWith("/")) {
             // A new command always supersedes an in-progress quick-add capture (latest intent wins).
@@ -215,6 +233,41 @@ class TelegramChannel(
         if (orchestrator.phase(sessionId) == Phase.DONE) {
             sessionRegistry.remove(chatId)
         }
+    }
+
+    /**
+     * Routes a photo / voice note. Media is only accepted as part of an **in-progress quick-add**:
+     * how an out-of-band attachment should behave is still an open product question, so a photo
+     * that arrives on its own gets a pointer to `/add` rather than a capture we'd have to undo
+     * later. That gate also means the download only happens for a user who asked for it.
+     */
+    private fun handleMedia(userId: UUID, chatId: Long, channel: TelegramConversationChannel, message: Message) {
+        val locale = userSettingsService.getLocale(userId)
+        if (!aiAccessService.isAiAvailableForUser(userId)) {
+            channel.send(ChannelMessage.Text(messageSource.getMessage("command.ai_disabled", null, locale)))
+            return
+        }
+        val quickAddState = quickAddRegistry.get(chatId)
+        if (quickAddState == null) {
+            channel.send(ChannelMessage.Text(messageSource.getMessage("quickadd.media.no_flow", null, locale)))
+            return
+        }
+        val inbound = when (val extraction = mediaExtractor.extract(message)) {
+            is TelegramMediaExtractor.Extraction.Media -> extraction.inbound
+            is TelegramMediaExtractor.Extraction.Rejected -> {
+                channel.send(ChannelMessage.Text(messageSource.getMessage(rejectionKey(extraction.reason), null, locale)))
+                return
+            }
+            TelegramMediaExtractor.Extraction.None -> return
+        }
+        val next = quickAddFlow.handleInbound(userId, channel, quickAddState, inbound)
+        if (next != null) quickAddRegistry.set(chatId, next) else quickAddRegistry.remove(chatId)
+    }
+
+    private fun rejectionKey(reason: TelegramMediaExtractor.Reason): String = when (reason) {
+        TelegramMediaExtractor.Reason.TOO_LARGE -> "quickadd.media.too_large"
+        TelegramMediaExtractor.Reason.UNSUPPORTED_TYPE -> "quickadd.media.unsupported_type"
+        TelegramMediaExtractor.Reason.DOWNLOAD_FAILED -> "quickadd.media.download_failed"
     }
 
     /** Recognizes "/start", "/start@BotName", and deep-link forms like "/start payload". */

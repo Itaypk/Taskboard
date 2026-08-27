@@ -1,5 +1,7 @@
 package dev.itayp.tasker.capture
 
+import dev.itayp.tasker.channel.AttachmentKind
+import dev.itayp.tasker.channel.InboundAttachment
 import dev.itayp.tasker.channel.MessageFormatter
 import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.ChannelMessage
@@ -16,6 +18,7 @@ import dev.itayp.tasker.planning.EventDraft
 import dev.itayp.tasker.planning.SuggestionOutcome
 import dev.itayp.tasker.planning.TaskDraft
 import dev.itayp.tasker.planning.TaskSuggestionAgent
+import dev.itayp.tasker.planning.UnsupportedModalityException
 import dev.itayp.tasker.planning.toCreateBacklogTaskRequest
 import dev.itayp.tasker.service.BacklogTaskCategoryService
 import dev.itayp.tasker.service.BacklogTaskService
@@ -77,13 +80,54 @@ class QuickAddFlow(
         return renderOutcome(userId, channel, op, outcome, clarifyRound = 1)
     }
 
+    /**
+     * Captures from media the user sent — a forwarded photo of an invitation, a voice note. The
+     * attachment is read once, by the capture model, which hands back what it found; from the
+     * confirmation card on, the capture behaves exactly like a typed one (that read-back stands in
+     * for the user's request), so no bytes are held past this call.
+     *
+     * Reached through [handleInbound]: an attachment only counts while a quick-add is in progress
+     * (`docs/MULTIMODAL-CAPTURE.md` D8), so channels gate on that before calling in.
+     *
+     * Returns null — the flow is over — when the configured model can't accept the modality, or the
+     * capture failed; both paths tell the user what to do instead.
+     */
+    fun beginFromMedia(
+        userId: UUID,
+        channel: ConversationChannel,
+        attachments: List<InboundAttachment>,
+        caption: String?,
+    ): QuickAddState? {
+        if (attachments.isEmpty()) return null
+        channel.indicateTyping()
+        val outcome = try {
+            suggestionAgent.quickAddDraftFromMedia(userId, attachments, caption)
+        } catch (e: UnsupportedModalityException) {
+            countMedia(attachments, "unsupported")
+            log.info("quick-add media capture declined: model lacks modalities {}", e.kinds)
+            channel.send(ChannelMessage.Text(msg(userId, unsupportedMessageKey(attachments))))
+            return null
+        }
+        val request = outcome.sourceText
+            ?: caption?.trim()?.takeIf { it.isNotBlank() }
+            ?: MEDIA_REQUEST_PLACEHOLDER
+        outcome.sourceText?.let { echoSourceText(userId, channel, attachments, it) }
+        countMedia(attachments, if (outcome is SuggestionOutcome.Unparseable) "failed" else "captured")
+        val op = PendingOp.Draft(request, emptyList())
+        return renderOutcome(userId, channel, op, outcome, clarifyRound = 1)
+    }
+
     /** Advances an in-progress flow. Returns the next state, or null when the flow is finished. */
     fun handleInbound(
         userId: UUID,
         channel: ConversationChannel,
         state: QuickAddState,
         inbound: ChannelInbound,
-    ): QuickAddState? = when (state) {
+    ): QuickAddState? = if (inbound is ChannelInbound.Media) {
+        // Media always (re)starts the capture from the attachment: it carries far more than the
+        // typed line it replaces, so folding it into a half-built draft would be the wrong default.
+        beginFromMedia(userId, channel, inbound.attachments, inbound.caption)
+    } else when (state) {
         is QuickAddState.AwaitingDescription -> onDescription(userId, channel, inbound)
         is QuickAddState.AwaitingConfirmation -> onConfirmation(userId, channel, state, inbound)
         is QuickAddState.AwaitingAdjustment -> onAdjustment(userId, channel, state, inbound)
@@ -157,6 +201,9 @@ class QuickAddFlow(
                 state.options.firstOrNull { it.id == inbound.optionId }?.label ?: inbound.optionId
             }
             is ChannelInbound.Text -> inbound.text.trim()
+            // Unreachable: handleInbound routes media to a fresh capture before any state handler
+            // sees it. Kept so this stays exhaustive rather than silently answering with an else.
+            is ChannelInbound.Media -> inbound.caption.orEmpty()
         }
         if (answer.isBlank()) return state
 
@@ -419,6 +466,37 @@ class QuickAddFlow(
     private fun truncate(text: String): String =
         if (text.length <= DESCRIPTION_PREVIEW) text else text.take(DESCRIPTION_PREVIEW).trimEnd() + "…"
 
+    /**
+     * Shows the user what the model read or heard before the draft card, so a misread is obvious at
+     * a glance — a wrong date lifted off a blurry invitation is much easier to spot in the echo than
+     * in the resulting event.
+     */
+    private fun echoSourceText(
+        userId: UUID,
+        channel: ConversationChannel,
+        attachments: List<InboundAttachment>,
+        sourceText: String,
+    ) {
+        val key = if (attachments.any { it.kind == AttachmentKind.AUDIO }) {
+            "quickadd.media.heard"
+        } else {
+            "quickadd.media.read"
+        }
+        channel.send(ChannelMessage.Text(msg(userId, key, channel.formatter.escape(truncate(sourceText)))))
+    }
+
+    private fun unsupportedMessageKey(attachments: List<InboundAttachment>): String =
+        if (attachments.any { it.kind == AttachmentKind.AUDIO }) {
+            "quickadd.media.audio_unsupported"
+        } else {
+            "quickadd.media.image_unsupported"
+        }
+
+    private fun countMedia(attachments: List<InboundAttachment>, result: String) {
+        val kind = attachments.map { it.kind }.distinct().singleOrNull()?.name?.lowercase() ?: "mixed"
+        meterRegistry.counter("tasker.quickadd.media", "kind", kind, "result", result).increment()
+    }
+
     private fun count(result: String) =
         meterRegistry.counter("tasker.quickadd.outcome", "result", result).increment()
 
@@ -475,6 +553,13 @@ class QuickAddFlow(
         const val OPTION_ADJUST = "quickadd_adjust"
         const val OPTION_CANCEL = "quickadd_cancel"
         const val OPTION_EXPLAIN = "quickadd_explain"
+
+        /**
+         * Stands in for the user's request when a media capture yielded no read-back and carried no
+         * caption. It only ever reaches the model, on a later revise/clarify round — the user never
+         * sees it.
+         */
+        const val MEDIA_REQUEST_PLACEHOLDER = "(the user sent an attachment with no text)"
 
         private val DEADLINE_REGEX = Regex("""^\d{4}-\d{2}-\d{2}$""")
         private const val DESCRIPTION_PREVIEW = 200

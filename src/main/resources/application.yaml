@@ -51,6 +51,10 @@ tasker:
     weekly-planning-model: ${TASKER_AI_PLANNING_MODEL:openai/gpt-oss-20b:free}
     # Model for the planner's task search/suggestion sub-agents; defaults to the planning model.
     task-assistant-model: ${TASKER_AI_TASK_ASSISTANT_MODEL:${TASKER_AI_PLANNING_MODEL:openai/gpt-oss-20b:free}}
+    # Model for quick-add captures carrying an image or a voice note; defaults to the task-assistant
+    # model. Must advertise the matching input modality (image / audio) in OpenRouter's model
+    # capabilities, or media capture is declined with a "describe it in text" reply.
+    multimodal-model: ${TASKER_AI_MULTIMODAL_MODEL:}
     # Reasoning/effort level per functionality. Value: minimal|low|medium|high, or blank (default)
     # for no reasoning override. Only sent to models whose capabilities (fetched at startup) report
     # reasoning support, so a level set here on a non-reasoning model is silently skipped.

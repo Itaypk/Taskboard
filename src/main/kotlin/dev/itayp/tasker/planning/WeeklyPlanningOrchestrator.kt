@@ -190,6 +190,9 @@ class WeeklyPlanningOrchestrator(
                 inbound.freeText?.let { "$label ($it)" } ?: label
             }
             is ChannelInbound.Text -> inbound.text
+            // The planner takes no attachments — TelegramChannel declines media during a session —
+            // so this and the Media branches below only degrade to whatever text came alongside.
+            is ChannelInbound.Media -> inbound.caption.orEmpty()
         }
 
         val weekStart = current.weekStart
@@ -270,7 +273,7 @@ class WeeklyPlanningOrchestrator(
         val action = when (inbound) {
             is ChannelInbound.Selection -> inbound.optionId
             // Free text at a fixed-choice question: leave the task in the backlog (the safe no-op).
-            is ChannelInbound.Text -> RECONCILE_QUEUE
+            is ChannelInbound.Text, is ChannelInbound.Media -> RECONCILE_QUEUE
         }
         val carriedOver = current.carriedOver.toMutableList()
         applyReconcileAction(current.userId, head, action, carriedOver)
@@ -537,6 +540,7 @@ class WeeklyPlanningOrchestrator(
                 Triple(inbound.optionId, matched?.label, inbound.freeText)
             }
             is ChannelInbound.Text -> Triple(null, null, inbound.text)
+            is ChannelInbound.Media -> Triple(null, null, inbound.caption.orEmpty())
         }
         val isEscape = choiceId == ESCAPE_OPTION_ID
         val payload = mapOf(
@@ -672,6 +676,7 @@ class WeeklyPlanningOrchestrator(
     private fun inboundAsText(inbound: ChannelInbound): String = when (inbound) {
         is ChannelInbound.Text -> inbound.text
         is ChannelInbound.Selection -> inbound.freeText ?: inbound.optionId
+        is ChannelInbound.Media -> inbound.caption.orEmpty()
     }
 
     enum class Phase {

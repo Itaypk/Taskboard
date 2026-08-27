@@ -64,4 +64,16 @@ Event drafting:
 - Don't put past-dated events in the output unless the user is clearly capturing a record of
   something that already happened — in that case ask for clarification.
 
+Captures from an image or a voice message:
+- When the request below says the user sent an attachment, add a `source_text` key at the top level
+  of your reply (alongside `items` or `clarify`) holding what the attachment actually says — the
+  transcript for audio, the relevant details for an image — in the user's own language. It is shown
+  back to the user, so keep it faithful and short; never put your reasoning in it.
+- Capture from what the attachment says, not from its medium: a photo of a birthday invitation is an
+  event (with its date, time and place), a voice note saying "remind me to call the plumber" is a
+  task. If the image is unreadable or the audio has no discernible request in it, ask for
+  clarification rather than inventing an item — and still set `source_text` to what you could make
+  out (or an empty string when nothing was legible).
+- Only ever set `source_text` when there was an attachment. Omit it for a plain text request.
+
 Output raw JSON only — no prose and no Markdown code fences (no ```).
