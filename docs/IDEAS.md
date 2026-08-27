@@ -153,9 +153,10 @@ Deferred from the `docs/I18N.md` design (see there for full rationale). Not bloc
   languages to en/he/ru/ar), Phase 1 (i18next + locale-resolution infrastructure, `Intl` formatting
   helper, full string extraction, key-parity test) and Phase 2a (the RTL direction pass: CSS logical
   properties, direction-aware components, mirrorable arrows, `?uiLang=he` dev preview, guard tests)
-  have landed, as has Phase 2b (the Hebrew catalog and the `he` launch). Remaining before Hebrew
-  can be called done: the Hebrew display-type decision (see "Fonts look bad in Hebrew" above) and
-  RTL visual QA. Then Russian and Arabic (Phase 3).
+  have landed, as has Phase 2b (the Hebrew catalog and the `he` launch, RTL-QA'd) and the Russian
+  half of Phase 3 (catalog-only, `ru` launched — no RTL/font work needed). The Hebrew display-type
+  decision (see "Fonts look bad in Hebrew" above) is deliberately left open — not blocking. Arabic
+  is the one phase left.
   `docs/I18N-INVENTORY.md` tracks per-component extraction status.
 - Multi-modal support: the assistant can process images and voice messages. **Partly shipped** —
   a Telegram quick-add can now be described with a photo or a voice note instead of typed text

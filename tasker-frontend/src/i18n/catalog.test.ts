@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import en from '../locales/en/translation.json';
 import he from '../locales/he/translation.json';
+import ru from '../locales/ru/translation.json';
 import { LAUNCHED_UI_LANGUAGES } from './index';
 
 /**
@@ -70,6 +71,7 @@ const enShape = pluralShape(enFlat);
 /** Catalogs for launched non-English languages, keyed by code. Populate as each ships. */
 const otherCatalogs: Record<string, Catalog> = {
     he: he as Catalog,
+    ru: ru as Catalog,
 };
 
 describe('en translation catalog', () => {

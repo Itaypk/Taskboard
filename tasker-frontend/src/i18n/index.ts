@@ -15,8 +15,8 @@ import { initReactI18next } from 'react-i18next';
 import enTranslation from '../locales/en/translation.json';
 import { isUsableLocale, setActiveLocale } from './format';
 
-/** Languages whose UI catalog is complete and QA'd. Add `ru`, `ar` as each ships (D7). */
-export const LAUNCHED_UI_LANGUAGES = ['en', 'he'] as const;
+/** Languages whose UI catalog is complete and QA'd. Add `ar` as it ships (D7). */
+export const LAUNCHED_UI_LANGUAGES = ['en', 'he', 'ru'] as const;
 
 /** All languages the picker may offer; matches the backend's trimmed supported list (D1). */
 export const SUPPORTED_UI_LANGUAGES = ['en', 'he', 'ru', 'ar'] as const;
@@ -29,7 +29,7 @@ const FALLBACK_LOCALE = 'en-US';
 /** Lazy loaders for non-English catalogs, wired up as languages launch. */
 const catalogLoaders: Partial<Record<UiLanguage, () => Promise<{ default: Record<string, unknown> }>>> = {
     he: () => import('../locales/he/translation.json'),
-    // ru: () => import('../locales/ru/translation.json'),
+    ru: () => import('../locales/ru/translation.json'),
     // ar: () => import('../locales/ar/translation.json'),
 };
 
