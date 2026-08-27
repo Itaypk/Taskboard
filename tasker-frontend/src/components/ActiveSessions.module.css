@@ -43,3 +43,24 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+
+.expandedActions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.linkBtn {
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  font: inherit;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.linkBtn:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}

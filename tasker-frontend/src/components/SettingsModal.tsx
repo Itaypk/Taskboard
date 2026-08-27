@@ -1,10 +1,8 @@
 import { useState, useEffect, useMemo, useRef, type ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import styles from './SettingsModal.module.css';
-import type { UserSettings, Task, SettingsOptions, Tag } from '../types';
+import type { UserSettings, SettingsOptions } from '../types';
 import { AiUsageMeter } from './AiUsageMeter';
-import { CategoryEditor } from './CategoryEditor';
-import { TagEditor } from './TagEditor';
 import { ActiveSessions } from './ActiveSessions';
 import { ConnectedAccounts } from './ConnectedAccounts';
 import { ImportResultDialog } from './ImportResultDialog';
@@ -13,32 +11,24 @@ import { HelpTip } from './HelpTip';
 import { ApiTokens } from './ApiTokens';
 import { Tabs } from './Tabs';
 import { Toggle } from './Toggle';
-import { createCategory, updateCategory, deleteCategory, updateTag, deleteTag, updateUserSettings, fetchSettingsOptions, deleteAccount, exportAccount, importAccount, requestEmailVerification } from '../api';
+import { updateUserSettings, fetchSettingsOptions, deleteAccount, exportAccount, importAccount, requestEmailVerification } from '../api';
 import type { ImportSummary } from '../api';
 import { applyLocale } from '../i18n';
 import type { SettingsTab } from '../taskLink';
 
 interface SettingsModalProps {
-  /** Categories and tags are board-owned, so their edits go to the active board. */
-  boardId: string;
   settings: UserSettings;
-  tasks: Task[];
-  /** Board tags (popularity-ordered, with usage counts) for the labeling tab's tag manager. */
-  tags: Tag[];
   open: boolean;
   /** Tab to show; tracks the `/settings/<tab>` route so deep links land on the right section. */
   initialTab?: SettingsTab;
   onClose: () => void;
   onSave: (s: UserSettings) => void;
-  /** Called after tags were renamed/recolored/deleted on save, so the shell refetches tags and tasks. */
-  onTagsChanged: () => void;
   onAccountDeleted: () => void;
 }
 
-const SETTINGS_TAB_IDS = ['general', 'categories', 'assistant', 'integrations'] as const;
+const SETTINGS_TAB_IDS = ['general', 'assistant', 'integrations'] as const;
 const SETTINGS_TAB_LABEL_KEYS: Record<(typeof SETTINGS_TAB_IDS)[number], string> = {
   general: 'settingsModal.tabs.general',
-  categories: 'settingsModal.tabs.categories',
   assistant: 'settingsModal.tabs.assistant',
   integrations: 'settingsModal.tabs.integrations',
 };
@@ -73,13 +63,11 @@ function parseCron(cron: string | null | undefined): { day: string; time: string
   return { day: dow.toUpperCase(), time };
 }
 
-export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab, onClose, onSave, onTagsChanged, onAccountDeleted }: SettingsModalProps) {
+export function SettingsModal({ settings, open, initialTab, onClose, onSave, onAccountDeleted }: SettingsModalProps) {
   const { t } = useTranslation();
   const settingsTabs = SETTINGS_TAB_IDS.map(id => ({ id, label: t(SETTINGS_TAB_LABEL_KEYS[id]) }));
   const daysOfWeek = DAY_VALUES.map(d => ({ value: d.value, cron: d.cron, label: t(d.labelKey) }));
   const [form, setForm] = useState<UserSettings>(settings);
-  // Staged tag edits (rename/recolor/delete), seeded from props on the open-edge and persisted on Save.
-  const [tagDraft, setTagDraft] = useState<Tag[]>(tags);
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab ?? 'general');
   const [lastInitialTab, setLastInitialTab] = useState(initialTab);
   const [wasOpen, setWasOpen] = useState(open);
@@ -98,7 +86,6 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
   if (open && !wasOpen) {
     setWasOpen(true);
     setForm(settings);
-    setTagDraft(tags);
     setEmailInput(settings.email ?? '');
     setDeleteConfirm(false);
     setVerificationSent(false);
@@ -133,79 +120,29 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
   const planningParts = useMemo(() => parseCron(form.planningCron), [form.planningCron]);
   const planningEnabled = planningParts.day !== '';
 
-  const usage = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const t of tasks) {
-      counts[t.categoryId] = (counts[t.categoryId] ?? 0) + 1;
-    }
-    return counts;
-  }, [tasks]);
-
   const handleSaveClick = async () => {
     setSaving(true);
     try {
-      const originalIds = new Set(settings.categories.map(c => c.id));
-      const newIdSet = new Set(form.categories.map(c => c.id));
-
-      await Promise.all([
-        updateUserSettings({
-          displayName: form.displayName,
-          contextBlock: form.contextBlock,
-          timeZone: form.timeZone,
-          preferredLanguage: form.preferredLanguage,
-          calendarInviteEmail: form.calendarInviteEmail,
-          appReminders: form.appReminders,
-          gender: form.gender,
-          agentDescription: form.agentDescription,
-          planningCron: form.planningCron ?? null,
-          weekStartDay: form.weekStartDay ?? null,
-          autoArchiveDays: form.autoArchiveDays ?? null,
-          aiEnabled: form.aiEnabled,
-          aiEnhancedReminders: form.aiEnhancedReminders,
-        }),
-        ...settings.categories
-          .filter(c => !newIdSet.has(c.id))
-          .map(c => deleteCategory(boardId, c.id)),
-      ]);
-
-      await Promise.all(
-        form.categories
-          .filter(c => {
-            const orig = settings.categories.find(o => o.id === c.id);
-            return orig && (orig.label !== c.label || orig.swatchId !== c.swatchId);
-          })
-          .map(c => updateCategory(boardId, c.id, { label: c.label, swatchId: c.swatchId }))
-      );
-
-      const toCreate = form.categories.filter(c => !originalIds.has(c.id));
-      const created = await Promise.all(
-        toCreate.map(c => createCategory(boardId, { label: c.label, swatchId: c.swatchId }))
-      );
-
-      let createIdx = 0;
-      const finalCategories = form.categories.map(c =>
-        !originalIds.has(c.id) ? created[createIdx++] : c
-      );
-
-      // Tags are born from tasks, so the manager only renames/recolors/deletes — no create path.
-      const draftTagIds = new Set(tagDraft.map(t => t.id));
-      const tagDeletes = tags.filter(t => !draftTagIds.has(t.id));
-      const tagUpdates = tagDraft.filter(t => {
-        const orig = tags.find(o => o.id === t.id);
-        return orig && t.label.trim() && (orig.label !== t.label.trim() || orig.colorId !== t.colorId);
+      await updateUserSettings({
+        displayName: form.displayName,
+        contextBlock: form.contextBlock,
+        timeZone: form.timeZone,
+        preferredLanguage: form.preferredLanguage,
+        calendarInviteEmail: form.calendarInviteEmail,
+        appReminders: form.appReminders,
+        gender: form.gender,
+        agentDescription: form.agentDescription,
+        planningCron: form.planningCron ?? null,
+        weekStartDay: form.weekStartDay ?? null,
+        autoArchiveDays: form.autoArchiveDays ?? null,
+        aiEnabled: form.aiEnabled,
+        aiEnhancedReminders: form.aiEnhancedReminders,
       });
-      const tagsTouched = tagDeletes.length > 0 || tagUpdates.length > 0;
-      await Promise.all([
-        ...tagDeletes.map(t => deleteTag(boardId, t.id)),
-        ...tagUpdates.map(t => updateTag(boardId, t.id, { label: t.label.trim(), colorId: t.colorId })),
-      ]);
 
-      onSave({ ...form, categories: finalCategories });
+      onSave(form);
       // Apply a language change immediately (i18n UI language + document lang/dir + Intl locale),
       // no reload needed (docs/I18N.md, D3). Live since the `he` launch.
       void applyLocale(form.preferredLanguage);
-      // A tag rename/recolor fans out to tasks (they embed the label/colour), so refetch both.
-      if (tagsTouched) onTagsChanged();
       onClose();
     } catch (e) {
       console.error('Failed to save settings', e);
@@ -363,8 +300,6 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
 
               <ConnectedAccounts />
 
-              <ActiveSessions />
-
               <div className="field">
                 <label className="field__label" htmlFor="settings-auto-archive">
                   {t('settingsModal.general.autoArchive')}
@@ -463,6 +398,8 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
                 </select>
               </div>
 
+              <ActiveSessions />
+
               <div className="danger-zone">
                 <p className="danger-zone__label">{t('settingsModal.general.dangerZone')}</p>
                 <div className="danger-zone__actions">
@@ -520,26 +457,6 @@ export function SettingsModal({ boardId, settings, tasks, tags, open, initialTab
                     </button>
                   )}
                 </div>
-              </div>
-            </>
-          )}
-
-          {activeTab === 'categories' && (
-            <>
-              <div className="field">
-                <label className="field__label">{t('settingsModal.categories.categoriesLabel')}</label>
-                <p className="settings-hint">{t('settingsModal.categories.categoriesHint')}</p>
-                <CategoryEditor
-                  categories={form.categories}
-                  usage={usage}
-                  onChange={next => setForm(f => ({ ...f, categories: next }))}
-                />
-              </div>
-
-              <div className="field">
-                <label className="field__label">{t('settingsModal.categories.tagsLabel')}</label>
-                <p className="settings-hint">{t('settingsModal.categories.tagsHint')}</p>
-                <TagEditor tags={tagDraft} onChange={setTagDraft} />
               </div>
             </>
           )}

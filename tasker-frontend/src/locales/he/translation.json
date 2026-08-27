@@ -136,7 +136,9 @@
     "cancel": "ביטול",
     "errors": {
       "revokeFailed": "לא הצלחנו להתנתק מהחיבורים האחרים. אפשר לנסות שוב."
-    }
+    },
+    "summary": "{{n}} חיבורים פעילים",
+    "hideDetails": "הסתרה"
   },
   "connectedAccounts": {
     "label": "חשבונות מקושרים",
@@ -508,7 +510,6 @@
     "close": "סגירת ההגדרות",
     "tabs": {
       "general": "כללי",
-      "categories": "תוויות",
       "assistant": "העוזר",
       "integrations": "חיבורים"
     },
@@ -557,12 +558,6 @@
       "confirmDelete": "כן, למחוק הכול",
       "cancel": "ביטול",
       "deleteAccount": "מחיקת החשבון"
-    },
-    "categories": {
-      "categoriesLabel": "קטגוריות",
-      "categoriesHint": "צבע הפתק על הלוח. כל משימה שייכת לאחת מהן.",
-      "tagsLabel": "תגיות",
-      "tagsHint": "תוויות נייר דבק שמשימה יכולה לשאת כמה מהן. אפשר לשנות שם, צבע או להסיר."
     },
     "assistant": {
       "aiAccess": "גישת AI",
@@ -690,12 +685,22 @@
   "boardSettingsModal": {
     "title": "הגדרות הלוח",
     "close": "סגירה",
+    "tabs": {
+      "general": "כללי",
+      "members": "חברי הלוח",
+      "labels": "תוויות"
+    },
     "name": "שם",
     "namePlaceholder": "שם הלוח",
     "mascot": "קמע",
     "mascotHint": "הדמות הקטנה בפינת הלוח.",
     "mascotAria": "קמע הלוח",
-    "members": "חברי הלוח",
+    "labels": {
+      "categoriesLabel": "קטגוריות",
+      "categoriesHint": "צבע הפתק על הלוח. כל משימה שייכת לאחת מהן.",
+      "tagsLabel": "תגיות",
+      "tagsHint": "תוויות נייר דבק שמשימה יכולה לשאת כמה מהן. אפשר לשנות שם, צבע או להסיר."
+    },
     "loading": "טוען…",
     "youTag": " (אני)",
     "joinedOn": "הצטרפות {{date}}",

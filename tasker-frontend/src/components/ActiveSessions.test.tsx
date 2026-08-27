@@ -27,13 +27,26 @@ beforeEach(() => vi.clearAllMocks());
 afterEach(cleanup);
 
 describe('ActiveSessions', () => {
-    it('lists each session and marks the current device', async () => {
+    it('starts collapsed behind a session count summary', async () => {
         fetchSessions.mockResolvedValue([
             session({ current: true, device: 'Chrome on macOS', ipAddress: '198.51.100.4' }),
             session(),
         ]);
 
         render(<ActiveSessions />);
+
+        expect(await screen.findByRole('button', { name: '2 active sessions' })).toBeInTheDocument();
+        expect(screen.queryByText(/Chrome on macOS/)).not.toBeInTheDocument();
+    });
+
+    it('lists each session and marks the current device once expanded', async () => {
+        fetchSessions.mockResolvedValue([
+            session({ current: true, device: 'Chrome on macOS', ipAddress: '198.51.100.4' }),
+            session(),
+        ]);
+
+        render(<ActiveSessions />);
+        fireEvent.click(await screen.findByRole('button', { name: '2 active sessions' }));
 
         expect(await screen.findByText(/Chrome on macOS/)).toBeInTheDocument();
         expect(screen.getByText(/Firefox on Linux/)).toBeInTheDocument();
@@ -45,6 +58,7 @@ describe('ActiveSessions', () => {
         fetchSessions.mockResolvedValue([session({ current: true, device: null, ipAddress: null })]);
 
         render(<ActiveSessions />);
+        fireEvent.click(await screen.findByRole('button', { name: '1 active sessions' }));
 
         expect(await screen.findByText('Unknown device')).toBeInTheDocument();
     });
@@ -53,6 +67,7 @@ describe('ActiveSessions', () => {
         fetchSessions.mockResolvedValue([session({ current: true })]);
 
         render(<ActiveSessions />);
+        fireEvent.click(await screen.findByRole('button', { name: '1 active sessions' }));
 
         expect(await screen.findByRole('button', { name: 'Sign out everywhere else' })).toBeDisabled();
     });
@@ -64,6 +79,7 @@ describe('ActiveSessions', () => {
         revokeOtherSessions.mockResolvedValue({ revoked: 1 });
 
         render(<ActiveSessions />);
+        fireEvent.click(await screen.findByRole('button', { name: '2 active sessions' }));
         fireEvent.click(await screen.findByRole('button', { name: 'Sign out everywhere else' }));
         // The count in the confirm prompt covers only the other sessions, not this one.
         expect(screen.getByText('Sign out of all other sessions (1)?')).toBeInTheDocument();
@@ -82,6 +98,7 @@ describe('ActiveSessions', () => {
         revokeOtherSessions.mockRejectedValue(new Error('boom'));
 
         render(<ActiveSessions />);
+        fireEvent.click(await screen.findByRole('button', { name: '2 active sessions' }));
         fireEvent.click(await screen.findByRole('button', { name: 'Sign out everywhere else' }));
         fireEvent.click(screen.getByRole('button', { name: 'Sign out others' }));
 

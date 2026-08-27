@@ -51,12 +51,16 @@ function prettifyUrl(href: string, maxLen = 28): string {
   return stripped.length > maxLen ? stripped.slice(0, maxLen - 1) + '…' : stripped;
 }
 
-export type SettingsTab = 'general' | 'categories' | 'assistant' | 'integrations';
+export type SettingsTab = 'general' | 'assistant' | 'integrations';
 
-const SETTINGS_TABS: readonly SettingsTab[] = ['general', 'categories', 'assistant', 'integrations'];
+const SETTINGS_TABS: readonly SettingsTab[] = ['general', 'assistant', 'integrations'];
 
 /** Maps a `/settings[/<tab>]` pathname to a settings tab; bare `/settings` or unknown → 'general'. */
 export function settingsTabFromPath(pathname: string): SettingsTab {
   const segment = pathname.replace(/^\/settings\/?/, '').split('/')[0]?.toLowerCase();
   return SETTINGS_TABS.find(t => t === segment) ?? 'general';
 }
+
+// Board settings has no deep-linked route (it's plain modal state, not URL-driven), so this tab
+// type only governs which tab opens first — see BoardSettingsModal's `initialTab` prop.
+export type BoardSettingsTab = 'general' | 'members' | 'labels';

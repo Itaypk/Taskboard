@@ -47,7 +47,7 @@ const SORT_MODE_KEY = 'backlog.sortMode:';
 // Board vs. compact view is likewise a per-board, per-device preference.
 const VIEW_MODE_KEY = 'backlog.viewMode:';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
-import { resolveTaskLink, settingsTabFromPath } from './taskLink';
+import { resolveTaskLink, settingsTabFromPath, type BoardSettingsTab } from './taskLink';
 import { useAuth } from './auth/AuthContext';
 import { LoginPage } from './auth/LoginPage';
 import { TermsPage, PrivacyPage } from './auth/PolicyPage';
@@ -138,6 +138,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   // The create dialog is a small name prompt; rename/mascot/members/delete all live in the settings modal.
   const [boardCreateOpen, setBoardCreateOpen] = useState(false);
   const [boardSettingsOpen, setBoardSettingsOpen] = useState(false);
+  const [boardSettingsTab, setBoardSettingsTab] = useState<BoardSettingsTab>('general');
   const [boardDuplicateOpen, setBoardDuplicateOpen] = useState(false);
   const [tasks, setTasks]             = useState<Task[]>([]);
   const [tags, setTags]               = useState<Tag[]>([]);
@@ -733,7 +734,8 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
 
   const openNew = () => {
     if (settings.categories.length === 0) {
-      navigate('/settings/categories');
+      setBoardSettingsTab('labels');
+      setBoardSettingsOpen(true);
       return;
     }
     setSelectedId(null);
@@ -757,7 +759,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
           activeBoardId={activeBoardId}
           onSwitch={switchBoard}
           onCreate={() => setBoardCreateOpen(true)}
-          onOpenSettings={() => setBoardSettingsOpen(true)}
+          onOpenSettings={() => { setBoardSettingsTab('general'); setBoardSettingsOpen(true); }}
           onDuplicate={() => setBoardDuplicateOpen(true)}
         />
         <SortMenu value={sortMode} onChange={changeSortMode} />
@@ -904,19 +906,11 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
       />
 
       <SettingsModal
-        boardId={activeBoardId}
         settings={settings}
-        tasks={tasks}
-        tags={tags}
         open={settingsOpen}
         initialTab={settingsTab}
         onClose={closeSettings}
         onSave={setSettings}
-        onTagsChanged={() => {
-          // Tag rename/recolor/delete fans out to tasks (they embed the tag label/colour), so refresh both.
-          fetchTags(activeBoardId).then(setTags).catch(e => console.error('Failed to refetch tags', e));
-          fetchTasks(activeBoardId, fetchStatus).then(setTasks).catch(e => console.error('Failed to refetch tasks', e));
-        }}
         onAccountDeleted={() => { void onSignOut(); }}
       />
 
@@ -930,9 +924,19 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
         currentUserId={currentUserId}
         canDelete={boards.length > 1}
         canInvite={claimed}
+        initialTab={boardSettingsTab}
+        categories={settings.categories}
+        tags={tags}
+        tasks={tasks}
         onClose={() => setBoardSettingsOpen(false)}
         onMembershipChanged={refreshBoards}
         onBoardChanged={handleBoardChanged}
+        onCategoriesChanged={next => setSettings(prev => ({ ...prev, categories: next }))}
+        onTagsChanged={() => {
+          // Tag rename/recolor/delete fans out to tasks (they embed the tag label/colour), so refresh both.
+          fetchTags(activeBoardId).then(setTags).catch(e => console.error('Failed to refetch tags', e));
+          fetchTasks(activeBoardId, fetchStatus).then(setTasks).catch(e => console.error('Failed to refetch tasks', e));
+        }}
         onLeft={handleLeftBoard}
         onDeleted={handleBoardDeleted}
       />

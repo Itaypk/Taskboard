@@ -118,7 +118,7 @@
   },
   "activeSessions": {
     "label": "Active sessions",
-    "hint": "Where your account is signed in. Sign out everywhere else if you see something you don't recognise.",
+    "hint": "Where your account is signed in. Sign out everywhere else if you see something you don't recognize.",
     "current": "This device",
     "unknownDevice": "Unknown device",
     "lastActive": "Last active {{when}}",
@@ -131,7 +131,9 @@
     "cancel": "Cancel",
     "errors": {
       "revokeFailed": "Could not sign out the other sessions. Please try again."
-    }
+    },
+    "summary": "{{n}} active sessions",
+    "hideDetails": "Hide"
   },
   "connectedAccounts": {
     "label": "Connected accounts",
@@ -494,7 +496,6 @@
     "close": "Close settings",
     "tabs": {
       "general": "General",
-      "categories": "Labels",
       "assistant": "Assistant",
       "integrations": "Integrations"
     },
@@ -543,12 +544,6 @@
       "confirmDelete": "Yes, delete everything",
       "cancel": "Cancel",
       "deleteAccount": "Delete account"
-    },
-    "categories": {
-      "categoriesLabel": "Categories",
-      "categoriesHint": "Post-it color on the board. Every task belongs to one.",
-      "tagsLabel": "Tags",
-      "tagsHint": "Washi-tape labels a task can carry several of. Rename, recolor, or remove them."
     },
     "assistant": {
       "aiAccess": "AI access",
@@ -676,12 +671,22 @@
   "boardSettingsModal": {
     "title": "Board settings",
     "close": "Close",
+    "tabs": {
+      "general": "General",
+      "members": "Members",
+      "labels": "Labels"
+    },
     "name": "Name",
     "namePlaceholder": "Board name",
     "mascot": "Mascot",
     "mascotHint": "The little character in the corner of this board.",
     "mascotAria": "Board mascot",
-    "members": "Members",
+    "labels": {
+      "categoriesLabel": "Categories",
+      "categoriesHint": "Post-it color on the board. Every task belongs to one.",
+      "tagsLabel": "Tags",
+      "tagsHint": "Washi-tape labels a task can carry several of. Rename, recolor, or remove them."
+    },
     "loading": "Loading…",
     "youTag": " (you)",
     "joinedOn": "joined {{date}}",

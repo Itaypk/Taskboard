@@ -151,7 +151,9 @@
     "cancel": "إلغاء",
     "errors": {
       "revokeFailed": "تعذّر تسجيل الخروج من الجلسات الأخرى. يُرجى المحاولة مجددًا."
-    }
+    },
+    "summary": "الجلسات النشطة: {{n}}",
+    "hideDetails": "إخفاء"
   },
   "connectedAccounts": {
     "label": "الحسابات المرتبطة",
@@ -550,7 +552,6 @@
     "close": "إغلاق الإعدادات",
     "tabs": {
       "general": "عام",
-      "categories": "التصنيفات",
       "assistant": "المساعد",
       "integrations": "التكاملات"
     },
@@ -599,12 +600,6 @@
       "confirmDelete": "نعم، حذف كل شيء",
       "cancel": "إلغاء",
       "deleteAccount": "حذف الحساب"
-    },
-    "categories": {
-      "categoriesLabel": "الفئات",
-      "categoriesHint": "لون الورقة اللاصقة في اللوحة. لكل مهمة فئة واحدة.",
-      "tagsLabel": "الوسوم",
-      "tagsHint": "ملصقات يمكن أن تحمل المهمة عدة منها. يمكن إعادة تسميتها أو تغيير لونها أو حذفها."
     },
     "assistant": {
       "aiAccess": "وصول الذكاء الاصطناعي",
@@ -732,12 +727,22 @@
   "boardSettingsModal": {
     "title": "إعدادات اللوحة",
     "close": "إغلاق",
+    "tabs": {
+      "general": "عام",
+      "members": "الأعضاء",
+      "labels": "التصنيفات"
+    },
     "name": "الاسم",
     "namePlaceholder": "اسم اللوحة",
     "mascot": "الشعار",
     "mascotHint": "الشخصية الصغيرة في زاوية هذه اللوحة.",
     "mascotAria": "شعار اللوحة",
-    "members": "الأعضاء",
+    "labels": {
+      "categoriesLabel": "الفئات",
+      "categoriesHint": "لون الورقة اللاصقة في اللوحة. لكل مهمة فئة واحدة.",
+      "tagsLabel": "الوسوم",
+      "tagsHint": "ملصقات يمكن أن تحمل المهمة عدة منها. يمكن إعادة تسميتها أو تغيير لونها أو حذفها."
+    },
     "loading": "جارٍ التحميل…",
     "youTag": " (أنا)",
     "joinedOn": "في اللوحة منذ {{date}}",
