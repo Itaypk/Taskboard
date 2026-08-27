@@ -204,7 +204,7 @@ All HTTP response security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-O
 ## Internationalization
 
 Use the user's selected language and locale in the various communication channels (Telegram, email). We are using Spring's `MessageSource`, with message bundles (on `src/main/resources`).
-The web UI is localized with i18next; `en` and `he` are launched (`ru`/`ar` are supported but not launched) — every new user-facing string needs a key in **both** `tasker-frontend/src/locales/en/translation.json` and `.../he/translation.json`, or `src/i18n/catalog.test.ts` fails CI. New CSS must use logical properties (`margin-inline`, …); `src/i18n/logical-css.test.ts` fails on physical directional declarations. Emails and Telegram communications are fully localized — keep it that way. See `docs/I18N.md`. 
+The web UI is localized with i18next; `en` and `he` are launched (`ru`/`ar` are supported but not launched) — every new user-facing string needs a key in **both** `tasker-frontend/src/locales/en/translation.json` and `.../he/translation.json`, or `src/i18n/catalog.test.ts` fails CI. New CSS must use logical properties (`margin-inline`, …); `src/i18n/logical-css.test.ts` fails on physical directional declarations. Emails and Telegram communications are fully localized — keep it that way. See `docs/archive/I18N.md`. 
 For gendered language (he, ar), always phrase messages in a gender-neutral way.
 
 ## Logging

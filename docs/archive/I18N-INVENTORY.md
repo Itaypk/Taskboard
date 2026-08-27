@@ -1,13 +1,13 @@
 # Web UI i18n — component inventory
 
-Tracks Phase 1 string-extraction progress (`docs/I18N.md`) component by component. This is a
-living checklist, not a design doc — see `docs/I18N.md` for the *why* (library choice, locale
+Tracks Phase 1 string-extraction progress (`I18N.md`) component by component. This is a
+living checklist, not a design doc — see `I18N.md` for the *why* (library choice, locale
 resolution, RTL plan, etc.). Update the status column as each component is extracted; re-run the
 sizing script after a batch of PRs to catch drift.
 
 ## How this list was built
 
-`tools/i18n-inventory.mjs` greps `tasker-frontend/src/**/*.tsx` for likely hardcoded copy (JSX
+`../../tools/i18n-inventory.mjs` greps `tasker-frontend/src/**/*.tsx` for likely hardcoded copy (JSX
 text nodes, `placeholder`/`title`/`aria-label`/`alt` attributes, and sentence-shaped string/template
 literals) and counts hits per file. It's a heuristic, not a parser:
 
@@ -49,7 +49,7 @@ are near-duplicates worth consolidating into one key.
 | `src/components/TaskDrawer.tsx` | ✅ Done | — | Extracted this session, including the tutorial-task banner copy and the module-level `validate()` field-error messages (resolved via the `i18n` singleton, like `utils.ts`/`api.ts`, since that function runs outside the component). Renamed several `.map(t => …)`/`.find(t => …)`/`.filter(t => …)` loop variables (all `Tag` objects, unrelated to translation) from `t` to `tag`/`existing` to stop them shadowing the `t()` translation function |
 | `src/App.tsx` | ✅ Done | — | Extracted this session, including the module-level `emptyMessageFor()` (routed through the `i18n` singleton, like `utils.ts`) and the `buildContextMenuActions()` labels. The `error` state changed from a `string \| null` holding pre-rendered English text to a `boolean` — the message was always the same one string, so storing it as translated text at set-time would go stale across a language switch; it's now resolved via `t()` at render time. Renamed the one `.find(t => …)` inside `buildContextMenuActions` (a `Task`, unrelated to translation) to `pt` since that callback now calls `t()`; the ~20 other `Task`-typed `t` loop variables elsewhere in the file were left alone since none of those closures call `t()` |
 | `src/components/BoardSettingsModal.tsx` | ✅ Done | — | Extracted this session, including the module-level `CONSENT` invite-warning string (moved from a top-level `const` into the catalog and resolved via `t()` inside `confirmCopy()`, which already had access to the hook). Mascot labels (`MASCOTS` in `src/mascots.ts`) are intentionally untouched — that module isn't in this inventory and is out of scope here |
-| `src/components/WeeklyPlanDrawer.tsx` | ✅ Done | — | Extracted this session, including the module-level `relativeWeekLabel()` ("This week"/"Last week"/"{{count}} weeks ago"/"In {{count}} weeks" — routed through the `i18n` singleton, with proper `_one`/`_other` plural keys for the last two). `OverridePlanDialog` and `OverviewActions` are separate top-level functions (siblings of `WeeklyPlanDrawer`, not nested), so each got its own `useTranslation()` call. Renamed a local `const t = await fetchPlanningTranscript(id)` in `resume()` to `transcriptResult` since it shadowed the translation `t()`. The LLM-authored planning conversation messages themselves stay untranslated by this app-side catalog — they're generated server-side in the user's `preferred_language` per `docs/I18N.md` |
+| `src/components/WeeklyPlanDrawer.tsx` | ✅ Done | — | Extracted this session, including the module-level `relativeWeekLabel()` ("This week"/"Last week"/"{{count}} weeks ago"/"In {{count}} weeks" — routed through the `i18n` singleton, with proper `_one`/`_other` plural keys for the last two). `OverridePlanDialog` and `OverviewActions` are separate top-level functions (siblings of `WeeklyPlanDrawer`, not nested), so each got its own `useTranslation()` call. Renamed a local `const t = await fetchPlanningTranscript(id)` in `resume()` to `transcriptResult` since it shadowed the translation `t()`. The LLM-authored planning conversation messages themselves stay untranslated by this app-side catalog — they're generated server-side in the user's `preferred_language` per `I18N.md` |
 | `src/components/StatsModal.tsx` | ✅ Done | — | Extracted this session; completion-time row now uses count-based plural keys (`statsModal.days`/`statsModal.hours`) |
 | `src/components/ConnectedAccounts.tsx` | ✅ Done | — | Extracted this session; provider labels and link notices now resolved via key lookup + `t()` |
 | `src/components/ActiveSessions.tsx` | ✅ Done | — | Born localized — never carried hardcoded copy. Count in the confirm prompt is a plain `{{n}}` interpolation, deliberately not an i18next plural, so no per-language CLDR categories are needed |
@@ -65,7 +65,7 @@ are near-duplicates worth consolidating into one key.
 | `src/components/PostItNote.tsx` | ✅ Done | — | Extracted this session into a shared `taskCard.*` namespace, reused by `TaskLine.tsx` |
 | `src/components/UserMenu.tsx` | ✅ Done | — | Extracted this session |
 | `src/components/TaskLine.tsx` | ✅ Done | — | Extracted this session; reuses `taskCard.*` keys from `PostItNote.tsx` |
-| `src/auth/PolicyPage.tsx` | ✅ Done | — | Extracted this session; nav chrome only — the legal *content* stays English (`docs/I18N.md` non-goal) |
+| `src/auth/PolicyPage.tsx` | ✅ Done | — | Extracted this session; nav chrome only — the legal *content* stays English (`I18N.md` non-goal) |
 | `src/components/BoardFilter.tsx` | ✅ Done | — | Extracted this session; the module-level `OPTIONS` array now stores translation keys instead of literal labels, resolved via `t()` in render |
 | `src/components/MarkdownRenderer.tsx` | ✅ Done | — | Extracted this session; the ▲/▼ glyphs stay outside the catalog string, composed in JSX |
 | `src/components/NoteEditor.tsx` | ✅ Done | — | Extracted this session, including the toolbar labels and the `window.prompt` copy |
@@ -91,7 +91,7 @@ are near-duplicates worth consolidating into one key.
 
 ## Non-component modules with user-facing copy
 
-Not `.tsx`, so outside the script's scan, but both are explicitly called out in `docs/I18N.md`:
+Not `.tsx`, so outside the script's scan, but both are explicitly called out in `I18N.md`:
 
 | Module | Status | Notes |
 | --- | --- | --- |
@@ -113,7 +113,7 @@ component contract. Worth knowing before touching these files again:
 - **`Tooltip`/`HelpTip` take a logical `side`.** The prop is now `'end' | 'start'` (reading order),
   not `'right' | 'left'`; `SettingsModal` is the only caller.
 - **New CSS needs logical properties.** `src/i18n/logical-css.test.ts` fails on a physical
-  `margin-left`, `padding-right`, `left`/`right` offset, or `float: left` anywhere under `src/`.
+  `margin-left`, `padding-right`, `left`/`right` offset, or `float: left` anywhere under `../../src`.
   If a declaration genuinely must not mirror (paper artwork with a baked light source, the mascot),
   add it to that test's exception list with a comment at the site saying why.
 - **RTL is previewable in dev with `?uiLang=he`**, which forces direction and the (still English)

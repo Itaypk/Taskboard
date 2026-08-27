@@ -16,12 +16,13 @@ The scope of the individual idea is varying - could be small UI improvements, or
   previous headline/pitch. Update them to match the redesigned landing (new headline "Tasks you keep /
   actually doing.", multi-provider sign-in: Telegram + Google + Email). Verbiage needs a human pass
   before shipping.
-- Fonts look bad in Hebrew and Arabic (especially the header - serif - ones). Either choose one that support multilanguage, or use language-specific ones. **Now visible in the product**: with `he` and `ar` both launched, the display face falls through to a generic serif for either script, and italic-styled text gets a *synthetic oblique* — neither Hebrew nor Arabic has a true italic, so it reads as a rendering fault rather than emphasis. Same call as `docs/I18N.md` open question 1. Cheapest correct floor is `font-synthesis: none` under `[dir="rtl"]` plus per-script display stacks; choosing the faces is the product decision.
+- Fonts look bad in Hebrew and Arabic (especially the header - serif - ones). Either choose one that support multilanguage, or use language-specific ones. **Now visible in the product**: with `he` and `ar` both launched, the display face falls through to a generic serif for either script, and italic-styled text gets a *synthetic oblique* — neither Hebrew nor Arabic has a true italic, so it reads as a rendering fault rather than emphasis. Same call as `archive/I18N.md` open question 1. Cheapest correct floor is `font-synthesis: none` under `[dir="rtl"]` plus per-script display stacks; choosing the faces is the product decision.
 - Persisted calendar invite SEQUENCE counter. Plan-revise updates re-send same-time slot edits (label/title/notes) with a fixed `SEQUENCE:1`. A second same-slot edit in a later session sends `SEQUENCE:1` again, which strict calendar clients may not re-apply. Persisting a per-slot revision counter (incremented on each update) would make repeated updates robust. Low priority: time moves go through cancel + fresh invite, which is unaffected.
 - Currently, a single task is tied to a single time-block; would we like to change that, so that a single task might have multiple (or zero) time blocks attached?
 - Add a search functionality.
 - Notifications: toggle whether calendar invite emails include a notification, or not (in case users prefer other means of notifications and just want the calendar sync for blocking time).
 - Notifications: consider web push notifications (https://web.dev/articles/push-notifications-overview) - they work even if the users are not active in the site.
+- Why do we have both English (UK) and English (US) if we only support English US? Either support it properly or drop it.
 
 ## Auth & accounts
 - Add Google OAuth as a login provider — drops in as another `loginOrRegister('google', sub, …)`
@@ -94,11 +95,7 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Filter chips can still wrap on very small screens even after the "Week" shortening. If it keeps bugging us, consider a segmented control or horizontally-scrollable chip row on mobile.
 - Board management: custom board color pin marker (the member count pin)?
 - Center pill bar on mobile; consider dropping the "done" pill.
-- Categories and tags should go in the "Board Settings" menu — they are board-scoped, while the rest
-  of the settings dialog is user-scoped. **Now the leading candidate for the mobile tab overflow
-  above**: moving them out drops the settings dialog back to three tabs (General, Assistant,
-  Integrations) without dropping any functionality.
-- Setting dialog - notifications tab?
+- Setting dialog - better way to organize it?
 
 ## Assistant - Mid-week response
 - When texting the assistant out of the blue, respond with the correct context. 
@@ -112,7 +109,7 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Possible help ideas include breaking them down to multiple tasks, finding time for them, or even just reminding us about them.
 
 ## Web UI i18n follow-ups
-Deferred from the `docs/I18N.md` design (see there for full rationale). Not blocking any phase:
+Deferred from the `archive/I18N.md` design (see there for full rationale). Not blocking any phase:
 - Login-page (anonymous) language switcher — browser detection covers the first iteration; a
   `localStorage` override slotted above browser detection is a cheap add later.
 - Localized `document.title` / meta tags (the SPA sets `lang`/`dir` at runtime; the static
@@ -138,7 +135,8 @@ Deferred from the `docs/I18N.md` design (see there for full rationale). Not bloc
 - Additional themes.
 - Add "description" to a tag (the database field is already there - but would it be useful?).
 - Birthday calendar, or general reminders.
-- Support non-latin calendars.
+- Support non-latin calendars (probably not: it involves a lot of effort for almost no gain).
+- Add multi-modal support to the planning conversation; support more files, like PDFs.
 
 - **Per-session revoke in "active sessions"** — today Settings only offers "sign out everywhere
   else". Per-session revocation would mean stamping an opaque random ref per session (never the
@@ -147,7 +145,8 @@ Deferred from the `docs/I18N.md` design (see there for full rationale). Not bloc
 - **New-sign-in notification** (Telegram / auth email: "new sign-in from Chrome on macOS"). This is
   what would turn the active-sessions list from forensics into actual detection — a user only
   revokes a session if something tells them to look. The highest-value follow-up now that the
-  absolute session lifetime is a year rather than 90 days.
+  absolute session lifetime is a year rather than 90 days. Does it make sense when the login itself
+  is through that same email? Might make sense for users with more than one channel.
 - **Expiry for external API tokens** — `api_token` rows never expire, which now makes them the
   longest-lived credential in the system.
 
@@ -160,25 +159,3 @@ Deferred from the `docs/I18N.md` design (see there for full rationale). Not bloc
   story for existing sign-ups. Extended discussion and design sketch: `docs/TEMPLATE-BOARDS.md`.
   The cheap adjacent win, a "duplicate board" action, has since shipped (any member can copy a
   board's categories/tags/tasks into a fresh board they solely own — `BoardService.duplicateBoard`).
-- **Web UI i18n** — design and phased rollout live in `docs/I18N.md`. Phase 0 (trim the supported
-  languages to en/he/ru/ar), Phase 1 (i18next + locale-resolution infrastructure, `Intl` formatting
-  helper, full string extraction, key-parity test) and Phase 2a (the RTL direction pass: CSS logical
-  properties, direction-aware components, mirrorable arrows, `?uiLang=he` dev preview, guard tests)
-  have landed, as has Phase 2b (the Hebrew catalog and the `he` launch, RTL-QA'd) and all of Phase 3
-  (`ru` and `ar` both launched, catalog-only for both — Arabic reused the RTL/CSS investment from
-  2a untouched). **The web UI i18n project is done** — all four planned languages are launched and
-  the guard rails (`catalog.test.ts`'s key-parity/plural-category/interpolation checks,
-  `logical-css.test.ts`, `direction.test.ts`) keep future string additions honest per-catalog; the
-  session-lifetime feature's new `activeSessions` strings landed translated in all three
-  non-English catalogs and the parity suite caught nothing, which is the intended steady state.
-  Two decisions remain, both explicitly deferred to the product owner, not blocking anything:
-  the Hebrew/Arabic display-type call (see "Fonts look bad in Hebrew" above) and the 12h/24h time
-  format (`docs/I18N.md` open question 2, currently forced to 24h for everyone).
-  `docs/I18N-INVENTORY.md` tracks per-component extraction status.
-- Multi-modal support: the assistant can process images and voice messages. **Partly shipped** —
-  a Telegram quick-add can now be described with a photo or a voice note instead of typed text
-  (design and decisions: `docs/MULTIMODAL-CAPTURE.md`). It is off until `TASKER_AI_MULTIMODAL_MODEL` names a model that
-  advertises the matching input modality; until then the bot declines media with a "describe it"
-  reply. Still open: what an out-of-band attachment (one sent with no quick-add in progress) should
-  do, PDFs, albums (`media_group_id` grouping), media inside the planning conversation, and media on
-  the web UI.
