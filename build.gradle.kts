@@ -53,7 +53,7 @@ dependencies {
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
 	implementation("tools.jackson.module:jackson-module-kotlin")
 	implementation("org.liquibase:liquibase-core")
-	implementation("io.micrometer:micrometer-registry-prometheus:1.17.0")
+	implementation("io.micrometer:micrometer-registry-prometheus:1.17.1")
 	implementation("net.logstash.logback:logstash-logback-encoder:9.0")
 	implementation("com.github.jknack:handlebars:4.5.4")
 	implementation("org.telegram:telegrambots-springboot-longpolling-starter:10.2.1")
