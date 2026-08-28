@@ -352,7 +352,7 @@ class ExternalTaskController(
         problem(HttpStatus.NOT_FOUND, "No task $id on any board you are a member of.")
 
     private fun unprocessable(detail: String): ResponseEntity<ProblemDetail> =
-        problem(HttpStatus.UNPROCESSABLE_ENTITY, detail)
+        problem(HttpStatus.UNPROCESSABLE_CONTENT, detail)
 
     /**
      * Errors are RFC 7807, matching the rest of the API. The `detail` is written for a model to

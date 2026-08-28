@@ -57,7 +57,7 @@ class UserSessionService(
         // and must still list rather than blow up the whole screen.
         val authedAt = getAttribute<Long>(SessionAuthenticator.AUTHED_AT_ATTRIBUTE)
         val ip = runCatching {
-            userCrypto.decrypt(userId, getAttribute<ByteArray>(SessionAuthenticator.IP_ATTRIBUTE))
+            userCrypto.decrypt(userId, getAttribute(SessionAuthenticator.IP_ATTRIBUTE))
         }.getOrNull()
 
         return ActiveSessionResponse(

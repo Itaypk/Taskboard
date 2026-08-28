@@ -16,24 +16,19 @@ import dev.itayp.tasker.notification.ReminderActionHandler
 import dev.itayp.tasker.planning.WeekOffset
 import dev.itayp.tasker.planning.WeekResolver
 import dev.itayp.tasker.planning.WeeklyPlanningOrchestrator
-import dev.itayp.tasker.service.UserSettingsService
-import org.springframework.context.MessageSource
-import java.time.Clock
-import java.time.LocalDate
-import java.time.ZoneId
-import java.util.Locale
-import java.util.UUID
 import dev.itayp.tasker.planning.WeeklyPlanningOrchestrator.Phase
 import dev.itayp.tasker.repository.UserRepository
+import dev.itayp.tasker.service.UserSettingsService
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.context.MessageSource
 import org.springframework.stereotype.Component
 import org.telegram.telegrambots.longpolling.BotSession
 import org.telegram.telegrambots.longpolling.interfaces.LongPollingUpdateConsumer
 import org.telegram.telegrambots.longpolling.starter.AfterBotRegistration
 import org.telegram.telegrambots.longpolling.starter.SpringLongPollingBot
-import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer
+import org.telegram.telegrambots.longpolling.util.DefaultLongPollingUpdateConsumer
 import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage
@@ -42,6 +37,10 @@ import org.telegram.telegrambots.meta.api.objects.commands.BotCommand
 import org.telegram.telegrambots.meta.api.objects.message.Message
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException
 import org.telegram.telegrambots.meta.generics.TelegramClient
+import java.time.Clock
+import java.time.LocalDate
+import java.time.ZoneId
+import java.util.*
 
 @Component
 @ConditionalOnProperty(prefix = "tasker.telegram", name = ["enabled"], havingValue = "true")
@@ -63,7 +62,7 @@ class TelegramChannel(
     private val messageSource: MessageSource,
     private val telegramClient: TelegramClient,
     private val clock: Clock,
-) : SpringLongPollingBot, LongPollingSingleThreadUpdateConsumer {
+) : SpringLongPollingBot, DefaultLongPollingUpdateConsumer() {
 
     override fun getBotToken(): String = botToken
 
@@ -293,7 +292,7 @@ class TelegramChannel(
 
     @AfterBotRegistration
     fun afterRegistration(botSession: BotSession) {
-        logger.info("Registered bot {}, running state is: {}", botUsername, botSession.isRunning())
+        logger.info("Registered bot {}, running state is: {}", botUsername, botSession.isRunning)
         publishCommandMenu()
     }
 

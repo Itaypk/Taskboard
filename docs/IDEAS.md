@@ -23,6 +23,7 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Notifications: toggle whether calendar invite emails include a notification, or not (in case users prefer other means of notifications and just want the calendar sync for blocking time).
 - Notifications: consider web push notifications (https://web.dev/articles/push-notifications-overview) - they work even if the users are not active in the site.
 - Why do we have both English (UK) and English (US) if we only support English US? Either support it properly or drop it.
+- Comment out the "sign in with Google" until we actually support that
 
 ## Auth & accounts
 - Add Google OAuth as a login provider — drops in as another `loginOrRegister('google', sub, …)`
@@ -62,7 +63,7 @@ The scope of the individual idea is varying - could be small UI improvements, or
   and tool schemas. Only worth it if a client appears that can't read `/external-api/SKILL.md`.
 - Free-text search (`?q=`) decrypts every one of the user's tasks per call, because titles and
   descriptions are envelope-encrypted and can't be filtered in SQL. Fine at current scale; if a
-  user ever holds thousands of tasks this needs a searchable index (blind index on tokenised
+  user ever holds thousands of tasks this needs a searchable index (blind index on tokenized
   terms, or a per-user encrypted search structure).
 - Token scope is coarse — read vs. write, all boards. Per-board or per-operation scoping only if
   real usage demands it.
@@ -70,6 +71,8 @@ The scope of the individual idea is varying - could be small UI improvements, or
   token minted today is non-expiring until revoked.
 - `InMemoryRateLimiter` and the `last_used_at` write throttle both assume a single instance.
   Both need Redis if the app is ever replicated.
+- **Expiry for external API tokens** — `api_token` rows never expire, which now makes them the
+  longest-lived credential in the system.
 
 ## Production hardening
 - Support/abuse contact address, referenced from ToS + Privacy.
@@ -134,7 +137,7 @@ Deferred from the `archive/I18N.md` design (see there for full rationale). Not b
 - Unlock more mascots for users over use time or patterns.
 - Additional themes.
 - Add "description" to a tag (the database field is already there - but would it be useful?).
-- Birthday calendar, or general reminders.
+- Birthday calendar, or general reminders (probably not: can be standalone focused product)
 - Support non-latin calendars (probably not: it involves a lot of effort for almost no gain).
 - Add multi-modal support to the planning conversation; support more files, like PDFs.
 
@@ -147,8 +150,10 @@ Deferred from the `archive/I18N.md` design (see there for full rationale). Not b
   revokes a session if something tells them to look. The highest-value follow-up now that the
   absolute session lifetime is a year rather than 90 days. Does it make sense when the login itself
   is through that same email? Might make sense for users with more than one channel.
-- **Expiry for external API tokens** — `api_token` rows never expire, which now makes them the
-  longest-lived credential in the system.
+- Scheduled tasks that appear in a fixed interval, possibly supporting more sophisticated schedules
+  like "last day of the month", for recurring tasks (examples: pay rent, dentist, clean AC filters).
+  Useful on one hand, but correct UI/UX is tricky, and this could be steering off the main focus
+  towards a classic calendar territory. 
 
 ## Large projects
 - WhatsApp as a communication channel support.
@@ -158,4 +163,4 @@ Deferred from the `archive/I18N.md` design (see there for full rationale). Not b
   costly SEO/content bet up front — and without that channel there's no strong starter-template
   story for existing sign-ups. Extended discussion and design sketch: `docs/TEMPLATE-BOARDS.md`.
   The cheap adjacent win, a "duplicate board" action, has since shipped (any member can copy a
-  board's categories/tags/tasks into a fresh board they solely own — `BoardService.duplicateBoard`).
+  board's categories/tags/tasks into a fresh board they solely own — `BoardService.duplicateBoard`). 
