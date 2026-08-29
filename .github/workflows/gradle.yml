@@ -31,6 +31,12 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
+      # dorny/paths-filter resolves a PR's changed files through the pulls API, not git, and an
+      # explicit `permissions:` block zeroes every scope it doesn't name. Without this the step
+      # 403s ("Resource not accessible by integration"), which skips every downstream job — the
+      # observed symptom on both Dependabot PRs, the only PRs to have run since path filtering
+      # landed.
+      pull-requests: read
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
@@ -163,9 +169,11 @@ jobs:
 
   dependency-submission:
     needs: changes
-    # No deploy dependency here, so this can skip whenever dependency-relevant files didn't change,
-    # on both PR and push runs — the submitted graph would be identical to the last one anyway.
-    if: needs.changes.outputs.backend == 'true'
+    # Push-only, and skipped when no dependency-relevant file changed. Dependabot alerts are
+    # computed from the default branch's graph, so a snapshot taken on a PR branch was never
+    # doing anything — and it actively broke Dependabot's own PRs, whose GITHUB_TOKEN is capped
+    # read-only no matter what `permissions:` below asks for, so the submit 403s.
+    if: needs.changes.outputs.backend == 'true' && github.event_name == 'push'
 
     runs-on: ubuntu-latest
     timeout-minutes: 5
