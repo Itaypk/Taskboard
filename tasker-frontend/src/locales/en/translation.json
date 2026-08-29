@@ -3,7 +3,9 @@
     "nav": {
       "terms": "Terms",
       "privacy": "Privacy",
-      "logIn": "Log in"
+      "logIn": "Log in",
+      "about": "About",
+      "faq": "FAQ"
     },
     "hero": {
       "tag": "This week · top of mind",
@@ -382,7 +384,9 @@
   "policyPage": {
     "termsTitle": "Terms of Service",
     "privacyTitle": "Privacy Policy",
-    "backHome": "Back to Backlog.fyi"
+    "backHome": "Back to Backlog.fyi",
+    "aboutTitle": "About",
+    "faqTitle": "Frequently asked questions"
   },
   "boardFilter": {
     "todo": "To do",

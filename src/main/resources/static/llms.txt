@@ -1,8 +1,8 @@
 # Backlog.fyi
 
-> An AI-powered weekly planner: a task backlog plus a planning conversation that reads your
-> calendar and blocks time for the tasks you agree to. Tasks can be read and edited from outside
-> the app through a token-authenticated HTTP API.
+> An AI-powered weekly planner: a task backlog plus a planning conversation that turns the tasks
+> you agree to into calendar invitations, so they land in your week as real time blocks. Tasks can
+> be read and edited from outside the app through a token-authenticated HTTP API.
 
 Task titles and descriptions are encrypted at rest and are private to their owner. Every API
 request is authenticated as one specific user and can only reach that user's boards.
@@ -18,5 +18,7 @@ once. Send it as `Authorization: Bearer <token>`.
 
 ## Optional
 
+- [FAQ](https://backlog.fyi/faq): what Backlog.fyi is, how data is handled, and what it costs.
+- [About](https://backlog.fyi/about): who builds and runs Backlog.fyi, and what state it's in.
 - [Terms of Service](https://backlog.fyi/terms)
 - [Privacy Policy](https://backlog.fyi/privacy)

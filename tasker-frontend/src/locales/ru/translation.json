@@ -3,7 +3,9 @@
     "nav": {
       "terms": "Условия",
       "privacy": "Конфиденциальность",
-      "logIn": "Войти"
+      "logIn": "Войти",
+      "about": "О проекте",
+      "faq": "Вопросы"
     },
     "hero": {
       "tag": "На этой неделе · главное",
@@ -402,7 +404,9 @@
   "policyPage": {
     "termsTitle": "Условия использования",
     "privacyTitle": "Политика конфиденциальности",
-    "backHome": "Назад на Backlog.fyi"
+    "backHome": "Назад на Backlog.fyi",
+    "aboutTitle": "О проекте",
+    "faqTitle": "Частые вопросы"
   },
   "boardFilter": {
     "todo": "К выполнению",

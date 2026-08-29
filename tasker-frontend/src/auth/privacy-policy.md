@@ -1,4 +1,4 @@
-Last updated: June 7, 2026
+Last updated: August 29, 2026
 
 ## TL;DR
 
@@ -117,4 +117,4 @@ Continued use of the service means you accept the updated policy.
 
 ## 13. Contact
 
-For any questions, data requests, or deletion requests, contact the project owner at [{{SUPPORT_EMAIL}}](mailto:{{SUPPORT_EMAIL}}).
+For any questions, data requests, or deletion requests, contact the project owner, Itay Polack-Gadassi, at [{{SUPPORT_EMAIL}}](mailto:{{SUPPORT_EMAIL}}).

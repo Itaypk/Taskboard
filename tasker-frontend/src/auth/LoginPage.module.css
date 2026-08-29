@@ -549,6 +549,7 @@
 
 @media (max-width: 600px) {
   .nav { padding: 16px 20px 12px; }
+  .navRight { gap: 14px; }
   .copyright { display: none; }
   .heroSticky { padding: 28px 26px; }
   .heroH1 { font-size: 44px; }

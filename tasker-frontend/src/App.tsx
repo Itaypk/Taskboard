@@ -50,7 +50,7 @@ import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { resolveTaskLink, settingsTabFromPath, type BoardSettingsTab } from './taskLink';
 import { useAuth } from './auth/AuthContext';
 import { LoginPage } from './auth/LoginPage';
-import { TermsPage, PrivacyPage } from './auth/PolicyPage';
+import { TermsPage, PrivacyPage, AboutPage, FaqPage } from './auth/PolicyPage';
 import { EmailLoginConfirmPage } from './auth/EmailLoginConfirmPage';
 import { EmailVerifyConfirmPage } from './auth/EmailVerifyConfirmPage';
 import { InvitePage } from './auth/InvitePage';
@@ -92,6 +92,8 @@ export default function App() {
     <Routes>
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/about" element={<AboutPage />} />
+      <Route path="/faq" element={<FaqPage />} />
       <Route path="/email-login" element={<EmailLoginConfirmPage />} />
       <Route path="/email-verify" element={<EmailVerifyConfirmPage />} />
       <Route path="/invite" element={<InvitePage />} />

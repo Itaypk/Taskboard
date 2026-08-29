@@ -1,4 +1,4 @@
-Last updated: April 28, 2026
+Last updated: August 29, 2026
 
 ## TL;DR
 
@@ -130,4 +130,4 @@ Continued use of the service means you accept the updated terms.
 
 ## 15. Contact
 
-If you have questions or requests (data export, deletion, etc.), contact the project owner at [{{SUPPORT_EMAIL}}](mailto:{{SUPPORT_EMAIL}}).
+If you have questions or requests (data export, deletion, etc.), contact the project owner, Itay Polack-Gadassi, at [{{SUPPORT_EMAIL}}](mailto:{{SUPPORT_EMAIL}}).

@@ -3,7 +3,9 @@
     "nav": {
       "terms": "الشروط",
       "privacy": "الخصوصية",
-      "logIn": "تسجيل الدخول"
+      "logIn": "تسجيل الدخول",
+      "about": "عن المشروع",
+      "faq": "أسئلة شائعة"
     },
     "hero": {
       "tag": "هذا الأسبوع · الأولوية",
@@ -422,7 +424,9 @@
   "policyPage": {
     "termsTitle": "شروط الاستخدام",
     "privacyTitle": "سياسة الخصوصية",
-    "backHome": "العودة إلى Backlog.fyi"
+    "backHome": "العودة إلى Backlog.fyi",
+    "aboutTitle": "عن المشروع",
+    "faqTitle": "الأسئلة الشائعة"
   },
   "boardFilter": {
     "todo": "قيد الإنجاز",

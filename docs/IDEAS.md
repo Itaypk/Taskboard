@@ -40,7 +40,6 @@ The scope of the individual idea is varying - could be small UI improvements, or
   win for both humans and link-preview bots); also covers the missing Apple touch icon / 512×512 PNG
   for share sheets.
 - Footer: GitHub link (if going with AGPL), contact/about line (ToS/Privacy are already linked).
-- Optional: an FAQ (data handling, why Google Calendar, account deletion), a `/about` page.
 - Accessibility pass on the login page: visible focus rings, WCAG AA contrast check on the body text,
   `<main>`/`<header>`/`<footer>` landmarks, alt text once the screenshot lands.
 

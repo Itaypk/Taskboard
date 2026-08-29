@@ -3,7 +3,9 @@
     "nav": {
       "terms": "תנאי שימוש",
       "privacy": "פרטיות",
-      "logIn": "כניסה"
+      "logIn": "כניסה",
+      "about": "אודות",
+      "faq": "שאלות נפוצות"
     },
     "hero": {
       "tag": "השבוע · בראש סדר העדיפויות",
@@ -392,7 +394,9 @@
   "policyPage": {
     "termsTitle": "תנאי שימוש",
     "privacyTitle": "מדיניות פרטיות",
-    "backHome": "חזרה ל‑Backlog.fyi"
+    "backHome": "חזרה ל‑Backlog.fyi",
+    "aboutTitle": "אודות",
+    "faqTitle": "שאלות נפוצות"
   },
   "boardFilter": {
     "todo": "לביצוע",
