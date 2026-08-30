@@ -138,6 +138,23 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   // Unclaimed = zero-registration account with no login identity yet; nudge them to save it.
   const claimed = authState.status === 'authenticated' ? authState.user.claimed : true;
   const [nudgeDismissed, setNudgeDismissed] = useState(() => localStorage.getItem('saveAccountNudgeDismissed') === '1');
+  const nudgeVisible = !claimed && !nudgeDismissed;
+
+  // The nudge is a fixed band pinned to the bottom of the viewport, so it would otherwise sit on
+  // top of the footer links and the archived toggle. Reserve its measured height on #root — it
+  // wraps to two lines on narrow screens and differs per language, so guessing a constant would
+  // be wrong somewhere. A callback ref (with React 19's cleanup return) rather than an effect:
+  // the nudge only mounts once the board has loaded, well after this component first renders.
+  const measureNudge = useCallback((nudge: HTMLDivElement | null) => {
+    const root = document.getElementById('root');
+    if (!nudge || !root) return;
+    const observer = new ResizeObserver(() => root.style.setProperty('--nudge-h', `${nudge.offsetHeight}px`));
+    observer.observe(nudge);
+    return () => {
+      observer.disconnect();
+      root.style.removeProperty('--nudge-h');
+    };
+  }, []);
   // One active board at a time; every account has at least one (the backend lists them default-first).
   const [boards, setBoards]           = useState<Board[]>([]);
   const [activeBoardId, setActiveBoardId] = useState<string | null>(null);
@@ -1017,8 +1034,8 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
         onClose={() => setBoardDuplicateOpen(false)}
       />
 
-      {!claimed && !nudgeDismissed && (
-        <div className="account-nudge" role="status">
+      {nudgeVisible && (
+        <div className="account-nudge" role="status" ref={measureNudge}>
           <span className="account-nudge__text">{t('app.nudgeText')}</span>
           <button
             type="button"

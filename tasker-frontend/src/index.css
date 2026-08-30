@@ -109,6 +109,9 @@ body {
   display: flex;
   flex-direction: column;
   position: relative;
+  /* Set from App while the fixed account nudge is on screen, so the bottom band it occupies is
+     reserved rather than overlaid on the footer. */
+  padding-bottom: var(--nudge-h, 0);
 }
 
 /* Cream wall — shared by the board and the welcome page so both share one
