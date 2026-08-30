@@ -1,8 +1,6 @@
 {
   "login": {
     "nav": {
-      "terms": "الشروط",
-      "privacy": "الخصوصية",
       "logIn": "تسجيل الدخول"
     },
     "hero": {
@@ -422,7 +420,9 @@
   "policyPage": {
     "termsTitle": "شروط الاستخدام",
     "privacyTitle": "سياسة الخصوصية",
-    "backHome": "العودة إلى Backlog.fyi"
+    "backHome": "العودة إلى Backlog.fyi",
+    "aboutTitle": "عن المشروع",
+    "faqTitle": "الأسئلة الشائعة"
   },
   "boardFilter": {
     "todo": "قيد الإنجاز",
@@ -834,5 +834,12 @@
       "inWeeks_many": "خلال {{count}} أسبوعًا",
       "inWeeks_other": "خلال {{count}} أسبوع"
     }
+  },
+  "footer": {
+    "about": "عن المشروع",
+    "faq": "أسئلة شائعة",
+    "terms": "الشروط",
+    "privacy": "الخصوصية",
+    "menuLabel": "روابط إضافية"
   }
 }

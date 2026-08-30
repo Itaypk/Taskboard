@@ -1,8 +1,6 @@
 {
   "login": {
     "nav": {
-      "terms": "תנאי שימוש",
-      "privacy": "פרטיות",
       "logIn": "כניסה"
     },
     "hero": {
@@ -392,7 +390,9 @@
   "policyPage": {
     "termsTitle": "תנאי שימוש",
     "privacyTitle": "מדיניות פרטיות",
-    "backHome": "חזרה ל‑Backlog.fyi"
+    "backHome": "חזרה ל‑Backlog.fyi",
+    "aboutTitle": "אודות",
+    "faqTitle": "שאלות נפוצות"
   },
   "boardFilter": {
     "todo": "לביצוע",
@@ -786,5 +786,12 @@
       "weeksAgo_two": "לפני שבועיים",
       "inWeeks_two": "בעוד שבועיים"
     }
+  },
+  "footer": {
+    "about": "אודות",
+    "faq": "שאלות נפוצות",
+    "terms": "תנאי שימוש",
+    "privacy": "פרטיות",
+    "menuLabel": "קישורים נוספים"
   }
 }

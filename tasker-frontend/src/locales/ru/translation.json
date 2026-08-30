@@ -1,8 +1,6 @@
 {
   "login": {
     "nav": {
-      "terms": "Условия",
-      "privacy": "Конфиденциальность",
       "logIn": "Войти"
     },
     "hero": {
@@ -402,7 +400,9 @@
   "policyPage": {
     "termsTitle": "Условия использования",
     "privacyTitle": "Политика конфиденциальности",
-    "backHome": "Назад на Backlog.fyi"
+    "backHome": "Назад на Backlog.fyi",
+    "aboutTitle": "О проекте",
+    "faqTitle": "Частые вопросы"
   },
   "boardFilter": {
     "todo": "К выполнению",
@@ -802,5 +802,12 @@
       "inWeeks_many": "Через {{count}} недель",
       "inWeeks_other": "Через {{count}} недели"
     }
+  },
+  "footer": {
+    "about": "О проекте",
+    "faq": "Вопросы",
+    "terms": "Условия",
+    "privacy": "Приватность",
+    "menuLabel": "Ещё ссылки"
   }
 }

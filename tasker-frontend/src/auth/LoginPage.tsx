@@ -77,8 +77,6 @@ export function LoginPage({ next }: { next?: string } = {}) {
                     <span className={styles.copyright}>© 2026</span>
                 </div>
                 <nav className={styles.navRight}>
-                    <Link to="/terms" className={styles.navLink}>{t('login.nav.terms')}</Link>
-                    <Link to="/privacy" className={styles.navLink}>{t('login.nav.privacy')}</Link>
                     <button type="button" className={styles.navLink} onClick={() => setModalOpen(true)}>
                         {t('login.nav.logIn')}
                     </button>

@@ -1,15 +1,22 @@
-import { useState, type SyntheticEvent } from 'react';
+import { useState, type MouseEvent, type SyntheticEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { marked } from 'marked';
 import markedBidi from 'marked-bidi';
 import DOMPurify from 'dompurify';
 
 marked.use(markedBidi());
 
+/** Root-relative hrefs (`/faq`) are our own SPA routes; everything else leaves the app. */
+function isInternalHref(href: string | null): boolean {
+  return href !== null && href.startsWith('/') && !href.startsWith('//');
+}
+
 // Open note links in a new tab (like the dedicated URL field), safely. Runs as the last
 // per-node step, so target/rel survive sanitization without widening ALLOWED_ATTR.
+// In-app links are left alone so they can be handled by the router instead.
 DOMPurify.addHook('afterSanitizeAttributes', node => {
-  if (node.tagName === 'A') {
+  if (node.tagName === 'A' && !isInternalHref(node.getAttribute('href'))) {
     node.setAttribute('target', '_blank');
     node.setAttribute('rel', 'noopener noreferrer');
   }
@@ -56,7 +63,18 @@ function stopEventIfLink(e: SyntheticEvent) {
 
 function MarkdownRenderer({ content, maxLength, showExpandButton = true }: MarkdownRendererProps) {
     const { t } = useTranslation();
+    const navigate = useNavigate();
     const [isExpanded, setIsExpanded] = useState(false);
+
+    // Route in-app links through the router; a plain <a> would trigger a full page reload.
+    const handleClick = (e: MouseEvent) => {
+        stopEventIfLink(e);
+        const anchor = (e.target as HTMLElement).closest('a');
+        const href = anchor?.getAttribute('href') ?? null;
+        if (!isInternalHref(href) || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+        e.preventDefault();
+        navigate(href!);
+    };
 
     if (!content) return <div className="markdown-content" />;
 
@@ -71,7 +89,7 @@ function MarkdownRenderer({ content, maxLength, showExpandButton = true }: Markd
                 // link button (PostItNote): swallow pointerdown + click when they originate inside a
                 // link, so following it neither starts a drag nor fires the card's open handler.
                 onPointerDown={stopEventIfLink}
-                onClick={stopEventIfLink}
+                onClick={handleClick}
                 dangerouslySetInnerHTML={{ __html: renderMarkdown(displayContent) }}
             />
             {needsTruncation && showExpandButton && (

@@ -1,8 +1,6 @@
 {
   "login": {
     "nav": {
-      "terms": "Terms",
-      "privacy": "Privacy",
       "logIn": "Log in"
     },
     "hero": {
@@ -382,7 +380,9 @@
   "policyPage": {
     "termsTitle": "Terms of Service",
     "privacyTitle": "Privacy Policy",
-    "backHome": "Back to Backlog.fyi"
+    "backHome": "Back to Backlog.fyi",
+    "aboutTitle": "About",
+    "faqTitle": "Frequently asked questions"
   },
   "boardFilter": {
     "todo": "To do",
@@ -770,5 +770,12 @@
       "inWeeks_one": "In {{count}} week",
       "inWeeks_other": "In {{count}} weeks"
     }
+  },
+  "footer": {
+    "about": "About",
+    "faq": "FAQ",
+    "terms": "Terms",
+    "privacy": "Privacy",
+    "menuLabel": "More links"
   }
 }

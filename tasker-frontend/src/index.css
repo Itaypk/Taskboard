@@ -34,6 +34,11 @@
   --font-ui:    'Plus Jakarta Sans', system-ui, sans-serif;
   --font-mono:  'IBM Plex Mono', 'SF Mono', Menlo, monospace;
 
+  /* Height reserved for the site-wide footer (AppFooter), which sits below the
+     router. The landing page subtracts it from its full-viewport panels so the
+     footer doesn't push the composition into a permanent scrollbar. */
+  --footer-h: 34px;
+
   /* Radius */
   --r-sm: 4px;
   --r:    6px;
@@ -104,6 +109,9 @@ body {
   display: flex;
   flex-direction: column;
   position: relative;
+  /* Set from App while the fixed account nudge is on screen, so the bottom band it occupies is
+     reserved rather than overlaid on the footer. */
+  padding-bottom: var(--nudge-h, 0);
 }
 
 /* Cream wall — shared by the board and the welcome page so both share one
@@ -1663,13 +1671,20 @@ input[type="number"] { -moz-appearance: textfield; }
 }
 
 /* ─── Show archived toggle ──────────────────────────────── */
+/* Zero-height on purpose: the button is centred *over* the site footer that follows,
+   so the board's bottom chrome stays a single row (footer links at the inline edge,
+   this toggle in the middle). `left: 50%` is direction-neutral centring. */
 .show-archived-wrap {
-  display: flex;
-  justify-content: center;
-  padding: 8px 0 24px;
+  position: relative;
+  height: 0;
+  z-index: 12;
 }
 
 .show-archived-btn {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
   background: none;
   border: none;
   padding: 4px 8px;

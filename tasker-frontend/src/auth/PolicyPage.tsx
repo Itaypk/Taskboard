@@ -5,6 +5,8 @@ import MarkdownRenderer from '../components/MarkdownRenderer';
 import { SUPPORT_EMAIL } from '../config';
 import tosContent from './tos.md?raw';
 import ppContent from './privacy-policy.md?raw';
+import aboutContent from './about.md?raw';
+import faqContent from './faq.md?raw';
 import styles from './PolicyPage.module.css';
 import { Arrow } from '../components/Arrow';
 
@@ -47,4 +49,14 @@ export function TermsPage() {
 export function PrivacyPage() {
     const { t } = useTranslation();
     return <PolicyPage title={t('policyPage.privacyTitle')} body={fillPlaceholders(ppContent)} />;
+}
+
+export function AboutPage() {
+    const { t } = useTranslation();
+    return <PolicyPage title={t('policyPage.aboutTitle')} body={fillPlaceholders(aboutContent)} />;
+}
+
+export function FaqPage() {
+    const { t } = useTranslation();
+    return <PolicyPage title={t('policyPage.faqTitle')} body={fillPlaceholders(faqContent)} />;
 }

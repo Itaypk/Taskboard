@@ -1,0 +1,94 @@
+/* Site-wide footer. Deliberately the same visual stratum as `.show-archived-btn`
+   (small, ink-soft, half-opaque) so it reads as background chrome rather than
+   navigation. Flows after the page content — never fixed. The board's archived
+   toggle is centred over this same strip (see `.show-archived-wrap`), so the two
+   share one row. */
+.footer {
+  display: flex;
+  gap: 14px;
+  padding-block: 4px 14px;
+  padding-inline: 24px;
+  /* The mascot is fixed to the bottom-right corner (physically right in both
+     directions — see index.css) and overlaps this strip. Keep the links packed
+     against the opposite, physical-left corner in RTL too, and lift them above
+     the mascot's z-index 10 as a belt-and-braces guard. */
+  justify-content: flex-start;
+  position: relative;
+  z-index: 11;
+}
+
+:global([dir='rtl']) .footer { justify-content: flex-end; }
+
+.link {
+  font-size: 12px;
+  color: var(--ink-soft);
+  text-decoration: none;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+}
+
+.link:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+/* ─── Compact (phone) variant: links fold into a menu ────── */
+.menuWrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.trigger {
+  background: none;
+  border: none;
+  padding: 0 6px;
+  font-size: 15px;
+  line-height: 21px;
+  color: var(--ink-soft);
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.trigger:hover,
+.trigger[aria-expanded='true'] { opacity: 1; }
+
+/* Opens upward — the footer is the last thing on the page — and always toward the
+   viewport centre, since the trigger itself is pinned to the physical-left corner
+   in both directions (see `.footer`). */
+.menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  inset-inline-start: 0;
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  background: var(--paper-surface);
+  border: 1px solid var(--paper-border);
+  border-radius: calc(var(--r) + 2px);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.12),
+    0 1px 3px rgba(0, 0, 0, 0.08);
+  min-width: 160px;
+  z-index: 9999;
+}
+
+:global([dir='rtl']) .menu { inset-inline-start: auto; inset-inline-end: 0; }
+
+.menuItem {
+  display: block;
+  padding: 8px 16px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--ink);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background var(--t);
+}
+
+.menuItem:hover { background: var(--paper-surface-2); }
+
+@media (max-width: 600px) {
+  .footer { padding-inline: 14px; }
+}
