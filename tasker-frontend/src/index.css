@@ -1668,14 +1668,20 @@ input[type="number"] { -moz-appearance: textfield; }
 }
 
 /* ─── Show archived toggle ──────────────────────────────── */
+/* Zero-height on purpose: the button is centred *over* the site footer that follows,
+   so the board's bottom chrome stays a single row (footer links at the inline edge,
+   this toggle in the middle). `left: 50%` is direction-neutral centring. */
 .show-archived-wrap {
-  display: flex;
-  justify-content: center;
-  /* The site footer below supplies the bottom gap. */
-  padding: 8px 0 2px;
+  position: relative;
+  height: 0;
+  z-index: 12;
 }
 
 .show-archived-btn {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
   background: none;
   border: none;
   padding: 4px 8px;

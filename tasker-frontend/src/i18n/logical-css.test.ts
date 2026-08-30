@@ -51,6 +51,7 @@ const ALLOWED = [
     'components/UpdateBanner.module.css :: left: 50%',
     'index.css :: left: 50%',
     'index.css :: left: 50%',
+    'index.css :: left: 50%',
 ].sort();
 
 function cssFiles(dir: string): string[] {
