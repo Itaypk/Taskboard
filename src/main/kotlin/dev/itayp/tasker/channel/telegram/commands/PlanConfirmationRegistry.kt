@@ -27,6 +27,9 @@ class PlanConfirmationRegistry {
         const val OPTION_THIS_WEEK = "plan_this_week"
         const val OPTION_NEXT_WEEK = "plan_next_week"
         const val OPTION_REVISE = "plan_revise"
+
+        /** Only offered when planning was *inferred* from a free-text message, never for `/plan`. */
+        const val OPTION_DISMISS = "plan_dismiss"
     }
 
     fun set(chatId: Long, confirmation: PendingConfirmation) {

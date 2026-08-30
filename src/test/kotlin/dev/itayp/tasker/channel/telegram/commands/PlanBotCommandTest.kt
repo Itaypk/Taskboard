@@ -63,6 +63,8 @@ class PlanBotCommandTest {
                 src.addMessage("planning.choose_week.prompt", Locale.ENGLISH, "Which week?")
                 src.addMessage("planning.choose_week.this_week", Locale.ENGLISH, "This week ({0} – {1})")
                 src.addMessage("planning.choose_week.next_week", Locale.ENGLISH, "Next week ({0} – {1})")
+                src.addMessage("planning.inferred.ack", Locale.ENGLISH, "Sounds like planning")
+                src.addMessage("planning.confirm.dismiss", Locale.ENGLISH, "Never mind")
             },
             clock,
         )
@@ -71,7 +73,8 @@ class PlanBotCommandTest {
     private val userId = UUID.randomUUID()
     private val chatId = 42L
 
-    private fun context() = BotCommandContext(userId, chatId, "", channel, sessionRegistry)
+    private fun context(inferred: Boolean = false) =
+        BotCommandContext(userId, chatId, "", channel, sessionRegistry, inferred = inferred)
 
     @BeforeEach
     fun setUp() {
@@ -264,5 +267,82 @@ class PlanBotCommandTest {
         assertEquals("Which week?", msg.prompt)
 
         verify(orchestrator, never()).start(any(), any(), any())
+    }
+
+    // --- Inferred planning (docs/FREE-TEXT-CAPTURE.md D3) ----------------------------------------
+
+    @Test
+    fun `an inferred plan leads with what was inferred and offers a way out of every state`() {
+        // Case 3 (no plan yet) is the one whose own options leave no escape, so it's the case that
+        // needs the dismiss option most — a guess the user never asked for must be refusable.
+        whenever(sessionRegistry.get(chatId)).thenReturn(null)
+        whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(null)
+        stubUserSettings()
+
+        command.handle(context(inferred = true))
+
+        val captor = argumentCaptor<ChannelMessage>()
+        verify(channel).send(captor.capture())
+        val msg = captor.firstValue as ChannelMessage.Choice
+        assertEquals("Sounds like planning\n\nWhich week?", msg.prompt)
+        assertEquals(
+            listOf(
+                PlanConfirmationRegistry.OPTION_THIS_WEEK,
+                PlanConfirmationRegistry.OPTION_NEXT_WEEK,
+                PlanConfirmationRegistry.OPTION_DISMISS,
+            ),
+            msg.options.map { it.id },
+        )
+    }
+
+    @Test
+    fun `an inferred plan against a completed plan keeps the same keep-revise-start-over choices`() {
+        whenever(sessionRegistry.get(chatId)).thenReturn(null)
+        whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(
+            PlanningSession(
+                id = UUID.randomUUID(),
+                userId = userId,
+                conversationId = null,
+                status = PlanningSessionStatus.COMPLETED,
+                startedAt = Instant.parse("2026-05-11T10:00:00Z"),
+                weekStart = LocalDate.parse("2026-05-11"),
+                endedAt = null,
+                summary = "Week 20 plan summary",
+            )
+        )
+
+        command.handle(context(inferred = true))
+
+        val captor = argumentCaptor<ChannelMessage>()
+        verify(channel).send(captor.capture())
+        val msg = captor.firstValue as ChannelMessage.Choice
+        // "Revise this plan" is offered because a plan exists — the state-aware wording is exactly
+        // what reusing this handler buys the inferred route.
+        assertEquals(
+            listOf(
+                PlanConfirmationRegistry.OPTION_KEEP,
+                PlanConfirmationRegistry.OPTION_REVISE,
+                PlanConfirmationRegistry.OPTION_THIS_WEEK,
+                PlanConfirmationRegistry.OPTION_DISMISS,
+            ),
+            msg.options.map { it.id },
+        )
+        assertTrue(msg.prompt.startsWith("Sounds like planning"))
+        assertTrue(msg.prompt.contains("Week 20 plan summary"))
+    }
+
+    @Test
+    fun `a typed plan command offers no dismiss option and no inference note`() {
+        whenever(sessionRegistry.get(chatId)).thenReturn(null)
+        whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(null)
+        stubUserSettings()
+
+        command.handle(context())
+
+        val captor = argumentCaptor<ChannelMessage>()
+        verify(channel).send(captor.capture())
+        val msg = captor.firstValue as ChannelMessage.Choice
+        assertEquals("Which week?", msg.prompt)
+        assertTrue(msg.options.none { it.id == PlanConfirmationRegistry.OPTION_DISMISS })
     }
 }

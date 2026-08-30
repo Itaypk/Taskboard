@@ -107,6 +107,7 @@ class TaskSuggestionAgent(
         request: String,
         clarifications: List<ClarificationExchange> = emptyList(),
         mustDraft: Boolean = false,
+        unprompted: Boolean = false,
     ): SuggestionOutcome = runQuickAdd(
         userId = userId,
         request = request,
@@ -114,6 +115,7 @@ class TaskSuggestionAgent(
         previousItems = null,
         clarifications = clarifications,
         mustDraft = mustDraft,
+        unprompted = unprompted,
     )
 
     /**
@@ -133,6 +135,7 @@ class TaskSuggestionAgent(
         userId: UUID,
         attachments: List<InboundAttachment>,
         caption: String? = null,
+        unprompted: Boolean = false,
     ): SuggestionOutcome {
         require(attachments.isNotEmpty()) { "quickAddDraftFromMedia called with no attachments" }
         if (!inputModalitySupport.supportsAll(attachments.map { it.kind })) {
@@ -146,6 +149,7 @@ class TaskSuggestionAgent(
             clarifications = emptyList(),
             mustDraft = false,
             attachments = attachments,
+            unprompted = unprompted,
         )
     }
 
@@ -178,6 +182,7 @@ class TaskSuggestionAgent(
         clarifications: List<ClarificationExchange>,
         mustDraft: Boolean,
         attachments: List<InboundAttachment> = emptyList(),
+        unprompted: Boolean = false,
     ): SuggestionOutcome {
         val settings = userSettingsService.getOrCreate(userId)
         val zone = runCatching { ZoneId.of(settings.timeZone) }.getOrDefault(ZoneId.of("UTC"))
@@ -191,8 +196,13 @@ class TaskSuggestionAgent(
         val tags = tagService.getAllForUser(userId)
         val sample = backlogTaskService.getTasksAcrossBoards(userId, null).take(SAMPLE_SIZE)
 
-        val systemPrompt = promptTemplateLoader.load("task-suggestion/system-clarify.md")
-            .render(mapOf("language" to languageName))
+        // The third reply shape exists only for a capture the user didn't ask for (`docs/
+        // FREE-TEXT-CAPTURE.md` D2): with `/add`, or on any later round of a live capture, the
+        // user has already committed to capturing, so a bail-out would only be a way to lose one.
+        val systemPrompt = promptTemplateLoader.load("task-suggestion/system-clarify.md").render(mapOf(
+            "language" to languageName,
+            "not_a_capture_block" to if (unprompted) NOT_A_CAPTURE_BLOCK else "",
+        ))
         val userMessage = promptTemplateLoader.load("task-suggestion/quickadd-user.md").render(mapOf(
             "request" to (if (request.isBlank() && attachments.isNotEmpty()) "(no text — see the attachment)" else request),
             "media_block" to renderMediaBlock(attachments),
@@ -247,7 +257,7 @@ class TaskSuggestionAgent(
             )
         }
         val raw = aiClient.chat(chatRequest, context).choices.firstOrNull()?.message?.contentText.orEmpty()
-        return parseOutcome(raw)
+        return parseOutcome(raw, allowNotACapture = unprompted)
     }
 
     /**
@@ -278,13 +288,19 @@ summary of your reasoning.
 """
     }
 
-    private fun parseOutcome(raw: String): SuggestionOutcome {
+    private fun parseOutcome(raw: String, allowNotACapture: Boolean): SuggestionOutcome {
         val parsed = parseAssistantJsonResponseOrNull(
             objectMapper, raw, QuickAddRaw::class.java,
             AiConversationType.TASK_SUGGESTION, meterRegistry, log, "quick-add",
         ) ?: return SuggestionOutcome.Unparseable
 
         val sourceText = parsed.sourceText?.trim()?.takeIf { it.isNotBlank() }
+        // Ignored unless the shape was offered, so a model that emits it unbidden (mid-capture, or
+        // after an `/add`) can't turn a fixable draft into a dead end — it falls through to the
+        // clarify/items handling below, and an empty reply ends as Unparseable like any other.
+        if (allowNotACapture && parsed.notACapture != null) {
+            return SuggestionOutcome.NotACapture(CaptureIntent.parse(parsed.notACapture.intent))
+        }
         val question = parsed.clarify?.question?.takeIf { it.isNotBlank() }
         if (question != null) {
             val options = parsed.clarify.options.mapNotNull { opt ->
@@ -337,6 +353,29 @@ summary of your reasoning.
         private const val SAMPLE_SIZE = 15
 
         /**
+         * The third reply shape, rendered into the system prompt only for an unprompted capture.
+         * Kept here rather than in the template so the template has no dead branch to read past:
+         * `system-clarify.md` interpolates this whole block or nothing at all.
+         */
+        private val NOT_A_CAPTURE_BLOCK = """
+- To say this wasn't a capture request at all — the user sent this message on their own, without
+  asking to add anything, so it may be something else entirely: a question about their week, a
+  request to plan, small talk, or nothing intelligible. Reply with an object whose only key is
+  `not_a_capture`, naming what they were actually after:
+{"not_a_capture":{"intent":"plan|current|stats|help|unclear"}}
+  - `plan` — they want to build or change their weekly plan ("let's plan my week", "move my gym
+    session to Thursday", "I need to reschedule Tuesday").
+  - `current` — they are *asking about* the plan they already have ("what's on for today?",
+    "what did I plan for Thursday?").
+  - `stats` — they are asking about their backlog or their numbers ("how many open tasks?").
+  - `help` — they are asking what you can do.
+  - `unclear` — a greeting, a typo, or anything with no discernible request in it.
+  Still prefer capturing: use this shape only when the message clearly isn't something to add to
+  the backlog. Something the user has to do is a capture even when phrased as a question, and a
+  bare noun ("dentist", "milk") is a capture, not small talk.
+""".trim()
+
+        /**
          * Completion budget for a draft. On reasoning models OpenRouter counts reasoning tokens
          * against `max_tokens`, so this must cover the model's thinking *plus* a multi-item JSON
          * draft — too tight a budget truncated the JSON mid-object (finish_reason=length), which
@@ -358,8 +397,8 @@ data class TaskDraft(
 
 /**
  * The result of a quick-add drafting/revision call: a non-empty list of captured items, a single
- * clarifying question, or a parse failure. A "draft" outcome can mix tasks and events — the user's
- * request determines what comes out.
+ * clarifying question, a "this wasn't a capture" verdict, or a parse failure. A "draft" outcome can
+ * mix tasks and events — the user's request determines what comes out.
  *
  * [sourceText] is set only for a capture that came from media — it's what the model read in the
  * image or heard in the voice note, and it stands in for the user's typed request from there on.
@@ -378,7 +417,32 @@ sealed interface SuggestionOutcome {
         override val sourceText: String? = null,
     ) : SuggestionOutcome
 
+    /**
+     * The message wasn't a capture request. Only ever produced for an unprompted capture — the
+     * shape isn't offered to the model otherwise (`docs/FREE-TEXT-CAPTURE.md` D2).
+     */
+    data class NotACapture(val intent: CaptureIntent) : SuggestionOutcome
+
     data object Unparseable : SuggestionOutcome
+}
+
+/**
+ * What an unprompted message turned out to want, when it didn't want a capture. Deliberately a
+ * small closed set that maps onto the bot's commands; anything the model can't place lands in
+ * [UNCLEAR], which is also where an unrecognized value from the model goes.
+ */
+enum class CaptureIntent {
+    PLAN,
+    CURRENT,
+    STATS,
+    HELP,
+    UNCLEAR,
+    ;
+
+    companion object {
+        fun parse(raw: String?): CaptureIntent =
+            entries.firstOrNull { it.name.equals(raw?.trim(), ignoreCase = true) } ?: UNCLEAR
+    }
 }
 
 /** Thrown when a media capture is attempted against a model that doesn't accept those modalities. */
@@ -391,9 +455,10 @@ data class ClarifyOption(val id: String, val label: String)
 data class ClarificationExchange(val question: String, val answer: String)
 
 /**
- * Loose binding of the quick-add sub-agent's two possible JSON shapes (an `items` array of typed
- * captured items or a `clarify` object). All fields are optional so a response of either shape
- * deserializes; the agent then decides which shape it actually was.
+ * Loose binding of the quick-add sub-agent's possible JSON shapes (an `items` array of typed
+ * captured items, a `clarify` object, or — for an unprompted capture only — a `not_a_capture`
+ * verdict). All fields are optional so a response of any shape deserializes; the agent then
+ * decides which shape it actually was.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 private data class QuickAddRaw(
@@ -401,7 +466,12 @@ private data class QuickAddRaw(
     val items: List<CapturedItemRaw>? = null,
     /** Only produced for media captures: what the model read/heard in the attachment. */
     @JsonProperty("source_text") val sourceText: String? = null,
+    /** Only offered for an unprompted capture; ignored otherwise. */
+    @JsonProperty("not_a_capture") val notACapture: NotACaptureRaw? = null,
 )
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+private data class NotACaptureRaw(val intent: String? = null)
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 private data class CapturedItemRaw(

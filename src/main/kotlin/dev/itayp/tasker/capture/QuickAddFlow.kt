@@ -20,12 +20,14 @@ import dev.itayp.tasker.planning.TaskDraft
 import dev.itayp.tasker.planning.TaskSuggestionAgent
 import dev.itayp.tasker.planning.UnsupportedModalityException
 import dev.itayp.tasker.planning.toCreateBacklogTaskRequest
+import dev.itayp.tasker.ratelimit.RateLimiter
 import dev.itayp.tasker.service.BacklogTaskCategoryService
 import dev.itayp.tasker.service.BacklogTaskService
 import dev.itayp.tasker.service.BoardMembershipService
 import dev.itayp.tasker.service.UserSettingsService
 import io.micrometer.core.instrument.MeterRegistry
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.context.MessageSource
 import org.springframework.stereotype.Service
 import java.time.Clock
@@ -63,6 +65,7 @@ class QuickAddFlow(
     private val userSettingsService: UserSettingsService,
     private val messageSource: MessageSource,
     private val meterRegistry: MeterRegistry,
+    @Qualifier("quickAddRateLimiter") private val rateLimiter: RateLimiter,
     private val clock: Clock,
 ) {
     private val log = LoggerFactory.getLogger(QuickAddFlow::class.java)
@@ -71,12 +74,38 @@ class QuickAddFlow(
     fun begin(userId: UUID, channel: ConversationChannel, description: String?): QuickAddState? {
         val request = description?.trim().orEmpty()
         if (request.isBlank()) {
+            // No model call yet, so nothing to charge against the limit — the description that
+            // follows goes through onDescription, which is already inside the flow.
             channel.send(ChannelMessage.Text(msg(userId, "quickadd.prompt.describe")))
             return QuickAddState.AwaitingDescription(now())
         }
+        countEntry("command")
+        return draft(userId, channel, request, unprompted = false).stateOrNull()
+    }
+
+    /**
+     * Opens a flow from a message the user sent on their own — no `/add` in front of it. Behaves
+     * exactly like [begin] when the message is a capture; when it plainly isn't one, the model says
+     * so and this returns [CaptureEntry.Routed] for the channel to dispatch
+     * (`docs/FREE-TEXT-CAPTURE.md` D1–D3). That third reply shape is offered **only** here.
+     */
+    fun beginUnprompted(userId: UUID, channel: ConversationChannel, text: String): CaptureEntry {
+        val request = text.trim()
+        if (request.isBlank()) return CaptureEntry.Captured(null)
+        countEntry("unprompted")
+        return draft(userId, channel, request, unprompted = true)
+    }
+
+    private fun draft(
+        userId: UUID,
+        channel: ConversationChannel,
+        request: String,
+        unprompted: Boolean,
+    ): CaptureEntry {
+        if (!allow(userId, channel)) return CaptureEntry.Captured(null)
         channel.indicateTyping()
         val op = PendingOp.Draft(request, emptyList())
-        val outcome = suggestionAgent.quickAddDraft(userId, request, emptyList(), mustDraft = false)
+        val outcome = suggestionAgent.quickAddDraft(userId, request, emptyList(), mustDraft = false, unprompted = unprompted)
         return renderOutcome(userId, channel, op, outcome, clarifyRound = 1)
     }
 
@@ -86,8 +115,8 @@ class QuickAddFlow(
      * confirmation card on, the capture behaves exactly like a typed one (that read-back stands in
      * for the user's request), so no bytes are held past this call.
      *
-     * Reached through [handleInbound]: an attachment only counts while a quick-add is in progress
-     * (`docs/MULTIMODAL-CAPTURE.md` D8), so channels gate on that before calling in.
+     * Reached from [handleInbound] — an attachment sent into a capture that is already running. For
+     * an attachment that arrives on its own, see [beginUnpromptedFromMedia].
      *
      * Returns null — the flow is over — when the configured model can't accept the modality, or the
      * capture failed; both paths tell the user what to do instead.
@@ -97,16 +126,53 @@ class QuickAddFlow(
         channel: ConversationChannel,
         attachments: List<InboundAttachment>,
         caption: String?,
-    ): QuickAddState? {
-        if (attachments.isEmpty()) return null
+    ): QuickAddState? =
+        captureMedia(userId, channel, attachments, caption, offerRouting = false, entrySource = null).stateOrNull()
+
+    /**
+     * Captures from an attachment the user sent on its own, with no `/add` and no capture running.
+     *
+     * The two media kinds are not treated alike (`docs/FREE-TEXT-CAPTURE.md` D7). An **image** is a
+     * capture: nobody forwards a photo to a task bot incidentally, so offering the model a way to
+     * bail out would only be a way to lose the obvious case. A **voice note** is as open-ended as
+     * typed text — "remind me to call the plumber" and "how does this thing work?" arrive the same
+     * way — so it gets the same routing escape text does. Either way the classification rides along
+     * in the call that already transcribes and drafts, so it costs nothing extra.
+     */
+    fun beginUnpromptedFromMedia(
+        userId: UUID,
+        channel: ConversationChannel,
+        attachments: List<InboundAttachment>,
+        caption: String?,
+    ): CaptureEntry = captureMedia(
+        userId, channel, attachments, caption,
+        offerRouting = attachments.any { it.kind == AttachmentKind.AUDIO },
+        entrySource = "unprompted",
+    )
+
+    private fun captureMedia(
+        userId: UUID,
+        channel: ConversationChannel,
+        attachments: List<InboundAttachment>,
+        caption: String?,
+        offerRouting: Boolean,
+        entrySource: String?,
+    ): CaptureEntry {
+        if (attachments.isEmpty()) return CaptureEntry.Captured(null)
+        entrySource?.let { countEntry(it) }
+        if (!allow(userId, channel)) return CaptureEntry.Captured(null)
         channel.indicateTyping()
         val outcome = try {
-            suggestionAgent.quickAddDraftFromMedia(userId, attachments, caption)
+            suggestionAgent.quickAddDraftFromMedia(userId, attachments, caption, unprompted = offerRouting)
         } catch (e: UnsupportedModalityException) {
             countMedia(attachments, "unsupported")
             log.info("quick-add media capture declined: model lacks modalities {}", e.kinds)
             channel.send(ChannelMessage.Text(msg(userId, unsupportedMessageKey(attachments))))
-            return null
+            return CaptureEntry.Captured(null)
+        }
+        if (outcome is SuggestionOutcome.NotACapture) {
+            countMedia(attachments, "routed")
+            return renderOutcome(userId, channel, PendingOp.Draft("", emptyList()), outcome, clarifyRound = 1)
         }
         val request = outcome.sourceText
             ?: caption?.trim()?.takeIf { it.isNotBlank() }
@@ -140,10 +206,7 @@ class QuickAddFlow(
             channel.send(ChannelMessage.Text(msg(userId, "quickadd.prompt.describe")))
             return QuickAddState.AwaitingDescription(now())
         }
-        channel.indicateTyping()
-        val op = PendingOp.Draft(text, emptyList())
-        val outcome = suggestionAgent.quickAddDraft(userId, text, emptyList(), mustDraft = false)
-        return renderOutcome(userId, channel, op, outcome, clarifyRound = 1)
+        return draft(userId, channel, text, unprompted = false).stateOrNull()
     }
 
     private fun onConfirmation(
@@ -220,7 +283,7 @@ class QuickAddFlow(
                 o to suggestionAgent.quickAddRevise(userId, op.originalRequest, op.items, op.instruction, newClarifications, mustDraft)
             }
         }
-        return renderOutcome(userId, channel, newOp, outcome, clarifyRound = state.rounds + 1)
+        return renderOutcome(userId, channel, newOp, outcome, clarifyRound = state.rounds + 1).stateOrNull()
     }
 
     private fun applyAdjustment(
@@ -234,7 +297,7 @@ class QuickAddFlow(
         channel.indicateTyping()
         val op = PendingOp.Revise(originalRequest, items, instruction, clarifications)
         val outcome = suggestionAgent.quickAddRevise(userId, originalRequest, items, instruction, clarifications, mustDraft = false)
-        return renderOutcome(userId, channel, op, outcome, clarifyRound = 1)
+        return renderOutcome(userId, channel, op, outcome, clarifyRound = 1).stateOrNull()
     }
 
     private fun renderOutcome(
@@ -243,19 +306,20 @@ class QuickAddFlow(
         op: PendingOp,
         outcome: SuggestionOutcome,
         clarifyRound: Int,
-    ): QuickAddState? = when (outcome) {
-        is SuggestionOutcome.Draft -> {
-            val validated = validateItems(userId, outcome.items)
-            if (validated.isEmpty()) {
-                log.warn("quick-add validated to no items; abandoning capture")
-                channel.send(ChannelMessage.Text(msg(userId, "quickadd.unparseable")))
-                null
-            } else {
-                renderCard(userId, channel, validated)
-                QuickAddState.AwaitingConfirmation(validated, op.originalRequest, op.clarifications, now())
-            }
-        }
-        is SuggestionOutcome.Clarify -> {
+    ): CaptureEntry = when (outcome) {
+        is SuggestionOutcome.Draft -> CaptureEntry.Captured(
+            validateItems(userId, outcome.items).let { validated ->
+                if (validated.isEmpty()) {
+                    log.warn("quick-add validated to no items; abandoning capture")
+                    channel.send(ChannelMessage.Text(msg(userId, "quickadd.unparseable")))
+                    null
+                } else {
+                    renderCard(userId, channel, validated)
+                    QuickAddState.AwaitingConfirmation(validated, op.originalRequest, op.clarifications, now())
+                }
+            },
+        )
+        is SuggestionOutcome.Clarify -> CaptureEntry.Captured(
             if (clarifyRound > MAX_CLARIFY_ROUNDS) {
                 // The agent asked again despite being told it must draft — give up gracefully.
                 log.warn("quick-add exceeded clarification budget; abandoning capture")
@@ -266,12 +330,20 @@ class QuickAddFlow(
                 val options = outcome.options.mapIndexed { i, o -> ClarifyOption(id = "o$i", label = o.label) }
                 renderClarify(userId, channel, outcome.question, options)
                 QuickAddState.AwaitingClarification(op, outcome.question, options, clarifyRound, now())
-            }
+            },
+        )
+        // Only reachable from an unprompted entry — the shape isn't offered otherwise, so the
+        // in-flow callers below can safely unwrap this as a plain state.
+        is SuggestionOutcome.NotACapture -> {
+            count("not_a_capture")
+            meterRegistry.counter("tasker.quickadd.route", "intent", outcome.intent.name.lowercase()).increment()
+            log.debug("unprompted message routed as {}", outcome.intent)
+            CaptureEntry.Routed(outcome.intent)
         }
         is SuggestionOutcome.Unparseable -> {
             count("failed")
             channel.send(ChannelMessage.Text(msg(userId, "quickadd.unparseable")))
-            null
+            CaptureEntry.Captured(null)
         }
     }
 
@@ -499,6 +571,22 @@ class QuickAddFlow(
 
     private fun count(result: String) =
         meterRegistry.counter("tasker.quickadd.outcome", "result", result).increment()
+
+    private fun countEntry(source: String) =
+        meterRegistry.counter("tasker.quickadd.entry", "source", source).increment()
+
+    /**
+     * Guards the model call that opens a capture. Only entry points are checked: the rounds inside
+     * a live capture are already bounded (by [MAX_CLARIFY_ROUNDS] and by the user's own taps), and
+     * cutting one off would strand a draft the user is in the middle of fixing.
+     */
+    private fun allow(userId: UUID, channel: ConversationChannel): Boolean {
+        if (rateLimiter.tryConsume(userId.toString())) return true
+        count("rate_limited")
+        log.info("quick-add rate limit reached for user {}", userId)
+        channel.send(ChannelMessage.Text(msg(userId, "quickadd.rate_limited")))
+        return false
+    }
 
     private fun locale(userId: UUID): Locale = userSettingsService.getLocale(userId)
 

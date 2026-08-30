@@ -94,6 +94,11 @@ tasker:
     feedback:
       limit: 10
       window-seconds: 3600
+    # Captures opened per user per hour. Free text sent to the bot is a capture, so /add no longer
+    # throttles the model calls; this bounds a runaway forwarding loop.
+    quick-add:
+      limit: 60
+      window-seconds: 3600
     # Agent API (/api/external/v1) gets its own per-user budget, separate from the SPA's.
     external-api:
       limit: 120

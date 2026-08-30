@@ -4,7 +4,8 @@ Design note for turning the assistant's out-of-the-blue reply into something use
 to the Telegram bot with no `/command` and no conversation in progress becomes a quick-add capture,
 with a bounded escape hatch for messages that aren't captures at all.
 
-Status: **proposed**. Nothing here has shipped.
+Status: **phase 1 implemented** — routing, `not_a_capture`, media, and the capture rate limit
+(D1-D5, D7). Phase 2 (the plan hand-off, D6, and revise-mode seeding, D3a) is not started.
 
 ## Why
 
@@ -71,11 +72,13 @@ capture that started from an unprompted message. It is not offered:
   that" there means *adjust the draft*, not *re-route to another command*. Letting the model bail
   out mid-flow would turn a fixable draft into a dead end.
 
-Mechanically this is a flag threaded like the existing `must_draft_block`: a boolean on
-`quickAddDraft` that controls whether the `not_a_capture` clause is rendered into
-`system-clarify.md`. `QuickAddFlow.begin` gets an `unprompted: Boolean` parameter, false everywhere
-today, true from the new routing path only; `PendingOp` does not carry it, so it cannot leak into
-the revise/clarify calls.
+Mechanically this is a flag threaded like the existing `must_draft_block`: an `unprompted` boolean
+on `quickAddDraft` / `quickAddDraftFromMedia` that decides whether the `not_a_capture` clause is
+rendered into `system-clarify.md`, and whether the key is honoured when it comes back — a model that
+emits the shape unbidden is ignored rather than obeyed. `QuickAddFlow` exposes it as separate entry
+points (`beginUnprompted`, `beginUnpromptedFromMedia`) rather than a parameter on `begin`, so the
+only way to reach the flag is through the one door that should have it; `PendingOp` does not carry
+it, so it cannot leak into the revise/clarify calls.
 
 Consequence worth stating: the shipped `/add` behavior is **bit-identical** after this change. All
 new behavior sits behind a flag that only the new entry point sets, which keeps the blast radius of
@@ -89,7 +92,7 @@ What the router does with each `intent`:
 | --- | --- |
 | `current`, `stats`, `help` | run the handler directly |
 | `plan` | hand to `PlanBotCommand.handle`, plus a dismiss option |
-| `unclear` | a short "here's what I can do" message with the command buttons |
+| `unclear` | a short "here's what I can do" message naming the commands |
 
 Running `current` / `stats` / `help` outright is the delightful outcome and the risk is negligible:
 they're read-only, cheap, and a misclassification costs the user one glance and one tap. The
@@ -117,8 +120,12 @@ can be wrong, so the route appends a "never mind" option in all three states and
 "Sounds like you want to plan your week" so the user can see what was inferred.
 
 `unclear` is the "hi!" / "asdsdas" / "i don't like apple sauce" bucket, and it doesn't need to be
-clever. One message naming what the bot does, plus the buttons, is already strictly better than
-today's static string.
+clever. One message naming what the bot does — leading with "just send me a task, no command
+needed", since that's the feature people won't guess — is already strictly better than the static
+string it replaces. It needs no buttons: Telegram renders `/plan` and friends as tappable links on
+its own. It doubles as the reply whenever a capture can't be attempted at all (a stale button tap,
+or a user who has opted out of AI), because naming what the bot does is the useful thing to say in
+either case.
 
 ### D3a. The triggering message is not replayed into a fresh planning session
 
@@ -273,7 +280,9 @@ Extend the existing counters rather than adding a family:
 - a new `tasker.quickadd.entry{source}` with `command` / `unprompted`, so we can see whether
   unprompted captures actually materialize and whether their save rate differs from `/add`'s.
 - `tasker.quickadd.route{intent}` for the `not_a_capture` distribution — this is what tells us
-  whether D3's auto-run split is set correctly.
+  whether D3's auto-run split is set correctly, and (for `plan`) whether D3a's revise-mode seeding
+  is worth building.
+- `tasker.quickadd.media{kind,result}` gains a `routed` result, for the voice-note half of D7.
 
 ## Key components
 
