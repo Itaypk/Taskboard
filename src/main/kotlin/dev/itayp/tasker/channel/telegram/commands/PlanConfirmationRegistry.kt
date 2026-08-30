@@ -20,6 +20,12 @@ class PlanConfirmationRegistry {
         val replanWeekStart: LocalDate? = null,
         /** Non-null when there is a COMPLETED session the user can choose to revise in place. */
         val revisableSessionId: UUID? = null,
+        /**
+         * The free-text message that got the user here, when planning was inferred rather than
+         * typed. Handed to the revision conversation as its opening instruction so a "move my gym
+         * session to Thursday" doesn't have to be repeated (`docs/FREE-TEXT-CAPTURE.md` D3a).
+         */
+        val revisionSeed: String? = null,
     )
 
     companion object {

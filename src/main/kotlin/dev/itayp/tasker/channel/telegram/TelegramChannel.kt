@@ -194,7 +194,12 @@ class TelegramChannel(
                     if (revisableSessionId == null) {
                         channel.send(ChannelMessage.Text(messageSource.getMessage("planning.confirm.choose", null, locale)))
                     } else {
-                        orchestrator.startRevision(pendingConfirmation.userId, revisableSessionId, channel)
+                        orchestrator.startRevision(
+                            pendingConfirmation.userId,
+                            revisableSessionId,
+                            channel,
+                            pendingConfirmation.revisionSeed,
+                        )
                         sessionRegistry.put(chatId, revisableSessionId)
                     }
                 }
@@ -220,7 +225,7 @@ class TelegramChannel(
         // Drive an in-progress quick-add ("/add") capture, if any.
         val quickAddState = quickAddRegistry.get(chatId)
         if (quickAddState != null) {
-            storeQuickAddState(chatId, quickAddFlow.handleInbound(userId, channel, quickAddState, inbound))
+            applyEntry(userId, chatId, channel, quickAddFlow.handleInbound(userId, channel, quickAddState, inbound))
             return
         }
 
@@ -270,7 +275,7 @@ class TelegramChannel(
     ) {
         when (entry) {
             is CaptureEntry.Captured -> storeQuickAddState(chatId, entry.state)
-            is CaptureEntry.Routed -> route(userId, chatId, channel, entry.intent)
+            is CaptureEntry.Routed -> route(userId, chatId, channel, entry.intent, entry.text)
         }
     }
 
@@ -284,6 +289,7 @@ class TelegramChannel(
         chatId: Long,
         channel: TelegramConversationChannel,
         intent: CaptureIntent,
+        text: String,
     ) {
         val command = when (intent) {
             CaptureIntent.PLAN -> "/plan"
@@ -295,7 +301,9 @@ class TelegramChannel(
                 return
             }
         }
-        val context = BotCommandContext(userId, chatId, "", channel, sessionRegistry, inferred = true)
+        // The message rides along: a handler that opens a conversation about what the user just
+        // said can use it as its opening turn (`docs/FREE-TEXT-CAPTURE.md` D3a).
+        val context = BotCommandContext(userId, chatId, "", channel, sessionRegistry, inferredFrom = text)
         if (!commandDispatcher.dispatch(command, context)) {
             logger.warn("unprompted message routed to {}, which has no handler", command)
             sendCapabilities(userId, channel)
@@ -347,7 +355,7 @@ class TelegramChannel(
             TelegramMediaExtractor.Extraction.None -> return
         }
         if (quickAddState != null) {
-            storeQuickAddState(chatId, quickAddFlow.handleInbound(userId, channel, quickAddState, inbound))
+            applyEntry(userId, chatId, channel, quickAddFlow.handleInbound(userId, channel, quickAddState, inbound))
             return
         }
         applyEntry(

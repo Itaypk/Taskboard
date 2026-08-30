@@ -15,6 +15,7 @@ import dev.itayp.tasker.service.UserSettingsService
 import org.hamcrest.Matchers.nullValue
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
@@ -220,7 +221,7 @@ class WebPlanningControllerTest(@Autowired val mockMvc: MockMvc) {
     @Test
     fun `revise on a non-completed session returns 409`() {
         doThrow(IllegalStateException("Cannot revise session in status ACTIVE"))
-            .whenever(orchestrator).startRevision(any(), any(), any())
+            .whenever(orchestrator).startRevision(any(), any(), any(), anyOrNull())
 
         mockMvc.perform(
             post("/api/v1/planning/$sessionId/revise")

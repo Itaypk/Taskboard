@@ -63,7 +63,9 @@ class DevQuickAddController(
             request.text != null -> ChannelInbound.Text(request.text)
             else -> return ResponseEntity.badRequest().build()
         }
-        val nextState = quickAddFlow.handleInbound(principal.userId, session.channel, state, inbound)
+        // stateOrNull: this dev harness has no commands to route to, so a lapsed plan offer whose
+        // replacement message wasn't a capture simply ends the session.
+        val nextState = quickAddFlow.handleInbound(principal.userId, session.channel, state, inbound).stateOrNull()
         val drained = session.channel.drain()
         if (nextState != null) {
             session.state = nextState

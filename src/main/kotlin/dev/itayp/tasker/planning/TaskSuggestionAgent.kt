@@ -317,7 +317,7 @@ summary of your reasoning.
             log.warn("quick-add output had neither a clarify question nor any captured items")
             return SuggestionOutcome.Unparseable
         }
-        return SuggestionOutcome.Draft(items = items, sourceText = sourceText)
+        return SuggestionOutcome.Draft(items = items, sourceText = sourceText, planThisWeek = parsed.planThisWeek == true)
     }
 
     private fun renderClarifications(clarifications: List<ClarificationExchange>): String {
@@ -409,6 +409,12 @@ sealed interface SuggestionOutcome {
     data class Draft(
         val items: List<CapturedItem>,
         override val sourceText: String? = null,
+        /**
+         * The user said this belongs in the current week's plan ("add it to this week", "I want to
+         * do this Tuesday"). One half of the gate on the plan hand-off offer
+         * (`docs/FREE-TEXT-CAPTURE.md` D6); the other is a deadline that falls inside the week.
+         */
+        val planThisWeek: Boolean = false,
     ) : SuggestionOutcome
 
     data class Clarify(
@@ -468,6 +474,8 @@ private data class QuickAddRaw(
     @JsonProperty("source_text") val sourceText: String? = null,
     /** Only offered for an unprompted capture; ignored otherwise. */
     @JsonProperty("not_a_capture") val notACapture: NotACaptureRaw? = null,
+    /** Set when the user said the capture belongs in this week's plan. */
+    @JsonProperty("plan_this_week") val planThisWeek: Boolean? = null,
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)

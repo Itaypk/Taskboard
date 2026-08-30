@@ -4,8 +4,10 @@ Design note for turning the assistant's out-of-the-blue reply into something use
 to the Telegram bot with no `/command` and no conversation in progress becomes a quick-add capture,
 with a bounded escape hatch for messages that aren't captures at all.
 
-Status: **phase 1 implemented** — routing, `not_a_capture`, media, and the capture rate limit
-(D1-D5, D7). Phase 2 (the plan hand-off, D6, and revise-mode seeding, D3a) is not started.
+Status: **implemented**. Phase 1 shipped routing, `not_a_capture`, media, and the capture rate
+limit (D1–D5, D7); phase 2 shipped the plan hand-off (D6) and revise-mode seeding (D3a). The one
+piece deliberately left out is D6's model-proposed slot, which stays an optimization on top of the
+picker that shipped — see D6.
 
 ## Why
 
@@ -139,11 +141,17 @@ text to replay at `CONVERSING` entry risks it landing where the model reads it a
 question it asked in between. The trigger message is also usually *only* a trigger ("let's plan",
 "time to sort out my week") — content-bearing openers are the minority.
 
-For **revision** there's a real case, and the mechanism is already there. `startRevision` skips
-capacity, goes straight to `CONVERSING`, and opens with `renderReviseKickoff()`. "Move my gym
-session to Thursday" is exactly a revise instruction, and it can be appended to that kickoff — one
-call site, no new phase. Worth doing, but after phase 1: it only pays off once we can see from
-`tasker.quickadd.route{intent}` how often `plan` fires against an existing plan.
+For **revision** there's a real case, and the mechanism was already there — this is what shipped.
+`startRevision` skips capacity, goes straight to `CONVERSING`, and opens with
+`renderReviseKickoff()`; the triggering message is appended to that kickoff under a "here is what I
+want to change, in my own words" line. "Move my gym session to Thursday" is exactly a revise
+instruction, so the conversation opens already knowing it.
+
+The text reaches `startRevision` without touching `BotCommandContext.args`, which the dispatcher
+overwrites with whatever followed the command word (nothing, on a route). It rides on
+`inferredFrom` instead — the same field that tells `PlanBotCommand` to offer a way out — is stashed
+on the pending confirmation, and is used only if the user then picks "Revise this plan". Pick
+"start over" and it's dropped, because a fresh session has nowhere to put it.
 
 ### D4. Plain capture alone isn't enough, and the reason is in the prompt
 
@@ -210,9 +218,18 @@ them from `ScheduleTaskModal` (day grid + time input). Telegram has buttons. The
 - otherwise a two-tap picker: remaining days of the week, then a coarse time (morning / afternoon /
   evening → 09:00 / 14:00 / 19:00), with duration = `estimatedMinutes ?? 30`.
 
-The picker is the baseline because it always works; the proposed-slot path is the optimization on
-top. Both end at the same `addTaskToSession` call, and both must surface the invite-not-sent case
-the way `quickadd.event.invite_skipped` already does.
+**The picker shipped; the proposed slot did not.** The picker is the baseline because it always
+works, and it turned out to carry its own weight: a day whose every coarse time has already passed
+isn't offered, so the flow can't produce a block in the past (which would mean a calendar invite for
+a time that is already gone). The proposed-slot path would be a second new model output on top of
+`plan_this_week`, plus validation, plus a fall-through to the picker when it doesn't parse or lands
+outside the week — a fair amount of surface to save one tap. It's worth building once the
+`tasker.quickadd.plan{result}` numbers show people are taking the offer and getting through both
+taps; if they abandon at the day picker, the answer isn't a faster picker.
+
+`addTaskToSession` now returns whether an invite actually went out, so the Telegram path can say so
+the way `quickadd.event.invite_skipped` already does — the web UI shows the plan itself, and had no
+need for the return value.
 
 ### D7. Unprompted media is captured too — images always, voice through the router
 
@@ -283,6 +300,9 @@ Extend the existing counters rather than adding a family:
   whether D3's auto-run split is set correctly, and (for `plan`) whether D3a's revise-mode seeding
   is worth building.
 - `tasker.quickadd.media{kind,result}` gains a `routed` result, for the voice-note half of D7.
+- `tasker.quickadd.plan{result}` with `offered` / `scheduled` / `declined` / `lapsed` / `failed`,
+  for the hand-off. `offered` against `scheduled` is whether the gate is set right; `lapsed` (the
+  user typed instead of tapping) against `declined` is whether the offer is landing as an offer.
 
 ## Key components
 
@@ -292,11 +312,13 @@ Extend the existing counters rather than adding a family:
   `NotACapture` rendering; the plan-offer gate and its new states.
 - `channel/telegram/commands/PlanBotCommand.kt` — reused for the `plan` route; gains the dismiss
   option (D3).
-- `capture/QuickAddState.kt` — a state for the plan offer / slot picker.
+- `capture/QuickAddState.kt` — `AwaitingPlanDay` / `AwaitingPlanTime`, and the `PlanTimeOfDay`
+  enum behind the coarse time buttons.
 - `planning/TaskSuggestionAgent.kt` — `SuggestionOutcome.NotACapture`, `plan_this_week` parsing.
 - `resources/prompts/task-suggestion/system-clarify.md` + `quickadd-user.md` — the third reply
   shape, rendered conditionally.
-- `planning/PlanFinalizationService.kt` — reused unchanged.
+- `planning/PlanFinalizationService.kt` — reused; `addTaskToSession` gained a return value only.
+- `planning/WeeklyPlanningOrchestrator.kt` — `startRevision` takes an opening instruction (D3a).
 - `ratelimit/` + `config/RateLimitProperties.kt` — the new capture bucket.
 - `resources/messages*.properties` — new keys in all 13 bundles.
 
@@ -314,13 +336,18 @@ Extend the existing counters rather than adding a family:
 - Rate-limit test: the N+1th unprompted message in a window gets the limit reply and makes no model
   call.
 - Plan hand-off: the picker produces a slot that `addTaskToSession` accepts, and the invite-skipped
-  branch is surfaced.
+  branch is surfaced. Also that a coarse time already past today isn't offered, and that typing at
+  the offer lapses it into a new capture rather than being read as an answer.
+- Revise-mode seeding: `PlanBotCommand` stores the triggering message only when the command was
+  inferred, the channel hands it to `startRevision`, and `startRevision` appends it to the kickoff
+  (and leaves the kickoff alone when there is nothing to append).
 
 ## Phases
 
 1. **Routing + `not_a_capture`, text and media.** D1–D5, D7. This is the whole user-visible win and
    is independently shippable. Media rides along in phase 1 because it's the same `unprompted` flag
-   through a second call site, not a new mechanism.
-2. **Plan hand-off** (D6, behind its gates) and **revise-mode seeding** (D3a) — both once phase 1's
-   numbers show unprompted captures are actually being saved and how often `plan` fires against an
-   existing plan.
+   through a second call site, not a new mechanism. **Shipped.**
+2. **Plan hand-off** (D6, behind its gates) and **revise-mode seeding** (D3a). **Shipped**, with
+   D6's model-proposed slot held back (see D6) — the picker is what makes the offer answerable at
+   all, and the numbers it produces are what should decide whether the tap it saves is worth a
+   second model output.

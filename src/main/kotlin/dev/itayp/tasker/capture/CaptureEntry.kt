@@ -22,8 +22,13 @@ sealed interface CaptureEntry {
      */
     data class Captured(val state: QuickAddState?) : CaptureEntry
 
-    /** The message wasn't a capture; the channel routes it to [intent]. */
-    data class Routed(val intent: CaptureIntent) : CaptureEntry
+    /**
+     * The message wasn't a capture; the channel routes it to [intent]. [text] is the message that
+     * was routed — for a voice note, what the model heard in it — so a destination that opens a
+     * conversation about it can carry it in instead of asking the user to repeat themselves
+     * (`docs/FREE-TEXT-CAPTURE.md` D3a).
+     */
+    data class Routed(val intent: CaptureIntent, val text: String) : CaptureEntry
 
     /**
      * The flow state, for callers that cannot be routed. [Routed] is unreachable for them — the

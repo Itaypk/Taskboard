@@ -22,6 +22,8 @@ import java.time.Instant
 import java.util.Locale
 import java.util.UUID
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 @ExtendWith(MockitoExtension::class)
 class PlanFinalizationServiceTest {
@@ -310,6 +312,16 @@ class PlanFinalizationServiceTest {
         service.addTaskToSession(userId, sessionId, task)
 
         verify(planInviteDispatcher, never()).dispatch(any(), any(), any(), any(), any())
+    }
+
+    @Test
+    fun `addTaskToSession reports whether an invite went out`() {
+        val task = AgreedPlanTask(taskId = taskId1, title = "Task A", slots = listOf(slot))
+        // A caller with nowhere to show the plan (the Telegram hand-off) tells the user instead.
+        assertFalse(service.addTaskToSession(userId, sessionId, task))
+
+        optInWithVerifiedEmail()
+        assertTrue(service.addTaskToSession(userId, sessionId, task))
     }
 
     // ── changeTaskSlot ───────────────────────────────────────────────────────

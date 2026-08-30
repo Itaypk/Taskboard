@@ -73,8 +73,11 @@ class PlanBotCommandTest {
     private val userId = UUID.randomUUID()
     private val chatId = 42L
 
-    private fun context(inferred: Boolean = false) =
-        BotCommandContext(userId, chatId, "", channel, sessionRegistry, inferred = inferred)
+    private fun context(inferred: Boolean = false, inferredFrom: String = "let's replan") =
+        BotCommandContext(
+            userId, chatId, "", channel, sessionRegistry,
+            inferredFrom = inferredFrom.takeIf { inferred },
+        )
 
     @BeforeEach
     fun setUp() {
@@ -345,4 +348,37 @@ class PlanBotCommandTest {
         assertEquals("Which week?", msg.prompt)
         assertTrue(msg.options.none { it.id == PlanConfirmationRegistry.OPTION_DISMISS })
     }
+
+    @Test
+    fun `an inferred plan intent carries the triggering message into a revision`() {
+        whenever(sessionRegistry.get(chatId)).thenReturn(null)
+        whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(completedPlan())
+
+        command.handle(context(inferred = true, inferredFrom = "move my gym session to Thursday"))
+
+        val pending = planConfirmationRegistry.get(chatId)
+        assertNotNull(pending)
+        assertEquals("move my gym session to Thursday", pending.revisionSeed)
+    }
+
+    @Test
+    fun `a typed plan command seeds nothing`() {
+        whenever(sessionRegistry.get(chatId)).thenReturn(null)
+        whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(completedPlan())
+
+        command.handle(context())
+
+        assertNull(planConfirmationRegistry.get(chatId)?.revisionSeed)
+    }
+
+    private fun completedPlan() = PlanningSession(
+        id = UUID.randomUUID(),
+        userId = userId,
+        conversationId = null,
+        status = PlanningSessionStatus.COMPLETED,
+        startedAt = Instant.parse("2026-05-11T10:00:00Z"),
+        weekStart = LocalDate.parse("2026-05-11"),
+        endedAt = null,
+        summary = "Week 20 plan summary",
+    )
 }

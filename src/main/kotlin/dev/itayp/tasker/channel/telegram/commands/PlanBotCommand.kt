@@ -77,6 +77,9 @@ class PlanBotCommand(
                     existingSessionId = null,
                     replanWeekStart = existingPlan.weekStart,
                     revisableSessionId = existingPlan.id,
+                    // Only revision can use it: it opens straight into a conversation, where a
+                    // fresh session opens on a capacity question (`docs/FREE-TEXT-CAPTURE.md` D3a).
+                    revisionSeed = context.inferredFrom?.takeIf { it.isNotBlank() },
                 ),
             )
             context.channel.send(ChannelMessage.Choice(
@@ -132,8 +135,6 @@ class PlanBotCommand(
      * before they answer the question underneath it.
      */
     private fun prompt(context: BotCommandContext, locale: Locale, key: String, vararg args: Any): String {
-        // Null, not an empty array: a message resolved with any argument array goes through
-        // MessageFormat, which would eat the single quotes in the zero-argument prompts.
         val body = messageSource.getMessage(key, args.takeIf { it.isNotEmpty() }, locale)
         if (!context.inferred) return body
         return messageSource.getMessage("planning.inferred.ack", null, locale) + "\n\n" + body

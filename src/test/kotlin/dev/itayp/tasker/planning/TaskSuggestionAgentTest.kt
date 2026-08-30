@@ -33,6 +33,7 @@ import java.time.Instant
 import java.time.ZoneOffset
 import java.util.UUID
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNull
@@ -126,6 +127,30 @@ class TaskSuggestionAgentTest {
         val draft = assertIs<SuggestionOutcome.Draft>(outcome)
         val task = assertIs<CapturedItem.Task>(draft.items.single())
         assertEquals("Buy milk", task.draft.title)
+    }
+
+    @Test
+    fun `quickAddDraft reads plan_this_week off the top level of the reply`() {
+        val categoryId = UUID.randomUUID()
+        whenever(aiClient.chat(any(), any())).thenReturn(
+            chatResponse(
+                """{"plan_this_week":true,"items":[{"kind":"task","title":"Buy milk","category_id":"$categoryId","tags":[]}]}"""
+            ),
+        )
+
+        assertTrue(assertIs<SuggestionOutcome.Draft>(agent.quickAddDraft(userId, "buy milk this week")).planThisWeek)
+    }
+
+    @Test
+    fun `quickAddDraft defaults plan_this_week to false when the key is absent`() {
+        val categoryId = UUID.randomUUID()
+        whenever(aiClient.chat(any(), any())).thenReturn(
+            chatResponse(
+                """{"items":[{"kind":"task","title":"Buy milk","category_id":"$categoryId","tags":[]}]}"""
+            ),
+        )
+
+        assertFalse(assertIs<SuggestionOutcome.Draft>(agent.quickAddDraft(userId, "buy milk")).planThisWeek)
     }
 
     @Test

@@ -16,6 +16,10 @@ shapes below — never a mix of them.
   An event item has the shape:
   {"kind":"event","title":"...","start":"YYYY-MM-DDTHH:mm:ss<offset>","end":"YYYY-MM-DDTHH:mm:ss<offset>"|null,"location":"..."|null,"notes":"..."|null}
 
+  When the user says the capture belongs in *this week's plan* ("add it to this week's plan", "I
+  want to get this done Tuesday"), also set `"plan_this_week": true` at the top level of your reply,
+  alongside `items`. Omit the key entirely otherwise — a plain deadline or a vague "soon" is not it.
+
 - To ask for clarification instead — ONLY when the request is too vague or ambiguous to capture a
   useful item (no discernible item in it, or you would have to guess between genuinely different
   interpretations) — reply with an object whose only key is `clarify`:

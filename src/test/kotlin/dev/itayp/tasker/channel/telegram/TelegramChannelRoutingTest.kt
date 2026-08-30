@@ -24,6 +24,7 @@ import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.context.support.StaticMessageSource
+import org.telegram.telegrambots.meta.api.objects.CallbackQuery
 import org.telegram.telegrambots.meta.api.objects.Update
 import org.telegram.telegrambots.meta.api.objects.User as TelegramUser
 import org.telegram.telegrambots.meta.api.objects.message.Message
@@ -106,6 +107,22 @@ class TelegramChannelRoutingTest {
         return update
     }
 
+    private fun callbackUpdate(data: String): Update {
+        val from: TelegramUser = mock()
+        whenever(from.id).thenReturn(telegramUserId)
+        val message: Message = mock()
+        whenever(message.chatId).thenReturn(chatId)
+        val callback: CallbackQuery = mock()
+        whenever(callback.id).thenReturn("cb-1")
+        whenever(callback.data).thenReturn(data)
+        whenever(callback.from).thenReturn(from)
+        whenever(callback.message).thenReturn(message)
+        val update: Update = mock()
+        whenever(update.hasCallbackQuery()).thenReturn(true)
+        whenever(update.callbackQuery).thenReturn(callback)
+        return update
+    }
+
     @Test
     fun `a message with no command and nothing in progress opens an unprompted capture`() {
         whenever(quickAddFlow.beginUnprompted(eq(userId), any(), eq("call the plumber")))
@@ -148,7 +165,7 @@ class TelegramChannelRoutingTest {
     fun `an in-progress capture takes the message before anything else does`() {
         val state = QuickAddState.AwaitingDescription(Instant.parse("2026-06-11T09:59:00Z"))
         whenever(quickAddRegistry.get(chatId)).thenReturn(state)
-        whenever(quickAddFlow.handleInbound(any(), any(), any(), any())).thenReturn(null)
+        whenever(quickAddFlow.handleInbound(any(), any(), any(), any())).thenReturn(CaptureEntry.Captured(null))
 
         channel.consume(textUpdate("make it two"))
 
@@ -159,7 +176,7 @@ class TelegramChannelRoutingTest {
     @Test
     fun `a routed read-only intent runs its command directly`() {
         whenever(quickAddFlow.beginUnprompted(any(), any(), any()))
-            .thenReturn(CaptureEntry.Routed(CaptureIntent.CURRENT))
+            .thenReturn(CaptureEntry.Routed(CaptureIntent.CURRENT, "what's on for today?"))
         whenever(commandDispatcher.dispatch(any(), any())).thenReturn(true)
 
         channel.consume(textUpdate("what's on for today?"))
@@ -168,12 +185,13 @@ class TelegramChannelRoutingTest {
         verify(commandDispatcher).dispatch(eq("/current"), context.capture())
         assertEquals(userId, context.firstValue.userId)
         assertTrue(context.firstValue.inferred)
+        assertEquals("what's on for today?", context.firstValue.inferredFrom)
     }
 
     @Test
     fun `a routed plan intent goes through the plan command marked as inferred`() {
         whenever(quickAddFlow.beginUnprompted(any(), any(), any()))
-            .thenReturn(CaptureEntry.Routed(CaptureIntent.PLAN))
+            .thenReturn(CaptureEntry.Routed(CaptureIntent.PLAN, "let's sort out my week"))
         whenever(commandDispatcher.dispatch(any(), any())).thenReturn(true)
 
         channel.consume(textUpdate("let's sort out my week"))
@@ -187,7 +205,7 @@ class TelegramChannelRoutingTest {
     @Test
     fun `an unclear intent answers with what the bot can do and runs no command`() {
         whenever(quickAddFlow.beginUnprompted(any(), any(), any()))
-            .thenReturn(CaptureEntry.Routed(CaptureIntent.UNCLEAR))
+            .thenReturn(CaptureEntry.Routed(CaptureIntent.UNCLEAR, "hi"))
 
         channel.consume(textUpdate("hi!"))
 
@@ -201,5 +219,24 @@ class TelegramChannelRoutingTest {
         channel.consume(textUpdate("call the plumber"))
 
         verify(quickAddFlow, never()).beginUnprompted(any(), any(), any())
+    }
+
+
+    @Test
+    fun `choosing to revise hands the triggering message to the revision conversation`() {
+        val sessionId = UUID.randomUUID()
+        whenever(planConfirmationRegistry.get(chatId)).thenReturn(
+            PlanConfirmationRegistry.PendingConfirmation(
+                userId = userId,
+                existingSessionId = null,
+                replanWeekStart = null,
+                revisableSessionId = sessionId,
+                revisionSeed = "move my gym session to Thursday",
+            ),
+        )
+
+        channel.consume(callbackUpdate(PlanConfirmationRegistry.OPTION_REVISE))
+
+        verify(orchestrator).startRevision(eq(userId), eq(sessionId), any(), eq("move my gym session to Thursday"))
     }
 }

@@ -64,12 +64,18 @@ class PlanFinalizationService(
         return true
     }
 
-    fun addTaskToSession(userId: UUID, sessionId: UUID, task: AgreedPlanTask) {
+    /**
+     * Adds a single task to an already-finalized plan, leaving the rest of it untouched. Returns
+     * whether a calendar invitation was actually dispatched, so a caller with nowhere to put the
+     * result in the UI (the Telegram plan hand-off) can tell the user that no invite is coming.
+     */
+    fun addTaskToSession(userId: UUID, sessionId: UUID, task: AgreedPlanTask): Boolean {
         plannedTaskService.upsertSingleTask(sessionId, userId, task)
         backlogTaskService.stampPlanningSession(userId, listOf(task.taskId), sessionId)
         planWatermarkService.bump(userId)
-        dispatchInvitesIfEligible(userId, AgreedPlan(tasks = listOf(task), summary = ""))
+        val invited = dispatchInvitesIfEligible(userId, AgreedPlan(tasks = listOf(task), summary = ""))
         slotReminderService.sync(userId, sessionId, previous = emptyList(), current = listOf(task))
+        return invited
     }
 
     private fun applyPlan(userId: UUID, sessionId: UUID, plan: AgreedPlan) {
@@ -128,8 +134,9 @@ class PlanFinalizationService(
         }
     }
 
-    private fun dispatchInvitesIfEligible(userId: UUID, plan: AgreedPlan) {
-        val ctx = inviteDeliveryResolver.resolveEmailContext(userId) ?: return
+    /** Returns true when invites were dispatched; false when the user has no delivery channel. */
+    private fun dispatchInvitesIfEligible(userId: UUID, plan: AgreedPlan): Boolean {
+        val ctx = inviteDeliveryResolver.resolveEmailContext(userId) ?: return false
         log.debug("Dispatching {} calendar invite(s) for user {}", plan.tasks.sumOf { it.slots.size }, userId)
         planInviteDispatcher.dispatch(
             userEmail = ctx.email,
@@ -138,5 +145,6 @@ class PlanFinalizationService(
             plan = plan,
             locale = ctx.locale,
         )
+        return true
     }
 }
