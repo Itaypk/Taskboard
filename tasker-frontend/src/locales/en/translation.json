@@ -1,11 +1,7 @@
 {
   "login": {
     "nav": {
-      "terms": "Terms",
-      "privacy": "Privacy",
-      "logIn": "Log in",
-      "about": "About",
-      "faq": "FAQ"
+      "logIn": "Log in"
     },
     "hero": {
       "tag": "This week · top of mind",
@@ -774,5 +770,11 @@
       "inWeeks_one": "In {{count}} week",
       "inWeeks_other": "In {{count}} weeks"
     }
+  },
+  "footer": {
+    "about": "About",
+    "faq": "FAQ",
+    "terms": "Terms",
+    "privacy": "Privacy"
   }
 }

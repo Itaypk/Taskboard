@@ -1,0 +1,37 @@
+/* Site-wide footer. Deliberately the same visual stratum as `.show-archived-btn`
+   (small, ink-soft, half-opaque) so it reads as background chrome rather than
+   navigation. Flows after the page content — never fixed — so it costs no
+   vertical space while scrolling. */
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  padding-block: 4px 14px;
+  padding-inline: 24px;
+  /* The mascot is fixed to the bottom-right corner (physically right in both
+     directions — see index.css) and overlaps this strip. Keep the links packed
+     against the opposite, physical-left corner in RTL too, and lift them above
+     the mascot's z-index 10 as a belt-and-braces guard. */
+  justify-content: flex-start;
+  position: relative;
+  z-index: 11;
+}
+
+:global([dir='rtl']) .footer { justify-content: flex-end; }
+
+.link {
+  font-size: 12px;
+  color: var(--ink-soft);
+  text-decoration: none;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.link:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+@media (max-width: 600px) {
+  .footer { padding-inline: 18px; gap: 4px 12px; }
+}

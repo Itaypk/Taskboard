@@ -34,6 +34,11 @@
   --font-ui:    'Plus Jakarta Sans', system-ui, sans-serif;
   --font-mono:  'IBM Plex Mono', 'SF Mono', Menlo, monospace;
 
+  /* Height reserved for the site-wide footer (AppFooter), which sits below the
+     router. The landing page subtracts it from its full-viewport panels so the
+     footer doesn't push the composition into a permanent scrollbar. */
+  --footer-h: 34px;
+
   /* Radius */
   --r-sm: 4px;
   --r:    6px;
@@ -1666,7 +1671,8 @@ input[type="number"] { -moz-appearance: textfield; }
 .show-archived-wrap {
   display: flex;
   justify-content: center;
-  padding: 8px 0 24px;
+  /* The site footer below supplies the bottom gap. */
+  padding: 8px 0 2px;
 }
 
 .show-archived-btn {

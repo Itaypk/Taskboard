@@ -14,7 +14,7 @@
 
   position: relative;
   z-index: 1; /* sit above the shared fixed body::before wall */
-  min-height: 100vh;
+  min-height: calc(100vh - var(--footer-h));
   width: 100%;
   /* #root is a fixed-height flex column; without this the page would be
      shrunk to 100vh and overflow:hidden would clip everything below the
@@ -101,7 +101,7 @@
   margin: 0 auto;
   /* Fill the viewport below the nav so the hero sits centred and the
      satellites have room to spread into the margins. */
-  min-height: calc(100vh - 84px);
+  min-height: calc(100vh - 84px - var(--footer-h));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -549,7 +549,6 @@
 
 @media (max-width: 600px) {
   .nav { padding: 16px 20px 12px; }
-  .navRight { gap: 14px; }
   .copyright { display: none; }
   .heroSticky { padding: 28px 26px; }
   .heroH1 { font-size: 44px; }

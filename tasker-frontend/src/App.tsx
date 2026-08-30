@@ -38,6 +38,7 @@ import { BoardSettingsModal } from './components/BoardSettingsModal';
 import { DEFAULT_SETTINGS } from './data';
 import { fetchBoards, createBoard, duplicateBoard, fetchTasks, fetchCategories, fetchUserSettings, fetchTags, updateTag, fetchCurrentPlan, fetchSync, createTask, updateTask, deleteTask, duplicateTask, moveTaskToBoard, reorderTask, removeTaskFromPlan, clearTutorialTasks, addTaskToPlan, changeTaskSlot, notifyError, fetchMembers, setTaskAssignee, type TaskStatusFilter, type Board, type BoardMember } from './api';
 import { UpdateBanner } from './components/UpdateBanner';
+import AppFooter from './components/AppFooter';
 import type { Task, UserSettings, Tag, CurrentPlan, TaskFilter, ViewMode } from './types';
 import { sortTasks, isSortMode, type SortMode } from './sort';
 
@@ -89,19 +90,22 @@ function PlanIcon() {
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/terms" element={<TermsPage />} />
-      <Route path="/privacy" element={<PrivacyPage />} />
-      <Route path="/about" element={<AboutPage />} />
-      <Route path="/faq" element={<FaqPage />} />
-      <Route path="/email-login" element={<EmailLoginConfirmPage />} />
-      <Route path="/email-verify" element={<EmailVerifyConfirmPage />} />
-      <Route path="/invite" element={<InvitePage />} />
-      <Route path="/" element={<AuthShell />} />
-      <Route path="/settings" element={<AuthShell />} />
-      <Route path="/settings/:tab" element={<AuthShell />} />
-      <Route path="*" element={<NotFoundPage />} />
-    </Routes>
+    <>
+      <Routes>
+        <Route path="/terms" element={<TermsPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/faq" element={<FaqPage />} />
+        <Route path="/email-login" element={<EmailLoginConfirmPage />} />
+        <Route path="/email-verify" element={<EmailVerifyConfirmPage />} />
+        <Route path="/invite" element={<InvitePage />} />
+        <Route path="/" element={<AuthShell />} />
+        <Route path="/settings" element={<AuthShell />} />
+        <Route path="/settings/:tab" element={<AuthShell />} />
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+      <AppFooter />
+    </>
   );
 }
 
