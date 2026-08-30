@@ -6,8 +6,10 @@ import dev.itayp.tasker.planning.dto.AgreedTimeSlot
 /**
  * Diffs two finalized-plan snapshots by `(taskId, startIso)` — the same identity the calendar invite
  * UID is built from. A time move therefore reads as a removal of the old slot plus an addition of the
- * new one, while a same-start edit (end time, label, title, notes) reads as a *change* to the existing
- * slot.
+ * new one, while a same-start edit (end time, title, notes) reads as a *change* to the existing
+ * slot. `label` is deliberately excluded from the change check: neither the calendar invite
+ * ([PlanInviteDispatcher]) nor the slot reminder text renders it, so diffing it only produced
+ * false-positive "changed" invites that reset the recipient's RSVP for no visible reason.
  *
  * Both the calendar-invite dispatch ([PlanFinalizationService]) and the in-app slot reminders
  * ([dev.itayp.tasker.notification.SlotReminderService]) diff plans this way; keeping the keying in one
@@ -34,7 +36,6 @@ object PlanSlotDiffer {
         val changed = curr.filterValues { new ->
             val old = prev[new.key] ?: return@filterValues false
             old.slot.endIso != new.slot.endIso ||
-                old.slot.label != new.slot.label ||
                 old.task.title != new.task.title ||
                 old.task.notes != new.task.notes
         }.values.toList()
