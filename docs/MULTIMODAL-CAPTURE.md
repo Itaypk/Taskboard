@@ -23,8 +23,8 @@ Media is captured **inside a quick-add**: send `/add`, then send the photo or th
 of typing the description. The attachment is the request. From the confirmation card onward the
 capture is exactly the existing flow (Save / Adjust / Cancel, the clarify loop, the same validation).
 
-An attachment that arrives with no quick-add in progress gets a pointer to `/add` and nothing else —
-see D8.
+An attachment that arrives with no quick-add in progress originally got a pointer to `/add` and
+nothing else; it now opens a capture of its own (D8, superseded by `docs/FREE-TEXT-CAPTURE.md` D7).
 
 One extra step is visible: before the card, the bot echoes **what it read or heard**
 (`🖼 From the image: …` / `🗣 I heard: …`). A misread date on a blurry invitation is far easier to
@@ -109,11 +109,17 @@ drag-and-drop reuses it whole. Only `TelegramMediaExtractor` knows about `PhotoS
 ### D7. Not during a planning session
 
 The planner takes no attachments: it would need its own reading of one (its own model call, its own
-prompt surface). It never sees them either — media is gated on an in-progress quick-add (D8), and
-`/add` is already refused mid-planning. The orchestrator's `ChannelInbound` branches degrade to the
-caption defensively; they are not a path the channel takes.
+prompt surface). It never sees them either: `TelegramChannel.handleMedia` answers an attachment sent
+mid-session with the same redirect `/add` gets there, ahead of the download. The orchestrator's
+`ChannelInbound` branches degrade to the caption defensively; they are not a path the channel takes.
+
+That gate used to be a side effect of D8's stricter one. Now that an unprompted attachment does open
+a capture, it is explicit — losing it would fork the conversation the planner is in the middle of.
 
 ### D8. An attachment must land inside a quick-add, not start one
+
+**Superseded by `docs/FREE-TEXT-CAPTURE.md` D7 — an unprompted attachment now opens a capture.**
+Kept for the reasoning, which is what made the deferral worth doing.
 
 The obvious design is the opposite one: a forwarded photo *is* a capture request, so let it open the
 flow with no `/add` in front of it. That was the first cut, and it was pulled back on review —
@@ -130,6 +136,13 @@ reached only through `handleInbound` — when the flow is waiting for a descript
 arrives against an existing draft (which restarts the capture from the attachment). Wiring a new
 surface to it, or reinstating the out-of-band entry, is a call-site change and nothing more.
 
+**What changed.** `FREE-TEXT-CAPTURE.md` answers the open question — an unprompted message *is* a
+capture — so the deferral expired with it, and the call-site change it predicted is what shipped:
+`handleMedia`'s gate is gone and `QuickAddFlow.beginUnpromptedFromMedia` is the second entry point.
+An unprompted image captures outright; an unprompted voice note may instead be routed to another
+command, because a voice note is as open-ended as typed text. The cost the gate used to save is now
+bounded by a per-user capture rate limit instead.
+
 ## Privacy
 
 Attachment bytes are **never persisted and never logged** — not to the database, not to disk, not
@@ -140,9 +153,10 @@ subject to the usual encryption of task content once saved.
 
 ## Metrics
 
-`tasker.quickadd.media{kind=image|audio|mixed, result=captured|failed|unsupported}` — alongside the
-existing `tasker.quickadd.outcome`. `unsupported` climbing means the configured model can't do what
-users are trying to send.
+`tasker.quickadd.media{kind=image|audio|mixed, result=captured|failed|unsupported|routed}` —
+alongside the existing `tasker.quickadd.outcome`. `unsupported` climbing means the configured model
+can't do what users are trying to send. `routed` is an unprompted voice note the model decided
+wasn't a capture at all (`docs/FREE-TEXT-CAPTURE.md` D7); it can only appear for audio.
 
 ## Deliberately out of scope
 
@@ -154,7 +168,6 @@ users are trying to send.
   as separate updates, so each photo currently starts its own capture. Grouping by `media_group_id`
   is the follow-up if anyone forwards multi-page invitations.
 - **Media in the planning conversation** (see D7) and on the web UI.
-- **An out-of-band attachment opening a capture on its own** — deliberately deferred, see D8.
 
 ## Key components
 
@@ -162,8 +175,8 @@ users are trying to send.
 | --- | --- |
 | `ChannelInbound.Media` / `InboundAttachment` (`channel/ConversationChannel.kt`) | Channel-agnostic inbound media. |
 | `TelegramMediaExtractor` | `getFile` + download, size caps, mime→codec mapping, photo-size choice. |
-| `TelegramChannel.handleMedia` | Routes a media message: AI opt-out check, the in-progress-quick-add gate (D8), then capture. |
-| `QuickAddFlow.beginFromMedia` | Runs the capture, echoes `source_text`, hands over to the existing card flow. |
+| `TelegramChannel.handleMedia` | Routes a media message: AI opt-out check, then into a running capture or a new one. |
+| `QuickAddFlow.beginFromMedia` / `beginUnpromptedFromMedia` | Runs the capture, echoes `source_text`, hands over to the existing card flow. |
 | `TaskSuggestionAgent.quickAddDraftFromMedia` | Builds the multimodal `ChatMessage`, picks the capture model. |
 | `InputModalitySupport` | The capability gate (`ModelCapabilityService.inputModalities`). |
 | `prompts/task-suggestion/system-clarify.md` | The `source_text` contract and how to capture from an attachment. |

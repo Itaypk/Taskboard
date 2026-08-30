@@ -110,8 +110,18 @@ class WeeklyPlanningOrchestrator(
      * session id (and its week) so a subsequent [finalizeSubmission] hits the [revisePlan]
      * branch and updates the existing plan in place. Skips capacity entry — revise mode is
      * about editing the current plan, not building a new one.
+     *
+     * [instruction] is the message that got the user here when they never typed `/plan` — "move my
+     * gym session to Thursday" is already the change they want, so it rides along with the kickoff
+     * rather than being retyped (`docs/FREE-TEXT-CAPTURE.md` D3a). Only revision takes one: a fresh
+     * session opens on a capacity question, which has no slot to seed.
      */
-    fun startRevision(userId: UUID, sessionId: UUID, channel: ConversationChannel): UUID {
+    fun startRevision(
+        userId: UUID,
+        sessionId: UUID,
+        channel: ConversationChannel,
+        instruction: String? = null,
+    ): UUID {
         val session = planningSessionService.findById(userId, sessionId)
             ?: throw NoSuchElementException("Planning session $sessionId not found")
         check(session.status == PlanningSessionStatus.COMPLETED) {
@@ -138,7 +148,12 @@ class WeeklyPlanningOrchestrator(
             capacityHint = null,
         )
 
-        val kickoff = promptAssembler.renderReviseKickoff().trim()
+        val kickoff = buildString {
+            append(promptAssembler.renderReviseKickoff().trim())
+            instruction?.trim()?.takeIf { it.isNotBlank() }?.let {
+                append("\n\nHere is what I want to change, in my own words:\n\n").append(it)
+            }
+        }
         channel.indicateTyping()
         val outcome = aiConversationManager.sendMessage(conversationId, kickoff)
         processOutcome(sessionId, outcome, channel)

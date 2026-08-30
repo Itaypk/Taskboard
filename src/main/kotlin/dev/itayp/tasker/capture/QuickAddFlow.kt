@@ -15,17 +15,23 @@ import dev.itayp.tasker.planning.CapturedItem
 import dev.itayp.tasker.planning.ClarifyOption
 import dev.itayp.tasker.planning.ClarificationExchange
 import dev.itayp.tasker.planning.EventDraft
+import dev.itayp.tasker.planning.PlanFinalizationService
+import dev.itayp.tasker.planning.PlanningSessionService
 import dev.itayp.tasker.planning.SuggestionOutcome
 import dev.itayp.tasker.planning.TaskDraft
 import dev.itayp.tasker.planning.TaskSuggestionAgent
 import dev.itayp.tasker.planning.UnsupportedModalityException
+import dev.itayp.tasker.planning.dto.AgreedPlanTask
+import dev.itayp.tasker.planning.dto.AgreedTimeSlot
 import dev.itayp.tasker.planning.toCreateBacklogTaskRequest
+import dev.itayp.tasker.ratelimit.RateLimiter
 import dev.itayp.tasker.service.BacklogTaskCategoryService
 import dev.itayp.tasker.service.BacklogTaskService
 import dev.itayp.tasker.service.BoardMembershipService
 import dev.itayp.tasker.service.UserSettingsService
 import io.micrometer.core.instrument.MeterRegistry
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.context.MessageSource
 import org.springframework.stereotype.Service
 import java.time.Clock
@@ -61,8 +67,11 @@ class QuickAddFlow(
     private val boardMembershipService: BoardMembershipService,
     private val categoryService: BacklogTaskCategoryService,
     private val userSettingsService: UserSettingsService,
+    private val planningSessionService: PlanningSessionService,
+    private val planFinalizationService: PlanFinalizationService,
     private val messageSource: MessageSource,
     private val meterRegistry: MeterRegistry,
+    @Qualifier("quickAddRateLimiter") private val rateLimiter: RateLimiter,
     private val clock: Clock,
 ) {
     private val log = LoggerFactory.getLogger(QuickAddFlow::class.java)
@@ -71,12 +80,38 @@ class QuickAddFlow(
     fun begin(userId: UUID, channel: ConversationChannel, description: String?): QuickAddState? {
         val request = description?.trim().orEmpty()
         if (request.isBlank()) {
+            // No model call yet, so nothing to charge against the limit — the description that
+            // follows goes through onDescription, which is already inside the flow.
             channel.send(ChannelMessage.Text(msg(userId, "quickadd.prompt.describe")))
             return QuickAddState.AwaitingDescription(now())
         }
+        countEntry("command")
+        return draft(userId, channel, request, unprompted = false).stateOrNull()
+    }
+
+    /**
+     * Opens a flow from a message the user sent on their own — no `/add` in front of it. Behaves
+     * exactly like [begin] when the message is a capture; when it plainly isn't one, the model says
+     * so and this returns [CaptureEntry.Routed] for the channel to dispatch
+     * (`docs/FREE-TEXT-CAPTURE.md` D1–D3). That third reply shape is offered **only** here.
+     */
+    fun beginUnprompted(userId: UUID, channel: ConversationChannel, text: String): CaptureEntry {
+        val request = text.trim()
+        if (request.isBlank()) return CaptureEntry.Captured(null)
+        countEntry("unprompted")
+        return draft(userId, channel, request, unprompted = true)
+    }
+
+    private fun draft(
+        userId: UUID,
+        channel: ConversationChannel,
+        request: String,
+        unprompted: Boolean,
+    ): CaptureEntry {
+        if (!allow(userId, channel)) return CaptureEntry.Captured(null)
         channel.indicateTyping()
         val op = PendingOp.Draft(request, emptyList())
-        val outcome = suggestionAgent.quickAddDraft(userId, request, emptyList(), mustDraft = false)
+        val outcome = suggestionAgent.quickAddDraft(userId, request, emptyList(), mustDraft = false, unprompted = unprompted)
         return renderOutcome(userId, channel, op, outcome, clarifyRound = 1)
     }
 
@@ -86,8 +121,8 @@ class QuickAddFlow(
      * confirmation card on, the capture behaves exactly like a typed one (that read-back stands in
      * for the user's request), so no bytes are held past this call.
      *
-     * Reached through [handleInbound]: an attachment only counts while a quick-add is in progress
-     * (`docs/MULTIMODAL-CAPTURE.md` D8), so channels gate on that before calling in.
+     * Reached from [handleInbound] — an attachment sent into a capture that is already running. For
+     * an attachment that arrives on its own, see [beginUnpromptedFromMedia].
      *
      * Returns null — the flow is over — when the configured model can't accept the modality, or the
      * capture failed; both paths tell the user what to do instead.
@@ -97,16 +132,56 @@ class QuickAddFlow(
         channel: ConversationChannel,
         attachments: List<InboundAttachment>,
         caption: String?,
-    ): QuickAddState? {
-        if (attachments.isEmpty()) return null
+    ): QuickAddState? =
+        captureMedia(userId, channel, attachments, caption, offerRouting = false, entrySource = null).stateOrNull()
+
+    /**
+     * Captures from an attachment the user sent on its own, with no `/add` and no capture running.
+     *
+     * The two media kinds are not treated alike (`docs/FREE-TEXT-CAPTURE.md` D7). An **image** is a
+     * capture: nobody forwards a photo to a task bot incidentally, so offering the model a way to
+     * bail out would only be a way to lose the obvious case. A **voice note** is as open-ended as
+     * typed text — "remind me to call the plumber" and "how does this thing work?" arrive the same
+     * way — so it gets the same routing escape text does. Either way the classification rides along
+     * in the call that already transcribes and drafts, so it costs nothing extra.
+     */
+    fun beginUnpromptedFromMedia(
+        userId: UUID,
+        channel: ConversationChannel,
+        attachments: List<InboundAttachment>,
+        caption: String?,
+    ): CaptureEntry = captureMedia(
+        userId, channel, attachments, caption,
+        offerRouting = attachments.any { it.kind == AttachmentKind.AUDIO },
+        entrySource = "unprompted",
+    )
+
+    private fun captureMedia(
+        userId: UUID,
+        channel: ConversationChannel,
+        attachments: List<InboundAttachment>,
+        caption: String?,
+        offerRouting: Boolean,
+        entrySource: String?,
+    ): CaptureEntry {
+        if (attachments.isEmpty()) return CaptureEntry.Captured(null)
+        entrySource?.let { countEntry(it) }
+        if (!allow(userId, channel)) return CaptureEntry.Captured(null)
         channel.indicateTyping()
         val outcome = try {
-            suggestionAgent.quickAddDraftFromMedia(userId, attachments, caption)
+            suggestionAgent.quickAddDraftFromMedia(userId, attachments, caption, unprompted = offerRouting)
         } catch (e: UnsupportedModalityException) {
             countMedia(attachments, "unsupported")
             log.info("quick-add media capture declined: model lacks modalities {}", e.kinds)
             channel.send(ChannelMessage.Text(msg(userId, unsupportedMessageKey(attachments))))
-            return null
+            return CaptureEntry.Captured(null)
+        }
+        if (outcome is SuggestionOutcome.NotACapture) {
+            countMedia(attachments, "routed")
+            // What the model heard stands in for the message text, so a route out of a voice note
+            // can carry it the same way a typed one does.
+            val heard = outcome.sourceText ?: caption?.trim().orEmpty()
+            return renderOutcome(userId, channel, PendingOp.Draft(heard, emptyList()), outcome, clarifyRound = 1)
         }
         val request = outcome.sourceText
             ?: caption?.trim()?.takeIf { it.isNotBlank() }
@@ -117,21 +192,38 @@ class QuickAddFlow(
         return renderOutcome(userId, channel, op, outcome, clarifyRound = 1)
     }
 
-    /** Advances an in-progress flow. Returns the next state, or null when the flow is finished. */
+    /**
+     * Advances an in-progress flow. Returns the next state, or [CaptureEntry.Captured] with a null
+     * state when the flow is finished. It can also return [CaptureEntry.Routed]: the plan offer at
+     * the end of a capture is passive, so a message typed instead of tapping it is a new message,
+     * and gets the unprompted entry's treatment — including its routing escape.
+     */
     fun handleInbound(
         userId: UUID,
         channel: ConversationChannel,
         state: QuickAddState,
         inbound: ChannelInbound,
-    ): QuickAddState? = if (inbound is ChannelInbound.Media) {
-        // Media always (re)starts the capture from the attachment: it carries far more than the
-        // typed line it replaces, so folding it into a half-built draft would be the wrong default.
-        beginFromMedia(userId, channel, inbound.attachments, inbound.caption)
-    } else when (state) {
-        is QuickAddState.AwaitingDescription -> onDescription(userId, channel, inbound)
-        is QuickAddState.AwaitingConfirmation -> onConfirmation(userId, channel, state, inbound)
-        is QuickAddState.AwaitingAdjustment -> onAdjustment(userId, channel, state, inbound)
-        is QuickAddState.AwaitingClarification -> onClarification(userId, channel, state, inbound)
+    ): CaptureEntry = when (state) {
+        is QuickAddState.AwaitingPlanDay ->
+            (inbound as? ChannelInbound.Selection)?.let { onPlanDay(userId, channel, state, it) }
+                ?: lapseOffer(userId, channel, inbound)
+        is QuickAddState.AwaitingPlanTime ->
+            (inbound as? ChannelInbound.Selection)?.let { onPlanTime(userId, channel, state, it) }
+                ?: lapseOffer(userId, channel, inbound)
+        else -> CaptureEntry.Captured(
+            if (inbound is ChannelInbound.Media) {
+                // Media always (re)starts the capture from the attachment: it carries far more than
+                // the typed line it replaces, so folding it into a half-built draft would be wrong.
+                beginFromMedia(userId, channel, inbound.attachments, inbound.caption)
+            } else when (state) {
+                is QuickAddState.AwaitingDescription -> onDescription(userId, channel, inbound)
+                is QuickAddState.AwaitingConfirmation -> onConfirmation(userId, channel, state, inbound)
+                is QuickAddState.AwaitingAdjustment -> onAdjustment(userId, channel, state, inbound)
+                is QuickAddState.AwaitingClarification -> onClarification(userId, channel, state, inbound)
+                // Handled above; listed so this stays exhaustive.
+                is QuickAddState.AwaitingPlanDay, is QuickAddState.AwaitingPlanTime -> null
+            }
+        )
     }
 
     private fun onDescription(userId: UUID, channel: ConversationChannel, inbound: ChannelInbound): QuickAddState? {
@@ -140,10 +232,7 @@ class QuickAddFlow(
             channel.send(ChannelMessage.Text(msg(userId, "quickadd.prompt.describe")))
             return QuickAddState.AwaitingDescription(now())
         }
-        channel.indicateTyping()
-        val op = PendingOp.Draft(text, emptyList())
-        val outcome = suggestionAgent.quickAddDraft(userId, text, emptyList(), mustDraft = false)
-        return renderOutcome(userId, channel, op, outcome, clarifyRound = 1)
+        return draft(userId, channel, text, unprompted = false).stateOrNull()
     }
 
     private fun onConfirmation(
@@ -154,7 +243,7 @@ class QuickAddFlow(
     ): QuickAddState? {
         if (inbound is ChannelInbound.Selection) {
             return when (inbound.optionId) {
-                OPTION_SAVE -> { save(userId, channel, state.items); null }
+                OPTION_SAVE -> saveAndOffer(userId, channel, state)
                 OPTION_CANCEL -> {
                     count("cancelled")
                     channel.send(ChannelMessage.Text(msg(userId, "quickadd.cancelled")))
@@ -220,7 +309,7 @@ class QuickAddFlow(
                 o to suggestionAgent.quickAddRevise(userId, op.originalRequest, op.items, op.instruction, newClarifications, mustDraft)
             }
         }
-        return renderOutcome(userId, channel, newOp, outcome, clarifyRound = state.rounds + 1)
+        return renderOutcome(userId, channel, newOp, outcome, clarifyRound = state.rounds + 1).stateOrNull()
     }
 
     private fun applyAdjustment(
@@ -234,7 +323,7 @@ class QuickAddFlow(
         channel.indicateTyping()
         val op = PendingOp.Revise(originalRequest, items, instruction, clarifications)
         val outcome = suggestionAgent.quickAddRevise(userId, originalRequest, items, instruction, clarifications, mustDraft = false)
-        return renderOutcome(userId, channel, op, outcome, clarifyRound = 1)
+        return renderOutcome(userId, channel, op, outcome, clarifyRound = 1).stateOrNull()
     }
 
     private fun renderOutcome(
@@ -243,19 +332,22 @@ class QuickAddFlow(
         op: PendingOp,
         outcome: SuggestionOutcome,
         clarifyRound: Int,
-    ): QuickAddState? = when (outcome) {
-        is SuggestionOutcome.Draft -> {
-            val validated = validateItems(userId, outcome.items)
-            if (validated.isEmpty()) {
-                log.warn("quick-add validated to no items; abandoning capture")
-                channel.send(ChannelMessage.Text(msg(userId, "quickadd.unparseable")))
-                null
-            } else {
-                renderCard(userId, channel, validated)
-                QuickAddState.AwaitingConfirmation(validated, op.originalRequest, op.clarifications, now())
-            }
-        }
-        is SuggestionOutcome.Clarify -> {
+    ): CaptureEntry = when (outcome) {
+        is SuggestionOutcome.Draft -> CaptureEntry.Captured(
+            validateItems(userId, outcome.items).let { validated ->
+                if (validated.isEmpty()) {
+                    log.warn("quick-add validated to no items; abandoning capture")
+                    channel.send(ChannelMessage.Text(msg(userId, "quickadd.unparseable")))
+                    null
+                } else {
+                    renderCard(userId, channel, validated)
+                    QuickAddState.AwaitingConfirmation(
+                        validated, op.originalRequest, op.clarifications, now(), outcome.planThisWeek,
+                    )
+                }
+            },
+        )
+        is SuggestionOutcome.Clarify -> CaptureEntry.Captured(
             if (clarifyRound > MAX_CLARIFY_ROUNDS) {
                 // The agent asked again despite being told it must draft — give up gracefully.
                 log.warn("quick-add exceeded clarification budget; abandoning capture")
@@ -266,26 +358,40 @@ class QuickAddFlow(
                 val options = outcome.options.mapIndexed { i, o -> ClarifyOption(id = "o$i", label = o.label) }
                 renderClarify(userId, channel, outcome.question, options)
                 QuickAddState.AwaitingClarification(op, outcome.question, options, clarifyRound, now())
-            }
+            },
+        )
+        // Only reachable from an unprompted entry — the shape isn't offered otherwise, so the
+        // in-flow callers below can safely unwrap this as a plain state.
+        is SuggestionOutcome.NotACapture -> {
+            count("not_a_capture")
+            meterRegistry.counter("tasker.quickadd.route", "intent", outcome.intent.name.lowercase()).increment()
+            log.debug("unprompted message routed as {}", outcome.intent)
+            CaptureEntry.Routed(outcome.intent, op.originalRequest)
         }
         is SuggestionOutcome.Unparseable -> {
             count("failed")
             channel.send(ChannelMessage.Text(msg(userId, "quickadd.unparseable")))
-            null
+            CaptureEntry.Captured(null)
         }
     }
 
-    private fun save(userId: UUID, channel: ConversationChannel, items: List<CapturedItem>) {
+    /**
+     * Saves the capture and returns the id of the task it created — but only for the shape the plan
+     * hand-off will accept: exactly one task and no events (`docs/FREE-TEXT-CAPTURE.md` D6 gate 2).
+     * Null for anything else, including a failed save.
+     */
+    private fun save(userId: UUID, channel: ConversationChannel, items: List<CapturedItem>): UUID? {
         val tasks = items.filterIsInstance<CapturedItem.Task>().map { it.draft }
         val events = items.filterIsInstance<CapturedItem.Event>().map { it.draft }
 
         if (tasks.any { it.categoryId.isNullOrBlank() }) {
             log.warn("quick-add save aborted: a task draft had no category")
             channel.send(ChannelMessage.Text(msg(userId, "quickadd.failed")))
-            return
+            return null
         }
 
         val savedTitles = mutableListOf<String>()
+        val savedTaskIds = mutableListOf<UUID>()
         var invitesSkipped = false
 
         val result = runCatching {
@@ -293,6 +399,7 @@ class QuickAddFlow(
             for (task in tasks) {
                 val created = backlogTaskService.createTask(userId, boardId, task.toCreateBacklogTaskRequest())
                 savedTitles += created.title
+                savedTaskIds += created.id
             }
             if (events.isNotEmpty()) {
                 val created = oneOffEventService.createEvents(userId, boardId, events.map { it.toOneOffEventDraft() })
@@ -313,7 +420,232 @@ class QuickAddFlow(
             log.warn("quick-add save failed: {}", e.message)
             channel.send(ChannelMessage.Text(msg(userId, "quickadd.failed")))
         }
+        if (result.isFailure || events.isNotEmpty()) return null
+        return savedTaskIds.singleOrNull()
     }
+
+    // ── The plan hand-off (`docs/FREE-TEXT-CAPTURE.md` D6) ───────────────────────────────────────
+
+    /**
+     * Saves, then — under D6's gates — offers to put the new task into this week's plan. The offer
+     * is the only thing between the two: the save itself is unchanged, and a suppressed offer ends
+     * the flow exactly as a save always did.
+     */
+    private fun saveAndOffer(
+        userId: UUID,
+        channel: ConversationChannel,
+        state: QuickAddState.AwaitingConfirmation,
+    ): QuickAddState? {
+        val taskId = save(userId, channel, state.items) ?: return null
+        return offerPlan(userId, channel, state, taskId)
+    }
+
+    /**
+     * The offer, and the gate on it. Most captures are backlog items that are explicitly *not* for
+     * this week, so asking every time would be noise; it appears only when there is a plan to add
+     * to and the capture itself says it belongs there — either the user said so (`plan_this_week`)
+     * or the drafted deadline falls inside the planned week.
+     *
+     * Everything here is deterministic: no model call, and the same [PlanFinalizationService] path
+     * the web UI's "Add to this week's plan" uses.
+     */
+    private fun offerPlan(
+        userId: UUID,
+        channel: ConversationChannel,
+        state: QuickAddState.AwaitingConfirmation,
+        taskId: UUID,
+    ): QuickAddState? {
+        val draft = (state.items.singleOrNull() as? CapturedItem.Task)?.draft ?: return null
+        val session = planningSessionService.findCurrentPlan(userId) ?: return null
+        val deadline = draft.deadline?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+        val deadlineInWeek = deadline != null &&
+            !deadline.isBefore(session.weekStart) && !deadline.isAfter(session.weekStart.plusDays(6))
+        if (!state.planThisWeek && !deadlineInWeek) return null
+
+        val zone = userZone(userId)
+        val days = availableDays(session.weekStart, zone)
+        if (days.isEmpty()) {
+            // The planned week is behind us, or its last day is already over. Nothing to offer.
+            log.debug("plan hand-off skipped: no day left in the planned week")
+            return null
+        }
+        countPlan("offered")
+        renderDayPicker(userId, channel, days)
+        return QuickAddState.AwaitingPlanDay(
+            taskId = taskId,
+            title = draft.title,
+            minutes = draft.estimatedMinutes?.toLong() ?: DEFAULT_PLAN_MINUTES,
+            sessionId = session.id,
+            days = days,
+            createdAt = now(),
+        )
+    }
+
+    private fun onPlanDay(
+        userId: UUID,
+        channel: ConversationChannel,
+        state: QuickAddState.AwaitingPlanDay,
+        selection: ChannelInbound.Selection,
+    ): CaptureEntry {
+        if (selection.optionId == OPTION_PLAN_SKIP) return declineOffer(userId, channel)
+        val day = state.days.firstOrNull { selection.optionId == OPTION_PLAN_DAY + it }
+        if (day == null) {
+            // A stale tap from an older card — re-render rather than guessing which day was meant.
+            renderDayPicker(userId, channel, state.days)
+            return CaptureEntry.Captured(state)
+        }
+        val times = availableTimes(day, userZone(userId))
+        if (times.isEmpty()) {
+            renderDayPicker(userId, channel, state.days)
+            return CaptureEntry.Captured(state)
+        }
+        renderTimePicker(userId, channel, day, times)
+        return CaptureEntry.Captured(
+            QuickAddState.AwaitingPlanTime(
+                taskId = state.taskId,
+                title = state.title,
+                minutes = state.minutes,
+                sessionId = state.sessionId,
+                day = day,
+                times = times,
+                createdAt = now(),
+            )
+        )
+    }
+
+    private fun onPlanTime(
+        userId: UUID,
+        channel: ConversationChannel,
+        state: QuickAddState.AwaitingPlanTime,
+        selection: ChannelInbound.Selection,
+    ): CaptureEntry {
+        if (selection.optionId == OPTION_PLAN_SKIP) return declineOffer(userId, channel)
+        val time = PlanTimeOfDay.parse(selection.optionId.removePrefix(OPTION_PLAN_TIME))
+            ?.takeIf { it in state.times }
+        if (time == null) {
+            renderTimePicker(userId, channel, state.day, state.times)
+            return CaptureEntry.Captured(state)
+        }
+        return schedule(userId, channel, state, time)
+    }
+
+    private fun schedule(
+        userId: UUID,
+        channel: ConversationChannel,
+        state: QuickAddState.AwaitingPlanTime,
+        time: PlanTimeOfDay,
+    ): CaptureEntry {
+        val zone = userZone(userId)
+        val start = ZonedDateTime.of(state.day, time.at, zone)
+        val end = start.plusMinutes(state.minutes)
+        val slot = AgreedTimeSlot(
+            startIso = start.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+            endIso = end.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+        )
+        val invited = runCatching {
+            planFinalizationService.addTaskToSession(
+                userId,
+                state.sessionId,
+                AgreedPlanTask(taskId = state.taskId, title = state.title, slots = listOf(slot)),
+            )
+        }.getOrElse { e ->
+            countPlan("failed")
+            log.warn("plan hand-off failed for session {}: {}", state.sessionId, e.message)
+            channel.send(ChannelMessage.Text(msg(userId, "quickadd.plan.failed")))
+            return CaptureEntry.Captured(null)
+        }
+        countPlan("scheduled")
+        log.info("Added task {} to plan {} from a quick-add capture", state.taskId, state.sessionId)
+        val locale = locale(userId)
+        channel.send(ChannelMessage.Text(
+            msg(userId, "quickadd.plan.added", channel.formatter.escape(formatEventTime(start, end, locale, zone))),
+        ))
+        if (!invited) channel.send(ChannelMessage.Text(msg(userId, "quickadd.plan.invite_skipped")))
+        return CaptureEntry.Captured(null)
+    }
+
+    private fun declineOffer(userId: UUID, channel: ConversationChannel): CaptureEntry {
+        countPlan("declined")
+        channel.send(ChannelMessage.Text(msg(userId, "quickadd.plan.skipped")))
+        return CaptureEntry.Captured(null)
+    }
+
+    /**
+     * The user typed (or sent an attachment) instead of answering the plan offer. The task is
+     * already saved, so there is nothing to abandon: the offer lapses silently and the message gets
+     * the treatment any out-of-band message gets, routing escape included.
+     */
+    private fun lapseOffer(userId: UUID, channel: ConversationChannel, inbound: ChannelInbound): CaptureEntry {
+        countPlan("lapsed")
+        return when (inbound) {
+            is ChannelInbound.Text -> beginUnprompted(userId, channel, inbound.text)
+            is ChannelInbound.Media -> beginUnpromptedFromMedia(userId, channel, inbound.attachments, inbound.caption)
+            // Unreachable: a selection is what this state is waiting for.
+            is ChannelInbound.Selection -> CaptureEntry.Captured(null)
+        }
+    }
+
+    /**
+     * The days of the planned week still worth offering: from today onward, and only those with a
+     * time slot that hasn't already passed. Usually all of them; late on the week's last day, none.
+     */
+    private fun availableDays(weekStart: LocalDate, zone: ZoneId): List<LocalDate> {
+        val today = LocalDate.ofInstant(clock.instant(), zone)
+        val first = maxOf(weekStart, today)
+        val last = weekStart.plusDays(6)
+        if (first.isAfter(last)) return emptyList()
+        return generateSequence(first) { it.plusDays(1) }
+            .takeWhile { !it.isAfter(last) }
+            .filter { availableTimes(it, zone).isNotEmpty() }
+            .toList()
+    }
+
+    /** The coarse times still ahead of us on [day] — all three on any future day. */
+    private fun availableTimes(day: LocalDate, zone: ZoneId): List<PlanTimeOfDay> {
+        val now = clock.instant()
+        return PlanTimeOfDay.entries.filter { ZonedDateTime.of(day, it.at, zone).toInstant().isAfter(now) }
+    }
+
+    private fun renderDayPicker(userId: UUID, channel: ConversationChannel, days: List<LocalDate>) {
+        val locale = locale(userId)
+        val weekdayFmt = DateTimeFormatter.ofPattern("EEEE", locale)
+        val dateFmt = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale)
+        val options = days.map { day ->
+            ChoiceOption(
+                OPTION_PLAN_DAY + day,
+                messageSource.getMessage(
+                    "quickadd.plan.day_label",
+                    arrayOf<Any>(day.format(weekdayFmt), day.format(dateFmt)),
+                    locale,
+                ),
+            )
+        } + ChoiceOption(OPTION_PLAN_SKIP, msg(userId, "quickadd.plan.skip"))
+        channel.send(ChannelMessage.Choice(prompt = msg(userId, "quickadd.plan.offer"), options = options))
+    }
+
+    private fun renderTimePicker(
+        userId: UUID,
+        channel: ConversationChannel,
+        day: LocalDate,
+        times: List<PlanTimeOfDay>,
+    ) {
+        val locale = locale(userId)
+        val timeFmt = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale)
+        val options = times.map { time ->
+            ChoiceOption(
+                OPTION_PLAN_TIME + time.name.lowercase(),
+                messageSource.getMessage(time.labelKey, arrayOf<Any>(time.at.format(timeFmt)), locale),
+            )
+        } + ChoiceOption(OPTION_PLAN_SKIP, msg(userId, "quickadd.plan.skip"))
+        val dayLabel = day.format(DateTimeFormatter.ofPattern("EEEE", locale))
+        channel.send(ChannelMessage.Choice(
+            prompt = msg(userId, "quickadd.plan.time_prompt", channel.formatter.escape(dayLabel)),
+            options = options,
+        ))
+    }
+
+    private fun countPlan(result: String) =
+        meterRegistry.counter("tasker.quickadd.plan", "result", result).increment()
 
     /**
      * Drops fields the model may have malformed so the card shows exactly what will be saved. For
@@ -500,6 +832,22 @@ class QuickAddFlow(
     private fun count(result: String) =
         meterRegistry.counter("tasker.quickadd.outcome", "result", result).increment()
 
+    private fun countEntry(source: String) =
+        meterRegistry.counter("tasker.quickadd.entry", "source", source).increment()
+
+    /**
+     * Guards the model call that opens a capture. Only entry points are checked: the rounds inside
+     * a live capture are already bounded (by [MAX_CLARIFY_ROUNDS] and by the user's own taps), and
+     * cutting one off would strand a draft the user is in the middle of fixing.
+     */
+    private fun allow(userId: UUID, channel: ConversationChannel): Boolean {
+        if (rateLimiter.tryConsume(userId.toString())) return true
+        count("rate_limited")
+        log.info("quick-add rate limit reached for user {}", userId)
+        channel.send(ChannelMessage.Text(msg(userId, "quickadd.rate_limited")))
+        return false
+    }
+
     private fun locale(userId: UUID): Locale = userSettingsService.getLocale(userId)
 
     private fun userZone(userId: UUID): ZoneId =
@@ -554,6 +902,11 @@ class QuickAddFlow(
         const val OPTION_CANCEL = "quickadd_cancel"
         const val OPTION_EXPLAIN = "quickadd_explain"
 
+        /** Plan hand-off taps. Distinct from `PlanConfirmationRegistry`'s `plan_*` callback ids. */
+        const val OPTION_PLAN_DAY = "quickadd_planday_"
+        const val OPTION_PLAN_TIME = "quickadd_plantime_"
+        const val OPTION_PLAN_SKIP = "quickadd_planskip"
+
         /**
          * Stands in for the user's request when a media capture yielded no read-back and carried no
          * caption. It only ever reaches the model, on a later revise/clarify round — the user never
@@ -564,6 +917,8 @@ class QuickAddFlow(
         private val DEADLINE_REGEX = Regex("""^\d{4}-\d{2}-\d{2}$""")
         private const val DESCRIPTION_PREVIEW = 200
         private const val DEFAULT_EVENT_MINUTES = 60L
+        /** Block length for a planned task the model gave no estimate for. */
+        private const val DEFAULT_PLAN_MINUTES = 30L
         /** Allow events that start up to this many seconds ago — guards against tiny clock-skew drops. */
         private const val PAST_GRACE_SECONDS = 3600L
     }

@@ -72,6 +72,14 @@ class WebConfiguration(
         windowMillis = rateLimitProperties.feedback.windowSeconds * 1_000,
     )
 
+    // Quick-add runs off the Telegram path, which never passes through RateLimitInterceptor, so
+    // this is the only budget bounding what captures can cost a single user.
+    @Bean
+    fun quickAddRateLimiter(): RateLimiter = InMemoryRateLimiter(
+        limit = rateLimitProperties.quickAdd.limit,
+        windowMillis = rateLimitProperties.quickAdd.windowSeconds * 1_000,
+    )
+
     // Only registered when a Clock bean is present (i.e. full app context, not @WebMvcTest slices,
     // which don't load TimeConfiguration). The filter is non-essential for slice tests anyway —
     // they exercise individual controllers, not session lifetime.

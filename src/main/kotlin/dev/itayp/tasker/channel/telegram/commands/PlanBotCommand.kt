@@ -2,6 +2,7 @@ package dev.itayp.tasker.channel.telegram.commands
 
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ChoiceOption
+import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_DISMISS
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_KEEP
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_NEXT_WEEK
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_REVISE
@@ -56,8 +57,9 @@ class PlanBotCommand(
                 ),
             )
             context.channel.send(ChannelMessage.Choice(
-                prompt = messageSource.getMessage("planning.confirm.active.prompt", null, locale),
-                options = listOf(
+                prompt = prompt(context, locale, "planning.confirm.active.prompt"),
+                options = options(
+                    context, locale,
                     ChoiceOption(OPTION_KEEP, messageSource.getMessage("planning.confirm.active.continue", null, locale)),
                     ChoiceOption(OPTION_THIS_WEEK, messageSource.getMessage("planning.confirm.active.abandon", null, locale)),
                 ),
@@ -75,15 +77,15 @@ class PlanBotCommand(
                     existingSessionId = null,
                     replanWeekStart = existingPlan.weekStart,
                     revisableSessionId = existingPlan.id,
+                    // Only revision can use it: it opens straight into a conversation, where a
+                    // fresh session opens on a capacity question (`docs/FREE-TEXT-CAPTURE.md` D3a).
+                    revisionSeed = context.inferredFrom?.takeIf { it.isNotBlank() },
                 ),
             )
             context.channel.send(ChannelMessage.Choice(
-                prompt = messageSource.getMessage(
-                    "planning.confirm.completed.prompt",
-                    arrayOf<Any>(existingPlan.summary),
-                    locale,
-                ),
-                options = listOf(
+                prompt = prompt(context, locale, "planning.confirm.completed.prompt", existingPlan.summary),
+                options = options(
+                    context, locale,
                     ChoiceOption(OPTION_KEEP, messageSource.getMessage("planning.confirm.completed.keep", null, locale)),
                     ChoiceOption(OPTION_REVISE, messageSource.getMessage("planning.confirm.completed.revise", null, locale)),
                     ChoiceOption(OPTION_THIS_WEEK, messageSource.getMessage("planning.confirm.completed.start_over", null, locale)),
@@ -119,11 +121,34 @@ class PlanBotCommand(
             locale,
         )
         context.channel.send(ChannelMessage.Choice(
-            prompt = messageSource.getMessage("planning.choose_week.prompt", null, locale),
-            options = listOf(
+            prompt = prompt(context, locale, "planning.choose_week.prompt"),
+            options = options(
+                context, locale,
                 ChoiceOption(OPTION_THIS_WEEK, thisLabel),
                 ChoiceOption(OPTION_NEXT_WEEK, nextLabel),
             ),
         ))
+    }
+
+    /**
+     * Leads with what was inferred when the user never typed `/plan`, so a wrong guess is obvious
+     * before they answer the question underneath it.
+     */
+    private fun prompt(context: BotCommandContext, locale: Locale, key: String, vararg args: Any): String {
+        val body = messageSource.getMessage(key, args.takeIf { it.isNotEmpty() }, locale)
+        if (!context.inferred) return body
+        return messageSource.getMessage("planning.inferred.ack", null, locale) + "\n\n" + body
+    }
+
+    /**
+     * `/plan` was typed on purpose, so its own options are answer enough; an *inferred* intent can
+     * simply be wrong, and every state needs a way out of a conversation the user didn't ask for.
+     */
+    private fun options(context: BotCommandContext, locale: Locale, vararg base: ChoiceOption): List<ChoiceOption> {
+        if (!context.inferred) return base.toList()
+        return base.toList() + ChoiceOption(
+            OPTION_DISMISS,
+            messageSource.getMessage("planning.confirm.dismiss", null, locale),
+        )
     }
 }

@@ -13,14 +13,21 @@ import dev.itayp.tasker.oneoff.CreatedEvents
 import dev.itayp.tasker.oneoff.OneOffEvent
 import dev.itayp.tasker.oneoff.OneOffEventDraft
 import dev.itayp.tasker.oneoff.OneOffEventService
+import dev.itayp.tasker.planning.CaptureIntent
 import dev.itayp.tasker.planning.CapturedItem
 import dev.itayp.tasker.planning.ClarifyOption
 import dev.itayp.tasker.planning.ClarificationExchange
 import dev.itayp.tasker.planning.EventDraft
+import dev.itayp.tasker.planning.PlanFinalizationService
+import dev.itayp.tasker.planning.PlanningSession
+import dev.itayp.tasker.planning.PlanningSessionStatus
+import dev.itayp.tasker.planning.PlanningSessionService
 import dev.itayp.tasker.planning.SuggestionOutcome
 import dev.itayp.tasker.planning.TaskDraft
 import dev.itayp.tasker.planning.TaskSuggestionAgent
+import dev.itayp.tasker.planning.dto.AgreedPlanTask
 import dev.itayp.tasker.planning.UnsupportedModalityException
+import dev.itayp.tasker.ratelimit.RateLimiter
 import dev.itayp.tasker.service.BacklogTaskCategoryService
 import dev.itayp.tasker.service.BacklogTaskService
 import dev.itayp.tasker.service.BoardMembershipService
@@ -41,6 +48,7 @@ import org.mockito.kotlin.whenever
 import org.springframework.context.support.ResourceBundleMessageSource
 import java.time.Clock
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneOffset
 import java.util.Locale
 import java.util.UUID
@@ -65,10 +73,21 @@ class QuickAddFlowTest {
         setDefaultEncoding("UTF-8")
     }
 
+    /** Allows everything by default; the rate-limit test swaps in a limiter that refuses. */
+    private var rateLimiter = RateLimiter { true }
+
+    private val planningSessionService: PlanningSessionService = mock()
+    private val planFinalizationService: PlanFinalizationService = mock()
+
     private val flow = QuickAddFlow(
         suggestionAgent, backlogTaskService, oneOffEventService, boardMembershipService, categoryService,
-        userSettingsService, messageSource, meterRegistry, clock,
+        userSettingsService, planningSessionService, planFinalizationService, messageSource, meterRegistry,
+        { key -> rateLimiter.tryConsume(key) }, clock,
     )
+
+    /** Most tests only care about the state a round produced; the routing cases unwrap it themselves. */
+    private fun advance(state: QuickAddState, inbound: ChannelInbound, channel: BufferedConversationChannel = channel()) =
+        flow.handleInbound(userId, channel, state, inbound).stateOrNull()
 
     private val userId = UUID.randomUUID()
     private val boardId = UUID.randomUUID()
@@ -103,7 +122,8 @@ class QuickAddFlowTest {
     private fun taskDraft(title: String = "Buy milk") =
         TaskDraft(title = title, categoryId = categoryId.toString(), priority = "medium")
 
-    private fun taskItem(title: String = "Buy milk"): CapturedItem.Task = CapturedItem.Task(taskDraft(title))
+    private fun taskItem(title: String = "Buy milk", deadline: String? = null): CapturedItem.Task =
+        CapturedItem.Task(taskDraft(title).copy(deadline = deadline))
 
     private fun eventItem(
         title: String = "Parent-teacher conference",
@@ -125,7 +145,7 @@ class QuickAddFlowTest {
 
     @Test
     fun `add with text drafts a task and shows a confirmation card`() {
-        whenever(suggestionAgent.quickAddDraft(eq(userId), eq("buy milk"), any(), eq(false)))
+        whenever(suggestionAgent.quickAddDraft(eq(userId), eq("buy milk"), any(), eq(false), eq(false)))
             .thenReturn(SuggestionOutcome.Draft(listOf(taskItem())))
         val channel = channel()
 
@@ -144,7 +164,7 @@ class QuickAddFlowTest {
 
     @Test
     fun `add captures a mixed batch of one task and one event`() {
-        whenever(suggestionAgent.quickAddDraft(eq(userId), any(), any(), eq(false)))
+        whenever(suggestionAgent.quickAddDraft(eq(userId), any(), any(), eq(false), eq(false)))
             .thenReturn(SuggestionOutcome.Draft(listOf(eventItem(), taskItem("Prep questions"))))
         val channel = channel()
 
@@ -186,7 +206,7 @@ class QuickAddFlowTest {
         )
         val channel = channel()
 
-        val next = flow.handleInbound(userId, channel, state, ChannelInbound.Selection(QuickAddFlow.OPTION_SAVE))
+        val next = advance(state, ChannelInbound.Selection(QuickAddFlow.OPTION_SAVE), channel)
 
         assertNull(next)
         verify(backlogTaskService).createTask(eq(userId), eq(boardId), check {
@@ -230,7 +250,7 @@ class QuickAddFlowTest {
         )
         val channel = channel()
 
-        flow.handleInbound(userId, channel, state, ChannelInbound.Selection(QuickAddFlow.OPTION_SAVE))
+        advance(state, ChannelInbound.Selection(QuickAddFlow.OPTION_SAVE), channel)
 
         val sent = channel.drain().filterIsInstance<ChannelMessage.Text>()
         // First message is the "Added: ..." line; second is the invite-skipped warning.
@@ -250,7 +270,7 @@ class QuickAddFlowTest {
         )
         val channel = channel()
 
-        val next = flow.handleInbound(userId, channel, state, ChannelInbound.Selection(QuickAddFlow.OPTION_CANCEL))
+        val next = advance(state, ChannelInbound.Selection(QuickAddFlow.OPTION_CANCEL), channel)
 
         assertNull(next)
         verify(backlogTaskService, never()).createTask(any(), any(), any())
@@ -270,7 +290,7 @@ class QuickAddFlowTest {
         )
         val channel = channel()
 
-        val next = flow.handleInbound(userId, channel, state, ChannelInbound.Text("make it oat milk"))
+        val next = advance(state, ChannelInbound.Text("make it oat milk"), channel)
 
         val confirmation = assertIs<QuickAddState.AwaitingConfirmation>(next)
         val task = assertIs<CapturedItem.Task>(confirmation.items.single())
@@ -279,7 +299,7 @@ class QuickAddFlowTest {
 
     @Test
     fun `vague input asks a clarifying question, then drafts from the answer`() {
-        whenever(suggestionAgent.quickAddDraft(eq(userId), eq("fix it"), any(), eq(false)))
+        whenever(suggestionAgent.quickAddDraft(eq(userId), eq("fix it"), any(), eq(false), eq(false)))
             .thenReturn(SuggestionOutcome.Clarify("Which area?", listOf(ClarifyOption("home", "Home"), ClarifyOption("work", "Work"))))
             .thenReturn(SuggestionOutcome.Draft(listOf(taskItem("Fix the kitchen sink"))))
         val channel = channel()
@@ -291,11 +311,11 @@ class QuickAddFlowTest {
         val q = assertIs<ChannelMessage.Choice>(channel.drain().single())
         assertEquals(listOf("o0", "o1", QuickAddFlow.OPTION_EXPLAIN), q.options.map { it.id })
 
-        val answered = flow.handleInbound(userId, channel(), state, ChannelInbound.Selection("o0"))
+        val answered = advance(state, ChannelInbound.Selection("o0"), channel())
 
         assertIs<QuickAddState.AwaitingConfirmation>(answered)
         val clarificationsCaptor = argumentCaptor<List<ClarificationExchange>>()
-        verify(suggestionAgent, times(2)).quickAddDraft(eq(userId), eq("fix it"), clarificationsCaptor.capture(), eq(false))
+        verify(suggestionAgent, times(2)).quickAddDraft(eq(userId), eq("fix it"), clarificationsCaptor.capture(), eq(false), eq(false))
         assertEquals(ClarificationExchange("Which area?", "Home"), clarificationsCaptor.lastValue.single())
     }
 
@@ -308,19 +328,19 @@ class QuickAddFlowTest {
             rounds = QuickAddFlow.MAX_CLARIFY_ROUNDS,
             createdAt = clock.instant(),
         )
-        whenever(suggestionAgent.quickAddDraft(eq(userId), eq("fix it"), any(), eq(true)))
+        whenever(suggestionAgent.quickAddDraft(eq(userId), eq("fix it"), any(), eq(true), eq(false)))
             .thenReturn(SuggestionOutcome.Draft(listOf(taskItem("Fix the sink"))))
 
-        val next = flow.handleInbound(userId, channel(), state, ChannelInbound.Text("the kitchen"))
+        val next = advance(state, ChannelInbound.Text("the kitchen"), channel())
 
         assertIs<QuickAddState.AwaitingConfirmation>(next)
-        verify(suggestionAgent).quickAddDraft(eq(userId), eq("fix it"), any(), eq(true))
+        verify(suggestionAgent).quickAddDraft(eq(userId), eq("fix it"), any(), eq(true), eq(false))
     }
 
     @Test
     fun `a photo starts a capture, echoes what was read, and shows the card`() {
         val png = InboundAttachment(AttachmentKind.IMAGE, byteArrayOf(1, 2, 3), "image/jpeg")
-        whenever(suggestionAgent.quickAddDraftFromMedia(eq(userId), eq(listOf(png)), anyOrNull()))
+        whenever(suggestionAgent.quickAddDraftFromMedia(eq(userId), eq(listOf(png)), anyOrNull(), eq(false)))
             .thenReturn(SuggestionOutcome.Draft(listOf(eventItem()), sourceText = "Party at 4pm on Saturday"))
         val channel = channel()
 
@@ -339,7 +359,7 @@ class QuickAddFlowTest {
     @Test
     fun `a voice note whose modality the model cannot accept ends the flow with an explanation`() {
         val voice = InboundAttachment(AttachmentKind.AUDIO, byteArrayOf(1), "audio/ogg", format = "ogg")
-        whenever(suggestionAgent.quickAddDraftFromMedia(any(), any(), anyOrNull()))
+        whenever(suggestionAgent.quickAddDraftFromMedia(any(), any(), anyOrNull(), any()))
             .thenThrow(UnsupportedModalityException(listOf(AttachmentKind.AUDIO)))
         val channel = channel()
 
@@ -354,7 +374,7 @@ class QuickAddFlowTest {
     @Test
     fun `media falls back to its caption when the model reads nothing back`() {
         val png = InboundAttachment(AttachmentKind.IMAGE, byteArrayOf(1), "image/jpeg")
-        whenever(suggestionAgent.quickAddDraftFromMedia(any(), any(), anyOrNull()))
+        whenever(suggestionAgent.quickAddDraftFromMedia(any(), any(), anyOrNull(), any()))
             .thenReturn(SuggestionOutcome.Draft(listOf(taskItem())))
         val channel = channel()
 
@@ -374,10 +394,10 @@ class QuickAddFlowTest {
             clarifications = emptyList(),
             createdAt = clock.instant(),
         )
-        whenever(suggestionAgent.quickAddDraftFromMedia(any(), any(), anyOrNull()))
+        whenever(suggestionAgent.quickAddDraftFromMedia(any(), any(), anyOrNull(), any()))
             .thenReturn(SuggestionOutcome.Draft(listOf(eventItem()), sourceText = "Party at 4pm"))
 
-        val next = flow.handleInbound(userId, channel(), state, ChannelInbound.Media(listOf(png)))
+        val next = advance(state, ChannelInbound.Media(listOf(png)), channel())
 
         assertEquals("Party at 4pm", assertIs<QuickAddState.AwaitingConfirmation>(next).originalRequest)
         verify(suggestionAgent, never()).quickAddRevise(any(), any(), any(), any(), any(), any())
@@ -385,7 +405,7 @@ class QuickAddFlowTest {
 
     @Test
     fun `unparseable output ends the flow`() {
-        whenever(suggestionAgent.quickAddDraft(any(), any(), any(), any()))
+        whenever(suggestionAgent.quickAddDraft(any(), any(), any(), any(), any()))
             .thenReturn(SuggestionOutcome.Unparseable)
         val channel = channel()
 
@@ -398,7 +418,7 @@ class QuickAddFlowTest {
     @Test
     fun `event whose start is in the past is dropped during validation`() {
         // 2026-06-11 is "today" per the fixed clock; this event is well in the past.
-        whenever(suggestionAgent.quickAddDraft(any(), any(), any(), any()))
+        whenever(suggestionAgent.quickAddDraft(any(), any(), any(), any(), any()))
             .thenReturn(SuggestionOutcome.Draft(listOf(eventItem(start = "2025-01-01T10:00:00Z", end = "2025-01-01T11:00:00Z"))))
         val channel = channel()
 
@@ -411,7 +431,7 @@ class QuickAddFlowTest {
 
     @Test
     fun `event with no end time validates with a default 60-minute duration`() {
-        whenever(suggestionAgent.quickAddDraft(any(), any(), any(), any()))
+        whenever(suggestionAgent.quickAddDraft(any(), any(), any(), any(), any()))
             .thenReturn(SuggestionOutcome.Draft(listOf(eventItem(start = "2026-07-15T19:30:00Z", end = null))))
         val channel = channel()
 
@@ -421,5 +441,329 @@ class QuickAddFlowTest {
         val event = assertIs<CapturedItem.Event>(confirmation.items.single())
         // endIso is populated with start + 60min (formatted with offset).
         assertTrue(event.draft.endIso?.startsWith("2026-07-15T20:30") == true)
+    }
+
+    // --- Unprompted messages (docs/FREE-TEXT-CAPTURE.md) ---------------------------------------
+
+    @Test
+    fun `an unprompted message captures like add does`() {
+        whenever(suggestionAgent.quickAddDraft(eq(userId), eq("buy milk"), any(), eq(false), eq(true)))
+            .thenReturn(SuggestionOutcome.Draft(listOf(taskItem())))
+        val channel = channel()
+
+        val entry = flow.beginUnprompted(userId, channel, "buy milk")
+
+        val state = assertIs<CaptureEntry.Captured>(entry).state
+        assertIs<QuickAddState.AwaitingConfirmation>(state)
+        assertIs<ChannelMessage.Choice>(channel.drain().single())
+        assertEquals(1.0, meterRegistry.counter("tasker.quickadd.entry", "source", "unprompted").count())
+    }
+
+    @Test
+    fun `an unprompted message the model calls not-a-capture is routed, not drafted`() {
+        whenever(suggestionAgent.quickAddDraft(any(), any(), any(), any(), eq(true)))
+            .thenReturn(SuggestionOutcome.NotACapture(CaptureIntent.CURRENT))
+        val channel = channel()
+
+        val entry = flow.beginUnprompted(userId, channel, "what's on for today?")
+
+        assertEquals(CaptureIntent.CURRENT, assertIs<CaptureEntry.Routed>(entry).intent)
+        // The channel decides what to say for a routed message; the flow says nothing.
+        assertTrue(channel.drain().isEmpty())
+        assertEquals(1.0, meterRegistry.counter("tasker.quickadd.route", "intent", "current").count())
+        assertEquals(1.0, meterRegistry.counter("tasker.quickadd.outcome", "result", "not_a_capture").count())
+    }
+
+    @Test
+    fun `the not-a-capture shape is never offered to add or to a later round of a live capture`() {
+        whenever(suggestionAgent.quickAddDraft(any(), any(), any(), any(), any()))
+            .thenReturn(SuggestionOutcome.Draft(listOf(taskItem())))
+        whenever(suggestionAgent.quickAddRevise(any(), any(), any(), any(), any(), any()))
+            .thenReturn(SuggestionOutcome.Draft(listOf(taskItem())))
+
+        val state = flow.begin(userId, channel(), "buy milk")
+        verify(suggestionAgent).quickAddDraft(eq(userId), eq("buy milk"), any(), eq(false), eq(false))
+
+        // Adjusting the draft revises it — there is no route out of a capture the user is fixing.
+        advance(state!!, ChannelInbound.Text("make it two"), channel())
+        verify(suggestionAgent).quickAddRevise(eq(userId), any(), any(), eq("make it two"), any(), eq(false))
+    }
+
+    @Test
+    fun `an unprompted voice note may be routed, but an unprompted photo is always a capture`() {
+        val voice = InboundAttachment(AttachmentKind.AUDIO, byteArrayOf(1), "audio/ogg", format = "ogg")
+        whenever(suggestionAgent.quickAddDraftFromMedia(any(), eq(listOf(voice)), anyOrNull(), eq(true)))
+            .thenReturn(SuggestionOutcome.NotACapture(CaptureIntent.PLAN))
+
+        val entry = flow.beginUnpromptedFromMedia(userId, channel(), listOf(voice), caption = null)
+
+        assertEquals(CaptureIntent.PLAN, assertIs<CaptureEntry.Routed>(entry).intent)
+
+        // The same unprompted entry point, but a photo: the shape is not offered at all, so there
+        // is no way for the model to decline an image it should just be reading.
+        val png = InboundAttachment(AttachmentKind.IMAGE, byteArrayOf(1), "image/jpeg")
+        whenever(suggestionAgent.quickAddDraftFromMedia(any(), eq(listOf(png)), anyOrNull(), eq(false)))
+            .thenReturn(SuggestionOutcome.Draft(listOf(taskItem())))
+
+        val photoEntry = flow.beginUnpromptedFromMedia(userId, channel(), listOf(png), caption = null)
+
+        assertIs<QuickAddState.AwaitingConfirmation>(assertIs<CaptureEntry.Captured>(photoEntry).state)
+    }
+
+    @Test
+    fun `a rate-limited capture says so and makes no model call`() {
+        rateLimiter = RateLimiter { false }
+        val channel = channel()
+
+        val entry = flow.beginUnprompted(userId, channel, "buy milk")
+
+        assertNull(assertIs<CaptureEntry.Captured>(entry).state)
+        assertIs<ChannelMessage.Text>(channel.drain().single())
+        verify(suggestionAgent, never()).quickAddDraft(any(), any(), any(), any(), any())
+        assertEquals(1.0, meterRegistry.counter("tasker.quickadd.outcome", "result", "rate_limited").count())
+    }
+
+    @Test
+    fun `a bare add costs nothing against the rate limit`() {
+        rateLimiter = RateLimiter { false }
+        val channel = channel()
+
+        // No description yet, so no model call to charge for — the limit applies to the draft that
+        // follows, not to being asked what to add.
+        assertIs<QuickAddState.AwaitingDescription>(flow.begin(userId, channel, null))
+        assertIs<ChannelMessage.Text>(channel.drain().single())
+    }
+
+    // ── The plan hand-off (docs/FREE-TEXT-CAPTURE.md D6) ─────────────────────────────────────────
+
+    private val planSessionId = UUID.randomUUID()
+
+    /** Today is Thursday 2026-06-11; the planned week runs Mon 08 – Sun 14. */
+    private fun stubCurrentPlan(weekStart: LocalDate = LocalDate.parse("2026-06-08")) {
+        whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(
+            PlanningSession(
+                id = planSessionId,
+                userId = userId,
+                conversationId = null,
+                status = PlanningSessionStatus.COMPLETED,
+                startedAt = Instant.parse("2026-06-08T08:00:00Z"),
+                weekStart = weekStart,
+                endedAt = Instant.parse("2026-06-08T08:30:00Z"),
+                summary = "a plan",
+            ),
+        )
+    }
+
+    private fun stubCreatedTask(id: UUID = UUID.randomUUID(), title: String = "Buy milk"): UUID {
+        val created: BacklogTask = mock()
+        whenever(created.id).thenReturn(id)
+        whenever(created.title).thenReturn(title)
+        whenever(backlogTaskService.createTask(eq(userId), eq(boardId), any())).thenReturn(created)
+        return id
+    }
+
+    private fun confirmation(items: List<CapturedItem>, planThisWeek: Boolean = false) =
+        QuickAddState.AwaitingConfirmation(
+            items = items,
+            originalRequest = "buy milk",
+            clarifications = emptyList(),
+            createdAt = clock.instant(),
+            planThisWeek = planThisWeek,
+        )
+
+    @Test
+    fun `saving a task the user asked for this week offers a day in the plan`() {
+        stubCreatedTask()
+        stubCurrentPlan()
+        val channel = channel()
+
+        val next = advance(
+            confirmation(listOf(taskItem()), planThisWeek = true),
+            ChannelInbound.Selection(QuickAddFlow.OPTION_SAVE),
+            channel,
+        )
+
+        val offer = assertIs<QuickAddState.AwaitingPlanDay>(next)
+        // Today onward, through the last day of the planned week.
+        assertEquals(
+            listOf("2026-06-11", "2026-06-12", "2026-06-13", "2026-06-14").map(LocalDate::parse),
+            offer.days,
+        )
+        assertEquals(30L, offer.minutes)
+        assertEquals(planSessionId, offer.sessionId)
+        val picker = assertIs<ChannelMessage.Choice>(channel.drain().last())
+        // One option per day, plus the way out.
+        assertEquals(5, picker.options.size)
+        assertEquals(QuickAddFlow.OPTION_PLAN_SKIP, picker.options.last().id)
+        assertEquals(1.0, meterRegistry.counter("tasker.quickadd.plan", "result", "offered").count())
+    }
+
+    @Test
+    fun `a deadline inside the planned week is enough on its own`() {
+        stubCreatedTask()
+        stubCurrentPlan()
+
+        val next = advance(
+            confirmation(listOf(taskItem(deadline = "2026-06-12"))),
+            ChannelInbound.Selection(QuickAddFlow.OPTION_SAVE),
+        )
+
+        assertIs<QuickAddState.AwaitingPlanDay>(next)
+    }
+
+    @Test
+    fun `nothing is offered for a task that says nothing about this week`() {
+        stubCreatedTask()
+        stubCurrentPlan()
+
+        val next = advance(
+            confirmation(listOf(taskItem(deadline = "2026-07-01"))),
+            ChannelInbound.Selection(QuickAddFlow.OPTION_SAVE),
+        )
+
+        assertNull(next)
+        verify(planFinalizationService, never()).addTaskToSession(any(), any(), any())
+    }
+
+    @Test
+    fun `nothing is offered when the week has no finalized plan`() {
+        stubCreatedTask()
+        whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(null)
+
+        val next = advance(
+            confirmation(listOf(taskItem()), planThisWeek = true),
+            ChannelInbound.Selection(QuickAddFlow.OPTION_SAVE),
+        )
+
+        assertNull(next)
+    }
+
+    @Test
+    fun `nothing is offered for a multi-item capture`() {
+        stubCreatedTask()
+        stubCurrentPlan()
+
+        val next = advance(
+            confirmation(listOf(taskItem("Buy milk"), taskItem("Buy bread")), planThisWeek = true),
+            ChannelInbound.Selection(QuickAddFlow.OPTION_SAVE),
+        )
+
+        assertNull(next)
+        verify(planningSessionService, never()).findCurrentPlan(any())
+    }
+
+    private fun dayOffer(minutes: Long = 30L, taskId: UUID = UUID.randomUUID()) =
+        QuickAddState.AwaitingPlanDay(
+            taskId = taskId,
+            title = "Buy milk",
+            minutes = minutes,
+            sessionId = planSessionId,
+            days = listOf("2026-06-11", "2026-06-12").map(LocalDate::parse),
+            createdAt = clock.instant(),
+        )
+
+    @Test
+    fun `picking a day then a time slots the task into the plan`() {
+        whenever(planFinalizationService.addTaskToSession(any(), any(), any())).thenReturn(true)
+        val taskId = UUID.randomUUID()
+        val channel = channel()
+
+        val afterDay = advance(
+            dayOffer(minutes = 45L, taskId = taskId),
+            ChannelInbound.Selection(QuickAddFlow.OPTION_PLAN_DAY + "2026-06-12"),
+            channel,
+        )
+        val timeState = assertIs<QuickAddState.AwaitingPlanTime>(afterDay)
+        assertEquals(LocalDate.parse("2026-06-12"), timeState.day)
+        assertEquals(PlanTimeOfDay.entries, timeState.times)
+
+        val done = advance(
+            timeState,
+            ChannelInbound.Selection(QuickAddFlow.OPTION_PLAN_TIME + "afternoon"),
+            channel,
+        )
+
+        assertNull(done)
+        verify(planFinalizationService).addTaskToSession(eq(userId), eq(planSessionId), check<AgreedPlanTask> {
+            assertEquals(taskId, it.taskId)
+            val slot = it.slots.single()
+            assertEquals("2026-06-12T14:00:00Z", slot.startIso)
+            assertEquals("2026-06-12T14:45:00Z", slot.endIso)
+        })
+        assertEquals(1.0, meterRegistry.counter("tasker.quickadd.plan", "result", "scheduled").count())
+    }
+
+    @Test
+    fun `a time already past today is not offered`() {
+        val channel = channel()
+
+        // 10:00 UTC: the morning block is gone, the other two are still ahead.
+        val next = advance(
+            dayOffer(),
+            ChannelInbound.Selection(QuickAddFlow.OPTION_PLAN_DAY + "2026-06-11"),
+            channel,
+        )
+
+        val timeState = assertIs<QuickAddState.AwaitingPlanTime>(next)
+        assertEquals(listOf(PlanTimeOfDay.AFTERNOON, PlanTimeOfDay.EVENING), timeState.times)
+    }
+
+    @Test
+    fun `scheduling says so when no calendar invite can be delivered`() {
+        whenever(planFinalizationService.addTaskToSession(any(), any(), any())).thenReturn(false)
+        val channel = channel()
+        val timeState = QuickAddState.AwaitingPlanTime(
+            taskId = UUID.randomUUID(),
+            title = "Buy milk",
+            minutes = 30L,
+            sessionId = planSessionId,
+            day = LocalDate.parse("2026-06-12"),
+            times = PlanTimeOfDay.entries,
+            createdAt = clock.instant(),
+        )
+
+        advance(timeState, ChannelInbound.Selection(QuickAddFlow.OPTION_PLAN_TIME + "evening"), channel)
+
+        val sent = channel.drain().filterIsInstance<ChannelMessage.Text>()
+        assertEquals(2, sent.size)
+        assertTrue(sent[1].text.isNotBlank())
+    }
+
+    @Test
+    fun `declining the offer leaves the task in the backlog`() {
+        val channel = channel()
+
+        val next = advance(dayOffer(), ChannelInbound.Selection(QuickAddFlow.OPTION_PLAN_SKIP), channel)
+
+        assertNull(next)
+        verify(planFinalizationService, never()).addTaskToSession(any(), any(), any())
+        assertEquals(1.0, meterRegistry.counter("tasker.quickadd.plan", "result", "declined").count())
+    }
+
+    @Test
+    fun `typing instead of answering the offer starts a new capture`() {
+        whenever(suggestionAgent.quickAddDraft(eq(userId), any(), any(), eq(false), eq(true)))
+            .thenReturn(SuggestionOutcome.Draft(listOf(taskItem("Call the plumber"))))
+        val channel = channel()
+
+        val next = advance(dayOffer(), ChannelInbound.Text("call the plumber"), channel)
+
+        // The task is already saved, so there is nothing to abandon: the offer just lapses.
+        assertEquals("call the plumber", assertIs<QuickAddState.AwaitingConfirmation>(next).originalRequest)
+        verify(planFinalizationService, never()).addTaskToSession(any(), any(), any())
+        assertEquals(1.0, meterRegistry.counter("tasker.quickadd.plan", "result", "lapsed").count())
+        assertEquals(1.0, meterRegistry.counter("tasker.quickadd.entry", "source", "unprompted").count())
+    }
+
+    @Test
+    fun `a message that turns out not to be a capture still routes after a lapsed offer`() {
+        whenever(suggestionAgent.quickAddDraft(eq(userId), any(), any(), eq(false), eq(true)))
+            .thenReturn(SuggestionOutcome.NotACapture(CaptureIntent.CURRENT))
+
+        val entry = flow.handleInbound(userId, channel(), dayOffer(), ChannelInbound.Text("what's on today?"))
+
+        val routed = assertIs<CaptureEntry.Routed>(entry)
+        assertEquals(CaptureIntent.CURRENT, routed.intent)
+        assertEquals("what's on today?", routed.text)
     }
 }

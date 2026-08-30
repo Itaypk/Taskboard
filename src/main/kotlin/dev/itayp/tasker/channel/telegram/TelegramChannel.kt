@@ -1,18 +1,22 @@
 package dev.itayp.tasker.channel.telegram
 
 import dev.itayp.tasker.ai.access.AiAccessService
+import dev.itayp.tasker.capture.CaptureEntry
 import dev.itayp.tasker.capture.QuickAddFlow
+import dev.itayp.tasker.capture.QuickAddState
 import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.telegram.commands.BotCommandContext
 import dev.itayp.tasker.channel.telegram.commands.BotCommandDispatcher
 import dev.itayp.tasker.channel.telegram.commands.BotCommandHandler
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry
+import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_DISMISS
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_KEEP
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_NEXT_WEEK
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_REVISE
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_THIS_WEEK
 import dev.itayp.tasker.notification.ReminderActionHandler
+import dev.itayp.tasker.planning.CaptureIntent
 import dev.itayp.tasker.planning.WeekOffset
 import dev.itayp.tasker.planning.WeekResolver
 import dev.itayp.tasker.planning.WeeklyPlanningOrchestrator
@@ -179,13 +183,23 @@ class TelegramChannel(
                     planConfirmationRegistry.remove(chatId)
                     channel.send(ChannelMessage.Text(messageSource.getMessage("planning.confirm.kept", null, locale)))
                 }
+                // Only ever offered when planning was inferred from a free-text message.
+                OPTION_DISMISS -> {
+                    planConfirmationRegistry.remove(chatId)
+                    channel.send(ChannelMessage.Text(messageSource.getMessage("planning.confirm.dismissed", null, locale)))
+                }
                 OPTION_REVISE -> {
                     planConfirmationRegistry.remove(chatId)
                     val revisableSessionId = pendingConfirmation.revisableSessionId
                     if (revisableSessionId == null) {
                         channel.send(ChannelMessage.Text(messageSource.getMessage("planning.confirm.choose", null, locale)))
                     } else {
-                        orchestrator.startRevision(pendingConfirmation.userId, revisableSessionId, channel)
+                        orchestrator.startRevision(
+                            pendingConfirmation.userId,
+                            revisableSessionId,
+                            channel,
+                            pendingConfirmation.revisionSeed,
+                        )
                         sessionRegistry.put(chatId, revisableSessionId)
                     }
                 }
@@ -211,34 +225,109 @@ class TelegramChannel(
         // Drive an in-progress quick-add ("/add") capture, if any.
         val quickAddState = quickAddRegistry.get(chatId)
         if (quickAddState != null) {
-            val next = quickAddFlow.handleInbound(userId, channel, quickAddState, inbound)
-            if (next != null) {
-                quickAddRegistry.set(chatId, next)
-            } else {
-                quickAddRegistry.remove(chatId)
+            applyEntry(userId, chatId, channel, quickAddFlow.handleInbound(userId, channel, quickAddState, inbound))
+            return
+        }
+
+        // A message that arrives while a planning session is live belongs to that conversation —
+        // people write in bursts and correct themselves a message later — so this stays ahead of
+        // the unprompted-capture branch below (`docs/FREE-TEXT-CAPTURE.md`).
+        val sessionId = sessionRegistry.get(chatId)
+        if (sessionId != null && orchestrator.phase(sessionId) != null) {
+            orchestrator.handleInbound(sessionId, inbound, channel)
+            if (orchestrator.phase(sessionId) == Phase.DONE) {
+                sessionRegistry.remove(chatId)
             }
             return
         }
+        sessionRegistry.remove(chatId)
 
-        val sessionId = sessionRegistry.get(chatId)
-        if (sessionId == null || orchestrator.phase(sessionId) == null) {
-            sessionRegistry.remove(chatId)
-            channel.send(ChannelMessage.Text("Send /add to capture a task, or /help to see what I can do."))
+        handleUnprompted(userId, chatId, channel, inbound)
+    }
+
+    /**
+     * Handles a message the user sent on their own — no command, no conversation in progress. It's
+     * treated as a quick-add capture, since capturing is what the bot is for and forwarding
+     * something to it is the highest-value thing a user does. The capture model gets one escape:
+     * when the message plainly isn't a capture it says so, and we route it to the command it was
+     * actually after (`docs/FREE-TEXT-CAPTURE.md` D1–D3).
+     */
+    private fun handleUnprompted(
+        userId: UUID,
+        chatId: Long,
+        channel: TelegramConversationChannel,
+        inbound: ChannelInbound,
+    ) {
+        // A stale callback tap — a button from a card that has since expired — is not a capture.
+        if (inbound !is ChannelInbound.Text || !aiAccessService.isAiAvailableForUser(userId)) {
+            sendCapabilities(userId, channel)
             return
         }
+        applyEntry(userId, chatId, channel, quickAddFlow.beginUnprompted(userId, channel, inbound.text))
+    }
 
-        orchestrator.handleInbound(sessionId, inbound, channel)
-
-        if (orchestrator.phase(sessionId) == Phase.DONE) {
-            sessionRegistry.remove(chatId)
+    /** Stores the capture state a flow entry produced, or dispatches where it decided to route. */
+    private fun applyEntry(
+        userId: UUID,
+        chatId: Long,
+        channel: TelegramConversationChannel,
+        entry: CaptureEntry,
+    ) {
+        when (entry) {
+            is CaptureEntry.Captured -> storeQuickAddState(chatId, entry.state)
+            is CaptureEntry.Routed -> route(userId, chatId, channel, entry.intent, entry.text)
         }
     }
 
     /**
-     * Routes a photo / voice note. Media is only accepted as part of an **in-progress quick-add**:
-     * how an out-of-band attachment should behave is still an open product question, so a photo
-     * that arrives on its own gets a pointer to `/add` rather than a capture we'd have to undo
-     * later. That gate also means the download only happens for a user who asked for it.
+     * Runs the command an unprompted message turned out to want. The read-only ones run outright —
+     * they're cheap and a wrong guess costs the user a glance — while planning goes through
+     * `/plan`'s own state-aware confirmation, marked as inferred so it offers a way out.
+     */
+    private fun route(
+        userId: UUID,
+        chatId: Long,
+        channel: TelegramConversationChannel,
+        intent: CaptureIntent,
+        text: String,
+    ) {
+        val command = when (intent) {
+            CaptureIntent.PLAN -> "/plan"
+            CaptureIntent.CURRENT -> "/current"
+            CaptureIntent.STATS -> "/stats"
+            CaptureIntent.HELP -> "/help"
+            CaptureIntent.UNCLEAR -> {
+                sendCapabilities(userId, channel)
+                return
+            }
+        }
+        // The message rides along: a handler that opens a conversation about what the user just
+        // said can use it as its opening turn (`docs/FREE-TEXT-CAPTURE.md` D3a).
+        val context = BotCommandContext(userId, chatId, "", channel, sessionRegistry, inferredFrom = text)
+        if (!commandDispatcher.dispatch(command, context)) {
+            logger.warn("unprompted message routed to {}, which has no handler", command)
+            sendCapabilities(userId, channel)
+        }
+    }
+
+    /**
+     * The reply for a message with no discernible request in it — a greeting, a typo, something
+     * about apple sauce. Also the fallback whenever a capture can't be attempted at all, since
+     * naming what the bot does is the most useful thing to say in either case.
+     */
+    private fun sendCapabilities(userId: UUID, channel: TelegramConversationChannel) {
+        val locale = userSettingsService.getLocale(userId)
+        channel.send(ChannelMessage.Text(messageSource.getMessage("command.unprompted.unclear", null, locale)))
+    }
+
+    private fun storeQuickAddState(chatId: Long, state: QuickAddState?) {
+        if (state != null) quickAddRegistry.set(chatId, state) else quickAddRegistry.remove(chatId)
+    }
+
+    /**
+     * Routes a photo / voice note — into a quick-add already in progress, or as a capture of its
+     * own. Which of the two kinds may be routed rather than captured is the flow's call
+     * (`docs/FREE-TEXT-CAPTURE.md` D7), not this channel's.
      */
     private fun handleMedia(userId: UUID, chatId: Long, channel: TelegramConversationChannel, message: Message) {
         val locale = userSettingsService.getLocale(userId)
@@ -247,8 +336,14 @@ class TelegramChannel(
             return
         }
         val quickAddState = quickAddRegistry.get(chatId)
-        if (quickAddState == null) {
-            channel.send(ChannelMessage.Text(messageSource.getMessage("quickadd.media.no_flow", null, locale)))
+        // Mid-planning, an attachment can't open a capture for the same reason `/add` can't: the
+        // planner has its own way to add a task, and the conversation shouldn't fork. Unlike text,
+        // media can't simply be handed to the orchestrator — it takes no attachments
+        // (`docs/MULTIMODAL-CAPTURE.md` D7) — so it gets the same redirect `/add` gets. Checked
+        // ahead of the download, so a message we won't capture costs no `getFile` round-trip.
+        val sessionId = sessionRegistry.get(chatId)
+        if (quickAddState == null && sessionId != null && orchestrator.phase(sessionId) != null) {
+            channel.send(ChannelMessage.Text(messageSource.getMessage("quickadd.in_session", null, locale)))
             return
         }
         val inbound = when (val extraction = mediaExtractor.extract(message)) {
@@ -259,8 +354,14 @@ class TelegramChannel(
             }
             TelegramMediaExtractor.Extraction.None -> return
         }
-        val next = quickAddFlow.handleInbound(userId, channel, quickAddState, inbound)
-        if (next != null) quickAddRegistry.set(chatId, next) else quickAddRegistry.remove(chatId)
+        if (quickAddState != null) {
+            applyEntry(userId, chatId, channel, quickAddFlow.handleInbound(userId, channel, quickAddState, inbound))
+            return
+        }
+        applyEntry(
+            userId, chatId, channel,
+            quickAddFlow.beginUnpromptedFromMedia(userId, channel, inbound.attachments, inbound.caption),
+        )
     }
 
     private fun rejectionKey(reason: TelegramMediaExtractor.Reason): String = when (reason) {
