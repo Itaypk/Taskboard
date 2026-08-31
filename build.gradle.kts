@@ -39,11 +39,10 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-h2console")
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 	// Extracted libraries (JitPack). Multi-module repo github.com/Itaypk/Nescioquid; JVM 25.
-	implementation("com.github.Itaypk.Nescioquid:envelope-crypto:0.10.0")
-	implementation("com.github.Itaypk.Nescioquid:openrouter-client:0.10.0")
+	implementation("com.github.Itaypk.Nescioquid:envelope-crypto:0.12.0")
+	implementation("com.github.Itaypk.Nescioquid:openrouter-client:0.12.0")
+	implementation("com.github.Itaypk.Nescioquid:telegram-oidc-login:0.12.0")
 	implementation("org.springframework.boot:spring-boot-starter-security")
-	// JWT/JWKS validation for the Telegram OIDC login flow (NimbusJwtDecoder).
-	implementation("org.springframework.security:spring-security-oauth2-jose")
 	implementation("org.springframework.boot:spring-boot-starter-webmvc")
 	implementation("org.springframework.boot:spring-boot-starter-validation")
 	implementation("org.springframework.session:spring-session-jdbc")

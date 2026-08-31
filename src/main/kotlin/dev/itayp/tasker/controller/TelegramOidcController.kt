@@ -1,13 +1,13 @@
 package dev.itayp.tasker.controller
 
+import dev.itayp.nescioquid.telegram.TelegramAuthException
+import dev.itayp.nescioquid.telegram.TelegramOidcService
 import dev.itayp.tasker.config.AppProperties
 import dev.itayp.tasker.security.SessionAuthenticator
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.AccountLinkService
 import dev.itayp.tasker.service.LinkResult
 import dev.itayp.tasker.service.LocaleNegotiationService
-import dev.itayp.tasker.service.TelegramAuthException
-import dev.itayp.tasker.service.TelegramOidcService
 import dev.itayp.tasker.service.UserAuthService
 import dev.itayp.tasker.util.localRedirect
 import jakarta.servlet.http.HttpServletRequest

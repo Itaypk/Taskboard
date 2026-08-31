@@ -1,5 +1,6 @@
 package dev.itayp.tasker.service
 
+import dev.itayp.nescioquid.telegram.TelegramAuthData
 import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.jpa.AuthIdentityEntity
 import dev.itayp.tasker.jpa.AuthProvider

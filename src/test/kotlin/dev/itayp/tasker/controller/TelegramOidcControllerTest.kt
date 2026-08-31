@@ -1,5 +1,8 @@
 package dev.itayp.tasker.controller
 
+import dev.itayp.nescioquid.telegram.TelegramAuthData
+import dev.itayp.nescioquid.telegram.TelegramAuthorizationRequest
+import dev.itayp.nescioquid.telegram.TelegramOidcService
 import dev.itayp.tasker.config.SecurityConfiguration
 import dev.itayp.tasker.jpa.UserEntity
 import dev.itayp.tasker.security.SessionAuthenticator
@@ -7,9 +10,6 @@ import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.AccountLinkService
 import dev.itayp.tasker.service.LinkResult
 import dev.itayp.tasker.service.LocaleNegotiationService
-import dev.itayp.tasker.service.TelegramAuthData
-import dev.itayp.tasker.service.TelegramAuthorizationRequest
-import dev.itayp.tasker.service.TelegramOidcService
 import dev.itayp.tasker.service.UserAuthService
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any

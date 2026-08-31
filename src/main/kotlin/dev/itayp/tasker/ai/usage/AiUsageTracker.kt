@@ -6,6 +6,7 @@ import dev.itayp.nescioquid.openrouter.AiRequest
 import dev.itayp.nescioquid.openrouter.AiResponse
 import dev.itayp.nescioquid.openrouter.ChatRequest
 import dev.itayp.nescioquid.openrouter.ModelCapabilityService
+import dev.itayp.nescioquid.openrouter.Usage
 import io.micrometer.core.instrument.MeterRegistry
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -47,7 +48,9 @@ class AiUsageTracker(
     }
 
     override fun recordSuccess(context: AiCallContext, request: AiRequest, response: AiResponse) {
-        val usage = response.usage
+        // Token accounting only applies to the chat/image usage shape; transcription bills by audio
+        // duration (TranscriptionUsage) and has no token fields to report here.
+        val usage = response.usage as? Usage
         // OpenRouter echoes the resolved model/provider; fall back to the requested model.
         val model = response.model ?: request.model
         record(
