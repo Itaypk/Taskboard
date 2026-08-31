@@ -1,5 +1,6 @@
 package dev.itayp.tasker.model.response
 
+import dev.itayp.tasker.ai.access.AiTier
 import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.BoardSummary
@@ -31,6 +32,7 @@ data class UserSettingsResponse(
     val aiEnabled: Boolean,
     val aiEnhancedReminders: Boolean,
     val aiTier: String,
+    val aiTierGrantsAccess: Boolean,
     val email: String?,
     val emailVerified: Boolean,
 )
@@ -50,6 +52,7 @@ fun UserSettings.toResponse(email: String?, emailVerified: Boolean) = UserSettin
     aiEnabled = aiEnabled,
     aiEnhancedReminders = aiEnhancedReminders,
     aiTier = aiTier,
+    aiTierGrantsAccess = AiTier.fromName(aiTier).grantsAccess,
     email = email,
     emailVerified = emailVerified,
 )

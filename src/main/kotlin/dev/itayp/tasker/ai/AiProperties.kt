@@ -18,6 +18,8 @@ data class AiProperties(
     val multimodalModel: String = "",
     /** Per-functionality reasoning/effort configuration. */
     val reasoning: AiReasoningProperties = AiReasoningProperties(),
+    /** Hard cap on how many accounts may hold a granted AI tier at once. */
+    val tierCap: AiTierCapProperties = AiTierCapProperties(),
 ) {
     /** Distinct set of configured model slugs, for the startup capability prefetch. */
     val configuredModels: Set<String>
@@ -37,4 +39,18 @@ data class AiReasoningProperties(
     val taskSearch: String? = null,
     val taskSuggestion: String? = null,
     val slotReminder: String? = null,
+)
+
+/**
+ * Bounds how many *claimed* accounts can hold the full [dev.itayp.tasker.ai.access.AiTier.STANDARD]
+ * (or [dev.itayp.tasker.ai.access.AiTier.UNLIMITED]) grant at once — a budget safety valve while the
+ * app runs on a prepaid, budget-limited API key. New (claimed) registrations past the cap fall back
+ * to [dev.itayp.tasker.ai.access.AiTier.DEMO]'s smaller, fixed budget rather than losing access
+ * outright — the cap protects the full allowance, not access itself, so there's no runaway-bill
+ * risk in granting the bounded tier unconditionally. Unclaimed demo accounts always start on
+ * [dev.itayp.tasker.ai.access.AiTier.DEMO] too, bypassing this cap entirely (see
+ * `UserSettingsService.initializeForNewUser`).
+ */
+data class AiTierCapProperties(
+    val maxGrantedUsers: Int = 50,
 )

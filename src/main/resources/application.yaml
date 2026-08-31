@@ -63,6 +63,10 @@ tasker:
       task-search: ${TASKER_AI_REASONING_TASK_SEARCH:low}
       task-suggestion: ${TASKER_AI_REASONING_TASK_SUGGESTION:medium}
       slot-reminder: ${TASKER_AI_REASONING_SLOT_REMINDER:low}
+    # Hard cap on accounts holding a granted AI tier at once (budget safety valve for the prepaid
+    # OpenRouter key). New registrations past the cap start ungranted; see AiTierCapProperties.
+    tier-cap:
+      max-granted-users: ${TASKER_AI_TIER_CAP_MAX_GRANTED_USERS:50}
   telegram:
     bot-token: ${TASKER_TELEGRAM_BOT_TOKEN:}
     bot-username: ${TASKER_TELEGRAM_BOT_USERNAME:}

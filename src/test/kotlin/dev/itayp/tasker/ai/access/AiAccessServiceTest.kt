@@ -126,8 +126,34 @@ class AiAccessServiceTest {
     }
 
     @Test
-    fun `tierFor falls back to STANDARD for unknown names`() {
+    fun `tierFor falls back to NONE for unknown names`() {
         whenever(userSettingsRepository.findById(userId)).thenReturn(Optional.of(settings(userId, tier = "platinum")))
-        assertEquals(AiTier.STANDARD, service.tierFor(userId))
+        assertEquals(AiTier.NONE, service.tierFor(userId))
+    }
+
+    @Test
+    fun `requireAiTierGranted throws for NONE and an unrecognized tier`() {
+        whenever(userSettingsRepository.findById(userId)).thenReturn(Optional.of(settings(userId, tier = "none")))
+        assertFailsWith<AiTierNotGrantedException> { service.requireAiTierGranted(userId) }
+
+        whenever(userSettingsRepository.findById(userId)).thenReturn(Optional.of(settings(userId, tier = "platinum")))
+        assertFailsWith<AiTierNotGrantedException> { service.requireAiTierGranted(userId) }
+    }
+
+    @Test
+    fun `requireAiTierGranted passes for STANDARD and UNLIMITED`() {
+        whenever(userSettingsRepository.findById(userId)).thenReturn(Optional.of(settings(userId, tier = "standard")))
+        service.requireAiTierGranted(userId)
+
+        whenever(userSettingsRepository.findById(userId)).thenReturn(Optional.of(settings(userId, tier = "unlimited")))
+        service.requireAiTierGranted(userId)
+    }
+
+    @Test
+    fun `isAiAvailableForUser is false when the tier isn't granted, even with AI enabled`() {
+        // Short-circuits on the tier check before ever consulting board membership.
+        whenever(userSettingsRepository.findById(userId)).thenReturn(Optional.of(settings(userId, enabled = true, tier = "none")))
+
+        assertFalse(service.isAiAvailableForUser(userId))
     }
 }

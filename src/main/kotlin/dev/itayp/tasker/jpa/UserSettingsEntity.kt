@@ -46,12 +46,15 @@ class UserSettingsEntity {
     @Column(name = "auto_archive_days")
     var autoArchiveDays: Int? = null
 
+    // Both default off: a fresh row is ungranted (ai_tier = "none") until
+    // UserSettingsService.initializeForNewUser decides otherwise, and ai_enabled has nothing to
+    // gate yet. See dev.itayp.tasker.ai.access.AiTier.
     @Column(name = "ai_enabled", nullable = false)
-    var aiEnabled: Boolean = true
+    var aiEnabled: Boolean = false
 
     @Column(name = "ai_enhanced_reminders", nullable = false)
     var aiEnhancedReminders: Boolean = true
 
     @Column(name = "ai_tier", nullable = false)
-    var aiTier: String = "standard"
+    var aiTier: String = "none"
 }

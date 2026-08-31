@@ -13,6 +13,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   aiEnabled: true,
   aiEnhancedReminders: true,
   aiTier: 'standard',
+  aiTierGrantsAccess: true,
   email: '',
   emailVerified: false,
   categories: [],

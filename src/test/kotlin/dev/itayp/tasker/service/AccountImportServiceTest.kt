@@ -1,5 +1,6 @@
 package dev.itayp.tasker.service
 
+import dev.itayp.tasker.ai.AiProperties
 import dev.itayp.tasker.crypto.newTestBoardCryptoService
 import dev.itayp.tasker.crypto.newTestUserCryptoService
 import dev.itayp.tasker.jpa.BacklogTaskCategoryEntity
@@ -66,7 +67,7 @@ class AccountImportServiceTest {
         crypto.ensureUserKey(userId)
         boardCrypto.ensureBoardKey(boardId)
         // Real UserSettingsService gives us the validateSettingsInput helper without re-mocking.
-        val userSettingsService = UserSettingsService(userSettingsRepository, eventPublisher, crypto)
+        val userSettingsService = UserSettingsService(userSettingsRepository, eventPublisher, crypto, AiProperties())
         service = AccountImportService(
             accountService = accountService,
             userRepository = userRepository,

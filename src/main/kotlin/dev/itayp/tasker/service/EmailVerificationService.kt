@@ -102,6 +102,9 @@ class EmailVerificationService(
         // A verified email is a login method, so it claims the account (one-way latch).
         user.claimed = true
         userRepository.save(user)
+        // No-op unless the account was still on the DEMO tier — upgrades it to STANDARD if the cap
+        // allows, otherwise leaves it on its existing DEMO budget.
+        userSettingsService.upgradeToStandardOnClaim(user.id!!)
 
         // A verified email is also a login method: attach an email identity so the address can be
         // used for passwordless login (and shows up as a connected account).

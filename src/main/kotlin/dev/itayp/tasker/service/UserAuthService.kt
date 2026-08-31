@@ -72,7 +72,7 @@ class UserAuthService(
         onCreate(draft)
         val saved = userRepository.save(draft)
         attachIdentity(newId, provider, providerUserId, verified, now)
-        userService.initializeNewUser(saved.id!!, localeHint)
+        userService.initializeNewUser(saved.id!!, localeHint, claimed = true)
         logger.info("Registered new user {} via {}", saved.id, provider)
         return saved
     }
@@ -165,7 +165,7 @@ class UserAuthService(
         // Attach the Telegram identity too, so a Telegram login with this id resolves to the dev
         // user instead of colliding on the users.telegram_id unique constraint.
         attachIdentity(userId, AuthProvider.TELEGRAM, telegramId.toString(), verified = true, now = now)
-        userService.initializeNewUser(saved.id!!)
+        userService.initializeNewUser(saved.id!!, claimed = true)
         logger.debug("Created dev user with id $userId and telegram id $telegramId")
         return saved
     }
@@ -189,7 +189,9 @@ class UserAuthService(
         }
         userRepository.save(draft)
         userCrypto.ensureUserKey(newId)
-        userService.initializeNewUser(newId, localeHint)
+        // Unclaimed/demo accounts always get AI access (on a bounded AiTier.DEMO budget) — the demo
+        // is the marketing funnel and must never hit the granted-tier cap (docs/DEMO-ACCOUNT-UNIFICATION.md).
+        userService.initializeNewUser(newId, localeHint, claimed = false)
         tutorialSeeder.seed(newId)
         // No auth identity yet: the account is unclaimed until the user links a login method.
         logger.info("Created unclaimed user $newId")

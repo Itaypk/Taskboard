@@ -21,6 +21,14 @@ import java.util.UUID
  * the shared board only. The opted-in user keeps using AI on their own / other boards. Callers
  * operating against a specific board (planner, board-scoped tools) call
  * [requireAiEnabledForBoard]; the per-call gate only checks the user-level toggle and tier.
+ *
+ * A third, independent gate is the tier grant itself (`ai_tier` = [AiTier.NONE] vs. a tier that
+ * [AiTier.grantsAccess]). Every new account is granted access at registration: a claimed (real)
+ * account gets [AiTier.STANDARD] while the operator-configured cap on granted users has headroom,
+ * and falls back to [AiTier.DEMO]'s smaller budget past it; unclaimed/demo accounts always start
+ * on [AiTier.DEMO] outright, bypassing the cap entirely — they're the product's own funnel and
+ * must never hit it (see `UserSettingsService.initializeForNewUser`). [AiTier.NONE] is therefore
+ * not reachable from registration today — it remains only as a manual admin lever.
  */
 @Service
 class AiAccessService(
@@ -60,12 +68,13 @@ class AiAccessService(
     }
 
     /**
-     * Composite "can this user use AI right now?" — true iff they themselves are opted in AND have
-     * at least one board where AI is allowed. Used by the web planning entry and the Telegram
-     * dispatcher to disable AI affordances when there's nothing to plan against.
+     * Composite "can this user use AI right now?" — true iff they themselves are opted in, their
+     * tier grants access, AND they have at least one board where AI is allowed. Used by the web
+     * planning entry and the Telegram dispatcher to disable AI affordances when there's nothing to
+     * plan against.
      */
     fun isAiAvailableForUser(userId: UUID): Boolean =
-        isAiEnabledForUser(userId) && aiAllowedBoardIds(userId).isNotEmpty()
+        isAiEnabledForUser(userId) && tierFor(userId).grantsAccess && aiAllowedBoardIds(userId).isNotEmpty()
 
     /** Throws [AiDisabledException] when the caller has flipped AI off in their settings. */
     fun requireAiEnabledForUser(userId: UUID) {
@@ -83,6 +92,17 @@ class AiAccessService(
     fun requireAiEnabledForBoard(boardId: UUID) {
         if (!isAiEnabledForBoard(boardId)) {
             throw AiDisabledException("Board $boardId has a member with AI disabled")
+        }
+    }
+
+    /**
+     * Throws [AiTierNotGrantedException] when the caller's tier ([AiTier.NONE]) doesn't grant
+     * access at all — distinct from [AiUsageLimitExceededException], which means "has a budget but
+     * spent it", so the frontend/Telegram can show the right message for each case.
+     */
+    fun requireAiTierGranted(userId: UUID) {
+        if (!tierFor(userId).grantsAccess) {
+            throw AiTierNotGrantedException(userId)
         }
     }
 
@@ -105,13 +125,20 @@ class AiAccessService(
      */
     fun usageSummaryFor(userId: UUID): AiUsageSummary {
         val tier = tierFor(userId)
-        val since = clock.instant().minus(Duration.ofDays(WINDOW_DAYS))
-        val used = usageRepository.sumTotalTokensByUserIdSince(userId, since)
+        // Ungranted tiers have nothing to meter — skip the usage query rather than reporting a
+        // meaningless "0 used of 0" budget.
+        val used = if (tier.grantsAccess) {
+            val since = clock.instant().minus(Duration.ofDays(WINDOW_DAYS))
+            usageRepository.sumTotalTokensByUserIdSince(userId, since)
+        } else {
+            0L
+        }
         return AiUsageSummary(
             tier = tier.tierName,
             usedTokens = used,
             limitTokens = tier.monthlyTokenLimit,
             windowDays = WINDOW_DAYS.toInt(),
+            grantsAccess = tier.grantsAccess,
         )
     }
 
@@ -125,10 +152,16 @@ data class AiUsageSummary(
     val usedTokens: Long,
     val limitTokens: Long?,
     val windowDays: Int,
+    /** Authoritative "does this tier grant AI access at all" bit — mirrors [AiTier.grantsAccess]
+     * so the frontend doesn't have to re-derive it from the tier name string. */
+    val grantsAccess: Boolean = true,
 )
 
 @ResponseStatus(HttpStatus.FORBIDDEN)
 class AiDisabledException(message: String) : RuntimeException(message)
+
+@ResponseStatus(HttpStatus.FORBIDDEN)
+class AiTierNotGrantedException(val userId: UUID) : RuntimeException("User $userId has no AI tier granted")
 
 @ResponseStatus(HttpStatus.TOO_MANY_REQUESTS)
 class AiUsageLimitExceededException(

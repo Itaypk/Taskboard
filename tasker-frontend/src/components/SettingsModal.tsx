@@ -475,6 +475,7 @@ export function SettingsModal({ settings, open, initialTab, onClose, onSave, onA
                   checked={form.aiEnabled}
                   onChange={next => setForm(f => ({ ...f, aiEnabled: next }))}
                   label={t('settingsModal.assistant.aiAccessToggle')}
+                  disabled={!form.aiTierGrantsAccess}
                 />
               </div>
 

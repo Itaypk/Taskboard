@@ -26,6 +26,7 @@ class AccountLinkService(
     private val userRepository: UserRepository,
     private val authIdentityRepository: AuthIdentityRepository,
     private val userCrypto: UserCryptoService,
+    private val userSettingsService: UserSettingsService,
     private val eventPublisher: ApplicationEventPublisher,
     private val clock: Clock,
 ) {
@@ -54,6 +55,9 @@ class AccountLinkService(
         // Linking a login method claims the account (one-way latch), exempting it from cleanup.
         user.claimed = true
         userRepository.save(user)
+        // No-op unless the account was still on the DEMO tier — upgrades it to STANDARD if the cap
+        // allows, otherwise leaves it on its existing DEMO budget.
+        userSettingsService.upgradeToStandardOnClaim(userId)
         authIdentityRepository.save(AuthIdentityEntity().apply {
             id = UUID.randomUUID()
             this.userId = userId

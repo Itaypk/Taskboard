@@ -375,7 +375,8 @@
     "left": "left",
     "ariaLabel": "AI tokens used this period",
     "caption_one": "{{pct}}% used · resets as your last {{count}} day rolls forward",
-    "caption_other": "{{pct}}% used · resets as your last {{count}} days roll forward"
+    "caption_other": "{{pct}}% used · resets as your last {{count}} days roll forward",
+    "noAccessNote": "AI features aren't available for this account."
   },
   "policyPage": {
     "termsTitle": "Terms of Service",
@@ -754,7 +755,7 @@
       "planFromScratch": "Plan from scratch",
       "revise": "Revise"
     },
-    "aiDisabledHint": "AI planning is disabled. Re-enable it in Settings → Assistant, or ask a co-member who opted out to do the same on a board you share.",
+    "aiDisabledHint": "AI planning isn't available for your account right now. Check Settings → Assistant for details, or ask a co-member who opted out to switch it back on for a board you share.",
     "sessionInProgress": "A planning session is in progress.",
     "continuePlanning": "Continue planning",
     "abandonStartOver": "Abandon & start over",

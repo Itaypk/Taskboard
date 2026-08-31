@@ -7,7 +7,8 @@ import { fetchAiUsage } from '../api';
 /**
  * AI budget meter for the settings dialog: how much of the tier's rolling-window token allowance
  * is left. Self-fetches on mount (only mounted while the Assistant tab is open). Unlimited tiers
- * collapse to a quiet badge — no bar to fill.
+ * collapse to a quiet badge — no bar to fill. An account whose tier doesn't grant access
+ * (`grantsAccess: false`) shows a quiet note instead — there is no self-serve way to request one.
  */
 export function AiUsageMeter() {
   const { t } = useTranslation();
@@ -28,6 +29,16 @@ export function AiUsageMeter() {
 
   if (!usage) {
     return <p className={styles.loading}>{t('aiUsageMeter.loading')}</p>;
+  }
+
+  // grantsAccess is the authoritative bit from the backend — an unrecognized tier string falls
+  // back there too, so this never mistakenly renders a 0%-left budget bar for it.
+  if (!usage.grantsAccess) {
+    return (
+      <div className={styles.card}>
+        <p className={styles.unlimitedNote}>{t('aiUsageMeter.noAccessNote')}</p>
+      </div>
+    );
   }
 
   if (usage.limitTokens == null) {

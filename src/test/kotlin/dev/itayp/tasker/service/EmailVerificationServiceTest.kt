@@ -5,6 +5,7 @@ import dev.itayp.tasker.channel.email.EmailProperties
 import dev.itayp.tasker.channel.email.EmailTemplateEngine
 import dev.itayp.tasker.config.AppProperties
 import dev.itayp.tasker.crypto.newTestUserCryptoService
+import dev.itayp.tasker.jpa.AuthProvider
 import dev.itayp.tasker.jpa.UserEntity
 import dev.itayp.tasker.ratelimit.InMemoryRateLimiter
 import dev.itayp.tasker.repository.AuthIdentityRepository
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.assertThrows
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.verifyNoInteractions
@@ -26,6 +28,8 @@ import java.time.ZoneOffset
 import java.util.Locale
 import java.util.Optional
 import java.util.UUID
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class EmailVerificationServiceTest {
 
@@ -73,5 +77,40 @@ class EmailVerificationServiceTest {
         }
 
         verify(outboundChannel, times(5)).send(any())
+    }
+
+    @Test
+    fun `confirmVerification claims the account and re-runs the DEMO tier upgrade`() {
+        val userId = UUID.randomUUID()
+        val user = UserEntity().apply {
+            id = userId
+            emailVerificationToken = "tok"
+            emailVerificationTokenExpiresAt = clock.instant().plusSeconds(60)
+            emailHash = "hash"
+        }
+        whenever(userRepository.findByEmailVerificationToken("tok")).thenReturn(user)
+        whenever(authIdentityRepository.findByProviderAndProviderUserId(AuthProvider.EMAIL, "hash")).thenReturn(null)
+
+        val result = service.confirmVerification("tok")
+
+        assertTrue(result)
+        assertTrue(user.claimed)
+        verify(userSettingsService).upgradeToStandardOnClaim(userId)
+    }
+
+    @Test
+    fun `confirmVerification does not claim or upgrade on an expired token`() {
+        val userId = UUID.randomUUID()
+        val user = UserEntity().apply {
+            id = userId
+            emailVerificationToken = "tok"
+            emailVerificationTokenExpiresAt = clock.instant().minusSeconds(60)
+        }
+        whenever(userRepository.findByEmailVerificationToken("tok")).thenReturn(user)
+
+        val result = service.confirmVerification("tok")
+
+        assertFalse(result)
+        verify(userSettingsService, never()).upgradeToStandardOnClaim(any())
     }
 }

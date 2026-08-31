@@ -1,5 +1,7 @@
 package dev.itayp.tasker.service
 
+import dev.itayp.tasker.ai.AiProperties
+import dev.itayp.tasker.ai.access.AiTier
 import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.jpa.UserSettingsEntity
 import dev.itayp.tasker.model.UserSettings
@@ -34,6 +36,7 @@ class UserSettingsService(
     private val settingsRepository: UserSettingsRepository,
     private val eventPublisher: ApplicationEventPublisher,
     private val userCrypto: UserCryptoService,
+    private val aiProperties: AiProperties,
 ) {
 
     fun getOrCreate(userId: UUID): UserSettings = toDomain(userId, fetchOrCreate(userId))
@@ -80,7 +83,9 @@ class UserSettingsService(
         entity.planningCron = request.planningCron
         entity.weekStartDay = request.weekStartDay
         entity.autoArchiveDays = request.autoArchiveDays
-        entity.aiEnabled = request.aiEnabled
+        // A user can always opt out (false), but can only opt back in once their tier grants
+        // access — otherwise a plain settings save would silently self-grant AI past the cap.
+        entity.aiEnabled = request.aiEnabled && AiTier.fromName(entity.aiTier).grantsAccess
         entity.aiEnhancedReminders = request.aiEnhancedReminders
         val saved = settingsRepository.save(entity)
         if (scheduleChanged) {
@@ -116,13 +121,59 @@ class UserSettingsService(
      * supported language code resolved from the registration request's `Accept-Language` (see
      * docs/I18N.md, D2); when null the entity's `en-US` default stands. Only ever called once per
      * user, at registration.
+     *
+     * [claimed] decides the initial AI grant: an unclaimed (demo) account is always granted
+     * [AiTier.DEMO] outright — AI (including the web weekly-planning conversation, which needs no
+     * Telegram) is part of the product's own funnel and must never hit the cap or show a "request
+     * access" wall, but a demo signup never proves it's a real user, so it gets a bounded budget
+     * rather than the full [AiTier.STANDARD] allowance. A claimed (real) account is granted
+     * [AiTier.STANDARD] while the operator-configured cap ([AiProperties.tierCap]) has headroom;
+     * past it, it still gets [AiTier.DEMO] rather than [AiTier.NONE] — the cap protects the *full*
+     * budget, not AI access itself, and the DEMO ceiling already bounds the per-user cost the same
+     * way it does for unclaimed accounts, so there is no runaway-bill risk in granting it
+     * unconditionally. This count-then-insert isn't transactionally atomic against concurrent
+     * registrations — at this app's beta scale a handful of near-simultaneous signups overshooting
+     * the cap by one or two is an accepted risk, not engineered around.
      */
-    fun initializeForNewUser(userId: UUID, preferredLanguage: String? = null) {
+    fun initializeForNewUser(userId: UUID, preferredLanguage: String? = null, claimed: Boolean = true) {
+        val grantedTier = if (claimed && standardTierCapHasHeadroom()) AiTier.STANDARD else AiTier.DEMO
         settingsRepository.save(UserSettingsEntity().apply {
             this.userId = userId
             preferredLanguage?.let { this.preferredLanguage = it }
+            this.aiEnabled = true
+            this.aiTier = grantedTier.tierName
         })
     }
+
+    /**
+     * Re-runs the [AiTier.STANDARD] grant decision for an account that just transitioned from
+     * unclaimed (demo) to claimed — the same cap check [initializeForNewUser] applies to a
+     * brand-new claimed registration, since claiming makes the account just as "real". Call from
+     * every place that flips `UserEntity.claimed` to true (currently
+     * `EmailVerificationService.confirmVerification` and `AccountLinkService.linkTelegram`).
+     *
+     * A no-op unless the account is currently on [AiTier.DEMO], so it's safe to call unconditionally
+     * from a login/link path that also runs for an already-claimed account (claiming is a one-way
+     * latch — re-claiming is a no-op there too). While the cap has headroom the account is upgraded
+     * to [AiTier.STANDARD]; past it, the account simply **keeps** its existing DEMO budget rather
+     * than being downgraded to [AiTier.NONE] — claiming an account must never take AI access away.
+     *
+     * Deliberately leaves `aiEnabled` untouched — unlike [initializeForNewUser], which sets it
+     * alongside a fresh grant, this only ever runs against an existing row, and a demo user may have
+     * explicitly toggled AI off in Settings before claiming. Silently flipping it back on would
+     * override that choice; the (now-enabled) toggle in Settings is the user's own way back in.
+     */
+    fun upgradeToStandardOnClaim(userId: UUID) {
+        val entity = fetchOrCreate(userId)
+        if (AiTier.fromName(entity.aiTier) != AiTier.DEMO) return
+        if (standardTierCapHasHeadroom()) {
+            entity.aiTier = AiTier.STANDARD.tierName
+            settingsRepository.save(entity)
+        }
+    }
+
+    private fun standardTierCapHasHeadroom(): Boolean =
+        settingsRepository.countByAiTierIn(GRANTED_AI_TIER_NAMES) < aiProperties.tierCap.maxGrantedUsers
 
     private fun fetchOrCreate(userId: UUID): UserSettingsEntity =
         settingsRepository.findById(userId).orElseGet {
@@ -179,6 +230,14 @@ class UserSettingsService(
     companion object {
         /** Soft cap on the user context block, mirroring the settings form's `@Size(max)` on `contextBlock`. */
         const val CONTEXT_BLOCK_MAX_CHARS = 4000
+
+        /**
+         * Tiers counted against [AiProperties.tierCap] — the cap on *claimed* accounts specifically,
+         * so [AiTier.DEMO] is deliberately excluded even though it also grants access: unclaimed
+         * accounts never reach this count (see [initializeForNewUser]), and a demo signup shouldn't
+         * inflate what is meant to measure real registrations.
+         */
+        val GRANTED_AI_TIER_NAMES: List<String> = listOf(AiTier.STANDARD.tierName, AiTier.UNLIMITED.tierName)
 
         val SUPPORTED_TIME_ZONES: List<String> = (
             ZoneId.getAvailableZoneIds()

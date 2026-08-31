@@ -141,6 +141,8 @@ export interface UserSettings {
   aiEnhancedReminders: boolean;
   /** Server-controlled subscription tier name; read-only on the client. */
   aiTier: string;
+  /** Whether aiTier currently grants access; drives whether the aiEnabled toggle can be turned on. */
+  aiTierGrantsAccess: boolean;
   email: string;
   emailVerified: boolean;
   categories: Category[];
@@ -153,6 +155,8 @@ export interface AiUsage {
   limitTokens: number | null;
   /** Length of the rolling usage window, in days. */
   windowDays: number;
+  /** Authoritative "does this tier grant AI access at all" bit — check this, not the tier string. */
+  grantsAccess: boolean;
 }
 
 export interface Stats {

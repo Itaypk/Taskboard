@@ -25,6 +25,7 @@ class AccountLinkServiceTest {
 
     @Mock lateinit var userRepository: UserRepository
     @Mock lateinit var authIdentityRepository: AuthIdentityRepository
+    @Mock lateinit var userSettingsService: UserSettingsService
     @Mock lateinit var eventPublisher: ApplicationEventPublisher
 
     private val fixedNow = Instant.parse("2026-04-21T12:00:00Z")
@@ -32,7 +33,7 @@ class AccountLinkServiceTest {
     private val crypto = newTestUserCryptoService()
 
     private val service by lazy {
-        AccountLinkService(userRepository, authIdentityRepository, crypto, eventPublisher, clock)
+        AccountLinkService(userRepository, authIdentityRepository, crypto, userSettingsService, eventPublisher, clock)
     }
 
     private val userId = UUID.fromString("00000000-0000-0000-0000-0000000000a1")
@@ -60,6 +61,7 @@ class AccountLinkServiceTest {
         assertThat(identity.firstValue.providerUserId).isEqualTo("42")
         verify(eventPublisher).publishEvent(UserPlanningScheduleChangedEvent(userId))
         verify(eventPublisher).publishEvent(TelegramLinkedEvent(userId))
+        verify(userSettingsService).upgradeToStandardOnClaim(userId)
     }
 
     @Test
@@ -71,6 +73,7 @@ class AccountLinkServiceTest {
 
         assertThat(result).isEqualTo(LinkResult.AlreadyLinked)
         verify(authIdentityRepository, never()).save(any<AuthIdentityEntity>())
+        verify(userSettingsService, never()).upgradeToStandardOnClaim(any())
     }
 
     @Test
@@ -82,6 +85,7 @@ class AccountLinkServiceTest {
 
         assertThat(result).isEqualTo(LinkResult.ConflictOwnedByAnother)
         verify(userRepository, never()).save(any<UserEntity>())
+        verify(userSettingsService, never()).upgradeToStandardOnClaim(any())
     }
 
     @Test
@@ -93,6 +97,7 @@ class AccountLinkServiceTest {
 
         assertThat(result).isEqualTo(LinkResult.AlreadyHasProvider)
         verify(authIdentityRepository, never()).save(any<AuthIdentityEntity>())
+        verify(userSettingsService, never()).upgradeToStandardOnClaim(any())
     }
 
     private fun identity(provider: String) = AuthIdentityEntity().apply {

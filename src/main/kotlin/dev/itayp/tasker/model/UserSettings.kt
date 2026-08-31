@@ -19,7 +19,7 @@ data class UserSettings(
     val planningCron: String?,
     val weekStartDay: String?,
     val autoArchiveDays: Int?,
-    val aiEnabled: Boolean = true,
+    val aiEnabled: Boolean = false,
     val aiEnhancedReminders: Boolean = true,
-    val aiTier: String = "standard",
+    val aiTier: String = "none",
 )

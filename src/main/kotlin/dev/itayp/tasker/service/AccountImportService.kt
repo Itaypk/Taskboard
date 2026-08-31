@@ -1,5 +1,6 @@
 package dev.itayp.tasker.service
 
+import dev.itayp.tasker.ai.access.AiTier
 import dev.itayp.tasker.crypto.BoardCryptoService
 import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.jpa.BacklogTaskCategoryEntity
@@ -111,10 +112,12 @@ class AccountImportService(
             settings.planningCron = s.planningCron
             settings.weekStartDay = s.weekStartDay
             settings.autoArchiveDays = s.autoArchiveDays
-            settings.aiEnabled = s.aiEnabled
-            settings.aiEnhancedReminders = s.aiEnhancedReminders
             // ai_tier is admin-controlled: import is untrusted user data and must not let a user
-            // assign themselves a higher tier. The existing row's tier stays as-is (default "standard").
+            // assign themselves a higher tier. The existing row's tier stays as-is (whatever the
+            // registration-time cap grant / a manual admin grant left it at) — so aiEnabled is
+            // re-clamped against it too, the same guard UserSettingsService.update() applies.
+            settings.aiEnabled = s.aiEnabled && AiTier.fromName(settings.aiTier).grantsAccess
+            settings.aiEnhancedReminders = s.aiEnhancedReminders
             userSettingsRepository.save(settings)
         }
 

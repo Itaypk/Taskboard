@@ -53,7 +53,7 @@ class UserAuthServiceTest {
         assertThat(saved.telegramUsername).isEqualTo("alice")
         assertThat(saved.createdAt).isEqualTo(fixedNow)
         assertThat(saved.lastLoginAt).isEqualTo(fixedNow)
-        verify(userService).initializeNewUser(eq(saved.id!!), anyOrNull())
+        verify(userService).initializeNewUser(eq(saved.id!!), anyOrNull(), eq(true))
 
         val identity = argumentCaptor<AuthIdentityEntity>()
         verify(authIdentityRepository).save(identity.capture())
@@ -70,7 +70,7 @@ class UserAuthServiceTest {
 
         val saved = service.loginOrRegisterByTelegram(authData(), localeHint = "he")
 
-        verify(userService).initializeNewUser(eq(saved.id!!), eq("he"))
+        verify(userService).initializeNewUser(eq(saved.id!!), eq("he"), eq(true))
     }
 
     @Test
@@ -102,7 +102,7 @@ class UserAuthServiceTest {
         assertThat(saved.telegramUsername).isEqualTo("alice")
         assertThat(saved.lastLoginAt).isEqualTo(fixedNow)
         assertThat(saved.createdAt).isEqualTo(Instant.parse("2026-01-01T00:00:00Z"))
-        verify(userService, never()).initializeNewUser(any(), anyOrNull())
+        verify(userService, never()).initializeNewUser(any(), anyOrNull(), any())
     }
 
     @Test
@@ -114,7 +114,7 @@ class UserAuthServiceTest {
         val result = service.ensureDevUser(devId, 0L)
 
         assertThat(result).isSameAs(existing)
-        verify(userService, never()).initializeNewUser(any(), anyOrNull())
+        verify(userService, never()).initializeNewUser(any(), anyOrNull(), any())
         verify(userRepository, never()).save(any<UserEntity>())
     }
 
@@ -129,7 +129,7 @@ class UserAuthServiceTest {
         assertThat(result.id).isEqualTo(devId)
         assertThat(result.telegramId).isEqualTo(99L)
         assertThat(result.createdAt).isEqualTo(fixedNow)
-        verify(userService).initializeNewUser(eq(devId), anyOrNull())
+        verify(userService).initializeNewUser(eq(devId), anyOrNull(), eq(true))
 
         val identity = argumentCaptor<AuthIdentityEntity>()
         verify(authIdentityRepository).save(identity.capture())
@@ -153,7 +153,7 @@ class UserAuthServiceTest {
         assertThat(user.emailHash).isEqualTo(hash)
         assertThat(user.emailVerifiedAt).isEqualTo(fixedNow)
         assertThat(crypto.decrypt(user.id!!, user.email)).isEqualTo(email)
-        verify(userService).initializeNewUser(eq(user.id!!), anyOrNull())
+        verify(userService).initializeNewUser(eq(user.id!!), anyOrNull(), eq(true))
 
         val identity = argumentCaptor<AuthIdentityEntity>()
         verify(authIdentityRepository).save(identity.capture())
@@ -196,7 +196,7 @@ class UserAuthServiceTest {
         assertThat(outcome).isInstanceOf(EmailLoginOutcome.Success::class.java)
         assertThat((outcome as EmailLoginOutcome.Success).user.id).isEqualTo(existing.id)
         assertThat(existing.lastLoginAt).isEqualTo(fixedNow)
-        verify(userService, never()).initializeNewUser(any(), anyOrNull())
+        verify(userService, never()).initializeNewUser(any(), anyOrNull(), any())
         verify(authIdentityRepository, never()).save(any<AuthIdentityEntity>())
     }
 
@@ -215,18 +215,18 @@ class UserAuthServiceTest {
 
         assertThat(outcome).isEqualTo(EmailLoginOutcome.UnverifiedConflict)
         verify(userRepository, never()).save(any<UserEntity>())
-        verify(userService, never()).initializeNewUser(any(), anyOrNull())
+        verify(userService, never()).initializeNewUser(any(), anyOrNull(), any())
     }
 
     @Test
-    fun `createUnclaimedUser provisions a channel-less, unclaimed user seeded with the tutorial`() {
+    fun `createUnclaimedUser provisions a channel-less, unclaimed user seeded with the tutorial, always granted`() {
         whenever(userRepository.save(any<UserEntity>())).thenAnswer { it.arguments[0] as UserEntity }
 
         val result = service.createUnclaimedUser()
 
         assertThat(result.claimed).isFalse()
         assertThat(result.lastActiveAt).isEqualTo(fixedNow)
-        verify(userService).initializeNewUser(eq(result.id!!), anyOrNull())
+        verify(userService).initializeNewUser(eq(result.id!!), anyOrNull(), eq(false))
         verify(tutorialSeeder).seed(eq(result.id!!))
         verify(authIdentityRepository, never()).save(any<AuthIdentityEntity>())
     }
