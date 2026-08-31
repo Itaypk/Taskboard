@@ -1143,6 +1143,11 @@ input[type="number"] { -moz-appearance: textfield; }
   padding: 24px;
 }
 .modal-overlay--open { opacity: 1; pointer-events: all; }
+/* For tabbed modals (settings, board settings): content height varies per tab, and
+   centering made the dialog's top edge jump as its height changed between tabs.
+   Anchor near the top instead so only the bottom edge moves; .modal's max-height
+   cap + .modal__body's scroll (below) still keep a tall tab from overflowing. */
+.modal-overlay--top { align-items: flex-start; padding-top: clamp(24px, 6vh, 64px); }
 
 .modal {
   background: var(--paper-surface);

@@ -279,7 +279,7 @@ export function BoardSettingsModal({
     const onlyMember = members.length <= 1;
 
     return (
-        <div className="modal-overlay modal-overlay--open" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+        <div className="modal-overlay modal-overlay--top modal-overlay--open" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
             <div className="modal" role="dialog" aria-modal="true" aria-labelledby="board-settings-title">
                 <div className="modal__header">
                     <span className="modal__title" id="board-settings-title">{t('boardSettingsModal.title')}</span>

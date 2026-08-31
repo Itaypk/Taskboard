@@ -23,7 +23,6 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Notifications: toggle whether calendar invite emails include a notification, or not (in case users prefer other means of notifications and just want the calendar sync for blocking time).
 - Notifications: consider web push notifications (https://web.dev/articles/push-notifications-overview) - they work even if the users are not active in the site.
 - Why do we have both English (UK) and English (US) if we only support English US? Either support it properly or drop it.
-- Comment out the "sign in with Google" until we actually support that
 
 ## Auth & accounts
 - Add Google OAuth as a login provider — drops in as another `loginOrRegister('google', sub, …)`
@@ -89,18 +88,11 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Work on tagline and satellite notes in the welcome page with better texts. See if we need to move a few things around 
 - Better - more satisfying - "mark as done"
 - Drawer improvements (buttons are too dense, for example)
-- Settings dialog - each tab has a different height; switching tabs move the modal. Also, consider
-  moving some fields from the "General" area to somewhere more relevant. **Raised priority**: the
-  Integrations tab (API tokens) makes four tabs, which overflows the tab row on most mobile widths.
-  Shipped as-is deliberately; see the "Categories and tags" item below for the intended fix.
 - Task list Markdown (subtasks) checkboxes - makes it possible to check directly from the main screen
 - Filter chips can still wrap on very small screens even after the "Week" shortening. If it keeps bugging us, consider a segmented control or horizontally-scrollable chip row on mobile.
 - Board management: custom board color pin marker (the member count pin)?
 - Center pill bar on mobile; consider dropping the "done" pill.
 - Setting dialog - better way to organize it?
-
-## Assistant - Mid-week response
-- When texting the assistant out of the blue, respond with the correct context. 
 
 ## Following up
 - The assistant could follow up on tasks that were scheduled but not marked done after their scheduled time. 

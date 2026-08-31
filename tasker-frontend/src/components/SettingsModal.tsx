@@ -230,7 +230,7 @@ export function SettingsModal({ settings, open, initialTab, onClose, onSave, onA
 
   return (
     <div
-      className={`modal-overlay${open ? ' modal-overlay--open' : ''}`}
+      className={`modal-overlay modal-overlay--top${open ? ' modal-overlay--open' : ''}`}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div className="modal" role="dialog" aria-modal="true" aria-label={t('settingsModal.title')}>

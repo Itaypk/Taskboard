@@ -103,9 +103,12 @@
      satellites have room to spread into the margins. */
   min-height: calc(100vh - 84px - var(--footer-h));
   display: flex;
-  align-items: center;
+  /* Pin the hero toward the top third rather than dead-centre; the
+     satellites' absolute top:% offsets are relative to this box's height,
+     so they're unaffected by the change in the hero's own alignment. */
+  align-items: flex-start;
   justify-content: center;
-  padding: 24px 44px 48px;
+  padding: clamp(28px, 9vh, 120px) 44px 48px;
 }
 
 /* ─── Hero sticky note ───────────────────────────────────── */
@@ -303,6 +306,11 @@
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
   display: grid;
+  /* Without an explicit minmax(0, ...) the implicit auto column sizes to
+     .modal's max-content (its specified 420px width), so the track itself
+     grows past the viewport on narrow screens and the modal spills off the
+     right edge before its own max-width:100% ever gets a chance to clamp it. */
+  grid-template-columns: minmax(0, 1fr);
   place-items: center;
   padding: 24px;
   animation: cbfade 0.18s ease;
@@ -527,6 +535,7 @@
 @media (max-width: 1099px) {
   .stage {
     flex-direction: column;
+    align-items: center;
     min-height: 0;
     padding: 16px 24px 48px;
     gap: 28px;
