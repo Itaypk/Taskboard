@@ -168,6 +168,21 @@ All HTTP response security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-O
     unless the resolved model advertises the matching `input_modalities` in OpenRouter's model
     capabilities, so leaving this unset keeps the feature dark. See `docs/MULTIMODAL-CAPTURE.md`.
     Attachment bytes are never persisted or logged.
+- Backend env var for the AI tier cap (read via `AiProperties.tierCap`, `AiTierCapProperties`):
+  - `TASKER_AI_TIER_CAP_MAX_GRANTED_USERS` — hard cap (default `50`) on **claimed** accounts holding
+    the full `standard`/`unlimited` grant at once — a budget safety valve while the app runs on a
+    prepaid, budget-limited OpenRouter key. The cap protects the *full* allowance, not AI access
+    itself: new (claimed) registrations past the cap fall back to the bounded `AiTier.DEMO` tier
+    (100k tokens/30d, vs. `standard`'s 1M) rather than losing access outright, so there is no
+    runaway-bill risk in granting it unconditionally — see `UserSettingsService.initializeForNewUser`.
+    Unclaimed/demo accounts always start on `AiTier.DEMO` too, bypassing the cap entirely (a demo
+    signup never proves it's a real user, and AI — including the web weekly-planning conversation,
+    which needs no Telegram — is part of the funnel); when either kind of DEMO account later claims
+    itself, `UserSettingsService.upgradeToStandardOnClaim` re-runs the same cap check and promotes it
+    to `standard` if headroom has opened up. `ai_tier = "none"` is no longer reachable from
+    registration — it remains only as a manual admin lever (e.g. to suspend a single account); there
+    is no self-serve "request access" flow. The count-then-insert cap check isn't transactionally atomic against concurrent registrations; at
+    this app's beta scale, overshooting by one or two is an accepted risk.
 - Backend env vars (read via `PrometheusAuthProperties`) — **required in prod, dev defaults apply otherwise**:
   - `TASKER_PROMETHEUS_USERNAME` — Basic Auth username for `/actuator/prometheus` (default: `prometheus`).
   - `TASKER_PROMETHEUS_PASSWORD` — Basic Auth password for `/actuator/prometheus` (default: `prometheus-dev`).
