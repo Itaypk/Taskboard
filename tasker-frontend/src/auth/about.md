@@ -3,7 +3,8 @@
 Backlog.fyi is built and run by **Itay Polack-Gadassi** — a solo, non-commercial side project, not a
 company. There's no team, no investors, and no plans to sell anything or anyone's data.
 
-You can find me on GitHub: [github.com/Itaypk](https://github.com/Itaypk).
+You can find me on GitHub: [github.com/Itaypk](https://github.com/Itaypk), or on
+[LinkedIn](https://www.linkedin.com/in/itay-polack-gadassi/).
 
 ## What it is
 
