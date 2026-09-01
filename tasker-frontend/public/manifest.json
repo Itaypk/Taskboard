@@ -1,0 +1,13 @@
+{
+  "name": "Backlog.fyi",
+  "short_name": "Backlog.fyi",
+  "description": "A personal AI weekly planner. Capture tasks, then commit to a week in a short planning session with your assistant.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F0E7D2",
+  "theme_color": "#F0E7D2",
+  "icons": [
+    { "src": "/icon-192x192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512x512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

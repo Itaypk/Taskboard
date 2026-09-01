@@ -35,9 +35,8 @@ The scope of the individual idea is varying - could be small UI improvements, or
   the other account before merging.
 
 ## Landing page & SEO
-- Add a real screenshot of the board and wire it as `og:image` / `twitter:image` (biggest legibility
-  win for both humans and link-preview bots); also covers the missing Apple touch icon / 512×512 PNG
-  for share sheets.
+- `og:image` / `twitter:image` now wired up (a board screenshot with alt text). `manifest.json`
+  plus 192×192/512×512 icons now ship too, for share-sheet / "add to home screen" use.
 - Footer: GitHub link, if we go with AGPL. (The footer itself now ships — About/FAQ/Terms/Privacy.)
 - Accessibility pass on the login page: visible focus rings, WCAG AA contrast check on the body text,
   `<main>`/`<header>`/`<footer>` landmarks, alt text once the screenshot lands.

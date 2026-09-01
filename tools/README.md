@@ -57,6 +57,11 @@ board-settings picker. End to end:
 - **`level-bottom-gap.py`** — normalizes the bottom transparent gap to a reference
   image's height ratio (see step 2). Supports `--dry-run`, `--reference`, `--mode`, `--gap`.
 - **`to-webp.py`** — converts PNG(s) to WebP with alpha. Supports `--quality`, `--lossless`.
+- **`make-favicon.py`** — takes a square-ish app-icon concept on a white background,
+  crops tight and fades the backdrop to transparency, and writes the full favicon set
+  (`favicon.ico`, `favicon-{16,32,48}x{16,32,48}.png`), the opaque `apple-touch-icon.png`,
+  and the opaque `icon-{192,512}x{192,512}.png` pair referenced by `public/manifest.json`
+  — all from one source image, so regenerating the icon regenerates every size together.
 - **`i18n-inventory.mjs`** — heuristic scan of `tasker-frontend/src/**/*.tsx` for hardcoded
   user-facing strings, sized per component. Feeds `../docs/archive/I18N-INVENTORY.md` (the i18n
   string-extraction checklist); re-run after a batch of extraction PRs. Run with

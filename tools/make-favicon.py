@@ -2,8 +2,9 @@
 
 Crops tight to the icon (trimming excess white canvas) and fades the white
 backdrop to transparency, then exports the standard sizes browsers/OSes ask
-for. The apple touch icon is kept opaque (white-filled) since iOS doesn't
-render transparency in home-screen icons reliably.
+for. The apple touch icon and the web-app-manifest icons are kept opaque
+(white-filled) since iOS/Android home-screen icons don't render transparency
+reliably.
 
 Usage:
     python3 tools/make-favicon.py path/to/concept.png
@@ -20,6 +21,10 @@ PNG_SIZES = {
     "favicon-48x48.png": 48,
 }
 APPLE_TOUCH_ICON_SIZE = 180
+MANIFEST_ICON_SIZES = {
+    "icon-192x192.png": 192,
+    "icon-512x512.png": 512,
+}
 ICO_SIZES = [(16, 16), (32, 32), (48, 48)]
 
 
@@ -74,8 +79,10 @@ def main() -> None:
 
     opaque = Image.alpha_composite(Image.new("RGBA", transparent.size, (255, 255, 255, 255)), transparent).convert("RGB")
     opaque.resize((APPLE_TOUCH_ICON_SIZE, APPLE_TOUCH_ICON_SIZE), Image.LANCZOS).save(out_dir / "apple-touch-icon.png")
+    for name, size in MANIFEST_ICON_SIZES.items():
+        opaque.resize((size, size), Image.LANCZOS).save(out_dir / name)
 
-    print(f"Wrote {', '.join(PNG_SIZES)}, favicon.ico and apple-touch-icon.png to {out_dir}")
+    print(f"Wrote {', '.join(PNG_SIZES)}, favicon.ico, apple-touch-icon.png and {', '.join(MANIFEST_ICON_SIZES)} to {out_dir}")
 
 
 if __name__ == "__main__":
