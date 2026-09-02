@@ -803,6 +803,7 @@
   "taskLink": {
     "openSettings": "לפתוח הגדרות",
     "open": "לפתוח",
-    "clearTutorial": "לנקות את משימות ההדרכה"
+    "clearTutorial": "לנקות את משימות ההדרכה",
+    "openPlanner": "פתיחת המתכנן"
   }
 }

@@ -86,7 +86,7 @@ class TutorialSeederTest {
 
         val tasks = seedAndCapture(categories)
 
-        assertEquals(5, tasks.size)
+        assertEquals(6, tasks.size)
         assertTrue(tasks.all { it.tutorial })
         assertTrue(tasks.all { it.status == TaskStatus.TODO })
         assertTrue(tasks.all { it.createdAt == clock.instant() })
@@ -94,10 +94,18 @@ class TutorialSeederTest {
         val byTitleUrl = tasks.associate { it.title() to it.url }
         assertEquals("/settings/general", byTitleUrl["Save your tasks — add an email or Telegram"])
         assertEquals("/settings/assistant", byTitleUrl["Set your assistant preferences"])
+        assertEquals("app:open-planner", byTitleUrl["Now try your first planning session"])
         assertEquals("app:clear-tutorial", byTitleUrl["Clear these tutorial tasks when you\u2019re ready"])
 
         // The two intro cards carry no link.
         assertEquals(2, tasks.count { it.url == null })
+
+        // Board order is the lesson order, and it matters: the planner ignores tutorial cards, so
+        // "try a planning session" only pays off once "add your own task" has been done first.
+        assertEquals(
+            listOf(null, "/settings/general", "/settings/assistant", null, "app:open-planner", "app:clear-tutorial"),
+            tasks.sortedBy { it.sortKey }.map { it.url },
+        )
 
         // Every card has an encrypted, decryptable description.
         assertTrue(tasks.all { it.description != null && boardCrypto.decrypt(boardId, it.description) != null })

@@ -787,6 +787,7 @@
   "taskLink": {
     "openSettings": "Open settings",
     "open": "Open",
-    "clearTutorial": "Clear tutorial tasks"
+    "clearTutorial": "Clear tutorial tasks",
+    "openPlanner": "Open planner"
   }
 }

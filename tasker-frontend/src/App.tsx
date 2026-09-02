@@ -474,6 +474,13 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
     }
   }, [activeBoardId]);
 
+  /** Refetch the current plan, then reveal the planning drawer. Shared by the header button and
+   *  the `app:open-planner` tutorial card so the two can't drift. */
+  const openPlanDrawer = useCallback(() => {
+    fetchCurrentPlan().then(setCurrentPlan).catch(e => console.error('Failed to refetch plan', e));
+    setPlanDrawerOpen(true);
+  }, []);
+
   const followTaskLink = useCallback((task: Task) => {
     const link = resolveTaskLink(task.url);
     if (!link) return;
@@ -484,9 +491,14 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
     switch (link.kind) {
       case 'external': window.open(link.href, '_blank', 'noopener,noreferrer'); break;
       case 'internal': navigate(link.to); break;
-      case 'action': if (link.action === 'clear-tutorial') void handleClearTutorial(); break;
+      case 'action':
+        switch (link.action) {
+          case 'clear-tutorial': void handleClearTutorial(); break;
+          case 'open-planner': openPlanDrawer(); break;
+        }
+        break;
     }
-  }, [navigate, handleClearTutorial]);
+  }, [navigate, handleClearTutorial, openPlanDrawer]);
 
   const handleMarkDone = useCallback((id: string) => {
     const task = tasks.find(t => t.id === id);
@@ -811,10 +823,7 @@ function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
           <button
             type="button"
             className="icon-btn"
-            onClick={() => {
-              fetchCurrentPlan().then(setCurrentPlan).catch(e => console.error('Failed to refetch plan', e));
-              setPlanDrawerOpen(true);
-            }}
+            onClick={openPlanDrawer}
             aria-label={t('app.openPlanAria')}
             title={t('app.openPlanTitle')}
           >

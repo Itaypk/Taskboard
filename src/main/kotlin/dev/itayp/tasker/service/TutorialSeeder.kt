@@ -83,9 +83,12 @@ class TutorialSeeder(
         /** Card message-key stems, in board order, each with the in-app deep link it carries. */
         private val CARD_KEYS = listOf(
             "welcome" to null,
-            "add_task" to null,
             "save_tasks" to "/settings/general",
             "assistant" to "/settings/assistant",
+            // "Add your own task" sits late on purpose: the planner ignores tutorial cards, so the
+            // planning card below only pays off once the user has real tasks to plan.
+            "add_task" to null,
+            "plan_session" to "app:open-planner",
             "clear" to "app:clear-tutorial",
         )
     }

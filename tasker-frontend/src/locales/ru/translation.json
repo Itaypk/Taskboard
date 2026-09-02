@@ -819,6 +819,7 @@
   "taskLink": {
     "openSettings": "Открыть настройки",
     "open": "Открыть",
-    "clearTutorial": "Удалить учебные задачи"
+    "clearTutorial": "Удалить учебные задачи",
+    "openPlanner": "Открыть планировщик"
   }
 }

@@ -7,6 +7,7 @@ describe('resolveTaskLink', () => {
         expect(resolveTaskLink('https://example.com/x')).toEqual({ kind: 'external', href: 'https://example.com/x' });
         expect(resolveTaskLink('/settings/general')).toEqual({ kind: 'internal', to: '/settings/general' });
         expect(resolveTaskLink('app:clear-tutorial')).toEqual({ kind: 'action', action: 'clear-tutorial' });
+        expect(resolveTaskLink('app:open-planner')).toEqual({ kind: 'action', action: 'open-planner' });
     });
 
     it('rejects anything outside the allowlist rather than rendering it', () => {
@@ -29,6 +30,9 @@ describe('linkLabel', () => {
 
         expect(linkLabel(internal)).toBe('Open settings');
         expect(linkLabel(action)).toBe('Clear tutorial tasks');
+        // Every token in ACTIONS needs a label case; without one linkLabel falls off the switch
+        // and returns undefined, which renders as an empty affordance.
+        expect(linkLabel(resolveTaskLink('app:open-planner'))).toBe('Open planner');
 
         await applyLocale('he');
 

@@ -851,6 +851,7 @@
   "taskLink": {
     "openSettings": "فتح الإعدادات",
     "open": "فتح",
-    "clearTutorial": "مسح مهام الشرح"
+    "clearTutorial": "مسح مهام الشرح",
+    "openPlanner": "فتح المخطِّط"
   }
 }
