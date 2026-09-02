@@ -50,9 +50,39 @@ class EmailDomainBlocklistServiceTest {
     }
 
     @Test
-    fun `an empty blocklist blocks nothing`() {
+    fun `an empty config blocklist still enforces the bundled disposable list`() {
         val service = EmailDomainBlocklistService(EmailProperties())
 
         assertThat(service.isBlocked("user@example.com")).isFalse()
+        assertThat(service.isBlocked("user@mailinator.com")).isTrue()
+    }
+
+    @Test
+    fun `the bundled list leaves mainstream providers alone`() {
+        // The whole risk of shipping a 75k-domain list is a false positive locking real users out
+        // of login. tools/refresh-disposable-domains.sh guards the same names on refresh; this
+        // pins the guarantee at the point it actually matters.
+        val service = EmailDomainBlocklistService(EmailProperties())
+
+        listOf("gmail.com", "outlook.com", "hotmail.com", "yahoo.com", "protonmail.com", "proton.me", "icloud.com")
+            .forEach { assertThat(service.isBlocked("user@$it")).describedAs(it).isFalse() }
+    }
+
+    @Test
+    fun `the bundled list matches exactly, not by suffix`() {
+        // Config entries can opt into subdomain matching with `*.`; bundled entries cannot, or a
+        // short entry would swallow unrelated domains.
+        val service = EmailDomainBlocklistService(EmailProperties())
+
+        assertThat(service.isBlocked("user@mailinator.com")).isTrue()
+        assertThat(service.isBlocked("user@not-mailinator.com")).isFalse()
+    }
+
+    @Test
+    fun `config entries add to the bundled list rather than replacing it`() {
+        val service = EmailDomainBlocklistService(EmailProperties(blockedDomains = setOf("spam.com")))
+
+        assertThat(service.isBlocked("user@spam.com")).isTrue()
+        assertThat(service.isBlocked("user@mailinator.com")).isTrue()
     }
 }

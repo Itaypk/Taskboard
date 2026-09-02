@@ -132,10 +132,12 @@ tasker:
     recipient: ${TASKER_FEEDBACK_RECIPIENT:}
   email:
     enabled: ${TASKER_EMAIL_ENABLED:false}
-    # Comma-separated domains refused for any new address (login, settings, board invites).
+    # Extra domains refused for any new address (login, settings, board invites), comma-separated.
+    # This is an *addition* to the ~75k-domain disposable-mail list bundled on the classpath
+    # (src/main/resources/email/disposable-domains.txt.gz) — it cannot unblock a bundled domain.
     # Prefix an entry with `*.` to match subdomains only, not the domain itself — e.g.
     # `*.mailinator.com` blocks `inbox.mailinator.com` but not `mailinator.com`; list both
-    # forms to block a domain and all its subdomains.
+    # forms to block a domain and all its subdomains. The bundled list is exact-match only.
     blocked-domains: ${TASKER_EMAIL_BLOCKED_DOMAINS:}
     # Critical path: login / register / verification magic links.
     auth:

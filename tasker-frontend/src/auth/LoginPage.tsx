@@ -207,7 +207,9 @@ function LoginModal({
             setEmailSent(true);
         } catch (err) {
             console.error('Email login request failed', err);
-            setEmailErr(t('login.errors.emailSendFailed'));
+            // A blocked (disposable) domain is the one failure the user can act on, so name it.
+            const blocked = err instanceof ApiError && err.code === 'BLOCKED_EMAIL_DOMAIN';
+            setEmailErr(t(blocked ? 'login.errors.blockedEmailDomain' : 'login.errors.emailSendFailed'));
         } finally {
             setEmailBusy(false);
         }

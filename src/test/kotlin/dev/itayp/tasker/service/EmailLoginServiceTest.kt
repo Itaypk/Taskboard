@@ -11,6 +11,7 @@ import dev.itayp.tasker.jpa.UserEntity
 import dev.itayp.tasker.repository.EmailLoginTokenRepository
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.mockito.kotlin.*
 import org.springframework.context.MessageSource
 import java.time.Clock
@@ -105,11 +106,22 @@ class EmailLoginServiceTest {
     }
 
     @Test
-    fun `requestLogin is suppressed when the email domain is blocklisted`() {
-        service.requestLogin("user@blocked.example")
+    fun `requestLogin rejects a blocklisted domain loudly, and sends nothing`() {
+        // Loud, unlike the rate-limit case above: a blocked domain says nothing about whether an
+        // account exists, and with ~75k bundled disposable domains a silent no-op would make a
+        // false positive indistinguishable from mail that never arrived.
+        assertThrows<BlockedEmailDomainException> { service.requestLogin("user@blocked.example") }
 
         verify(tokenRepository, never()).countByEmailHashAndCreatedAtAfter(any(), any())
         verify(tokenRepository, never()).save(any())
+        verify(outboundChannel, never()).send(any())
+    }
+
+    @Test
+    fun `requestLogin rejects a domain from the bundled disposable list`() {
+        // Not in the test's configured blocklist — this proves the bundled snapshot is wired in.
+        assertThrows<BlockedEmailDomainException> { service.requestLogin("user@mailinator.com") }
+
         verify(outboundChannel, never()).send(any())
     }
 

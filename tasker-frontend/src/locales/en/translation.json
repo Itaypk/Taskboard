@@ -52,7 +52,8 @@
       "devFailed": "Dev login failed. Is the backend running with the dev profile?",
       "emailSendFailed": "Could not send the sign-in link. Please try again.",
       "demoRateLimited": "Too many sandbox boards from your network just now. Please wait a few minutes, or sign in instead.",
-      "demoAtCapacity": "Sandbox boards are at capacity right now. Please try again shortly, or sign in to create an account."
+      "demoAtCapacity": "Sandbox boards are at capacity right now. Please try again shortly, or sign in to create an account.",
+      "blockedEmailDomain": "That email provider isn't supported. Please use a different address."
     }
   },
   "notFound": {

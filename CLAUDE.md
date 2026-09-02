@@ -199,12 +199,20 @@ All HTTP response security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-O
   counter (hook it to a Grafana alert, especially `purpose=auth,outcome=failure`).
   - `TASKER_EMAIL_ENABLED` - toggle email integration (default: false). When false, both senders
     log instead of sending (and the magic link is printed to the log).
-  - `TASKER_EMAIL_BLOCKED_DOMAINS` — comma-separated application-wide email domain blocklist
-    (`EmailDomainBlocklistService`), checked on every new address: magic-link login (silently
-    no-ops, same as the rate limit, to preserve the no-enumeration guarantee), settings email
-    change, and board invitations (both throw `BlockedEmailDomainException` → 400). An entry
-    matches that domain exactly; prefix with `*.` to match subdomains only, not the domain
-    itself — list both forms to block a domain and all its subdomains.
+  - `TASKER_EMAIL_BLOCKED_DOMAINS` — comma-separated **additions** to the application-wide email
+    domain blocklist (`EmailDomainBlocklistService`). The bulk of the blocklist is a vendored
+    ~75k-domain snapshot of [disposable/disposable-email-domains](https://github.com/disposable/disposable-email-domains)
+    (MIT), shipped gzipped at `src/main/resources/email/disposable-domains.txt.gz` and refreshed by
+    `tools/refresh-disposable-domains.sh` — vendored rather than fetched at runtime so boot needs no
+    network and tests run offline. Config entries can only add, never unblock. Bundled entries match
+    exactly; a config entry matches its domain exactly, or prefix it with `*.` to match subdomains
+    only, not the domain itself — list both forms to block a domain and all its subdomains.
+    The list is checked on every new address: magic-link login, settings email change, and board
+    invitations all throw `BlockedEmailDomainException` → 400 with `code: BLOCKED_EMAIL_DOMAIN`.
+    Login rejects **loudly** (it used to no-op silently): whether a domain is disposable says
+    nothing about whether an account exists, so this leaks nothing, and at 75k domains a silent
+    no-op would make a false positive indistinguishable from mail that never arrived. The
+    per-address send rate limit stays silent — that one *is* account-adjacent.
   - Auth sender: `TASKER_EMAIL_AUTH_FROM`, `TASKER_EMAIL_AUTH_FROM_NAME` (default: Backlog.fyi),
     `TASKER_EMAIL_AUTH_SMTP_HOST` (default: smtp.protonmail.ch), `TASKER_EMAIL_AUTH_SMTP_PORT`
     (default: 587), `TASKER_EMAIL_AUTH_SMTP_USERNAME`, `TASKER_EMAIL_AUTH_SMTP_PASSWORD`.
