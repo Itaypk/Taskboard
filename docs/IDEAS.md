@@ -35,8 +35,6 @@ The scope of the individual idea is varying - could be small UI improvements, or
   the other account before merging.
 
 ## Landing page & SEO
-- `og:image` / `twitter:image` now wired up (a board screenshot with alt text). `manifest.json`
-  plus 192×192/512×512 icons now ship too, for share-sheet / "add to home screen" use.
 - Footer: GitHub link, if we go with AGPL. (The footer itself now ships — About/FAQ/Terms/Privacy.)
 - Accessibility pass on the login page: visible focus rings, WCAG AA contrast check on the body text,
   `<main>`/`<header>`/`<footer>` landmarks, alt text once the screenshot lands.
@@ -62,8 +60,6 @@ The scope of the individual idea is varying - could be small UI improvements, or
   descriptions are envelope-encrypted and can't be filtered in SQL. Fine at current scale; if a
   user ever holds thousands of tasks this needs a searchable index (blind index on tokenized
   terms, or a per-user encrypted search structure).
-- Token scope is coarse — read vs. write, all boards. Per-board or per-operation scoping only if
-  real usage demands it.
 - Token expiry is supported by the schema (`expires_at`) but not yet exposed in the UI; every
   token minted today is non-expiring until revoked.
 - `InMemoryRateLimiter` and the `last_used_at` write throttle both assume a single instance.
@@ -77,8 +73,6 @@ The scope of the individual idea is varying - could be small UI improvements, or
   `@Profile("dev")` annotation alone.
 - A cap on simultaneous unclaimed accounts (separate from the inactivity-based cleanup sweep, which
   already exists).
-- Error tracking (Sentry / GlitchTip) — distinct from log collection: dedup, stacktraces, release
-  tagging.
 - A periodic backup *restore* drill, not just backups.
 - Graceful shutdown + readiness probe wired into the deploy pipeline so rollouts don't drop in-flight
   requests.
@@ -143,7 +137,8 @@ Deferred from the `archive/I18N.md` design (see there for full rationale). Not b
 - Scheduled tasks that appear in a fixed interval, possibly supporting more sophisticated schedules
   like "last day of the month", for recurring tasks (examples: pay rent, dentist, clean AC filters).
   Useful on one hand, but correct UI/UX is tricky, and this could be steering off the main focus
-  towards a classic calendar territory. 
+  towards a classic calendar territory.
+- Incoming email address, as an additional way to quick-add tasks.
 
 ## Large projects
 - WhatsApp as a communication channel support.
