@@ -1,6 +1,7 @@
 package dev.itayp.tasker.service
 
 import dev.itayp.nescioquid.telegram.TelegramAuthData
+import dev.itayp.tasker.config.AppProperties
 import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.jpa.AuthIdentityEntity
 import dev.itayp.tasker.jpa.AuthProvider
@@ -8,8 +9,10 @@ import dev.itayp.tasker.jpa.UserEntity
 import dev.itayp.tasker.repository.AuthIdentityRepository
 import dev.itayp.tasker.repository.UserRepository
 import org.slf4j.LoggerFactory
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.web.bind.annotation.ResponseStatus
 import java.time.Clock
 import java.time.Instant
 import java.util.UUID
@@ -21,6 +24,7 @@ class UserAuthService(
     private val userService: UserService,
     private val tutorialSeeder: TutorialSeeder,
     private val userCrypto: UserCryptoService,
+    private val appProperties: AppProperties,
     private val clock: Clock,
 ) {
 
@@ -178,6 +182,12 @@ class UserAuthService(
      */
     @Transactional
     fun createUnclaimedUser(localeHint: String? = null): UserEntity {
+        val unclaimedCount = userRepository.countByClaimed(false)
+        if (unclaimedCount >= appProperties.unclaimedAccountCap) {
+            logger.warn("Unclaimed account cap reached ({}); refusing new unclaimed signup", unclaimedCount)
+            throw UnclaimedAccountCapExceededException()
+        }
+
         val now = clock.instant()
         val newId = UUID.randomUUID()
         val draft = UserEntity().apply {
@@ -214,3 +224,8 @@ class UserAuthService(
         private val logger = LoggerFactory.getLogger(UserAuthService::class.java)
     }
 }
+
+/** The unclaimed-account surge cap ([AppProperties.unclaimedAccountCap]) is currently full. Maps to HTTP 503. */
+@ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+class UnclaimedAccountCapExceededException :
+    RuntimeException("Sign-ups are temporarily unavailable, please try again later")

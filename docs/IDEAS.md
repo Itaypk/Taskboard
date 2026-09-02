@@ -29,7 +29,15 @@ The scope of the individual idea is varying - could be small UI improvements, or
   caller + identity rows, no schema change needed. This is blocked till we have a dedicated Google 
   account (rather not risk my personal account)
 - Retire the legacy `users.telegram_id` / `users.email_hash` columns once nothing reads them as a
-  lookup key (identity resolution already goes through `auth_identities`).
+  lookup key. **Checked (2026-09) — not yet safe to do.** Both are still live lookup keys, not
+  just kept-in-sync legacy fields: `TelegramChannel` resolves every inbound bot message/photo/voice
+  note via `userRepository.findByTelegramId`, and `findByEmailHash` backs the email-collision checks
+  in `UserAuthService.loginByEmail`, `EmailVerificationService`, `BoardInvitationService`, and
+  `AccountImportService` (a user can have `emailHash` set — e.g. mid-verification — with no
+  corresponding `auth_identities` row yet, so those checks can't be swapped for an identity lookup
+  as-is). Retiring these needs migrating each call site first (Telegram routing can move to an
+  `auth_identities` lookup; the email-collision checks would need a different mechanism entirely),
+  not just dropping now-unused columns.
 - Account-linking UX: linking an identity already owned by a different account is currently just
   refused (409). Decide if/how to offer a real merge flow, including how to re-prove ownership of
   the other account before merging.
@@ -68,11 +76,6 @@ The scope of the individual idea is varying - could be small UI improvements, or
   longest-lived credential in the system.
 
 ## Production hardening
-- Support/abuse contact address, referenced from ToS + Privacy.
-- Smoke test asserting `dev-login` actually 404s/401s in prod, rather than trusting the
-  `@Profile("dev")` annotation alone.
-- A cap on simultaneous unclaimed accounts (separate from the inactivity-based cleanup sweep, which
-  already exists).
 - A periodic backup *restore* drill, not just backups.
 - Graceful shutdown + readiness probe wired into the deploy pipeline so rollouts don't drop in-flight
   requests.
@@ -109,11 +112,6 @@ Deferred from the `archive/I18N.md` design (see there for full rationale). Not b
   they're frozen, not deleted.
 - Hebrew/Arabic display typography that preserves the paper/post-it aesthetic — a product/design
   decision (this is the same concern as the "Fonts look bad in Hebrew" note above).
-- Retrofit the channel bundles (`messages_he.properties`, `messages_ar.properties`) to the
-  gender-neutral phrasing the web UI catalog uses. They currently rely on slash forms
-  (`תרצה/תרצי`, `סמן/י`), which `CLAUDE.md` rules out; the web catalog shows the alternative —
-  verbal nouns for actions, impersonal phrasing for instructions. Mechanical but not trivial:
-  Telegram copy is conversational, so some lines need rewriting rather than substitution.
 
 ## Ideas that require more consideration
 - Open source the application under AGPL. A full git-history secret scan ahead of this switch

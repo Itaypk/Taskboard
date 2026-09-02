@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import MarkdownRenderer from '../components/MarkdownRenderer';
-import { SUPPORT_EMAIL } from '../config';
+import { ABUSE_EMAIL, SUPPORT_EMAIL } from '../config';
 import tosContent from './tos.md?raw';
 import ppContent from './privacy-policy.md?raw';
 import aboutContent from './about.md?raw';
@@ -10,9 +10,9 @@ import faqContent from './faq.md?raw';
 import styles from './PolicyPage.module.css';
 import { Arrow } from '../components/Arrow';
 
-/** Fill build-time placeholders (e.g. the support email) into the raw policy markdown. */
+/** Fill build-time placeholders (e.g. the support/abuse emails) into the raw policy markdown. */
 function fillPlaceholders(md: string): string {
-    return md.replaceAll('{{SUPPORT_EMAIL}}', SUPPORT_EMAIL);
+    return md.replaceAll('{{SUPPORT_EMAIL}}', SUPPORT_EMAIL).replaceAll('{{ABUSE_EMAIL}}', ABUSE_EMAIL);
 }
 
 interface PolicyPageProps {

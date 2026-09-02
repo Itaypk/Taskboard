@@ -1,6 +1,7 @@
 package dev.itayp.tasker.service
 
 import dev.itayp.nescioquid.telegram.TelegramAuthData
+import dev.itayp.tasker.config.AppProperties
 import dev.itayp.tasker.crypto.newTestUserCryptoService
 import dev.itayp.tasker.jpa.AuthIdentityEntity
 import dev.itayp.tasker.jpa.AuthProvider
@@ -8,6 +9,7 @@ import dev.itayp.tasker.jpa.UserEntity
 import dev.itayp.tasker.repository.AuthIdentityRepository
 import dev.itayp.tasker.repository.UserRepository
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
@@ -29,9 +31,10 @@ class UserAuthServiceTest {
     private val fixedNow = Instant.parse("2026-04-21T12:00:00Z")
     private val clock = Clock.fixed(fixedNow, ZoneOffset.UTC)
     private val crypto = newTestUserCryptoService()
+    private val appProperties = AppProperties()
 
     private val service: UserAuthService by lazy {
-        UserAuthService(userRepository, authIdentityRepository, userService, tutorialSeeder, crypto, clock)
+        UserAuthService(userRepository, authIdentityRepository, userService, tutorialSeeder, crypto, appProperties, clock)
     }
 
     private fun authData(telegramId: Long = 42L) = TelegramAuthData(
@@ -229,5 +232,19 @@ class UserAuthServiceTest {
         verify(userService).initializeNewUser(eq(result.id!!), anyOrNull(), eq(false))
         verify(tutorialSeeder).seed(eq(result.id!!))
         verify(authIdentityRepository, never()).save(any<AuthIdentityEntity>())
+    }
+
+    @Test
+    fun `createUnclaimedUser refuses once the unclaimed-account cap is reached`() {
+        val cappedService = UserAuthService(
+            userRepository, authIdentityRepository, userService, tutorialSeeder, crypto,
+            appProperties.copy(unclaimedAccountCap = 5), clock,
+        )
+        whenever(userRepository.countByClaimed(false)).thenReturn(5L)
+
+        assertThatThrownBy { cappedService.createUnclaimedUser() }
+            .isInstanceOf(UnclaimedAccountCapExceededException::class.java)
+        verify(userRepository, never()).save(any<UserEntity>())
+        verify(tutorialSeeder, never()).seed(any())
     }
 }

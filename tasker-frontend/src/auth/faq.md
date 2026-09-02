@@ -65,3 +65,7 @@ their own policies. The [Privacy Policy](/privacy) is the full version.
 From Settings → General, at any time. It removes your tasks and account data, and the same screen
 can export everything first if you want a copy. If anything is unclear, write to
 [{{SUPPORT_EMAIL}}](mailto:{{SUPPORT_EMAIL}}).
+
+## How do I report abuse?
+
+Write to [{{ABUSE_EMAIL}}](mailto:{{ABUSE_EMAIL}}).
