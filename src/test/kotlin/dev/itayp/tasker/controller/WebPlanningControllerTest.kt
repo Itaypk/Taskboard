@@ -5,6 +5,7 @@ import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ConversationChannel
 import dev.itayp.tasker.config.SecurityConfiguration
 import dev.itayp.tasker.model.UserSettings
+import dev.itayp.tasker.planning.PlannerTaskSelector
 import dev.itayp.tasker.planning.PlanningSession
 import dev.itayp.tasker.planning.PlanningSessionService
 import dev.itayp.tasker.planning.PlanningSessionStatus
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.doThrow
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest
@@ -58,6 +60,9 @@ class WebPlanningControllerTest(@Autowired val mockMvc: MockMvc) {
     lateinit var aiAccessService: AiAccessService
 
     @MockitoBean
+    lateinit var plannerTaskSelector: PlannerTaskSelector
+
+    @MockitoBean
     lateinit var clock: Clock
 
     private val userId = UUID.fromString("00000000-0000-0000-0000-000000000099")
@@ -75,12 +80,18 @@ class WebPlanningControllerTest(@Autowired val mockMvc: MockMvc) {
         whenever(userSettingsService.getOrCreate(userId)).thenReturn(settings())
     }
 
+    /** Default: the user has a workable backlog, so the entry response doesn't gate the buttons. */
+    private fun stubPlannableTasks(count: Int = 4) {
+        whenever(plannerTaskSelector.countCandidates(eq(userId), any())).thenReturn(count)
+    }
+
     @Test
     fun `entry returns week options when nothing is in flight`() {
         stubWeekResolution()
         whenever(planningSessionService.findActiveSession(userId)).thenReturn(null)
         whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(null)
         whenever(aiAccessService.isAiAvailableForUser(userId)).thenReturn(true)
+        stubPlannableTasks()
 
         mockMvc.perform(get("/api/v1/planning/entry").with(authentication(auth)))
             .andExpect(status().isOk)
@@ -91,6 +102,7 @@ class WebPlanningControllerTest(@Autowired val mockMvc: MockMvc) {
             .andExpect(jsonPath("$.thisWeek.weekEnd").value("2026-06-07"))
             .andExpect(jsonPath("$.nextWeek.weekStart").value("2026-06-08"))
             .andExpect(jsonPath("$.aiAvailable").value(true))
+            .andExpect(jsonPath("$.plannableTaskCount").value(4))
     }
 
     @Test
@@ -100,6 +112,7 @@ class WebPlanningControllerTest(@Autowired val mockMvc: MockMvc) {
         whenever(planningSessionService.findCurrentPlan(userId))
             .thenReturn(session(PlanningSessionStatus.COMPLETED, summary = "Last week recap"))
         whenever(aiAccessService.isAiAvailableForUser(userId)).thenReturn(true)
+        stubPlannableTasks()
 
         mockMvc.perform(get("/api/v1/planning/entry").with(authentication(auth)))
             .andExpect(status().isOk)
@@ -113,10 +126,26 @@ class WebPlanningControllerTest(@Autowired val mockMvc: MockMvc) {
         whenever(planningSessionService.findActiveSession(userId)).thenReturn(null)
         whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(null)
         whenever(aiAccessService.isAiAvailableForUser(userId)).thenReturn(false)
+        stubPlannableTasks()
 
         mockMvc.perform(get("/api/v1/planning/entry").with(authentication(auth)))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.aiAvailable").value(false))
+    }
+
+    @Test
+    fun `entry reports zero plannable tasks for a backlog the planner cannot use`() {
+        // What the SPA greys its two start buttons off. A brand-new account is exactly this case:
+        // tutorial cards only, which PlannerTaskSelector excludes.
+        stubWeekResolution()
+        whenever(planningSessionService.findActiveSession(userId)).thenReturn(null)
+        whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(null)
+        whenever(aiAccessService.isAiAvailableForUser(userId)).thenReturn(true)
+        stubPlannableTasks(0)
+
+        mockMvc.perform(get("/api/v1/planning/entry").with(authentication(auth)))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.plannableTaskCount").value(0))
     }
 
     @Test

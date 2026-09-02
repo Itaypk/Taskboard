@@ -55,32 +55,52 @@ a hurdle.
 
 Ordered by "would embarrass you on launch day", most first. Each of these is a small PR.
 
-- [ ] **Fix `tasker-frontend/index.html` meta/OG/Twitter/JSON-LD copy.** Tracked in
-      `IDEAS.md` already: it still describes the old Telegram-only flow and old headline. Every
-      share link on every channel below renders this preview. Add a real OG image (1200×630)
-      showing the product, not a logo.
-- [ ] **Make the demo/sandbox the default call-to-action** on the landing page. Nobody signs
-      in to a product they haven't seen. The demo user already exists (24-h TTL, `AiTier.DEMO`);
-      make sure it lands on a seeded board with a few realistic tasks and a "try the planner"
-      nudge, not an empty screen. Seed data must be localized (four catalogs).
+Reviewed against the code 2026-09; several items below were already done or turned out to be
+misdiagnosed. Corrections are inline.
+
+- [x] **Fix `tasker-frontend/index.html` meta/OG/Twitter/JSON-LD copy.** ~~Add a real OG image
+      (1200×630).~~ **Mostly already done** — `og-image.png` ships at exactly 1200×630, and the
+      OG/Twitter/JSON-LD/canonical tags are all present. What remains is narrower than this item
+      implied: the hidden `#prerendered-landing` crawler fallback still pitches the old
+      Telegram-only flow, and its `<nav>` omits `/about` and `/faq`. That's copy, and `IDEAS.md`
+      already says the verbiage needs a human pass.
+- [x] **Make the demo/sandbox the default call-to-action** on the landing page. Nobody signs
+      in to a product they haven't seen. **Done** — the sandbox is now the filled primary button
+      and "or sign in" the secondary link. Rationale: an unclaimed account becomes a full one just
+      by linking email or Telegram, so the sign-up wall bought nothing.
+      ~~make sure it lands on a seeded board with a few realistic tasks~~ — it was never an empty
+      screen; `TutorialSeeder` seeds five cards for every new account. Those cards are
+      deliberately hidden from the assistant, though, so they teach the board but do **not** demo
+      the planner. Seeding realistic tasks to show the hook (`DemoDataSeeder` already exists, wired
+      to dev only) is a separate open design question, not a copy fix.
+      Their English-only text *was* a real bug — a Hebrew visitor got an RTL UI full of English
+      cards — and is now localized across en/he/ru/ar.
 - [ ] **Decide what happens at user 51.** `TASKER_AI_TIER_CAP_MAX_GRANTED_USERS` defaults to
       50; beyond that, real sign-ups get the `DEMO` tier (100k tokens / 30 d). That's the right
       safety valve, but the FAQ says "free with usage limits" without saying what they are.
       Either raise the cap ahead of launch with a matching OpenRouter top-up, or write the limit
       into the FAQ so it isn't a surprise. Set a Grafana alert on OpenRouter spend either way.
-- [ ] **Abuse surface review, 30 minutes.** A public launch is the first time strangers will
-      point scripts at the free LLM. Confirm: demo-login rate limit per IP, magic-link rate
-      limit, `TASKER_EMAIL_BLOCKED_DOMAINS` populated with the common disposable-mail domains,
-      and that the unclaimed-account cap (shipped in #190) is actually on in prod.
-- [ ] **Instrument the activation funnel** (see *Measuring* below). Without this, nothing in
-      phase 1 teaches you anything.
+- [x] **Abuse surface review, 30 minutes.** Done, and it found something this list missed:
+      `/api/auth/email` was rate-limited **per email address only**, so a single host could mail
+      unlimited *distinct* strangers from the auth sender — the mailbox login itself depends on.
+      Now also capped per client IP. Demo-login was already per-IP (raised 5 → 20/h, since it is
+      now the primary CTA and `ClientIp` resolves to a shared NAT address).
+      Still open, and outside this repo: `TASKER_EMAIL_BLOCKED_DOMAINS` defaults to empty, so
+      nothing is blocked until the Ansible repo populates it. Confirm the unclaimed-account cap
+      (1000) and the AI tier cap (50) are set deliberately in prod.
+- [x] **Instrument the activation funnel** (see *Measuring* below). **Reframed — no
+      instrumentation added, deliberately.** Four of the five numbers are already answerable in
+      SQL *retroactively* (`users.created_at`, `users.claimed`, `users.engaged_at`, and
+      `planning_session`), and the retention number is a per-user cohort question a Prometheus
+      counter cannot express at all. The queries live in `docs/monitoring/funnel-queries.sql`.
 - [ ] **A 30–60 second screen recording**: Telegram photo → task draft → weekly planning
       conversation → calendar invite arrives. This one asset gets reused in every channel. A
       GIF of the first 10 seconds is the thumbnail.
-- [ ] **Onboarding email, day 1 and day 7.** You already have the auth SMTP sender and
-      localized templates. One email after sign-up ("here's how to add your first task from
-      Telegram"), one a week later ("did you run a planning session?"). Keep it two emails; a
-      drip sequence is over-engineering at this scale.
+- [ ] **Onboarding email, day 1 and day 7.** **Deferred past phase 1.** Two structural reasons:
+      unclaimed/sandbox users have no email channel at all, so the drip cannot reach the group that
+      leaks worst; and `UnclaimedAccountCleanupService` deletes never-engaged unclaimed accounts
+      after 2 days, well before a day-7 mail. At 10–20 warm users a personal note beats a template
+      in four locales.
 - [ ] **Decide on the license** (`IDEAS.md` mentions AGPL; there is no `LICENSE` file). This is
       a launch decision, not a legal footnote: "open source, self-hostable, AGPL" is a
       *channel* — it unlocks r/selfhosted, Show HN framing, and the awesome-list ecosystem —
@@ -171,8 +191,10 @@ Launch traffic decays in a week. What keeps trickling is search and referral:
 
 ## Measuring: the five numbers that matter
 
-Add one Prometheus counter per step (the app already has Micrometer and Grafana) or a tiny
-`user_events` table — either is fine, the point is that they exist before phase 1.
+~~Add one Prometheus counter per step~~ — **not needed**, and partly not possible. Every step below
+except sign-up source is already recoverable from the existing schema, retroactively; and "came back
+for a second session" is a cohort question no counter can answer. The queries are written down in
+`docs/monitoring/funnel-queries.sql`; run them weekly.
 
 | Step | Event | Why |
 | --- | --- | --- |
@@ -180,7 +202,7 @@ Add one Prometheus counter per step (the app already has Micrometer and Grafana)
 | Demo/sign-up → first task | first task created | Is the empty board understandable? |
 | First task → first planning session | planning session completed | Is the core loop reachable? |
 | First → second planning session | second session, ≥5 days later | **The retention number.** |
-| Sign-up source | `?ref=` / UTM on every link you post | Which channel is worth repeating? |
+| Sign-up source | ~~`?ref=` / UTM on every link you post~~ — **dropped**: no paid ads, and UTM tails look bad in aggregators and social embeds. With one channel per week, correlate sign-up timestamps against when each post went out, plus the nginx `Referer` log. | Which channel is worth repeating? |
 
 Plus OpenRouter spend per week, because it's the one number that can end the project.
 

@@ -8,8 +8,8 @@
       "titleLine1": "Tasks you keep",
       "titleLine2": "actually doing.",
       "sub": "Capture what's on your plate. Talk through a realistic week with the assistant. Agreed tasks land on your calendar as time blocks.",
-      "getStarted": "Get started — it's free",
-      "startNow": "or start now, no sign-up"
+      "startNow": "Start now — no sign-up",
+      "signIn": "or sign in"
     },
     "satellites": {
       "problemTag": "The problem",
@@ -50,7 +50,10 @@
     "errors": {
       "demoFailed": "Couldn't start a new account. Please try again.",
       "devFailed": "Dev login failed. Is the backend running with the dev profile?",
-      "emailSendFailed": "Could not send the sign-in link. Please try again."
+      "emailSendFailed": "Could not send the sign-in link. Please try again.",
+      "demoRateLimited": "Too many sandbox boards from your network just now. Please wait a few minutes, or sign in instead.",
+      "demoAtCapacity": "Sandbox boards are at capacity right now. Please try again shortly, or sign in to create an account.",
+      "blockedEmailDomain": "That email provider isn't supported. Please use a different address."
     }
   },
   "notFound": {
@@ -770,13 +773,21 @@
       "weeksAgo_other": "{{count}} weeks ago",
       "inWeeks_one": "In {{count}} week",
       "inWeeks_other": "In {{count}} weeks"
-    }
+    },
+    "nothingToPlanHint": "Nothing to plan yet — add a task to your board first."
   },
   "footer": {
     "about": "About",
     "faq": "FAQ",
     "terms": "Terms",
     "privacy": "Privacy",
-    "menuLabel": "More links"
+    "menuLabel": "More links",
+    "language": "Language"
+  },
+  "taskLink": {
+    "openSettings": "Open settings",
+    "open": "Open",
+    "clearTutorial": "Clear tutorial tasks",
+    "openPlanner": "Open planner"
   }
 }

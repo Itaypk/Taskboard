@@ -7,8 +7,10 @@
  * preference tag still flows to `Intl` via `setActiveLocale`, and `<html lang/dir>` is set from the
  * *resolved* language, so a `ru` preference reads English text with `lang="en"` rather than lying.
  *
- * `?uiLang=<code>` forces an unlaunched language in dev builds only, so its catalog and direction
- * can be exercised before launch. See `devPreviewLanguage`.
+ * Dev builds widen the selectable set from `LAUNCHED_UI_LANGUAGES` to `SUPPORTED_UI_LANGUAGES`, so
+ * a language's catalog and direction can be exercised before it launches — see `selectableLanguages`.
+ * This used to be a hidden `?uiLang=` query flag; the anonymous language switcher now offers the
+ * same set, so the flag was dropped rather than kept as a second way to do one thing.
  */
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
@@ -38,24 +40,23 @@ function baseLanguage(tag: string): string {
 }
 
 /**
- * Dev-only preview override: `?uiLang=he` forces an unlaunched language (and, for `he`/`ar`, RTL)
- * so the direction pass can be exercised before the catalog is complete. It is read from the URL
- * on every resolve rather than cached, is gated on `import.meta.env.DEV`, and never reaches
- * production — `resolveUiLanguage` is the single choke point every locale decision flows through.
+ * Which languages a build will actually render. Production is limited to the launched, QA'd
+ * catalogs (D7); dev additionally offers anything in `SUPPORTED_UI_LANGUAGES` so an in-progress
+ * language — and, for `he`/`ar`, its direction — can be checked before it ships. A language with no
+ * catalog loader yet renders English strings under its own `lang`/`dir`, which is the point: it
+ * exercises the direction pass without pretending the translation exists.
+ *
+ * `resolveUiLanguage` is the single choke point every locale decision flows through, so gating here
+ * covers boot detection, the switcher, and the stored account preference alike.
  */
-function devPreviewLanguage(): UiLanguage | null {
-    if (!import.meta.env.DEV || typeof window === 'undefined') return null;
-    const requested = new URLSearchParams(window.location.search).get('uiLang');
-    const base = baseLanguage(requested ?? '');
-    return (SUPPORTED_UI_LANGUAGES as readonly string[]).includes(base) ? (base as UiLanguage) : null;
+export function selectableLanguages(): readonly UiLanguage[] {
+    return import.meta.env.DEV ? SUPPORTED_UI_LANGUAGES : LAUNCHED_UI_LANGUAGES;
 }
 
-/** The launched UI language for a preference/browser tag; unlaunched languages degrade to `en` (D7). */
+/** The UI language for a preference/browser tag; anything not selectable degrades to `en` (D7). */
 export function resolveUiLanguage(tag?: string | null): UiLanguage {
-    const preview = devPreviewLanguage();
-    if (preview) return preview;
     const base = baseLanguage(tag ?? '');
-    return (LAUNCHED_UI_LANGUAGES as readonly string[]).includes(base) ? (base as UiLanguage) : 'en';
+    return (selectableLanguages() as readonly string[]).includes(base) ? (base as UiLanguage) : 'en';
 }
 
 /** Whether a UI language is written right-to-left. Drives `<html dir>`; see docs/I18N.md D5. */

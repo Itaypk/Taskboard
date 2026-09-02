@@ -475,6 +475,8 @@ export interface PlanningEntry {
     nextWeek: WeekOption;
     /** False when AI is opted out (by the user or by a co-member on every board) — disable planning controls. */
     aiAvailable: boolean;
+    /** Backlog tasks the planner could actually schedule. 0 = starting a session would plan nothing. */
+    plannableTaskCount: number;
 }
 
 export interface TranscriptMessage {

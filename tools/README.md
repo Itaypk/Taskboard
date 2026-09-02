@@ -5,6 +5,24 @@ adding or reworking an asset, then commit the result.
 
 Requires Python 3 with `Pillow` and `numpy` (and `rembg` only for background removal).
 
+## Refreshing the disposable-email-domain list
+
+`refresh-disposable-domains.sh` re-fetches
+[disposable/disposable-email-domains](https://github.com/disposable/disposable-email-domains) (MIT)
+and rewrites `src/main/resources/email/disposable-domains.txt.gz`, the ~75k-domain blocklist
+`EmailDomainBlocklistService` loads at startup. It needs only `curl` and `gzip`:
+
+```
+tools/refresh-disposable-domains.sh
+git diff --stat   # then commit the .gz
+```
+
+The script aborts rather than writing if the upstream list is implausibly small, moves by more than
+±25%, or contains a mainstream provider (gmail, outlook, proton, …). Those checks are the reason it
+exists: a poisoned or truncated upstream would lock every real user out of magic-link login. Run it
+occasionally — the list is not on the build path, so a stale snapshot only means newer throwaway
+domains slip through, never an outage.
+
 ## Adding a new board mascot
 
 Mascots are the little characters shown in the corner of a board and offered in the

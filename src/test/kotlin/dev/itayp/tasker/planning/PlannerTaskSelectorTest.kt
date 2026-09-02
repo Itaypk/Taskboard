@@ -391,6 +391,41 @@ class PlannerTaskSelectorTest {
         verify(aiAccessService, never()).aiAllowedBoardIds(any())
     }
 
+    @Test
+    fun `countCandidates counts what the planner would actually see`() {
+        whenever(backlogTaskRepository.findAllByBoardIdInAndStatusOrderBySortKeyAsc(listOf(boardId), TaskStatus.TODO))
+            .thenReturn(listOf(
+                task("real"),
+                task("also real"),
+                // Each of these is invisible to the planner for its own reason, and none of them
+                // should make the start button light up.
+                task("tutorial card", tutorial = true),
+                task("not yet", relevantFrom = today.plusDays(3)),
+                task("someone else's", assignee = UUID.randomUUID()),
+                task("hidden", hiddenFromAssistant = true),
+            ))
+
+        assertEquals(2, selector.countCandidates(userId, today))
+    }
+
+    @Test
+    fun `countCandidates is zero for a backlog holding only tutorial cards`() {
+        // The state a brand-new account is in: TutorialSeeder's cards and nothing else. This is what
+        // greys out the planning buttons instead of spending an AI call planning an empty slate.
+        whenever(backlogTaskRepository.findAllByBoardIdInAndStatusOrderBySortKeyAsc(listOf(boardId), TaskStatus.TODO))
+            .thenReturn(listOf(task("welcome", tutorial = true), task("add a task", tutorial = true)))
+
+        assertEquals(0, selector.countCandidates(userId, today))
+    }
+
+    @Test
+    fun `countCandidates ignores boards AI may not read, and never queries when none remain`() {
+        whenever(aiAccessService.aiAllowedBoardIds(userId)).thenReturn(emptySet())
+
+        assertEquals(0, selector.countCandidates(userId, today))
+        verify(backlogTaskRepository, never()).findAllByBoardIdInAndStatusOrderBySortKeyAsc(any(), any())
+    }
+
     private fun task(
         title: String,
         priority: TaskPriority? = null,
@@ -401,6 +436,7 @@ class PlannerTaskSelectorTest {
         relevantFrom: LocalDate? = null,
         assignee: UUID? = null,
         hiddenFromAssistant: Boolean = false,
+        tutorial: Boolean = false,
         status: TaskStatus = TaskStatus.TODO,
     ): BacklogTaskEntity = BacklogTaskEntity().apply {
         this.id = UUID.randomUUID()
@@ -418,6 +454,7 @@ class PlannerTaskSelectorTest {
         this.relevantFrom = relevantFrom
         this.assigneeUserId = assignee
         this.hiddenFromAssistant = hiddenFromAssistant
+        this.tutorial = tutorial
     }
 
     private fun plannedTask(backlogTaskId: UUID): PlannedTaskEntity = PlannedTaskEntity().apply {

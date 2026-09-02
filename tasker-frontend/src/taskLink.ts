@@ -1,10 +1,13 @@
 // Interpretation of a task's `url` field. Most tasks hold an external `https://` link, but seeded
 // tutorial tasks carry in-app deep links — an internal route (`/settings/<tab>`) or an action token
-// (`app:clear-tutorial`). Classification is allowlist-based: anything unrecognized resolves to `null`
-// so we never render or follow an unsafe scheme (`javascript:`, `data:`, …). Users can't create the
-// internal/action forms (the API rejects non-http urls), so they only ever originate from the seeder.
+// (`app:clear-tutorial`, `app:open-planner`). Classification is allowlist-based: anything
+// unrecognized resolves to `null` so we never render or follow an unsafe scheme (`javascript:`,
+// `data:`, …). Users can't create the internal/action forms (the API rejects non-http urls), so
+// they only ever originate from the seeder.
 
-export type TaskAction = 'clear-tutorial';
+import i18n from './i18n';
+
+export type TaskAction = 'clear-tutorial' | 'open-planner';
 
 export type TaskLink =
   | { kind: 'external'; href: string }
@@ -14,6 +17,7 @@ export type TaskLink =
 
 const ACTIONS: Record<string, TaskAction> = {
   'app:clear-tutorial': 'clear-tutorial',
+  'app:open-planner': 'open-planner',
 };
 
 export function resolveTaskLink(url: string | null | undefined): TaskLink {
@@ -32,15 +36,21 @@ export function resolveTaskLink(url: string | null | undefined): TaskLink {
  * External links show a prettified, truncated URL; internal/action links (tutorial-only) get a
  * fixed friendly name since their raw target ("/settings/general", "app:clear-tutorial") is meaningless
  * to a user.
+ *
+ * Those friendly names are translated. This is a plain helper rather than a component, so it reads
+ * the i18n singleton directly — the same approach `App.tsx`'s `emptyMessageFor` uses. Every caller
+ * renders inside a component that already calls `useTranslation()`, so the labels re-render when the
+ * language changes. A URL is not translatable and stays as-is.
  */
 export function linkLabel(link: TaskLink): string {
   if (!link) return '';
   switch (link.kind) {
     case 'external': return prettifyUrl(link.href);
-    case 'internal': return link.to.startsWith('/settings') ? 'Open settings' : 'Open';
+    case 'internal': return i18n.t(link.to.startsWith('/settings') ? 'taskLink.openSettings' : 'taskLink.open');
     case 'action':
       switch (link.action) {
-        case 'clear-tutorial': return 'Clear tutorial tasks';
+        case 'clear-tutorial': return i18n.t('taskLink.clearTutorial');
+        case 'open-planner': return i18n.t('taskLink.openPlanner');
       }
   }
 }

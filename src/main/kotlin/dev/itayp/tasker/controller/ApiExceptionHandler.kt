@@ -1,5 +1,6 @@
 package dev.itayp.tasker.controller
 
+import dev.itayp.tasker.planning.NoPlannableTasksException
 import dev.itayp.tasker.service.BlockedEmailDomainException
 import dev.itayp.tasker.service.UnclaimedAccountCapExceededException
 import org.slf4j.LoggerFactory
@@ -34,7 +35,8 @@ class ApiExceptionHandler {
 
     /**
      * Handled here (rather than per-controller) so every entry point that checks the email
-     * blocklist — settings email change, board invitations — surfaces the same clean response.
+     * blocklist — magic-link login, settings email change, board invitations — surfaces the same
+     * clean response.
      * The exception's own `@ResponseStatus` reason wouldn't reach the client on its own
      * (`server.error.include-message` defaults to `never`), so we set `detail` explicitly.
      */
@@ -42,6 +44,8 @@ class ApiExceptionHandler {
     fun handleBlockedEmailDomain(ex: BlockedEmailDomainException): ProblemDetail =
         ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.message ?: "This email domain isn't allowed").apply {
             title = "Email domain not allowed"
+            // `detail` is English-only; the SPA keys off this code to show a localized message.
+            setProperty("code", "BLOCKED_EMAIL_DOMAIN")
         }
 
     /** Same reasoning as [handleBlockedEmailDomain]: set `detail` explicitly so it reaches the client. */
@@ -49,6 +53,17 @@ class ApiExceptionHandler {
     fun handleUnclaimedAccountCapExceeded(ex: UnclaimedAccountCapExceededException): ProblemDetail =
         ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, ex.message!!).apply {
             title = "Sign-ups temporarily unavailable"
+        }
+
+    /**
+     * Same reasoning as [handleBlockedEmailDomain]. The SPA greys out its start buttons off
+     * `plannableTaskCount`, so a user should rarely see this; it catches a stale client.
+     */
+    @ExceptionHandler(NoPlannableTasksException::class)
+    fun handleNoPlannableTasks(ex: NoPlannableTasksException): ProblemDetail =
+        ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.message!!).apply {
+            title = "Nothing to plan"
+            setProperty("code", "NO_PLANNABLE_TASKS")
         }
 
     /**

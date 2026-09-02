@@ -1,5 +1,11 @@
 # Monitoring
 
+Two things live here: the Grafana dashboard below (operational health, scraped from
+Prometheus) and `funnel-queries.sql` (activation and retention, read straight from Postgres).
+They answer different questions — the dashboard shows point-in-time totals, while the funnel
+is per-user cohort analysis a counter cannot express. See the header of the SQL file for why
+the launch funnel is deliberately not instrumented as metrics.
+
 ## Backlog.fyi — Application Overview dashboard
 
 `backlog-overview-dashboard.json` is a Grafana dashboard giving a shallow, broad,

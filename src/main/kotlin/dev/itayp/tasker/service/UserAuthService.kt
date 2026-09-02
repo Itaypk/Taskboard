@@ -202,7 +202,7 @@ class UserAuthService(
         // Unclaimed/demo accounts always get AI access (on a bounded AiTier.DEMO budget) — the demo
         // is the marketing funnel and must never hit the granted-tier cap (docs/DEMO-ACCOUNT-UNIFICATION.md).
         userService.initializeNewUser(newId, localeHint, claimed = false)
-        tutorialSeeder.seed(newId)
+        tutorialSeeder.seed(newId, localeHint)
         // No auth identity yet: the account is unclaimed until the user links a login method.
         logger.info("Created unclaimed user $newId")
         return draft

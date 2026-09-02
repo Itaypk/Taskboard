@@ -16,6 +16,8 @@ class RateLimitInterceptor(
     private val demoLoginLimiter: RateLimiter,
     /** Applied per client IP on the telegram-login endpoint, before a session exists. */
     private val telegramLoginLimiter: RateLimiter,
+    /** Applied per client IP on magic-link sends, which mail a third party before a session exists. */
+    private val emailLoginLimiter: RateLimiter,
     /** Applied per token-authenticated user on the external API, which has its own tighter budget. */
     private val externalApiLimiter: RateLimiter,
 ) : HandlerInterceptor {
@@ -30,6 +32,15 @@ class RateLimitInterceptor(
         // never the bare prefix, so an exact-equality check would never fire.
         if (servletPath.startsWith(TELEGRAM_LOGIN_PREFIX)) {
             if (!telegramLoginLimiter.tryConsume(request.clientIp())) return reject(response)
+            return true
+        }
+        // Exact match, unlike Telegram above: only POST /api/auth/email actually sends mail. The
+        // sibling /precheck and /callback routes are how a *recipient* completes a login, so
+        // charging them to the sender's budget would throttle the honest half of the flow.
+        // EmailLoginService caps sends per address; this caps them per host, so one client can't
+        // mail unlimited distinct strangers from the auth sender.
+        if (servletPath == EMAIL_LOGIN_PATH) {
+            if (!emailLoginLimiter.tryConsume(request.clientIp())) return reject(response)
             return true
         }
 
@@ -62,6 +73,7 @@ class RateLimitInterceptor(
     companion object {
         private const val DEMO_LOGIN_PATH = "/api/auth/demo-login"
         private const val TELEGRAM_LOGIN_PREFIX = "/api/auth/telegram"
+        private const val EMAIL_LOGIN_PATH = "/api/auth/email"
         private const val EXTERNAL_API_PREFIX = "/api/external/"
     }
 }

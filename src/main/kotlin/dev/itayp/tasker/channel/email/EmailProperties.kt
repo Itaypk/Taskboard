@@ -11,11 +11,13 @@ import org.springframework.boot.context.properties.ConfigurationProperties
  * Each sender carries its own full SMTP credentials because providers like Protonmail
  * tie SMTP submission auth to the sending address.
  *
- * [blockedDomains] is the application-wide email domain blocklist, checked by
- * [EmailDomainBlocklistService] wherever a new address is accepted (login, settings, board
- * invites). An entry matches that domain exactly, except entries prefixed with `*.`, which
- * match any subdomain of the given domain but not the domain itself — list both forms to
- * block a site and all its subdomains (e.g. `mailinator.com` and `*.mailinator.com`).
+ * [blockedDomains] adds to the application-wide email domain blocklist enforced by
+ * `EmailDomainBlocklistService` wherever a new address is accepted (login, settings, board
+ * invites). The bulk of that blocklist is a bundled ~75k-domain disposable-mail snapshot; this
+ * key is the manual override on top of it, and can only add, never unblock. An entry matches
+ * that domain exactly, except entries prefixed with `*.`, which match any subdomain of the given
+ * domain but not the domain itself — list both forms to block a site and all its subdomains
+ * (e.g. `mailinator.com` and `*.mailinator.com`).
  */
 @ConfigurationProperties("tasker.email")
 data class EmailProperties(

@@ -1,4 +1,5 @@
 import { request } from '../api';
+import { getActiveLocale } from '../i18n/format';
 
 export interface AuthUser {
     id: string;
@@ -28,14 +29,30 @@ export const TELEGRAM_LINK_URL = '/api/auth/telegram/link/start';
 export const devLogin = (): Promise<AuthUser> =>
     request<AuthUser>('/api/auth/dev-login', { method: 'POST' });
 
+/**
+ * The three endpoints below can *create* an account, and the account's stored language drives the
+ * seeded backlog, the emails and the Telegram replies. The server otherwise reads `Accept-Language`,
+ * which is the browser's opinion, not the visitor's — so anyone who used the anonymous language
+ * switcher would get an account in the wrong language and watch the UI snap back on the next `/me`.
+ * Appending the language actually being rendered fixes that; the server still validates it against
+ * the supported list and falls back to the header.
+ */
+function withLang(path: string): string {
+    const sep = path.includes('?') ? '&' : '?';
+    return `${path}${sep}lang=${encodeURIComponent(getActiveLocale())}`;
+}
+
+// emitErrors: false — this is the landing page's primary call-to-action, and LoginPage renders
+// its own message per status (rate limited vs. at capacity). Without this the generic toast would
+// fire alongside it.
 export const demoLogin = (): Promise<AuthUser> =>
-    request<AuthUser>('/api/auth/demo-login', { method: 'POST' });
+    request<AuthUser>(withLang('/api/auth/demo-login'), { method: 'POST' }, { emitErrors: false });
 
 // Passwordless email login: sends a magic link. Always resolves (the backend never
 // reveals whether the address maps to an account). The link itself logs the user in.
 // next: optional same-origin path to navigate to after successful login.
 export const requestEmailLogin = (email: string, next?: string): Promise<void> =>
-    request<void>('/api/auth/email', {
+    request<void>(withLang('/api/auth/email'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, next }),
@@ -48,7 +65,7 @@ export const precheckEmailLogin = (token: string): Promise<{ valid: boolean }> =
 // Consume a magic-link token and establish a session.
 export type EmailCallbackOutcome = 'success' | 'invalid' | 'unverified';
 export const completeEmailLogin = (token: string): Promise<{ outcome: EmailCallbackOutcome }> =>
-    request<{ outcome: EmailCallbackOutcome }>('/api/auth/email/callback', {
+    request<{ outcome: EmailCallbackOutcome }>(withLang('/api/auth/email/callback'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token }),

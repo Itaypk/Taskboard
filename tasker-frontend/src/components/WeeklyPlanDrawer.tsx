@@ -554,6 +554,18 @@ function OverviewActions({ entry, viewedPlan, weekRel, loading, busy, onStart, o
     </p>
   ) : null;
 
+  // Nothing the planner could schedule: an empty backlog, or one holding only tutorial cards,
+  // future-dated tasks and assistant-hidden tasks. Gates *starting* a session only — continuing,
+  // abandoning and revising all stay available, since none of them needs fresh candidates.
+  // aiOff wins when both apply: it's the harder block, and one note at a time reads better.
+  const nothingToPlan = entry.plannableTaskCount === 0;
+  const startHint = aiHint ?? (nothingToPlan ? (
+    <p className={styles.actionsNote}>
+      {t('weeklyPlanDrawer.nothingToPlanHint')}
+    </p>
+  ) : null);
+  const startDisabled = busy || aiOff || nothingToPlan;
+
   if (entry.activeSessionId) {
     const id = entry.activeSessionId;
     return (
@@ -579,18 +591,18 @@ function OverviewActions({ entry, viewedPlan, weekRel, loading, busy, onStart, o
   const showPlanThisWeek = weekRel === 'current';
   return (
     <div className={styles.actions}>
-      {aiHint}
+      {startHint}
       {revisable && (
         <button type="button" className={`${styles.entryBtn} ${styles.entryPrimary}`} disabled={busy || aiOff} onClick={() => onRevise(revisable)}>
           {t('weeklyPlanDrawer.revisePlan')}
         </button>
       )}
       {showPlanThisWeek && (
-        <button type="button" className={`${styles.entryBtn} ${revisable ? '' : styles.entryPrimary}`} disabled={busy || aiOff} onClick={() => onStart('CURRENT')}>
+        <button type="button" className={`${styles.entryBtn} ${revisable ? '' : styles.entryPrimary}`} disabled={startDisabled} onClick={() => onStart('CURRENT')}>
           {t('weeklyPlanDrawer.planThisWeek')}<span className={styles.entryDates}>{formatRange(entry.thisWeek.weekStart, entry.thisWeek.weekEnd)}</span>
         </button>
       )}
-      <button type="button" className={`${styles.entryBtn} ${(!revisable && !showPlanThisWeek) ? styles.entryPrimary : ''}`} disabled={busy || aiOff} onClick={() => onStart('NEXT')}>
+      <button type="button" className={`${styles.entryBtn} ${(!revisable && !showPlanThisWeek) ? styles.entryPrimary : ''}`} disabled={startDisabled} onClick={() => onStart('NEXT')}>
         {t('weeklyPlanDrawer.planNextWeek')}<span className={styles.entryDates}>{formatRange(entry.nextWeek.weekStart, entry.nextWeek.weekEnd)}</span>
       </button>
     </div>

@@ -5,6 +5,7 @@ import dev.itayp.tasker.jpa.BacklogTaskEntity
 import dev.itayp.tasker.model.TaskStatus
 import dev.itayp.tasker.repository.BacklogTaskCategoryRepository
 import dev.itayp.tasker.repository.BacklogTaskRepository
+import org.springframework.context.MessageSource
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
@@ -25,6 +26,8 @@ class TutorialSeeder(
     private val taskRepository: BacklogTaskRepository,
     private val boardCrypto: BoardCryptoService,
     private val boardMembershipService: BoardMembershipService,
+    private val messageSource: MessageSource,
+    private val localeNegotiationService: LocaleNegotiationService,
     private val clock: Clock,
 ) {
 
@@ -35,40 +38,27 @@ class TutorialSeeder(
      */
     private data class TutorialCard(val title: String, val url: String?, val description: String?)
 
+    /**
+     * [localeHint] is the raw `Accept-Language` of the request that created the account — the only
+     * language signal available before any preference is stored. Resolved the same way the pre-auth
+     * magic-link email resolves its own (see [LocaleNegotiationService]), falling back to English.
+     * Cards are seeded once and never re-rendered, so a later language change won't retranslate them.
+     */
     @Transactional
-    fun seed(userId: UUID) {
+    fun seed(userId: UUID, localeHint: String? = null) {
         val boardId = boardMembershipService.resolveDefaultBoard(userId)
         val categories = categoryRepository.findAllByBoardId(boardId)
         if (categories.isEmpty()) return
         val now = clock.instant()
+        val locale = localeNegotiationService.resolveLocale(localeHint)
 
-        val cards = listOf(
+        val cards = CARD_KEYS.map { (key, url) ->
             TutorialCard(
-                "Welcome to Backlog.fyi — mark this task done to get started",
-                null,
-                "Tap a task to open it, then mark it done to check it off.",
-            ),
-            TutorialCard(
-                "Add your own task",
-                null,
-                "Use the + button up top to pin your first note to the board.",
-            ),
-            TutorialCard(
-                "Save your tasks — add an email or Telegram",
-                "/settings/general",
-                "Open settings to connect a login so your tasks stick around.",
-            ),
-            TutorialCard(
-                "Set your assistant preferences",
-                "/settings/assistant",
-                "Open settings to tell the assistant a bit about you.",
-            ),
-            TutorialCard(
-                "Clear these tutorial tasks when you're ready",
-                "app:clear-tutorial",
-                "Done exploring? This clears the whole tutorial in one tap.",
-            ),
-        )
+                title = messageSource.getMessage("tutorial.$key.title", null, locale),
+                url = url,
+                description = messageSource.getMessage("tutorial.$key.description", null, locale),
+            )
+        }
 
         val sortKeys = SortKeyGenerator.spreadKeys(cards.size)
         val tasks = cards.zip(sortKeys).mapIndexed { index, (card, key) ->
@@ -87,5 +77,19 @@ class TutorialSeeder(
             }
         }
         taskRepository.saveAll(tasks)
+    }
+
+    companion object {
+        /** Card message-key stems, in board order, each with the in-app deep link it carries. */
+        private val CARD_KEYS = listOf(
+            "welcome" to null,
+            "save_tasks" to "/settings/general",
+            "assistant" to "/settings/assistant",
+            // "Add your own task" sits late on purpose: the planner ignores tutorial cards, so the
+            // planning card below only pays off once the user has real tasks to plan.
+            "add_task" to null,
+            "plan_session" to "app:open-planner",
+            "clear" to "app:clear-tutorial",
+        )
     }
 }

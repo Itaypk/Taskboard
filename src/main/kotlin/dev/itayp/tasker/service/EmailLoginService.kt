@@ -46,9 +46,10 @@ class EmailLoginService(
     private val log = LoggerFactory.getLogger(EmailLoginService::class.java)
 
     /**
-     * Sends a login link for [email], unless the address has hit its recent-send rate limit
-     * or its domain is blocklisted. Returns nothing and never reveals whether the address maps
-     * to an account (no enumeration) — both failure modes are silent, same as a normal send.
+     * Sends a login link for [email]. A blocklisted domain throws [BlockedEmailDomainException]
+     * (a 400 the form can show); hitting the recent-send rate limit returns silently. The silent
+     * case is what preserves the no-enumeration guarantee — nothing here ever reveals whether the
+     * address maps to an account.
      *
      * [next] is an optional same-origin path to navigate to after login (e.g. a board invitation
      * accept page). It is validated and threaded through the confirm-page URL so the SPA can
@@ -57,10 +58,11 @@ class EmailLoginService(
     @Transactional
     fun requestLogin(email: String, next: String? = null, acceptLanguage: String? = null) {
         val normalised = email.trim().lowercase()
-        if (emailDomainBlocklistService.isBlocked(normalised)) {
-            log.info("Email login blocked for disallowed domain")
-            return
-        }
+        // Rejected loudly, unlike the rate limit below. Whether a domain is disposable is not
+        // account-specific, so saying so leaks nothing about whether an account exists — and with
+        // ~75k bundled domains, a silent no-op would make a false positive look like mail that
+        // never arrived. The per-address rate limit stays silent; that one *is* account-adjacent.
+        emailDomainBlocklistService.requireAllowed(normalised)
         val emailHash = EmailHasher.hash(normalised)
         val now = clock.instant()
 

@@ -15,6 +15,7 @@ import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.context.support.StaticMessageSource
 import tools.jackson.databind.ObjectMapper
+import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
@@ -45,6 +46,8 @@ class WeeklyPlanningRevisionSeedTest {
         objectMapper = ObjectMapper(),
         messageSource = StaticMessageSource(),
         userSettingsService = mock<UserSettingsService>(),
+        plannerTaskSelector = mock<PlannerTaskSelector>(),
+        clock = Clock.systemUTC(),
         model = "test-model",
     )
 

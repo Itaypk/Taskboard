@@ -119,6 +119,11 @@ class PlanningSessionScheduler(
 
             val sessionId = orchestrator.start(userId, channel, targetWeek)
             resolved.onSessionStarted(sessionId)
+        } catch (e: NoPlannableTasksException) {
+            // Not a failure: this user's backlog holds nothing the planner could schedule. Before
+            // the guard existed the cron opened a session anyway and messaged them about an empty
+            // slate, burning an AI call. Skip quietly and try again next week.
+            log.info("Scheduled run for user {}: nothing plannable, skipping", userId)
         } catch (e: Exception) {
             log.error("Failed to run scheduled planning session for user {}", userId, e)
         }

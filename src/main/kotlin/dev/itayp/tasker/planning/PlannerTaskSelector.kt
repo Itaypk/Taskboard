@@ -2,6 +2,7 @@ package dev.itayp.tasker.planning
 
 import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.crypto.BoardCryptoService
+import dev.itayp.tasker.jpa.BacklogTaskEntity
 import dev.itayp.tasker.jpa.toDomain
 import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.TaskPriority
@@ -57,10 +58,12 @@ class PlannerTaskSelector(
             .filter { it.id in allowedBoardIds }
         val boardNames = boards.associate { it.id to it.name }
         val boardIds = boards.map { it.id }
+        // Filter before decrypting: every field isPlannerVisible reads is a plain column, so this
+        // skips the envelope decryption for rows we are about to discard anyway.
         val tasks = if (boardIds.isEmpty()) emptyList() else backlogTaskRepository
             .findAllByBoardIdInAndStatusOrderBySortKeyAsc(boardIds, TaskStatus.TODO)
-            .map { it.toDomain(boardCrypto) }
             .filter { isPlannerVisible(it, userId, today) }
+            .map { it.toDomain(boardCrypto) }
 
         val totalSlots = urgentSlots + staleSlots
         val (urgent, stale) = if (tasks.size <= totalSlots) {
@@ -111,17 +114,41 @@ class PlannerTaskSelector(
         val allowedBoardIds = aiAccessService.aiAllowedBoardIds(userId)
         if (allowedBoardIds.isEmpty()) return emptySet()
         return backlogTaskRepository.findAllByBoardIdInAndIdIn(allowedBoardIds, taskIds)
-            .map { it.toDomain(boardCrypto) }
             .filter { it.status == TaskStatus.TODO && isPlannerVisible(it, userId, today) }
-            .mapTo(mutableSetOf()) { it.id }
+            .mapNotNullTo(mutableSetOf()) { it.id }
     }
 
     /**
-     * Per-task planner visibility, shared by the candidate slate and [visibleTaskIds] so the two can't
-     * drift. Board-level AI access and task status are the caller's business.
+     * How many tasks the planner would have to work with right now — the size of the pool [select]
+     * draws from, before it is narrowed to the urgent/stale slates.
+     *
+     * Exists so the caller can refuse to open a session (and the SPA can grey out the button) when
+     * a backlog holds nothing plannable: tutorial cards, future-dated tasks and assistant-hidden
+     * tasks all count for nothing here. Deliberately reads entities only, so a "can I plan?" check
+     * costs no decryption.
      */
-    private fun isPlannerVisible(task: BacklogTask, userId: UUID, today: LocalDate): Boolean =
-        (task.relevantFrom == null || !task.relevantFrom.isAfter(today)) &&
+    @Transactional(readOnly = true)
+    fun countCandidates(userId: UUID, today: LocalDate): Int {
+        val allowedBoardIds = aiAccessService.aiAllowedBoardIds(userId)
+        val boardIds = boardService.listBoardsForUser(userId)
+            .map { it.id }
+            .filter { it in allowedBoardIds }
+        if (boardIds.isEmpty()) return 0
+        return backlogTaskRepository
+            .findAllByBoardIdInAndStatusOrderBySortKeyAsc(boardIds, TaskStatus.TODO)
+            .count { isPlannerVisible(it, userId, today) }
+    }
+
+    /**
+     * Per-task planner visibility, shared by the candidate slate, [visibleTaskIds] and
+     * [countCandidates] so the three can't drift. Board-level AI access and task status are the
+     * caller's business.
+     *
+     * Takes the entity rather than the domain model on purpose: none of these fields is encrypted,
+     * so callers can apply it before paying for decryption.
+     */
+    private fun isPlannerVisible(task: BacklogTaskEntity, userId: UUID, today: LocalDate): Boolean =
+        (task.relevantFrom == null || !task.relevantFrom!!.isAfter(today)) &&
             (task.assigneeUserId == null || task.assigneeUserId == userId) &&
             !task.tutorial &&
             !task.hiddenFromAssistant

@@ -44,4 +44,15 @@ describe('AppFooter', () => {
       expect(screen.getByRole('menuitem', { name })).toHaveAttribute('href', href);
     }
   });
+
+  it('offers the language switcher only to anonymous visitors', () => {
+    stubViewport(false);
+    const { unmount } = render(<MemoryRouter><AppFooter showLanguage /></MemoryRouter>);
+    expect(screen.getByRole('combobox', { name: 'Language' })).toBeInTheDocument();
+    unmount();
+
+    // Signed in, language lives in Settings instead — where it is stored on the account.
+    render(<MemoryRouter><AppFooter /></MemoryRouter>);
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+  });
 });
