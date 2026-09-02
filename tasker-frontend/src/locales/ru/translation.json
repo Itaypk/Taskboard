@@ -805,7 +805,8 @@
       "inWeeks_few": "Через {{count}} недели",
       "inWeeks_many": "Через {{count}} недель",
       "inWeeks_other": "Через {{count}} недели"
-    }
+    },
+    "nothingToPlanHint": "Планировать пока нечего — сначала добавьте задачу на доску."
   },
   "footer": {
     "about": "О проекте",

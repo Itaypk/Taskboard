@@ -789,7 +789,8 @@
       "inWeeks_other": "בעוד {{count}} שבועות",
       "weeksAgo_two": "לפני שבועיים",
       "inWeeks_two": "בעוד שבועיים"
-    }
+    },
+    "nothingToPlanHint": "אין עדיין מה לתכנן — כדאי להוסיף משימה ללוח."
   },
   "footer": {
     "about": "אודות",

@@ -773,7 +773,8 @@
       "weeksAgo_other": "{{count}} weeks ago",
       "inWeeks_one": "In {{count}} week",
       "inWeeks_other": "In {{count}} weeks"
-    }
+    },
+    "nothingToPlanHint": "Nothing to plan yet — add a task to your board first."
   },
   "footer": {
     "about": "About",

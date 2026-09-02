@@ -22,6 +22,7 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.MessageSource
 import org.springframework.stereotype.Service
 import tools.jackson.databind.ObjectMapper
+import java.time.Clock
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -58,13 +59,29 @@ class WeeklyPlanningOrchestrator(
     private val objectMapper: ObjectMapper,
     private val messageSource: MessageSource,
     private val userSettingsService: UserSettingsService,
+    private val plannerTaskSelector: PlannerTaskSelector,
+    private val clock: Clock,
     @Value("\${tasker.ai.weekly-planning-model}")
     private val model: String,
 ) {
     private val log = LoggerFactory.getLogger(WeeklyPlanningOrchestrator::class.java)
     private val state = ConcurrentHashMap<UUID, OrchestratorState>()
 
+    /**
+     * Opens a planning session for [weekStart] and asks the capacity question.
+     *
+     * Refuses with [NoPlannableTasksException] when the backlog holds nothing the planner could
+     * work with. Guarding here rather than at the controller covers all three entry points — the
+     * web drawer, the Telegram weekly cron and dev planning — so none of them can burn an AI call
+     * planning an empty slate. The SPA greys its start buttons off the same count
+     * (`plannableTaskCount` on `GET /api/v1/planning/entry`); this is the backstop for a stale
+     * client, and for the cron, which has no client at all.
+     */
     fun start(userId: UUID, channel: ConversationChannel, weekStart: LocalDate): UUID {
+        val today = LocalDate.ofInstant(clock.instant(), resolveZone(userId))
+        if (plannerTaskSelector.countCandidates(userId, today) == 0) {
+            throw NoPlannableTasksException()
+        }
         val session = planningSessionService.startSession(userId, weekStart)
         val sessionId = session.id
         if (state[sessionId] != null) return sessionId

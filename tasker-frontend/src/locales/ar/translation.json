@@ -837,7 +837,8 @@
       "inWeeks_few": "خلال {{count}} أسابيع",
       "inWeeks_many": "خلال {{count}} أسبوعًا",
       "inWeeks_other": "خلال {{count}} أسبوع"
-    }
+    },
+    "nothingToPlanHint": "لا شيء للتخطيط بعد — يمكن إضافة مهمة إلى اللوحة أولاً."
   },
   "footer": {
     "about": "عن المشروع",

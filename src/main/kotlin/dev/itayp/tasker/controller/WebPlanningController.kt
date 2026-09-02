@@ -4,6 +4,7 @@ import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.channel.BufferedConversationChannel
 import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.MarkdownMessageFormatter
+import dev.itayp.tasker.planning.PlannerTaskSelector
 import dev.itayp.tasker.planning.PlanningSessionService
 import dev.itayp.tasker.planning.PlanningSessionStatus
 import dev.itayp.tasker.planning.PlanningTranscriptService
@@ -47,6 +48,7 @@ class WebPlanningController(
     private val transcriptService: PlanningTranscriptService,
     private val userSettingsService: UserSettingsService,
     private val aiAccessService: AiAccessService,
+    private val plannerTaskSelector: PlannerTaskSelector,
     private val clock: Clock,
 ) {
     private fun newChannel() = BufferedConversationChannel(formatter = MarkdownMessageFormatter)
@@ -110,6 +112,7 @@ class WebPlanningController(
             thisWeek = weekOption(userId, WeekOffset.CURRENT),
             nextWeek = weekOption(userId, WeekOffset.NEXT),
             aiAvailable = aiAccessService.isAiAvailableForUser(userId),
+            plannableTaskCount = plannerTaskSelector.countCandidates(userId, todayFor(userId)),
         )
     }
 
@@ -184,9 +187,14 @@ class WebPlanningController(
 
     private fun resolveWeekStart(userId: UUID, offset: WeekOffset): LocalDate {
         val settings = userSettingsService.getOrCreate(userId)
+        return WeekResolver.resolveWeekStart(todayFor(userId), WeekResolver.parseWeekStartDay(settings.weekStartDay), offset)
+    }
+
+    /** Today in the user's own timezone — the `relevantFrom` filter works on local days. */
+    private fun todayFor(userId: UUID): LocalDate {
+        val settings = userSettingsService.getOrCreate(userId)
         val zone = runCatching { ZoneId.of(settings.timeZone) }.getOrDefault(ZoneId.of("UTC"))
-        val today = LocalDate.now(clock.withZone(zone))
-        return WeekResolver.resolveWeekStart(today, WeekResolver.parseWeekStartDay(settings.weekStartDay), offset)
+        return LocalDate.now(clock.withZone(zone))
     }
 
     private fun weekOption(userId: UUID, offset: WeekOffset): WeekOption {
@@ -216,4 +224,10 @@ data class PlanningEntryResponse(
      * Resume / Revise buttons in that state.
      */
     val aiAvailable: Boolean,
+    /**
+     * How many backlog tasks the planner could actually work with. Zero means starting a session
+     * would plan nothing, so the SPA greys out the two start buttons and explains why;
+     * `WeeklyPlanningOrchestrator.start` refuses the call outright as the backstop.
+     */
+    val plannableTaskCount: Int,
 )

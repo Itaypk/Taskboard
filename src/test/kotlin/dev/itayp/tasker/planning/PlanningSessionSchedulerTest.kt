@@ -146,6 +146,23 @@ class PlanningSessionSchedulerTest {
     }
 
     @Test
+    fun `runPlanningSession skips quietly when the user has nothing plannable`() {
+        // The orchestrator's guard reaches the cron too. Before it existed the weekly run opened a
+        // session and messaged users with an empty backlog, burning an AI call. This must not
+        // surface as an ERROR either — the log-rate alert would fire on ordinary quiet accounts.
+        val started = mutableListOf<UUID>()
+        whenever(channelResolver.resolve(userId)).thenReturn(resolved(started))
+        stubUserSettings()
+        val targetWeek = LocalDate.parse("2026-05-18")
+        whenever(planningSessionService.findSessionForWeek(userId, targetWeek)).thenReturn(null)
+        whenever(orchestrator.start(eq(userId), any(), eq(targetWeek))).thenThrow(NoPlannableTasksException())
+
+        scheduler.runPlanningSession(userId)
+
+        assertTrue(started.isEmpty(), "no session should be recorded against the channel")
+    }
+
+    @Test
     fun `runPlanningSession sends existing summary when completed session exists for target week`() {
         val resolvedChannel = resolved()
         whenever(channelResolver.resolve(userId)).thenReturn(resolvedChannel)

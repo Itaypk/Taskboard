@@ -1,5 +1,6 @@
 package dev.itayp.tasker.controller
 
+import dev.itayp.tasker.planning.NoPlannableTasksException
 import dev.itayp.tasker.service.BlockedEmailDomainException
 import dev.itayp.tasker.service.UnclaimedAccountCapExceededException
 import org.slf4j.LoggerFactory
@@ -52,6 +53,17 @@ class ApiExceptionHandler {
     fun handleUnclaimedAccountCapExceeded(ex: UnclaimedAccountCapExceededException): ProblemDetail =
         ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, ex.message!!).apply {
             title = "Sign-ups temporarily unavailable"
+        }
+
+    /**
+     * Same reasoning as [handleBlockedEmailDomain]. The SPA greys out its start buttons off
+     * `plannableTaskCount`, so a user should rarely see this; it catches a stale client.
+     */
+    @ExceptionHandler(NoPlannableTasksException::class)
+    fun handleNoPlannableTasks(ex: NoPlannableTasksException): ProblemDetail =
+        ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.message!!).apply {
+            title = "Nothing to plan"
+            setProperty("code", "NO_PLANNABLE_TASKS")
         }
 
     /**
