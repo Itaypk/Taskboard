@@ -1,6 +1,7 @@
 package dev.itayp.tasker.controller
 
 import dev.itayp.tasker.service.BlockedEmailDomainException
+import dev.itayp.tasker.service.UnclaimedAccountCapExceededException
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ProblemDetail
@@ -41,6 +42,13 @@ class ApiExceptionHandler {
     fun handleBlockedEmailDomain(ex: BlockedEmailDomainException): ProblemDetail =
         ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.message ?: "This email domain isn't allowed").apply {
             title = "Email domain not allowed"
+        }
+
+    /** Same reasoning as [handleBlockedEmailDomain]: set `detail` explicitly so it reaches the client. */
+    @ExceptionHandler(UnclaimedAccountCapExceededException::class)
+    fun handleUnclaimedAccountCapExceeded(ex: UnclaimedAccountCapExceededException): ProblemDetail =
+        ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, ex.message!!).apply {
+            title = "Sign-ups temporarily unavailable"
         }
 
     /**

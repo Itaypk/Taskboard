@@ -117,4 +117,4 @@ Continued use of the service means you accept the updated policy.
 
 ## 13. Contact
 
-For any questions, data requests, or deletion requests, contact the project owner, Itay Polack-Gadassi, at [{{SUPPORT_EMAIL}}](mailto:{{SUPPORT_EMAIL}}).
+For any questions, data requests, or deletion requests, contact the project owner, Itay Polack-Gadassi, at [{{SUPPORT_EMAIL}}](mailto:{{SUPPORT_EMAIL}}). To report abuse, contact [{{ABUSE_EMAIL}}](mailto:{{ABUSE_EMAIL}}).

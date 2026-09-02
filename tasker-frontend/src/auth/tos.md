@@ -82,6 +82,8 @@ Flagged content may be reviewed by a human if necessary.
 
 Accounts may be limited, rate-limited, or removed if abuse or excessive usage is detected.
 
+To report abuse, contact [{{ABUSE_EMAIL}}](mailto:{{ABUSE_EMAIL}}).
+
 ## 8. Availability and Reliability
 
 This is a hobby project.

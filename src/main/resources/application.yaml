@@ -45,6 +45,9 @@ management:
 tasker:
   app:
     base-url: ${TASKER_APP_BASE_URL:https://backlog.fyi}
+    # Hard cap on simultaneously unclaimed accounts — a surge safety valve, separate from the
+    # inactivity-based cleanup sweep. Deliberately generous.
+    unclaimed-account-cap: ${TASKER_UNCLAIMED_ACCOUNT_CAP:1000}
   ai:
     api-key: ${TASKER_AI_API_KEY:}
     base-url: ${TASKER_AI_BASE_URL:https://openrouter.ai/api/v1}
