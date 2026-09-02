@@ -42,7 +42,7 @@ jobs:
       frontend: ${{ steps.filter.outputs.frontend }}
     steps:
       - uses: actions/checkout@v7
-      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706  # v4.0.2
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d  # v4.0.3
         id: filter
         with:
           filters: |
@@ -108,7 +108,7 @@ jobs:
     steps:
     - uses: actions/checkout@v7
     - name: Set up JDK 25
-      uses: actions/setup-java@v4
+      uses: actions/setup-java@v6
       with:
         java-version: '25'
         distribution: 'temurin'
@@ -126,7 +126,7 @@ jobs:
     # Configure Gradle for optimal use in GitHub Actions, including caching of downloaded dependencies.
     # See: https://github.com/gradle/actions/blob/main/setup-gradle/README.md
     - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+      uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
     - name: Build with Gradle Wrapper
       run: ./gradlew release
@@ -148,7 +148,7 @@ jobs:
     # Only needed to ship the release; skipped entirely on PR builds.
     - name: Upload JAR for deploy
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: jar
         path: build/libs/Taskboard-*-SNAPSHOT.jar
@@ -183,7 +183,7 @@ jobs:
     steps:
     - uses: actions/checkout@v7
     - name: Set up JDK 25
-      uses: actions/setup-java@v4
+      uses: actions/setup-java@v6
       with:
         java-version: '25'
         distribution: 'temurin'
@@ -197,6 +197,6 @@ jobs:
     # steady drain on the account's artifact storage — and its rejection was the sole reason this
     # job reported failure. Restore the default if the graph artifact is ever needed to debug.
     - name: Generate and submit dependency graph
-      uses: gradle/actions/dependency-submission@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+      uses: gradle/actions/dependency-submission@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
       with:
         dependency-graph: generate-and-submit
