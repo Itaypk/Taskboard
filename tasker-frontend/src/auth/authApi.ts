@@ -28,8 +28,11 @@ export const TELEGRAM_LINK_URL = '/api/auth/telegram/link/start';
 export const devLogin = (): Promise<AuthUser> =>
     request<AuthUser>('/api/auth/dev-login', { method: 'POST' });
 
+// emitErrors: false — this is the landing page's primary call-to-action, and LoginPage renders
+// its own message per status (rate limited vs. at capacity). Without this the generic toast would
+// fire alongside it.
 export const demoLogin = (): Promise<AuthUser> =>
-    request<AuthUser>('/api/auth/demo-login', { method: 'POST' });
+    request<AuthUser>('/api/auth/demo-login', { method: 'POST' }, { emitErrors: false });
 
 // Passwordless email login: sends a magic link. Always resolves (the backend never
 // reveals whether the address maps to an account). The link itself logs the user in.

@@ -55,6 +55,12 @@ class WebConfiguration(
     )
 
     @Bean
+    fun emailLoginRateLimiter(): RateLimiter = InMemoryRateLimiter(
+        limit = rateLimitProperties.emailLogin.limit,
+        windowMillis = rateLimitProperties.emailLogin.windowSeconds * 1_000,
+    )
+
+    @Bean
     fun emailVerificationRateLimiter(): RateLimiter = InMemoryRateLimiter(
         limit = rateLimitProperties.emailVerification.limit,
         windowMillis = rateLimitProperties.emailVerification.windowSeconds * 1_000,
@@ -107,7 +113,11 @@ class WebConfiguration(
         registry.addInterceptor(MdcUserInterceptor())
         registry.addInterceptor(
             RateLimitInterceptor(
-                apiRateLimiter(), demoLoginRateLimiter(), telegramLoginRateLimiter(), externalApiRateLimiter(),
+                apiRateLimiter(),
+                demoLoginRateLimiter(),
+                telegramLoginRateLimiter(),
+                emailLoginRateLimiter(),
+                externalApiRateLimiter(),
             ),
         )
         activityTrackerProvider.ifAvailable { tracker ->

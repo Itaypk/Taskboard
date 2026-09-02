@@ -95,9 +95,25 @@ tasker:
     api:
       limit: 300
       window-seconds: 60
+    # Keyed per client IP, and ClientIp resolves to the NAT's address — so this is really
+    # "per office/carrier gateway", not per person. The sandbox is the landing page's primary
+    # call-to-action, so a launch-day crowd behind one CGNAT must not hit the wall.
     demo-login:
+      limit: 20
+      window-seconds: 3600
+    # Magic-link sends per client IP. Complements the per-address cap in EmailLoginService: that
+    # one stops repeat mail to one victim, this one stops mail to many.
+    email-login:
+      limit: 10
+      window-seconds: 3600
+    # Verification sends per user. Pinned here rather than left on the code default so the whole
+    # rate-limit surface is visible in one place.
+    email-verification:
       limit: 5
       window-seconds: 3600
+    telegram-login:
+      limit: 30
+      window-seconds: 60
     feedback:
       limit: 10
       window-seconds: 3600

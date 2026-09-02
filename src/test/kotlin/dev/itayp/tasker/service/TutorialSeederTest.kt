@@ -14,6 +14,7 @@ import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import org.springframework.context.support.ResourceBundleMessageSource
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
@@ -32,8 +33,23 @@ class TutorialSeederTest {
     private val boardCrypto = noopBoardCryptoService()
     private val clock: Clock = Clock.fixed(Instant.parse("2026-06-14T10:00:00Z"), ZoneOffset.UTC)
 
+    // The real bundles, not a stub: a card missing from he/ru/ar should fail here rather than
+    // silently seeding an English board for a Hebrew visitor.
+    private val messageSource = ResourceBundleMessageSource().apply {
+        setBasename("messages")
+        setDefaultEncoding("UTF-8")
+    }
+
     private val seeder: TutorialSeeder by lazy {
-        TutorialSeeder(categoryRepository, taskRepository, boardCrypto, boardMembershipService, clock)
+        TutorialSeeder(
+            categoryRepository,
+            taskRepository,
+            boardCrypto,
+            boardMembershipService,
+            messageSource,
+            LocaleNegotiationService(),
+            clock,
+        )
     }
 
     private val userId: UUID = UUID.fromString("00000000-0000-0000-0000-000000000001")
@@ -47,11 +63,14 @@ class TutorialSeederTest {
             swatchId = color
         }
 
-    private fun seedAndCapture(categories: List<BacklogTaskCategoryEntity>): List<BacklogTaskEntity> {
+    private fun seedAndCapture(
+        categories: List<BacklogTaskCategoryEntity>,
+        localeHint: String? = null,
+    ): List<BacklogTaskEntity> {
         whenever(boardMembershipService.resolveDefaultBoard(userId)).thenReturn(boardId)
         whenever(categoryRepository.findAllByBoardId(boardId)).thenReturn(categories)
 
-        seeder.seed(userId)
+        seeder.seed(userId, localeHint)
 
         val captor = argumentCaptor<List<BacklogTaskEntity>>()
         verify(taskRepository).saveAll(captor.capture())
@@ -75,7 +94,7 @@ class TutorialSeederTest {
         val byTitleUrl = tasks.associate { it.title() to it.url }
         assertEquals("/settings/general", byTitleUrl["Save your tasks — add an email or Telegram"])
         assertEquals("/settings/assistant", byTitleUrl["Set your assistant preferences"])
-        assertEquals("app:clear-tutorial", byTitleUrl["Clear these tutorial tasks when you're ready"])
+        assertEquals("app:clear-tutorial", byTitleUrl["Clear these tutorial tasks when you\u2019re ready"])
 
         // The two intro cards carry no link.
         assertEquals(2, tasks.count { it.url == null })
@@ -86,6 +105,28 @@ class TutorialSeederTest {
         // Rainbow: with >=5 categories available, no two cards share one.
         val usedCategories = tasks.mapNotNull { it.category?.id }
         assertEquals(usedCategories.size, usedCategories.toSet().size)
+    }
+
+    @Test
+    fun `seeds cards in the language the visitor asked for`() {
+        val categories = CategoryColor.entries.take(6).map(::category)
+
+        val tasks = seedAndCapture(categories, localeHint = "he-IL,he;q=0.9,en;q=0.8")
+
+        // Not asserting exact translations (they can be reworded); asserting the cards actually
+        // came out of the Hebrew bundle rather than falling through to English.
+        val titles = tasks.map { it.title() }
+        assertTrue(titles.none { it == "Add your own task" }, "expected Hebrew cards, got: $titles")
+        assertTrue(titles.any { it.any { ch -> ch in '\u0590'..'\u05FF' } }, "expected Hebrew script in: $titles")
+    }
+
+    @Test
+    fun `falls back to English for an unsupported language`() {
+        val categories = CategoryColor.entries.take(6).map(::category)
+
+        val tasks = seedAndCapture(categories, localeHint = "de-DE,de;q=0.9")
+
+        assertTrue(tasks.map { it.title() }.contains("Add your own task"))
     }
 
     @Test

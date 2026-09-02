@@ -7,6 +7,13 @@ data class RateLimitProperties(
     val api: Policy = Policy(limit = 300, windowSeconds = 60),
     val demoLogin: Policy = Policy(limit = 5, windowSeconds = 3600),
     val telegramLogin: Policy = Policy(limit = 30, windowSeconds = 60),
+    /**
+     * Magic-link *sends* per client IP. [dev.itayp.tasker.service.EmailLoginService] already caps
+     * sends per address, but that alone lets one host mail unlimited *distinct* strangers from the
+     * auth sender — the mailbox that login itself depends on. This bounds the sender's blast radius;
+     * the two limits are complementary, so keep both.
+     */
+    val emailLogin: Policy = Policy(limit = 10, windowSeconds = 3600),
     val emailVerification: Policy = Policy(limit = 5, windowSeconds = 3600),
     val feedback: Policy = Policy(limit = 10, windowSeconds = 3600),
     /**

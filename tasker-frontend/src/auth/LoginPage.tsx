@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+import { ApiError } from '../api';
 import { useAuth } from './AuthContext';
 import { demoLogin, devLogin, requestEmailLogin, telegramLoginUrl } from './authApi';
 import pineappleUrl from '../assets/pineapple.webp';
@@ -13,6 +14,15 @@ function readTelegramNoticeKey(): string | null {
     const code = new URLSearchParams(window.location.search).get('telegramLogin');
     if (!code) return null;
     return code === 'unavailable' ? 'login.notices.telegramUnavailable' : 'login.notices.telegramFailed';
+}
+
+// The sandbox is the primary call-to-action, so its two expected failures deserve to say what
+// actually happened: 429 is the per-IP throttle (everyone behind one office/carrier gateway shares
+// it), 503 is the unclaimed-account cap. Anything else stays generic.
+function demoErrorKey(e: unknown): string {
+    if (e instanceof ApiError && e.status === 429) return 'login.errors.demoRateLimited';
+    if (e instanceof ApiError && e.status === 503) return 'login.errors.demoAtCapacity';
+    return 'login.errors.demoFailed';
 }
 
 export function LoginPage({ next }: { next?: string } = {}) {
@@ -46,7 +56,7 @@ export function LoginPage({ next }: { next?: string } = {}) {
             setUser(user);
         } catch (e) {
             console.error('Start-now login failed', e);
-            setError(t('login.errors.demoFailed'));
+            setError(t(demoErrorKey(e)));
         } finally {
             setBusy(false);
         }
@@ -98,22 +108,24 @@ export function LoginPage({ next }: { next?: string } = {}) {
                             {t('login.hero.sub')}
                         </p>
 
+                        {/* The sandbox leads: nobody signs in to a product they haven't seen, and an
+                            unclaimed account becomes a full one just by linking email or Telegram. */}
                         <div className={styles.ctaRow}>
                             <button
                                 type="button"
                                 className={styles.getStarted}
-                                onClick={() => setModalOpen(true)}
-                                disabled={busy}
-                            >
-                                {t('login.hero.getStarted')}
-                            </button>
-                            <button
-                                type="button"
-                                className={styles.sandboxLink}
                                 onClick={handleDemoLogin}
                                 disabled={busy}
                             >
                                 {t('login.hero.startNow')} <Arrow direction="forward" />
+                            </button>
+                            <button
+                                type="button"
+                                className={styles.sandboxLink}
+                                onClick={() => setModalOpen(true)}
+                                disabled={busy}
+                            >
+                                {t('login.hero.signIn')}
                             </button>
                         </div>
                     </div>
