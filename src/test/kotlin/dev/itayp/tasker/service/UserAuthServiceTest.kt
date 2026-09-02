@@ -230,7 +230,9 @@ class UserAuthServiceTest {
         assertThat(result.claimed).isFalse()
         assertThat(result.lastActiveAt).isEqualTo(fixedNow)
         verify(userService).initializeNewUser(eq(result.id!!), anyOrNull(), eq(false))
-        verify(tutorialSeeder).seed(eq(result.id!!))
+        // Two matchers, not one: `seed`'s localeHint has a default, so this call site compiles
+        // into seed(id, null) and Mockito requires a matcher per argument.
+        verify(tutorialSeeder).seed(eq(result.id!!), anyOrNull())
         verify(authIdentityRepository, never()).save(any<AuthIdentityEntity>())
     }
 
@@ -245,6 +247,6 @@ class UserAuthServiceTest {
         assertThatThrownBy { cappedService.createUnclaimedUser() }
             .isInstanceOf(UnclaimedAccountCapExceededException::class.java)
         verify(userRepository, never()).save(any<UserEntity>())
-        verify(tutorialSeeder, never()).seed(any())
+        verify(tutorialSeeder, never()).seed(any(), anyOrNull())
     }
 }

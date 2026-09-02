@@ -813,5 +813,10 @@
     "privacy": "Приватность",
     "menuLabel": "Ещё ссылки",
     "language": "Язык"
+  },
+  "taskLink": {
+    "openSettings": "Открыть настройки",
+    "open": "Открыть",
+    "clearTutorial": "Удалить учебные задачи"
   }
 }

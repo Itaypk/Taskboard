@@ -12,8 +12,14 @@ class LocaleNegotiationServiceTest {
     fun `matches a browser header against the supported list`() {
         assertThat(service.resolveSupportedTag("he-IL,he;q=0.9,en;q=0.8")).isEqualTo("he")
         assertThat(service.resolveSupportedTag("ru")).isEqualTo("ru")
-        // Bare `en` resolves to US English, the historical default, not en-GB.
+        // Bare `en` matches no tag under RFC 4647 lookup (which truncates the range rather than
+        // extending it), so this only works via the basic-filtering fallback, which takes the first
+        // match in LOOKUP_TAGS order.
         assertThat(service.resolveSupportedTag("en")).isEqualTo("en-US")
+        // ...and the fallback must not collapse every English range to en-US: an explicit en-GB
+        // still resolves to itself.
+        assertThat(service.resolveSupportedTag("en-GB")).isEqualTo("en-GB")
+        assertThat(service.resolveSupportedTag("en-GB,en;q=0.9")).isEqualTo("en-GB")
     }
 
     @Test

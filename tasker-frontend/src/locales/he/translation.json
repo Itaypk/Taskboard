@@ -797,5 +797,10 @@
     "privacy": "פרטיות",
     "menuLabel": "קישורים נוספים",
     "language": "שפה"
+  },
+  "taskLink": {
+    "openSettings": "לפתוח הגדרות",
+    "open": "לפתוח",
+    "clearTutorial": "לנקות את משימות ההדרכה"
   }
 }

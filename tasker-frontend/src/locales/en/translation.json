@@ -781,5 +781,10 @@
     "privacy": "Privacy",
     "menuLabel": "More links",
     "language": "Language"
+  },
+  "taskLink": {
+    "openSettings": "Open settings",
+    "open": "Open",
+    "clearTutorial": "Clear tutorial tasks"
   }
 }

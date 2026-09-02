@@ -845,5 +845,10 @@
     "privacy": "الخصوصية",
     "menuLabel": "روابط إضافية",
     "language": "اللغة"
+  },
+  "taskLink": {
+    "openSettings": "فتح الإعدادات",
+    "open": "فتح",
+    "clearTutorial": "مسح مهام الشرح"
   }
 }
