@@ -68,8 +68,8 @@
   border: 1px solid var(--paper-border);
   border-radius: calc(var(--r) + 2px);
   box-shadow:
-    0 4px 12px rgba(0, 0, 0, 0.12),
-    0 1px 3px rgba(0, 0, 0, 0.08);
+  0 4px 12px rgba(0, 0, 0, 0.12),
+  0 1px 3px rgba(0, 0, 0, 0.08);
   min-width: 160px;
   z-index: 9999;
 }
@@ -91,4 +91,11 @@
 
 @media (max-width: 600px) {
   .footer { padding-inline: 14px; }
+}
+
+/* The switcher is a native <select>, not a link, so the menu's row padding is applied here
+   rather than inherited from .menuItem. */
+.menuLanguage {
+  padding-block: 4px;
+  padding-inline: 8px;
 }

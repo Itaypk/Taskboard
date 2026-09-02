@@ -89,6 +89,9 @@ function PlanIcon() {
 }
 
 export default function App() {
+  // Only anonymous visitors get the footer language switcher — see AppFooter.
+  const { state } = useAuth();
+
   return (
     <>
       <Routes>
@@ -104,7 +107,7 @@ export default function App() {
         <Route path="/settings/:tab" element={<AuthShell />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
-      <AppFooter />
+      <AppFooter showLanguage={state.status !== 'authenticated'} />
     </>
   );
 }

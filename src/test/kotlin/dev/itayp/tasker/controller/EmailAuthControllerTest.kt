@@ -5,6 +5,7 @@ import dev.itayp.tasker.jpa.UserEntity
 import dev.itayp.tasker.security.SessionAuthenticator
 import dev.itayp.tasker.service.EmailLoginResult
 import dev.itayp.tasker.service.EmailLoginService
+import dev.itayp.tasker.service.LocaleNegotiationService
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
@@ -25,7 +26,9 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import java.util.UUID
 
 @WebMvcTest(EmailAuthController::class)
-@Import(SecurityConfiguration::class)
+// LocaleNegotiationService is imported for real, not mocked: it is a stateless lookup over a
+// fixed list, and a mock returning null would quietly hide the `lang`-beats-header precedence.
+@Import(SecurityConfiguration::class, LocaleNegotiationService::class)
 class EmailAuthControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @MockitoBean lateinit var emailLoginService: EmailLoginService
@@ -113,5 +116,47 @@ class EmailAuthControllerTest(@Autowired val mockMvc: MockMvc) {
             .andExpect(jsonPath("$.valid").value(false))
 
         verify(emailLoginService, never()).completeLogin(any(), anyOrNull())
+    }
+
+    // ── Language precedence ─────────────────────────────────────────────────
+
+    @Test
+    fun `an explicit lang beats the browser header when sending a link`() {
+        mockMvc.perform(
+            post("/api/auth/email?lang=he")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"email":"someone@example.com"}""")
+                .header("Accept-Language", "en-US,en;q=0.9")
+        )
+            .andExpect(status().isNoContent)
+
+        // The visitor read the site in Hebrew, so the magic-link email is Hebrew too.
+        verify(emailLoginService).requestLogin("someone@example.com", null, "he")
+    }
+
+    @Test
+    fun `the browser header still applies when no lang is given`() {
+        mockMvc.perform(
+            post("/api/auth/email")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"email":"someone@example.com"}""")
+                .header("Accept-Language", "he-IL,he;q=0.9")
+        )
+            .andExpect(status().isNoContent)
+
+        verify(emailLoginService).requestLogin("someone@example.com", null, "he")
+    }
+
+    @Test
+    fun `an unsupported lang falls through to the header rather than failing the request`() {
+        mockMvc.perform(
+            post("/api/auth/email?lang=../../etc/passwd")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"email":"someone@example.com"}""")
+                .header("Accept-Language", "ru")
+        )
+            .andExpect(status().isNoContent)
+
+        verify(emailLoginService).requestLogin("someone@example.com", null, "ru")
     }
 }

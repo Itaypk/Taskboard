@@ -13,6 +13,7 @@ import jakarta.servlet.http.HttpServletResponse
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
@@ -33,12 +34,16 @@ class DemoAuthController(
      */
     @PostMapping("/demo-login")
     fun demoLogin(
+        @RequestParam(required = false) lang: String?,
         request: HttpServletRequest,
         response: HttpServletResponse,
     ): ResponseEntity<MeResponse> {
         // The demo is the funnel: a Hebrew-speaking visitor should see the demo in Hebrew, so
         // seed the language from the browser just like any other registration (docs/I18N.md, D2).
-        val localeHint = localeNegotiationService.resolveSupportedTag(request.getHeader("Accept-Language"))
+        // `lang` is what the visitor picked in the anonymous language switcher, and outranks the
+        // header — otherwise picking Hebrew on an en-US browser yields a Hebrew page whose account
+        // is English, and the UI snaps back to English the moment /me resolves.
+        val localeHint = localeNegotiationService.resolveSupportedTag(lang, request.getHeader("Accept-Language"))
         val user = userAuthService.createUnclaimedUser(localeHint)
         sessionAuthenticator.authenticate(TaskerPrincipal(user.id!!), request, response)
         return ResponseEntity.ok(user.toMeResponse(userCrypto, userSettingsService.getPreferredLanguage(user.id!!)))

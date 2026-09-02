@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import LanguageSelector from './LanguageSelector';
 import styles from './AppFooter.module.css';
 
 const LINKS = [
@@ -27,8 +28,13 @@ const isCompact = () => window.matchMedia?.(COMPACT_QUERY).matches ?? false;
  * signed in or not. It shares its row with the board's "show archived" toggle, which is
  * centred over the same strip: the links sit at the inline edge on wide screens, and fold
  * into a menu on phones where a centred toggle would run into them.
+ *
+ * [showLanguage] adds the anonymous language switcher. It is a prop rather than an auth lookup so
+ * this stays presentational chrome: `App` knows who is signed in, and a signed-in user changes
+ * language in Settings, where the choice is stored on the account and also reaches email and
+ * Telegram (docs/I18N.md, D2).
  */
-export default function AppFooter() {
+export default function AppFooter({ showLanguage = false }: { showLanguage?: boolean } = {}) {
     const { t } = useTranslation();
     const compact = useSyncExternalStore(subscribeToCompact, isCompact, () => false);
     const [open, setOpen] = useState(false);
@@ -54,6 +60,7 @@ export default function AppFooter() {
                 {LINKS.map(({ to, key }) => (
                     <Link key={to} to={to} className={styles.link}>{t(`footer.${key}`)}</Link>
                 ))}
+                {showLanguage && <LanguageSelector />}
             </footer>
         );
     }
@@ -80,6 +87,11 @@ export default function AppFooter() {
                                 </Link>
                             </li>
                         ))}
+                        {showLanguage && (
+                            <li role="none" className={styles.menuLanguage}>
+                                <LanguageSelector />
+                            </li>
+                        )}
                     </ul>
                 )}
             </div>

@@ -6,6 +6,7 @@ import dev.itayp.tasker.security.SessionAuthenticator
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.EmailLoginResult
 import dev.itayp.tasker.service.EmailLoginService
+import dev.itayp.tasker.service.LocaleNegotiationService
 import dev.itayp.tasker.util.localRedirect
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -31,14 +32,20 @@ import java.net.URI
 class EmailAuthController(
     private val emailLoginService: EmailLoginService,
     private val sessionAuthenticator: SessionAuthenticator,
+    private val localeNegotiationService: LocaleNegotiationService,
 ) {
 
     @PostMapping
     fun requestLogin(
         @Valid @RequestBody request: EmailLoginRequest,
+        @RequestParam(required = false) lang: String?,
         httpRequest: HttpServletRequest,
     ): ResponseEntity<Unit> {
-        emailLoginService.requestLogin(request.email, request.next, httpRequest.getHeader("Accept-Language"))
+        // A resolved tag ("he") is itself a valid Accept-Language value, so the service keeps its
+        // existing contract; when nothing explicit matches we hand over the original header.
+        val header = httpRequest.getHeader("Accept-Language")
+        val languageTag = localeNegotiationService.resolveSupportedTag(lang, header) ?: header
+        emailLoginService.requestLogin(request.email, request.next, languageTag)
         return ResponseEntity.noContent().build()
     }
 
@@ -56,10 +63,15 @@ class EmailAuthController(
     @PostMapping("/callback")
     fun callback(
         @Valid @RequestBody body: TokenRequest,
+        @RequestParam(required = false) lang: String?,
         request: HttpServletRequest,
         response: HttpServletResponse,
     ): ResponseEntity<Map<String, String>> {
-        val outcome = when (val result = emailLoginService.completeLogin(body.token, request.getHeader("Accept-Language"))) {
+        // Registration happens here for a first-time address, so the visitor's explicit choice has
+        // to reach it too — this page is anonymous and carries the same language switcher.
+        val header = request.getHeader("Accept-Language")
+        val languageTag = localeNegotiationService.resolveSupportedTag(lang, header) ?: header
+        val outcome = when (val result = emailLoginService.completeLogin(body.token, languageTag)) {
             is EmailLoginResult.Success -> {
                 sessionAuthenticator.authenticate(TaskerPrincipal(result.user.id!!), request, response)
                 "success"

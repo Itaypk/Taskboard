@@ -29,6 +29,19 @@ class LocaleNegotiationService {
     }
 
     /**
+     * Same, but lets a language the visitor picked *explicitly* (the anonymous footer switcher)
+     * beat what their browser advertises. Someone reading the site in Hebrew on an `en-US` browser
+     * means it: seeding their account from `Accept-Language` would hand them a Hebrew interface
+     * with an English backlog and English comms.
+     *
+     * [explicitTag] is untrusted query input, so it is length-capped before parsing and still has
+     * to survive the same supported-list lookup; anything unrecognised falls through to the header.
+     */
+    fun resolveSupportedTag(explicitTag: String?, acceptLanguage: String?): String? =
+        resolveSupportedTag(explicitTag?.take(MAX_EXPLICIT_TAG_LENGTH))
+            ?: resolveSupportedTag(acceptLanguage)
+
+    /**
      * Best supported [Locale] for the header, falling back to English when nothing matches. Suitable
      * for the pre-auth magic-link email, which must always render in *some* locale.
      */
@@ -36,6 +49,9 @@ class LocaleNegotiationService {
         resolveSupportedTag(acceptLanguage)?.let(Locale::forLanguageTag) ?: Locale.ENGLISH
 
     companion object {
+        /** Generous next to a real tag (`zh-Hant-TW` is 11), tight enough that parsing can't be abused. */
+        private const val MAX_EXPLICIT_TAG_LENGTH = 35
+
         /** Supported codes ordered for [Locale.lookupTag]; `en-US` precedes `en-GB` so bare `en` → US. */
         private val LOOKUP_TAGS: List<String> = listOf("en-US", "en-GB", "he", "ar", "ru")
     }

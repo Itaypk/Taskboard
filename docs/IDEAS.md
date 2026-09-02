@@ -100,8 +100,6 @@ The scope of the individual idea is varying - could be small UI improvements, or
 
 ## Web UI i18n follow-ups
 Deferred from the `archive/I18N.md` design (see there for full rationale). Not blocking any phase:
-- Login-page (anonymous) language switcher — browser detection covers the first iteration; a
-  `localStorage` override slotted above browser detection is a cheap add later.
 - Localized `document.title` / meta tags (the SPA sets `lang`/`dir` at runtime; the static
   `index.html` SEO surface deliberately stays English).
 - A one-line localized notice on the legal pages ("This document is available in English only");

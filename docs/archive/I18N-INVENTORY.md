@@ -116,8 +116,10 @@ component contract. Worth knowing before touching these files again:
   `margin-left`, `padding-right`, `left`/`right` offset, or `float: left` anywhere under `../../src`.
   If a declaration genuinely must not mirror (paper artwork with a baked light source, the mascot),
   add it to that test's exception list with a comment at the site saying why.
-- **RTL is previewable in dev with `?uiLang=he`**, which forces direction and the (still English)
-  catalog. Use it when changing layout.
+- **RTL is previewable from the language switcher** in the footer (anonymous pages) or Settings.
+  Dev builds offer every `SUPPORTED_UI_LANGUAGES` entry there, launched or not, so an unlaunched
+  language shows its direction with the English fallback catalog. Use it when changing layout.
+  (This replaced the `?uiLang=he` query flag.)
 
 ## Summary
 
