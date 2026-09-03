@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { applyLocale, resolveUiLanguage, selectableLanguages, type UiLanguage } from '../i18n';
 import { getActiveLocale } from '../i18n/format';
@@ -28,14 +29,22 @@ const ENDONYMS: Record<UiLanguage, string> = {
  */
 export default function LanguageSelector({ className }: { className?: string } = {}) {
     const { t } = useTranslation();
-    const current = resolveUiLanguage(getActiveLocale());
+    // Local state, set synchronously on change, rather than deriving purely from
+    // `getActiveLocale()` at render time: `applyLocale` is async, and the i18next
+    // `languageChanged` event that would otherwise trigger a re-render can fire before
+    // `setActiveLocale` runs, leaving the dropdown showing the previous selection.
+    const [current, setCurrent] = useState<UiLanguage>(() => resolveUiLanguage(getActiveLocale()));
 
     return (
         <select
             className={`${styles.select} ${className ?? ''}`.trim()}
             value={current}
             aria-label={t('footer.language')}
-            onChange={e => { void applyLocale(e.target.value); }}
+            onChange={e => {
+                const next = e.target.value as UiLanguage;
+                setCurrent(next);
+                void applyLocale(next);
+            }}
         >
             {selectableLanguages().map(code => (
                 <option key={code} value={code}>{ENDONYMS[code]}</option>

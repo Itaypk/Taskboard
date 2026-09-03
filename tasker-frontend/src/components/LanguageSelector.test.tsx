@@ -32,6 +32,15 @@ describe('LanguageSelector', () => {
         expect(document.documentElement.dir).toBe('rtl');
     });
 
+    it('reflects the newly selected language as the combobox value', async () => {
+        render(<LanguageSelector />);
+
+        fireEvent.change(screen.getByRole('combobox'), { target: { value: 'ru' } });
+
+        await waitFor(() => expect(getActiveLocale()).toBe('ru'));
+        expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('ru');
+    });
+
     it('persists the choice so the next boot does not fall back to the browser', async () => {
         render(<LanguageSelector />);
 
