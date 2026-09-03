@@ -23,24 +23,6 @@ exists: a poisoned or truncated upstream would lock every real user out of magic
 occasionally — the list is not on the build path, so a stale snapshot only means newer throwaway
 domains slip through, never an outage.
 
-## Refreshing the vendored web fonts
-
-`refresh-google-fonts.sh` re-fetches the `@font-face` declarations for the three UI families and
-rewrites `tasker-frontend/src/fonts.css`, which `src/index.css` imports. They are vendored rather
-than pulled from a `<link href="fonts.googleapis.com">` because that link is render-blocking on a
-third origin — nothing paints until a DNS + TLS + request round trip to Google completes, which
-costs a real slice of First Contentful Paint on mobile. Only the `woff2` files still come from
-gstatic, and every face is `font-display: swap`, so they never block paint.
-
-```
-tools/refresh-google-fonts.sh
-git diff --stat   # then commit src/fonts.css
-```
-
-The gstatic URLs it captures are versioned and immutable, so fonts stay frozen at the snapshot
-until this is re-run. Run it to pick up font updates, or after editing `FAMILIES` in the script to
-add a family or weight — editing `fonts.css` by hand will be overwritten.
-
 ## Adding a new board mascot
 
 Mascots are the little characters shown in the corner of a board and offered in the

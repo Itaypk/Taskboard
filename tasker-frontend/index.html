@@ -48,15 +48,9 @@
     }
     </script>
 
-    <!--
-      Font faces are vendored into src/fonts.css (regenerate with tools/refresh-google-fonts.sh)
-      rather than pulled from a <link> to fonts.googleapis.com. That link was render-blocking on a
-      third origin: nothing could paint until a full DNS + TLS + request round trip to Google
-      finished, which on a throttled mobile connection is a large slice of First Contentful Paint.
-      The face declarations now ride along in the app's own stylesheet; only the woff2 files still
-      come from gstatic, and those never block paint (every face is font-display: swap).
-    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,600;0,700;1,400;1,600&family=IBM+Plex+Mono:wght@500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
   </head>
   <body>
     <div id="root"></div>
