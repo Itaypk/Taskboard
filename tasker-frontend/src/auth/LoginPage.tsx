@@ -158,7 +158,7 @@ export function LoginPage({ next }: { next?: string } = {}) {
                 </div>
             </div>
 
-            <img className="pineapple-pet" src={pineappleUrl} alt="" aria-hidden="true" />
+            <img className="pineapple-pet" src={pineappleUrl} alt="" aria-hidden="true" decoding="async" fetchPriority="low" />
 
             {modalOpen && (
                 <LoginModal
