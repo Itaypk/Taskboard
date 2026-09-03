@@ -23,21 +23,12 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Notifications: toggle whether calendar invite emails include a notification, or not (in case users prefer other means of notifications and just want the calendar sync for blocking time).
 - Notifications: consider web push notifications (https://web.dev/articles/push-notifications-overview) - they work even if the users are not active in the site.
 - Why do we have both English (UK) and English (US) if we only support English US? Either support it properly or drop it.
+- "App was updated" notice on mobile - looks bad. Use less text and fix CSS.
 
 ## Auth & accounts
 - Add Google OAuth as a login provider — drops in as another `loginOrRegister('google', sub, …)`
   caller + identity rows, no schema change needed. This is blocked till we have a dedicated Google 
   account (rather not risk my personal account)
-- Retire the legacy `users.telegram_id` / `users.email_hash` columns once nothing reads them as a
-  lookup key. **Checked (2026-09) — not yet safe to do.** Both are still live lookup keys, not
-  just kept-in-sync legacy fields: `TelegramChannel` resolves every inbound bot message/photo/voice
-  note via `userRepository.findByTelegramId`, and `findByEmailHash` backs the email-collision checks
-  in `UserAuthService.loginByEmail`, `EmailVerificationService`, `BoardInvitationService`, and
-  `AccountImportService` (a user can have `emailHash` set — e.g. mid-verification — with no
-  corresponding `auth_identities` row yet, so those checks can't be swapped for an identity lookup
-  as-is). Retiring these needs migrating each call site first (Telegram routing can move to an
-  `auth_identities` lookup; the email-collision checks would need a different mechanism entirely),
-  not just dropping now-unused columns.
 - Account-linking UX: linking an identity already owned by a different account is currently just
   refused (409). Decide if/how to offer a real merge flow, including how to re-prove ownership of
   the other account before merging.
