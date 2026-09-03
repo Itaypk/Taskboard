@@ -666,6 +666,7 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
   const handleDragCancel = () => setDraggingId(null);
 
   const activeBoard = boards.find(b => b.id === activeBoardId) ?? null;
+  const activeMascot = mascotFor(activeBoard?.mascot);
 
   const switchBoard = useCallback((boardId: string) => {
     if (boardId === activeBoardId) return;
@@ -850,7 +851,16 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
         </div>
       )}
 
-      <img className="pineapple-pet" src={mascotFor(activeBoard?.mascot).url} alt="" aria-hidden="true" decoding="async" fetchPriority="low" />
+      <img
+        className="pineapple-pet"
+        src={activeMascot.url}
+        srcSet={activeMascot.srcSet}
+        sizes={activeMascot.sizes}
+        alt=""
+        aria-hidden="true"
+        decoding="async"
+        fetchPriority="low"
+      />
 
       <TaskDrawer
         task={selectedTask}
