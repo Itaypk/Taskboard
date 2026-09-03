@@ -38,7 +38,7 @@ export function resolveTaskLink(url: string | null | undefined): TaskLink {
  * to a user.
  *
  * Those friendly names are translated. This is a plain helper rather than a component, so it reads
- * the i18n singleton directly — the same approach `App.tsx`'s `emptyMessageFor` uses. Every caller
+ * the i18n singleton directly — the same approach `Board.tsx`'s `emptyMessageFor` uses. Every caller
  * renders inside a component that already calls `useTranslation()`, so the labels re-render when the
  * language changes. A URL is not translatable and stays as-is.
  */
