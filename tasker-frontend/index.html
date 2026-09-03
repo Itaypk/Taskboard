@@ -49,14 +49,11 @@
     </script>
 
     <!--
-      Font faces are vendored into src/fonts.css (regenerate with tools/refresh-google-fonts.sh)
-      rather than pulled from a <link> to fonts.googleapis.com. That link was render-blocking on a
-      third origin: nothing could paint until a full DNS + TLS + request round trip to Google
-      finished, which on a throttled mobile connection is a large slice of First Contentful Paint.
-      The face declarations now ride along in the app's own stylesheet; only the woff2 files still
-      come from gstatic, and those never block paint (every face is font-display: swap).
+      Fonts (both the @font-face declarations and the woff2 files) are vendored into src/fonts.css
+      and src/assets/fonts/ (regenerate with tools/refresh-google-fonts.sh) rather than pulled from
+      fonts.googleapis.com/fonts.gstatic.com. Same-origin removes a render-blocking third-origin
+      round trip on the critical path, and a per-visitor request to Google on every page load.
     -->
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   </head>
   <body>
     <div id="root"></div>

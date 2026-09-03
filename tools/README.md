@@ -25,21 +25,23 @@ domains slip through, never an outage.
 
 ## Refreshing the vendored web fonts
 
-`refresh-google-fonts.sh` re-fetches the `@font-face` declarations for the three UI families and
-rewrites `tasker-frontend/src/fonts.css`, which `src/index.css` imports. They are vendored rather
-than pulled from a `<link href="fonts.googleapis.com">` because that link is render-blocking on a
-third origin — nothing paints until a DNS + TLS + request round trip to Google completes, which
-costs a real slice of First Contentful Paint on mobile. Only the `woff2` files still come from
-gstatic, and every face is `font-display: swap`, so they never block paint.
+`refresh-google-fonts.sh` re-fetches the `@font-face` declarations *and* the `woff2` files for the
+three UI families, rewriting `tasker-frontend/src/fonts.css` (which `src/index.css` imports) and
+`tasker-frontend/src/assets/fonts/`. Both are vendored rather than pulled from
+`fonts.googleapis.com`/`fonts.gstatic.com` because that's a render-blocking third origin — nothing
+paints until a DNS + TLS + request round trip to Google completes, which costs a real slice of
+First Contentful Paint on mobile — and because self-hosting removes a per-visitor request to Google
+on every page load. Every face is still `font-display: swap`, so none of this ever blocks paint.
 
 ```
 tools/refresh-google-fonts.sh
-git diff --stat   # then commit src/fonts.css
+git diff --stat   # then commit src/fonts.css and src/assets/fonts/
 ```
 
 The gstatic URLs it captures are versioned and immutable, so fonts stay frozen at the snapshot
 until this is re-run. Run it to pick up font updates, or after editing `FAMILIES` in the script to
-add a family or weight — editing `fonts.css` by hand will be overwritten.
+add a family or weight — editing `fonts.css` or `assets/fonts/` by hand will be overwritten (the
+script wipes and repopulates `assets/fonts/` from scratch each run).
 
 ## Adding a new board mascot
 
@@ -75,10 +77,21 @@ board-settings picker. End to end:
    Use `--quality N` to tune, or `--lossless` for flat/line art. Then remove the
    source PNG (the app imports the `.webp`).
 
-4. **Register it (id must match on both sides):**
+4. **Generate the mobile `-sm` variant**, used in the `srcset` so phones don't fetch
+   the desktop-sized asset:
+
+   ```bash
+   python3 tools/make-mascot-srcset.py my_mascot.webp   # writes my_mascot-sm.webp
+   ```
+
+   Note the printed `<width>x<height>` — you'll need the sm and full widths for the
+   `srcSet` string in the next step.
+
+5. **Register it (id must match on both sides):**
    - Frontend — add an entry to `MASCOTS` in `tasker-frontend/src/mascots.ts`
-     (`import` the `.webp`, give it an `id` and a `label`). Order is the picker order;
-     the first entry is the default.
+     (`import` both the `.webp` and the `-sm.webp`, give it an `id`, a `label`, and a
+     `srcSet` built from the widths step 4 printed, e.g. `` `${smUrl} 232w, ${url} 479w` ``).
+     Order is the picker order; the first entry is the default.
    - Backend — add a matching value to `BoardMascot` in
      `src/main/kotlin/dev/itayp/tasker/model/BoardMascot.kt` (the `id` string must equal
      the frontend `id`). Unknown/null ids fall back to `DEFAULT`, so old boards are safe.
@@ -93,6 +106,8 @@ board-settings picker. End to end:
 - **`level-bottom-gap.py`** — normalizes the bottom transparent gap to a reference
   image's height ratio (see step 2). Supports `--dry-run`, `--reference`, `--mode`, `--gap`.
 - **`to-webp.py`** — converts PNG(s) to WebP with alpha. Supports `--quality`, `--lossless`.
+- **`make-mascot-srcset.py`** — resizes a mascot WebP down to a `-sm` companion sized
+  for the mobile breakpoint (see step 4). Supports `--height`, `--quality`.
 - **`make-favicon.py`** — takes a square-ish app-icon concept on a white background,
   crops tight and fades the backdrop to transparency, and writes the full favicon set
   (`favicon.ico`, `favicon-{16,32,48}x{16,32,48}.png`), the opaque `apple-touch-icon.png`,

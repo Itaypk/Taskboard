@@ -4,9 +4,19 @@ import { Link } from 'react-router-dom';
 import { ApiError } from '../api';
 import { useAuth } from './AuthContext';
 import { demoLogin, devLogin, requestEmailLogin, telegramLoginUrl } from './authApi';
+// Imported directly rather than via mascots.ts: Board.tsx and this page are different chunks
+// (one eager, one lazy), and any import from that shared module — even a single unrelated
+// constant — forces the bundler to hoist the whole file (all three mascots' assets) into this
+// page's eager load. Keep these two values in sync with mascots.ts's `pineapple` entry.
 import pineappleUrl from '../assets/pineapple.webp';
+import pineappleSmUrl from '../assets/pineapple-sm.webp';
 import styles from './LoginPage.module.css';
 import { Arrow } from '../components/Arrow';
+
+// This mascot's own rendered width at each `.pineapple-pet` breakpoint (index.css) — see the
+// `sizes` doc on mascots.ts's Mascot interface for why this must be pineapple's own aspect ratio,
+// not a value shared with the other mascots.
+const PINEAPPLE_SIZES = '(max-width: 600px) 103px, (max-width: 820px) 150px, 196px';
 
 // The Telegram OIDC callback redirects back here with a notice code if login didn't complete;
 // `unavailable` maps to its own copy, every other value degrades to the generic "failed" message.
@@ -158,7 +168,19 @@ export function LoginPage({ next }: { next?: string } = {}) {
                 </div>
             </div>
 
-            <img className="pineapple-pet" src={pineappleUrl} alt="" aria-hidden="true" decoding="async" fetchPriority="low" />
+            {/* Confirmed LCP element on this page (measured via PerformanceObserver) — srcset trims
+                bytes on mobile, and fetchPriority="high" tells the browser not to defer the one
+                image the LCP metric is actually waiting on. */}
+            <img
+                className="pineapple-pet"
+                src={pineappleUrl}
+                srcSet={`${pineappleSmUrl} 280w, ${pineappleUrl} 345w`}
+                sizes={PINEAPPLE_SIZES}
+                alt=""
+                aria-hidden="true"
+                decoding="async"
+                fetchPriority="high"
+            />
 
             {modalOpen && (
                 <LoginModal
