@@ -125,9 +125,9 @@ Deferred from the `archive/I18N.md` design (see there for full rationale). Not b
   like "last day of the month", for recurring tasks (examples: pay rent, dentist, clean AC filters).
   Useful on one hand, but correct UI/UX is tricky, and this could be steering off the main focus
   towards a classic calendar territory.
-- Incoming email address, as an additional way to quick-add tasks.
-
 ## Large projects
+- Web UI quick-add, and incoming email address as an additional way to quick-add tasks —
+  see `docs/QUICKADD-CHANNELS.md` for the feasibility/effort exploration.
 - WhatsApp as a communication channel support.
 - **Template task boards** — pre-populated boards for life events ("relocating to Germany", "long
   trip"), possibly with a public SEO-facing gallery. **Deferred**: the value hinges on

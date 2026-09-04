@@ -10,9 +10,7 @@ name: Java CI with Gradle
 on:
   pull_request:
     branches: [ "main" ]
-    # Push (main) is deliberately left unfiltered: it drives deploy, which must always get a
-    # fresh jar. Only PR runs are trimmed down to the areas they actually touch.
-    paths:
+    paths: &watched-paths
       - "src/**"
       - "build.gradle.kts"
       - "settings.gradle.kts"
@@ -23,6 +21,10 @@ on:
       - ".github/workflows/gradle.yml"
   push:
     branches: [ "main" ]
+    # Same filter as the PR trigger: a push to main that touches none of these (e.g. a
+    # docs-only merge) needs no fresh jar, so skip the workflow — and deploy with it —
+    # entirely rather than only gating jobs downstream.
+    paths: *watched-paths
 
 jobs:
   changes:
