@@ -146,7 +146,7 @@ class ConversationService(
     }
 
     @Transactional
-    fun softDeleteExpired(now: Instant) {
+    fun softDeleteExpired(now: Instant): Int {
         val toSoftDelete = conversationRepository.findAllByStatus(ConversationStatus.ACTIVE)
             .filter { it.lastActivityAt!!.plus(Duration.ofDays(it.ttlDays.toLong())).isBefore(now) }
         toSoftDelete.forEach {
@@ -154,14 +154,16 @@ class ConversationService(
             it.softDeletedAt = now
         }
         conversationRepository.saveAll(toSoftDelete)
+        return toSoftDelete.size
     }
 
     @Transactional
-    fun hardDeleteOld(now: Instant, hardDeleteAfterDays: Long = 30) {
+    fun hardDeleteOld(now: Instant, hardDeleteAfterDays: Long = 30): Int {
         val cutoff = now.minus(hardDeleteAfterDays, ChronoUnit.DAYS)
         val toDelete = conversationRepository.findAllByStatusAndSoftDeletedAtBefore(
             ConversationStatus.SOFT_DELETED, cutoff
         )
         conversationRepository.deleteAll(toDelete)
+        return toDelete.size
     }
 }

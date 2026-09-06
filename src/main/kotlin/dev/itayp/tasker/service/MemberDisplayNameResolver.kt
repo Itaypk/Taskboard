@@ -41,13 +41,16 @@ class MemberDisplayNameResolver(
         }
     }
 
-    /** `itaypk@gmail.com` -> `it***@gmail.com`; never returns the full local part. */
-    private fun maskEmail(email: String): String? {
-        val at = email.indexOf('@')
-        if (at <= 0) return null
-        val local = email.substring(0, at)
-        val domain = email.substring(at)
-        val keep = if (local.length <= 2) 1 else 2
-        return local.take(keep) + "***" + domain
+    companion object {
+
+        /** `itaypk@gmail.com` -> `it***@gmail.com`; never returns the full local part. */
+        fun maskEmail(email: String): String? {
+            val at = email.indexOf('@')
+            if (at <= 0) return null
+            val local = email.substring(0, at)
+            val domain = email.substring(at)
+            val keep = if (local.length <= 2) 1 else 2
+            return local.take(keep) + "***" + domain
+        }
     }
 }

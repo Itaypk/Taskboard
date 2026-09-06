@@ -27,7 +27,7 @@ import java.time.Clock
  * AuthenticationFilter chain, which these custom auth flows bypass — so we rotate
  * explicitly here.
  *
- * Also the single place session metadata is stamped, which is what makes the
+ * Also, the single place session metadata is stamped, which is what makes the
  * active-sessions list in Settings possible: every login path funnels through here.
  */
 @Component
