@@ -20,7 +20,7 @@ class InMemoryRateLimiter(
         val deque = buckets.computeIfAbsent(key) { ArrayDeque() }
         val now = System.currentTimeMillis()
         val cutoff = now - windowMillis
-        // Synchronise on the per-key deque; different keys never contend.
+        // Synchronize on the per-key deque; different keys never contend.
         synchronized(deque) {
             while (deque.isNotEmpty() && deque.first() <= cutoff) deque.removeFirst()
             if (deque.size < limit) {

@@ -1,5 +1,6 @@
 package dev.itayp.tasker.channel.email
 
+import dev.itayp.tasker.channel.email.SmtpEmailChannel.Companion.mask
 import jakarta.mail.internet.MimeMessage
 import jakarta.mail.internet.MimeMultipart
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -123,5 +124,32 @@ class SmtpEmailChannelTest {
             icalPart.contentType.contains("text/calendar", ignoreCase = true),
             "Second part should be text/calendar but was ${icalPart.contentType}",
         )
+    }
+
+    @Test
+    fun `mask returns placeholder for blank strings`() {
+        assertEquals("<empty>", "".mask())
+        assertEquals("<empty>", "   ".mask())
+    }
+
+    @Test
+    fun `mask does not crash for single-character strings`() {
+        // first() and last() both resolve to the same character, so nothing is starred out.
+        assertEquals("AA", "A".mask())
+    }
+
+    @Test
+    fun `mask keeps both ends unstarred for two-character strings`() {
+        assertEquals("Ab", "Ab".mask())
+    }
+
+    @Test
+    fun `mask stars out the middle of a short string`() {
+        assertEquals("H***o", "Hello".mask())
+    }
+
+    @Test
+    fun `mask caps stars at six for long strings`() {
+        assertEquals("W" + "*".repeat(6) + "r", "Weekly planning reminder".mask())
     }
 }

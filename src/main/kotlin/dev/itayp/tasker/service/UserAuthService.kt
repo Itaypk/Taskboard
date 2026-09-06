@@ -102,7 +102,7 @@ class UserAuthService(
     /**
      * Logs in (or registers) by a verified email address, applying the collision rules:
      *  - a user already owns this *verified* email -> log into that account (ensure an email identity);
-     *  - a user owns this email but it's *unverified* -> [EmailLoginOutcome.UnverifiedConflict]
+     *  - a user owns this email, but it's *unverified* -> [EmailLoginOutcome.UnverifiedConflict]
      *    (don't auto-merge; they should sign in with their existing method and verify in settings);
      *  - nobody owns it -> register a fresh account with a verified email identity.
      *

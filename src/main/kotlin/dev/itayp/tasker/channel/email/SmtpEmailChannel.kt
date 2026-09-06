@@ -2,6 +2,7 @@ package dev.itayp.tasker.channel.email
 
 import dev.itayp.tasker.channel.OutboundChannel
 import dev.itayp.tasker.channel.OutboundMessage
+import dev.itayp.tasker.service.MemberDisplayNameResolver
 import jakarta.mail.Message.RecipientType
 import jakarta.mail.internet.InternetAddress
 import jakarta.mail.internet.MimeBodyPart
@@ -22,7 +23,7 @@ class SmtpEmailChannel(
         require(message is EmailMessage) { "SmtpEmailChannel only handles EmailMessage" }
         val mime = mailSender.createMimeMessage()
 
-        log.debug("Sending email to {}, from {}, subject='{}'", message.to, from, message.subject)
+        log.debug("Sending email to {}, from {}, subject='{}'", message.to.map { MemberDisplayNameResolver.maskEmail(it) }, from, message.subject.mask())
 
         if (message.iCalAttachment != null) {
             // Multipart/mixed: HTML body + text/calendar part for Gmail "Add to Calendar"
@@ -63,6 +64,13 @@ class SmtpEmailChannel(
         }
 
         mailSender.send(mime)
-        log.info("Email sent to {} subject='{}'", message.to, message.subject)
+        log.info("Email sent to {} subject='{}'", message.to.map { MemberDisplayNameResolver.maskEmail(it) }, message.subject.mask())
+    }
+
+    companion object {
+
+        fun String.mask() =
+            takeIf { isNotBlank() }?.first()?.plus("*".repeat((this.length - 2).coerceIn(0, 6)))?.plus(last()) ?: "<empty>"
+
     }
 }

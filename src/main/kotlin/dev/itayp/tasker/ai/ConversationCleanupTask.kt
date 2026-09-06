@@ -16,8 +16,9 @@ class ConversationCleanupTask(
     @Scheduled(cron = "0 0 3 * * *")
     fun cleanup() {
         val now = clock.instant()
-        log.info("Running AI conversation cleanup at $now")
-        conversationService.softDeleteExpired(now)
-        conversationService.hardDeleteOld(now)
+        log.debug("Running AI conversation cleanup at {}", now)
+        val softDeletedCount = conversationService.softDeleteExpired(now)
+        val hardDeletedCount = conversationService.hardDeleteOld(now)
+        log.info("Finished AI conversation cleanup started at {}, soft-deleted {} conversations, deleted {} conversations", now, softDeletedCount, hardDeletedCount)
     }
 }

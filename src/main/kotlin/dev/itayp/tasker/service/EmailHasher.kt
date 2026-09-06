@@ -4,7 +4,7 @@ import java.security.MessageDigest
 
 /**
  * Hashes an email address for the unique-by-email constraint without storing the
- * plaintext in an indexable column. Input is normalised (`trim().lowercase()`)
+ * plaintext in an indexable column. Input is normalized (`trim().lowercase()`)
  * so trivial typos in casing/whitespace don't bypass the uniqueness check.
  *
  * SHA-256 is fine here despite low input entropy — we're not hashing for secrecy,

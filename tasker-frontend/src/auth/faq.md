@@ -28,6 +28,11 @@ rather than a task, it becomes a calendar event and the invitation arrives by em
 No. You can sign in with an email magic link and use the web app on its own. Telegram is optional,
 and useful mainly for capturing tasks on the go and for the weekly planning conversation.
 
+## Can I turn off the AI features?
+
+The AI assistant functionality can be entirely disabled through the settings menu (Settings → Assistant).
+You can still use the application as your todo list, without the weekly planning and quick-add features.
+
 ## Does it connect to my calendar?
 
 Not yet — reading your calendar directly is planned but not built. Today the tasks you commit to in
