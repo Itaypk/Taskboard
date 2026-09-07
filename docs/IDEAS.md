@@ -128,7 +128,8 @@ Deferred from the `archive/I18N.md` design (see there for full rationale). Not b
 ## Large projects
 - Web UI quick-add, and incoming email address as an additional way to quick-add tasks —
   see `docs/QUICKADD-CHANNELS.md` for the feasibility/effort exploration.
-- WhatsApp as a communication channel support.
+- WhatsApp as a communication channel — see `docs/WHATSAPP-CHANNEL.md` for the
+  feasibility/effort exploration (Cloud API vs. self-hosted linked-device bridge).
 - **Template task boards** — pre-populated boards for life events ("relocating to Germany", "long
   trip"), possibly with a public SEO-facing gallery. **Deferred**: the value hinges on
   intent-driven acquisition (someone searching for that checklist), which itself requires the
