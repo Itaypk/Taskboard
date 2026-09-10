@@ -10,14 +10,14 @@ import java.util.Locale
 import java.util.UUID
 
 /**
- * Resolves whether — and how — a user will actually receive the time blocks agreed in a planning
- * session. Today the only delivery channel is calendar-invitation email; a user with email
- * integration disabled globally, the calendar-invite setting off, or no verified email address
- * receives nothing.
+ * Resolves whether — and how — a user will actually receive calendar-invite emails for the time
+ * blocks agreed in a planning session. A user with email integration disabled globally, the
+ * calendar-invite setting off, or no verified email address receives nothing over this channel.
  *
- * Shared by [PlanFinalizationService] (to decide whether to dispatch invites) and the planning
- * prompt assembler (to tell the assistant what reminders the user can expect) so the eligibility
- * gate lives in exactly one place.
+ * Shared by [PlanFinalizationService] (to decide whether to dispatch invites), `OneOffEventService`
+ * (same, for one-off events), and `dev.itayp.tasker.notification.NotificationChannelSummary` (to
+ * describe delivery for the planning prompt, alongside the independent Telegram reminder channel)
+ * so the eligibility gate lives in exactly one place.
  */
 @Component
 class InviteDeliveryResolver(
@@ -52,25 +52,5 @@ class InviteDeliveryResolver(
             return null
         }
         return EmailContext(email, userSettingsService.getLocale(userId))
-    }
-
-    /**
-     * Human-readable description of how the user will (or won't) receive agreed time blocks, injected
-     * into the planning prompt so the assistant can set expectations — and warn the user when nothing
-     * is wired up rather than implying reminders that will never arrive.
-     */
-    fun describeDeliveryMethods(userId: UUID): String {
-        val ctx = resolveEmailContext(userId)
-        return if (ctx != null) {
-            "Agreed time blocks are sent to the user as calendar invitations by email (to ${ctx.email}); " +
-                "accepting an invite adds that block to their calendar. This is currently their only " +
-                "reminder channel."
-        } else {
-            "The user has NO active reminder/notification delivery method: time blocks you agree on are " +
-                "saved to their weekly plan in the app, but they will receive NO calendar invitation or " +
-                "reminder for them. Don't imply that scheduling a task will notify them. If they'd like " +
-                "reminders, they can enable calendar-invite email with a verified address in settings — " +
-                "you may mention this once if it's relevant, but don't nag."
-        }
     }
 }

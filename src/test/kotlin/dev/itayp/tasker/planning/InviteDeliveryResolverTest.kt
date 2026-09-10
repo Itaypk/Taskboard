@@ -9,7 +9,6 @@ import dev.itayp.tasker.service.UserSettingsService
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
-import org.mockito.Mockito
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.whenever
 import java.time.Instant
@@ -18,7 +17,6 @@ import java.util.Optional
 import java.util.UUID
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 
 @ExtendWith(MockitoExtension::class)
 class InviteDeliveryResolverTest {
@@ -83,27 +81,6 @@ class InviteDeliveryResolverTest {
         whenever(userRepository.findById(userId)).thenReturn(Optional.empty())
 
         assertNull(resolver().resolveEmailContext(userId))
-    }
-
-    @Test
-    fun `describe names the email channel when delivery is eligible`() {
-        stubVerifiedOptIn()
-
-        val description = resolver().describeDeliveryMethods(userId)
-
-        assertTrue(description.contains("calendar invitation"), description)
-        assertTrue(description.contains("alice@example.com"), description)
-    }
-
-    @Test
-    fun `describe warns of no delivery method when not eligible`() {
-        // Lenient: the global-disabled gate short-circuits before settings are consulted.
-        Mockito.lenient().`when`(userSettingsService.getOrCreate(userId))
-            .thenReturn(settings(calendarInviteEmail = false))
-
-        val description = resolver(emailEnabled = false).describeDeliveryMethods(userId)
-
-        assertTrue(description.contains("NO active reminder"), description)
     }
 
     private fun verifiedUser(email: String) = UserEntity().apply {

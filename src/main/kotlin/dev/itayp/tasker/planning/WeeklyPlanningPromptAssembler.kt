@@ -7,6 +7,7 @@ import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.BacklogTaskTag
 import dev.itayp.tasker.model.BoardSummary
+import dev.itayp.tasker.notification.NotificationChannelSummary
 import dev.itayp.tasker.planning.dto.AgreedPlanTask
 import dev.itayp.tasker.service.BacklogTaskCategoryService
 import dev.itayp.tasker.service.BacklogTaskTagService
@@ -36,7 +37,7 @@ class WeeklyPlanningPromptAssembler(
     private val tagService: BacklogTaskTagService,
     private val boardService: BoardService,
     private val aiAccessService: AiAccessService,
-    private val inviteDeliveryResolver: InviteDeliveryResolver,
+    private val notificationChannelSummary: NotificationChannelSummary,
     private val clock: Clock,
 ) {
 
@@ -79,7 +80,7 @@ class WeeklyPlanningPromptAssembler(
             "categories" to renderCategoriesForBoards(userId, boards),
             "tags" to renderTagsForBoards(userId, boards),
             "calendar_window" to calendar,
-            "delivery_methods" to inviteDeliveryResolver.describeDeliveryMethods(userId),
+            "delivery_methods" to notificationChannelSummary.describe(userId),
             "capacity_hint" to capacityHint.ifBlank { "Not stated." },
             "today_iso" to today.format(DateTimeFormatter.ISO_LOCAL_DATE),
             "week_start_iso" to weekStart.format(DateTimeFormatter.ISO_LOCAL_DATE),
@@ -144,7 +145,7 @@ class WeeklyPlanningPromptAssembler(
             "days_since_finalized" to daysSinceCompleted.toString(),
             "task_change_summary" to renderDiff(userId, today, diff),
             "calendar_window" to calendar,
-            "delivery_methods" to inviteDeliveryResolver.describeDeliveryMethods(userId),
+            "delivery_methods" to notificationChannelSummary.describe(userId),
             "today_iso" to today.format(DateTimeFormatter.ISO_LOCAL_DATE),
             "week_start_iso" to weekStart.format(DateTimeFormatter.ISO_LOCAL_DATE),
             "week_end_iso" to weekStart.plusDays(6).format(DateTimeFormatter.ISO_LOCAL_DATE),
