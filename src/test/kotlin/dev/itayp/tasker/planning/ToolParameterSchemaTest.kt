@@ -228,7 +228,11 @@ class ToolParameterSchemaTest {
                     "type" to "string",
                     "description" to "The closing message shown to the user confirming the finalized plan. " +
                         "Write it in the user's language and warm tone — this is the last thing they see, " +
-                        "so recap what was scheduled. Do NOT also send a separate `say`; this field replaces it.",
+                        "so recap what was scheduled. Always end with one short, first-person sentence stating " +
+                        "which notification channel(s) apply to this plan (calendar invite email, a Telegram " +
+                        "reminder, both, or plainly neither) — see the system prompt's delivery-methods context " +
+                        "for the facts, and say so honestly even when the answer is neither. Do NOT also send a " +
+                        "separate `say`; this field replaces it.",
                 ),
                 "context_suggestion" to mapOf(
                     "type" to "string",
