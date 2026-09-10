@@ -4,6 +4,7 @@ import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.ai.prompt.PromptTemplateLoader
 import dev.itayp.tasker.channel.HtmlMessageFormatter
 import dev.itayp.tasker.model.UserSettings
+import dev.itayp.tasker.notification.NotificationChannelSummary
 import dev.itayp.tasker.service.BacklogTaskCategoryService
 import dev.itayp.tasker.service.BacklogTaskTagService
 import dev.itayp.tasker.service.BoardService
@@ -39,7 +40,7 @@ class WeeklyPlanningPromptAssemblerTest {
     @Mock private lateinit var tagService: BacklogTaskTagService
     @Mock private lateinit var boardService: BoardService
     @Mock private lateinit var aiAccessService: AiAccessService
-    @Mock private lateinit var inviteDeliveryResolver: InviteDeliveryResolver
+    @Mock private lateinit var notificationChannelSummary: NotificationChannelSummary
 
     private val today = LocalDate.parse("2026-05-01")
     private val weekStart = LocalDate.parse("2026-05-04")
@@ -49,7 +50,7 @@ class WeeklyPlanningPromptAssemblerTest {
         WeeklyPlanningPromptAssembler(
             PromptTemplateLoader(), userSettingsService, plannerTaskSelector, planningSessionService,
             calendarWindowProvider, categoryService, tagService, boardService, aiAccessService,
-            inviteDeliveryResolver, clock,
+            notificationChannelSummary, clock,
         )
     }
 
@@ -64,7 +65,7 @@ class WeeklyPlanningPromptAssemblerTest {
         whenever(aiAccessService.aiAllowedBoardIds(userId)).thenReturn(emptySet())
         whenever(boardService.listBoardsForUser(userId)).thenReturn(emptyList())
         whenever(calendarWindowProvider.describeWindow(any(), any(), any())).thenReturn("no calendar")
-        whenever(inviteDeliveryResolver.describeDeliveryMethods(userId)).thenReturn("none")
+        whenever(notificationChannelSummary.describe(userId)).thenReturn("none")
     }
 
     @Test
