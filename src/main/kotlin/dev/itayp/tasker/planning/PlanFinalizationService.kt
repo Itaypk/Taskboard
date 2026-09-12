@@ -24,7 +24,7 @@ class PlanFinalizationService(
     private val log = LoggerFactory.getLogger(PlanFinalizationService::class.java)
 
     fun complete(userId: UUID, sessionId: UUID, plan: AgreedPlan) {
-        log.debug("Completing agreed plan for user {}, session {}, task count: {}", userId, sessionId, plan.tasks.size)
+        log.debug("Completing agreed plan for user {}, session {}, tasks: {}", userId, sessionId, plan.tasks.joinToString { it.taskId.toString() })
         val session = planningSessionService.findById(userId, sessionId)
             ?: throw NoSuchElementException("Planning session $sessionId not found")
         // Bump carry-over reschedule counts BEFORE this plan is written, resolving "previous" by the
