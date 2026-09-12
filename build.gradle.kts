@@ -1,12 +1,12 @@
 import org.gradle.language.jvm.tasks.ProcessResources
 
 plugins {
-    kotlin("jvm") version "2.4.10"
-    kotlin("plugin.spring") version "2.4.10"
+    kotlin("jvm") version "2.4.20"
+    kotlin("plugin.spring") version "2.4.20"
     id("org.springframework.boot") version "4.1.1"
     id("io.spring.dependency-management") version "1.1.7"
-    kotlin("plugin.jpa") version "2.4.10"
-    kotlin("plugin.lombok") version "2.4.10"
+    kotlin("plugin.jpa") version "2.4.20"
+    kotlin("plugin.lombok") version "2.4.20"
 }
 
 group = "dev.itayp"
@@ -61,7 +61,7 @@ dependencies {
     runtimeOnly("com.h2database:h2")
     runtimeOnly("org.postgresql:postgresql")
     // Required for the Telegram library
-    compileOnly("org.projectlombok:lombok:1.18.46")
+    compileOnly("org.projectlombok:lombok:1.18.48")
     //annotationProcessor("org.projectlombok:lombok:1.18.46")
     testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
     testImplementation("org.springframework.boot:spring-boot-starter-security-test")
