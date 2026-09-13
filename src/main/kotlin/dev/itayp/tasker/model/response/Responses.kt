@@ -5,6 +5,7 @@ import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.BoardSummary
 import dev.itayp.tasker.model.TagUsage
+import dev.itayp.tasker.model.TaskRecurrence
 import dev.itayp.tasker.model.UserSettings
 
 data class LanguageOption(val code: String, val label: String)
@@ -148,7 +149,22 @@ data class TaskResponse(
     val tutorial: Boolean,
     /** True when the user has excluded this task from the AI assistant's context. */
     val hiddenFromAssistant: Boolean,
+    val recurrence: RecurrenceResponse?,
+    /** Read-only. Latest completion date of a recurring original, or the completion date of a copy. */
+    val lastCompletedOn: String?,
+    /** Read-only. Non-null marks a completed-occurrence copy, pointing at its recurring original. */
+    val recurrenceSourceId: String?,
 )
+
+data class RecurrenceResponse(
+    val kind: String,
+    val every: Int?,
+    val day: Int?,
+    val month: Int?,
+    val dueWithinDays: Int?,
+)
+
+fun TaskRecurrence.toResponse() = RecurrenceResponse(kind.name, every, day, month, dueWithinDays)
 
 data class TimeSlotResponse(
     val startIso: String,
@@ -201,6 +217,9 @@ fun BacklogTask.toResponse() = TaskResponse(
     assigneeUserId = assigneeUserId?.toString(),
     tutorial = tutorial,
     hiddenFromAssistant = hiddenFromAssistant,
+    recurrence = recurrence?.toResponse(),
+    lastCompletedOn = lastCompletedOn?.toString(),
+    recurrenceSourceId = recurrenceSourceId?.toString(),
 )
 
 fun BacklogTaskCategory.toResponse() = CategoryResponse(

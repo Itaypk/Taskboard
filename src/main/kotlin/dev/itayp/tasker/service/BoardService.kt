@@ -155,6 +155,9 @@ class BoardService(
                 this.sortKey = source.sortKey
                 this.createdAt = now
                 this.relevantFrom = source.relevantFrom
+                // The rule is carried; recurrence_source_id isn't, since the original lives on the source board.
+                this.recurrence = source.recurrence
+                this.lastCompletedOn = source.lastCompletedOn
             })
             taskChangeService.recordCreated(newBoardId, userId, copy.id!!, title, status)
         }

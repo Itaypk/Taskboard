@@ -11,7 +11,7 @@ interface BoardFilterProps {
 const OPTIONS: { id: TaskFilter; labelKey: string; shortLabelKey?: string; planOnly?: boolean }[] = [
   { id: 'todo', labelKey: 'boardFilter.todo' },
   { id: 'plan', labelKey: 'boardFilter.thisWeeksPlan', shortLabelKey: 'boardFilter.week', planOnly: true },
-  { id: 'done', labelKey: 'boardFilter.done' },
+  { id: 'recurring', labelKey: 'boardFilter.recurring' },
   { id: 'all',  labelKey: 'boardFilter.all' },
 ];
 

@@ -7,11 +7,16 @@ import dev.itayp.tasker.jpa.toDomain
 import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.TagColor
 import dev.itayp.tasker.model.TaskPriority
+import dev.itayp.tasker.model.TaskRecurrence
 import dev.itayp.tasker.model.TaskStatus
 import dev.itayp.tasker.model.request.CreateBacklogTaskRequest
+import dev.itayp.tasker.model.request.RecurrenceInput
 import dev.itayp.tasker.model.request.ReorderTaskRequest
 import dev.itayp.tasker.model.request.TagInput
 import dev.itayp.tasker.model.request.UpdateBacklogTaskRequest
+import dev.itayp.tasker.model.request.toInput
+import dev.itayp.tasker.model.request.toRule
+import dev.itayp.tasker.model.request.validationError
 import dev.itayp.tasker.planning.BacklogTaskChangeService
 import dev.itayp.tasker.planning.PlanWatermarkService
 import dev.itayp.tasker.planning.PlannedTaskService
@@ -125,20 +130,11 @@ class BacklogTaskService(
         val task = entity.toDomain(boardCrypto)
         // Idempotent — and avoids a needless re-encrypt/update — if the task is already done.
         if (task.status == TaskStatus.DONE) return task
-        val request = UpdateBacklogTaskRequest(
-            title = task.title,
-            description = task.description,
-            url = task.url,
-            priority = task.priority?.name?.lowercase(),
-            deadline = task.deadline?.toString(),
-            estimatedMinutes = task.estimatedMinutes,
-            status = TaskStatus.DONE.name.lowercase(),
-            categoryId = task.category.id.toString(),
-            tags = task.tags.map { TagInput(it.id.toString(), it.label, it.colorId.name.lowercase()) },
-            relevantFrom = task.relevantFrom?.toString(),
-            hiddenFromAssistant = task.hiddenFromAssistant,
-        )
-        return updateTask(userId, task.boardId, id, request)
+        // A recurring task never reaches DONE, so the guard above can't catch a repeat. A second tap
+        // on a reminder button (or a retried external call) must not save another copy and jump the
+        // schedule again.
+        if (task.recurrence != null && task.lastCompletedOn == todayFor(userId)) return task
+        return updateTask(userId, task.boardId, id, rebuildRequest(task, TaskStatus.DONE))
     }
 
     /**
@@ -158,21 +154,24 @@ class BacklogTaskService(
         }
         val task = entity.toDomain(boardCrypto)
         if (task.status == TaskStatus.ARCHIVED) return task
-        val request = UpdateBacklogTaskRequest(
-            title = task.title,
-            description = task.description,
-            url = task.url,
-            priority = task.priority?.name?.lowercase(),
-            deadline = task.deadline?.toString(),
-            estimatedMinutes = task.estimatedMinutes,
-            status = TaskStatus.ARCHIVED.name.lowercase(),
-            categoryId = task.category.id.toString(),
-            tags = task.tags.map { TagInput(it.id.toString(), it.label, it.colorId.name.lowercase()) },
-            relevantFrom = task.relevantFrom?.toString(),
-            hiddenFromAssistant = task.hiddenFromAssistant,
-        )
-        return updateTask(userId, task.boardId, id, request)
+        return updateTask(userId, task.boardId, id, rebuildRequest(task, TaskStatus.ARCHIVED))
     }
+
+    /** A complete full-replace request carrying every current field, with only the status changed. */
+    private fun rebuildRequest(task: BacklogTask, status: TaskStatus) = UpdateBacklogTaskRequest(
+        title = task.title,
+        description = task.description,
+        url = task.url,
+        priority = task.priority?.name?.lowercase(),
+        deadline = task.deadline?.toString(),
+        estimatedMinutes = task.estimatedMinutes,
+        status = status.name.lowercase(),
+        categoryId = task.category.id.toString(),
+        tags = task.tags.map { TagInput(it.id.toString(), it.label, it.colorId.name.lowercase()) },
+        relevantFrom = task.relevantFrom?.toString(),
+        hiddenFromAssistant = task.hiddenFromAssistant,
+        recurrence = task.recurrence?.toInput(),
+    )
 
     @Transactional(readOnly = true)
     fun getTasksScheduledInSession(userId: UUID, sessionId: UUID): List<BacklogTask> {
@@ -219,10 +218,15 @@ class BacklogTaskService(
     }
 
     private fun filterOutFutureDated(userId: UUID, tasks: List<BacklogTask>): List<BacklogTask> {
+        val today = todayFor(userId)
+        return tasks.filter { it.relevantFrom == null || !it.relevantFrom.isAfter(today) }
+    }
+
+    /** Today in the user's own timezone — `relevant_from` and recurrence both work on local days. */
+    private fun todayFor(userId: UUID): LocalDate {
         val zone = runCatching { ZoneId.of(userSettingsService.getOrCreate(userId).timeZone) }
             .getOrDefault(ZoneId.of("UTC"))
-        val today = LocalDate.ofInstant(clock.instant(), zone)
-        return tasks.filter { it.relevantFrom == null || !it.relevantFrom.isAfter(today) }
+        return LocalDate.ofInstant(clock.instant(), zone)
     }
 
     @Transactional
@@ -233,6 +237,8 @@ class BacklogTaskService(
             ?: throw NoSuchElementException("Category $categoryId not found")
 
         val sortKey = computeAppendKey(boardId)
+        val rule = parseRecurrence(request.recurrence)
+        val requestedStatus = TaskStatus.valueOf(request.status.uppercase())
 
         val entity = BacklogTaskEntity().apply {
             this.boardId = boardId
@@ -240,17 +246,17 @@ class BacklogTaskService(
             this.description = boardCrypto.encrypt(boardId, request.description)
             this.url = request.url
             this.priority = request.priority?.let { TaskPriority.valueOf(it.uppercase()) }
-            this.deadline = request.deadline?.let { LocalDate.parse(it) }
             this.estimatedMinutes = request.estimatedMinutes
-            this.status = TaskStatus.valueOf(request.status.uppercase())
+            // A recurring task is never stored DONE; completing one means rolling it forward.
+            this.status = if (rule != null && requestedStatus == TaskStatus.DONE) TaskStatus.TODO else requestedStatus
             this.category = category
             this.tags = resolveOrCreateTags(boardId, request.tags)
             this.sortKey = sortKey
             this.createdAt = Instant.now()
             this.updatedAt = null
-            this.relevantFrom = request.relevantFrom?.let { LocalDate.parse(it) }
             this.hiddenFromAssistant = request.hiddenFromAssistant
         }
+        applySchedule(entity, userId, rule, request.relevantFrom, request.deadline)
 
         val saved = backlogTaskRepository.save(entity)
         taskChangeService.recordCreated(boardId, userId, saved.id!!, request.title, saved.status!!)
@@ -273,24 +279,49 @@ class BacklogTaskService(
 
         val previousStatus = entity.status!!
         val newStatus = TaskStatus.valueOf(request.status.uppercase())
+        val rule = parseRecurrence(request.recurrence)
+        val rollsForward = rule != null && newStatus == TaskStatus.DONE && previousStatus != TaskStatus.DONE
 
         entity.title = boardCrypto.encrypt(boardId, request.title)
         entity.description = boardCrypto.encrypt(boardId, request.description)
         entity.url = request.url
         entity.priority = request.priority?.let { TaskPriority.valueOf(it.uppercase()) }
-        entity.deadline = request.deadline?.let { LocalDate.parse(it) }
         entity.estimatedMinutes = request.estimatedMinutes
-        entity.status = newStatus
+        entity.status = if (rollsForward) TaskStatus.TODO else newStatus
         entity.category = category
         entity.tags = resolveOrCreateTags(boardId, request.tags)
-        entity.relevantFrom = request.relevantFrom?.let { LocalDate.parse(it) }
         entity.hiddenFromAssistant = request.hiddenFromAssistant
         entity.updatedAt = Instant.now()
+        applySchedule(entity, userId, rule, request.relevantFrom, request.deadline)
+
+        val completedCopy = if (rollsForward) {
+            val today = todayFor(userId)
+            // The copy is taken after the request's edits and before the roll, so it records this
+            // occurrence's own dates.
+            val copy = saveCompletedCopy(entity, request.title, request.description, today)
+            val next = RecurrenceCalculator.nextOccurrence(rule!!, entity.relevantFrom, today)
+            entity.lastCompletedOn = today
+            entity.relevantFrom = next
+            entity.deadline = RecurrenceCalculator.deadlineFor(rule, next)
+            entity.rescheduleCount = 0
+            // lastScheduledInSessionId is deliberately kept: the plan view joins planned_task rows to
+            // tasks through it, so clearing it would drop the task from the week it was planned in.
+            // The future relevant_from already takes it off the Week pill and the planner slate.
+            copy
+        } else {
+            null
+        }
 
         val saved = backlogTaskRepository.save(entity)
         // recordStatusChange is a no-op when the status is unchanged; the watermark must still
         // bump so field edits (title/description/tags/…) surface to a polling board tab.
-        taskChangeService.recordStatusChange(boardId, userId, saved.id!!, request.title, previousStatus, newStatus)
+        taskChangeService.recordStatusChange(boardId, userId, saved.id!!, request.title, previousStatus, saved.status!!)
+        // A completion is recorded once, on the copy, so the weekly diff and stats see one DONE per
+        // occurrence. No CREATED event for the copy: it isn't new work.
+        completedCopy?.let {
+            taskChangeService.recordStatusChange(boardId, userId, it.id!!, request.title, TaskStatus.TODO, TaskStatus.DONE)
+            log.info("Recurring task {} completed; saved copy {}, next occurrence {}", saved.id, it.id, saved.relevantFrom)
+        }
         taskChangeService.bumpWatermark(boardId)
         // Completing or archiving a task ahead of its scheduled time block(s) — done or no longer
         // planned for that time either way — makes any still-pending reminder and calendar invite for
@@ -435,6 +466,8 @@ class BacklogTaskService(
             this.createdAt = Instant.now()
             this.updatedAt = null
             this.relevantFrom = source.relevantFrom
+            // The rule is carried (a duplicated chore is still a chore); completion history isn't.
+            this.recurrence = source.recurrence
         }
 
         val saved = backlogTaskRepository.save(entity)
@@ -488,6 +521,71 @@ class BacklogTaskService(
     // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
+
+    /**
+     * Throws [InvalidRecurrenceException] for an unknown kind or fields that don't fit it. The
+     * external API validates the same rule up front to answer with its own instructional detail.
+     */
+    private fun parseRecurrence(input: RecurrenceInput?): TaskRecurrence? {
+        if (input == null) return null
+        input.validationError()?.let { throw InvalidRecurrenceException(it) }
+        return input.toRule()
+    }
+
+    /**
+     * Writes the rule and the task's dates. Without a rule the requested dates are stored as sent.
+     * With one, `relevant_from` is the next occurrence (defaulting to the rule's first one) and the
+     * deadline is always derived from it, ignoring any deadline the client sent — so the stored
+     * absolute deadline that sorting, urgency and prompts rely on can never drift from the rule.
+     */
+    private fun applySchedule(
+        entity: BacklogTaskEntity,
+        userId: UUID,
+        rule: TaskRecurrence?,
+        requestedRelevantFrom: String?,
+        requestedDeadline: String?,
+    ) {
+        entity.recurrence = rule
+        val relevantFrom = requestedRelevantFrom?.takeIf { it.isNotBlank() }?.let { LocalDate.parse(it) }
+        if (rule == null) {
+            entity.relevantFrom = relevantFrom
+            entity.deadline = requestedDeadline?.takeIf { it.isNotBlank() }?.let { LocalDate.parse(it) }
+        } else {
+            val occurrence = relevantFrom ?: RecurrenceCalculator.firstOccurrence(rule, todayFor(userId))
+            entity.relevantFrom = occurrence
+            entity.deadline = RecurrenceCalculator.deadlineFor(rule, occurrence)
+        }
+    }
+
+    /** Saves the DONE record of one occurrence of [original]. See `docs/RECURRING-TASKS.md`. */
+    private fun saveCompletedCopy(
+        original: BacklogTaskEntity,
+        title: String,
+        description: String?,
+        completedOn: LocalDate,
+    ): BacklogTaskEntity {
+        val boardId = original.boardId!!
+        return backlogTaskRepository.save(BacklogTaskEntity().apply {
+            this.boardId = boardId
+            this.assigneeUserId = original.assigneeUserId
+            this.title = boardCrypto.encrypt(boardId, title)
+            this.description = boardCrypto.encrypt(boardId, description)
+            this.url = original.url
+            this.priority = original.priority
+            this.deadline = original.deadline
+            this.estimatedMinutes = original.estimatedMinutes
+            this.status = TaskStatus.DONE
+            this.category = original.category
+            this.tags = original.tags.toMutableSet()
+            this.sortKey = computeAppendKey(boardId)
+            this.createdAt = Instant.now()
+            this.updatedAt = Instant.now()
+            this.relevantFrom = original.relevantFrom
+            this.hiddenFromAssistant = original.hiddenFromAssistant
+            this.lastCompletedOn = completedOn
+            this.recurrenceSourceId = original.id
+        })
+    }
 
     /** Computes a sort key that goes after all existing tasks on the board. */
     private fun computeAppendKey(boardId: UUID): String {
@@ -544,6 +642,9 @@ class BacklogTaskService(
 @ResponseStatus(HttpStatus.BAD_REQUEST)
 class AssigneeNotMemberException(userId: UUID, boardId: UUID) :
     RuntimeException("User $userId is not a member of board $boardId and cannot be assigned")
+
+/** Raised for a malformed recurrence rule. Maps to HTTP 400 with code `INVALID_RECURRENCE` in `ApiExceptionHandler`. */
+class InvalidRecurrenceException(message: String) : RuntimeException(message)
 
 /** Raised when a move targets the board the task already lives on. Maps to HTTP 400. */
 @ResponseStatus(HttpStatus.BAD_REQUEST)

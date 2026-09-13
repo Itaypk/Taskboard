@@ -5,8 +5,11 @@ import dev.itayp.tasker.model.TagColor
 import dev.itayp.tasker.model.TaskPriority
 import dev.itayp.tasker.model.TaskStatus
 import dev.itayp.tasker.model.request.CreateBacklogTaskRequest
+import dev.itayp.tasker.model.request.RecurrenceInput
 import dev.itayp.tasker.model.request.TagInput
 import dev.itayp.tasker.model.request.UpdateBacklogTaskRequest
+import dev.itayp.tasker.model.request.toInput
+import dev.itayp.tasker.model.request.validationError
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.BacklogTaskCategoryService
 import dev.itayp.tasker.service.BacklogTaskService
@@ -172,6 +175,7 @@ class ExternalTaskController(
         }
         validateDate(request.deadline, "deadline")?.let { return it }
         validateDate(request.relevantFrom, "relevantFrom")?.let { return it }
+        validateRecurrence(request.recurrence)?.let { return it }
 
         val created = backlogTaskService.createTask(
             userId, boardId,
@@ -187,6 +191,7 @@ class ExternalTaskController(
                 tags = toTagInputs(request.tags),
                 relevantFrom = request.relevantFrom,
                 hiddenFromAssistant = request.hiddenFromAssistant ?: false,
+                recurrence = request.recurrence,
             ),
         )
         logger.info("External API created task {} on board {}", created.id, boardId)
@@ -230,6 +235,7 @@ class ExternalTaskController(
         } ?: current.status
         validateDate(request.deadline, "deadline")?.let { return it }
         validateDate(request.relevantFrom, "relevantFrom")?.let { return it }
+        validateRecurrence(request.recurrence)?.let { return it }
 
         val categoryId = if (request.categoryId != null) {
             val parsed = request.categoryId.toUuidOrNull()
@@ -258,6 +264,11 @@ class ExternalTaskController(
             },
             relevantFrom = pick("relevantFrom", clear, request.relevantFrom, current.relevantFrom?.toString()),
             hiddenFromAssistant = request.hiddenFromAssistant ?: current.hiddenFromAssistant,
+            recurrence = when {
+                "recurrence" in clear -> null
+                request.recurrence != null -> request.recurrence
+                else -> current.recurrence?.toInput()
+            },
         )
 
         val updated = backlogTaskService.updateTask(userId, current.boardId, id, merged)
@@ -339,6 +350,15 @@ class ExternalTaskController(
         if (raw.isNullOrBlank()) return null
         return if (DATE_PATTERN.matches(raw)) null else badRequest("'$field' must be YYYY-MM-DD.")
     }
+
+    private fun validateRecurrence(input: RecurrenceInput?): ResponseEntity<ProblemDetail>? =
+        input?.validationError()?.let {
+            badRequest(
+                "Invalid 'recurrence': $it Shapes: {kind: EVERY_N_DAYS|EVERY_N_MONTHS, every}, " +
+                    "{kind: WEEKLY, day: 1-7}, {kind: MONTHLY, day: 1-31}, {kind: YEARLY, month, day}; " +
+                    "optional dueWithinDays 0-365.",
+            )
+        }
 
     private fun badRequest(detail: String): ResponseEntity<ProblemDetail> =
         problem(HttpStatus.BAD_REQUEST, detail)

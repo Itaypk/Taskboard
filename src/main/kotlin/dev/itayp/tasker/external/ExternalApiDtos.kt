@@ -4,6 +4,9 @@ import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.BacklogTaskTag
 import dev.itayp.tasker.model.BoardSummary
+import dev.itayp.tasker.model.request.RecurrenceInput
+import dev.itayp.tasker.model.response.RecurrenceResponse
+import dev.itayp.tasker.model.response.toResponse
 import jakarta.validation.constraints.Size
 import java.util.UUID
 
@@ -33,6 +36,11 @@ data class ExternalTaskResponse(
     val hiddenFromAssistant: Boolean,
     val createdAt: String,
     val updatedAt: String?,
+    /** Null = not recurring. Completing a recurring task leaves it `todo` with the next `relevantFrom`. */
+    val recurrence: RecurrenceResponse?,
+    val lastCompletedOn: String?,
+    /** Non-null marks the saved record of one completed occurrence, pointing at its recurring task. */
+    val recurrenceSourceId: String?,
 )
 
 data class ExternalTagResponse(
@@ -106,6 +114,7 @@ data class ExternalCreateTaskRequest(
     val tags: List<String>? = null,
     val relevantFrom: String? = null,
     val hiddenFromAssistant: Boolean? = null,
+    val recurrence: RecurrenceInput? = null,
 )
 
 /**
@@ -129,12 +138,14 @@ data class ExternalUpdateTaskRequest(
     val tags: List<String>? = null,
     val relevantFrom: String? = null,
     val hiddenFromAssistant: Boolean? = null,
+    /** Replaces the whole rule when present (fields aren't merged); `clear: ["recurrence"]` stops recurring. */
+    val recurrence: RecurrenceInput? = null,
     /** Names of fields to unset. See [CLEARABLE_FIELDS] for what may appear here. */
     val clear: List<String>? = null,
 ) {
     companion object {
         val CLEARABLE_FIELDS = setOf(
-            "description", "url", "priority", "deadline", "estimatedMinutes", "relevantFrom", "tags",
+            "description", "url", "priority", "deadline", "estimatedMinutes", "relevantFrom", "tags", "recurrence",
         )
     }
 }
@@ -158,6 +169,9 @@ fun BacklogTask.toExternalResponse(boardName: String) = ExternalTaskResponse(
     hiddenFromAssistant = hiddenFromAssistant,
     createdAt = createdAt.toString(),
     updatedAt = updatedAt?.toString(),
+    recurrence = recurrence?.toResponse(),
+    lastCompletedOn = lastCompletedOn?.toString(),
+    recurrenceSourceId = recurrenceSourceId?.toString(),
 )
 
 fun BacklogTaskTag.toExternalResponse() = ExternalTagResponse(

@@ -42,7 +42,10 @@ export function PlanDetails({ plan, onTaskClick, onTaskContextMenu }: PlanDetail
           <ul className={styles.taskList}>
             {plan.tasks.map(task => {
               const isArchived = task.status === 'archived';
-              const isDone = task.status === 'done' || isArchived;
+              // A completed recurring task stays `todo` (it rolled to its next date); its completion
+              // during this plan's week is what marks it done here.
+              const completedThisWeek = task.recurrence != null && !!task.lastCompletedOn && task.lastCompletedOn >= plan.weekStart;
+              const isDone = task.status === 'done' || isArchived || completedThisWeek;
               return (
                 <li key={task.id}>
                   <button

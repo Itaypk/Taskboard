@@ -27,7 +27,10 @@ fun BacklogTaskEntity.toDomain(crypto: BoardCryptoService): BacklogTask {
         lastScheduledInSessionId = lastScheduledInSessionId,
         relevantFrom = relevantFrom,
         tutorial = tutorial,
-        hiddenFromAssistant = hiddenFromAssistant
+        hiddenFromAssistant = hiddenFromAssistant,
+        recurrence = recurrence,
+        lastCompletedOn = lastCompletedOn,
+        recurrenceSourceId = recurrenceSourceId,
     )
 }
 

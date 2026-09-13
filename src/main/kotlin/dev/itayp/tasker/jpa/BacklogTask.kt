@@ -1,6 +1,8 @@
 package dev.itayp.tasker.jpa
 
+import dev.itayp.tasker.model.RecurrenceKind
 import dev.itayp.tasker.model.TaskPriority
+import dev.itayp.tasker.model.TaskRecurrence
 import dev.itayp.tasker.model.TaskStatus
 import jakarta.persistence.*
 import org.hibernate.annotations.UuidGenerator
@@ -82,4 +84,39 @@ class BacklogTaskEntity {
     /** User opt-out: when true the task is withheld from every AI-assistant read path (planner slate, backlog search, quick-add sampling). Independent of priority. */
     @Column(name = "hidden_from_assistant", nullable = false)
     var hiddenFromAssistant: Boolean = false
+
+    /** Null = not recurring. The remaining rule columns are meaningful only per kind. */
+    @Column(name = "recurrence_kind")
+    @Enumerated(EnumType.STRING)
+    var recurrenceKind: RecurrenceKind? = null
+
+    @Column(name = "recurrence_every")
+    var recurrenceEvery: Int? = null
+
+    @Column(name = "recurrence_day")
+    var recurrenceDay: Int? = null
+
+    @Column(name = "recurrence_month")
+    var recurrenceMonth: Int? = null
+
+    @Column(name = "due_within_days")
+    var dueWithinDays: Int? = null
+
+    /** Local date of the latest completion — on a recurring original and on each completed copy. */
+    @Column(name = "last_completed_on")
+    var lastCompletedOn: LocalDate? = null
+
+    /** Set on a completed-occurrence copy: the recurring original it was saved from. */
+    @Column(name = "recurrence_source_id")
+    var recurrenceSourceId: UUID? = null
+
+    var recurrence: TaskRecurrence?
+        get() = recurrenceKind?.let { TaskRecurrence(it, recurrenceEvery, recurrenceDay, recurrenceMonth, dueWithinDays) }
+        set(value) {
+            recurrenceKind = value?.kind
+            recurrenceEvery = value?.every
+            recurrenceDay = value?.day
+            recurrenceMonth = value?.month
+            dueWithinDays = value?.dueWithinDays
+        }
 }

@@ -5,10 +5,12 @@ import dev.itayp.tasker.jpa.BacklogTaskCategoryEntity
 import dev.itayp.tasker.jpa.BacklogTaskEntity
 import dev.itayp.tasker.jpa.BacklogTaskTagEntity
 import dev.itayp.tasker.model.CategoryColor
+import dev.itayp.tasker.model.RecurrenceKind
 import dev.itayp.tasker.model.TagColor
 import dev.itayp.tasker.model.TaskPriority
 import dev.itayp.tasker.model.TaskStatus
 import dev.itayp.tasker.model.request.CreateBacklogTaskRequest
+import dev.itayp.tasker.model.request.RecurrenceInput
 import dev.itayp.tasker.model.request.ReorderTaskRequest
 import dev.itayp.tasker.model.request.TagInput
 import dev.itayp.tasker.model.request.UpdateBacklogTaskRequest
@@ -31,6 +33,7 @@ import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.time.Clock
 import java.time.Instant
+import java.time.LocalDate
 import java.util.UUID
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -405,6 +408,186 @@ class BacklogTaskServiceTest {
         // Already cancelled when the task first went DONE — moving between terminal statuses shouldn't
         // dispatch a second round of cancellations.
         verify(taskCompletionCancellationService, never()).cancelUpcomingSlots(any(), any(), any())
+    }
+
+    // --- recurring tasks ---
+
+    private val rentRule = RecurrenceInput(kind = "MONTHLY", day = 25, dueWithinDays = 7)
+
+    private fun stubToday(isoInstant: String) {
+        // userSettingsService is a bare mock, so the zone lookup falls back to UTC.
+        whenever(clock.instant()).thenReturn(Instant.parse(isoInstant))
+    }
+
+    @Test
+    fun `completing a recurring task saves a DONE copy and rolls the original forward`() {
+        val taskId = UUID.randomUUID()
+        val catId = UUID.randomUUID()
+        val sessionId = UUID.randomUUID()
+        val existing = taskEntity(categoryEntity(id = catId), id = taskId, title = "Rent", lastScheduledInSessionId = sessionId).apply {
+            recurrenceKind = RecurrenceKind.MONTHLY
+            recurrenceDay = 25
+            dueWithinDays = 7
+            relevantFrom = LocalDate.parse("2026-09-25")
+            deadline = LocalDate.parse("2026-10-02")
+            rescheduleCount = 2
+        }
+        whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(existing)
+        whenever(categoryRepository.findByIdAndBoardId(catId, boardId)).thenReturn(existing.category)
+        whenever(tagRepository.findAllByBoardId(boardId)).thenReturn(emptyList())
+        stubSaveTask()
+        stubToday("2026-09-27T10:00:00Z")
+
+        val result = service.updateTask(userId, boardId, taskId, UpdateBacklogTaskRequest(
+            title = "Rent",
+            status = "done",
+            categoryId = catId.toString(),
+            relevantFrom = "2026-09-25",
+            recurrence = rentRule,
+        ))
+
+        val saved = argumentCaptor<BacklogTaskEntity>()
+        verify(backlogTaskRepository, org.mockito.kotlin.times(2)).save(saved.capture())
+        val copy = saved.allValues.single { it.recurrenceSourceId == taskId }
+        assertEquals(TaskStatus.DONE, copy.status)
+        assertNull(copy.recurrenceKind)
+        assertEquals(LocalDate.parse("2026-09-25"), copy.relevantFrom)
+        assertEquals(LocalDate.parse("2026-10-02"), copy.deadline)
+        assertEquals(LocalDate.parse("2026-09-27"), copy.lastCompletedOn)
+        assertNull(copy.lastScheduledInSessionId)
+
+        assertEquals(TaskStatus.TODO, result.status)
+        assertEquals(LocalDate.parse("2026-10-25"), result.relevantFrom)
+        assertEquals(LocalDate.parse("2026-11-01"), result.deadline)
+        assertEquals(LocalDate.parse("2026-09-27"), result.lastCompletedOn)
+        assertEquals(0, result.rescheduleCount)
+        // Kept so the plan view still lists the task in the week it was planned in.
+        assertEquals(sessionId, result.lastScheduledInSessionId)
+
+        verify(taskChangeService).recordStatusChange(boardId, userId, copy.id!!, "Rent", TaskStatus.TODO, TaskStatus.DONE)
+        verify(taskChangeService, never()).recordStatusChange(any(), any(), eq(taskId), any(), any(), eq(TaskStatus.DONE))
+        verify(taskChangeService, never()).recordCreated(any(), any(), any(), any(), any())
+        verify(taskCompletionCancellationService).cancelUpcomingSlots(userId, sessionId, taskId)
+    }
+
+    @Test
+    fun `markDone rolls a recurring task forward through the rebuilt request`() {
+        val taskId = UUID.randomUUID()
+        val category = categoryEntity()
+        val existing = taskEntity(category, id = taskId).apply {
+            recurrenceKind = RecurrenceKind.EVERY_N_MONTHS
+            recurrenceEvery = 6
+            relevantFrom = LocalDate.parse("2026-09-01")
+        }
+        whenever(boardMembershipService.listBoardIds(userId)).thenReturn(listOf(boardId))
+        whenever(backlogTaskRepository.findByIdAndBoardIdIn(taskId, listOf(boardId))).thenReturn(existing)
+        whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(existing)
+        whenever(categoryRepository.findByIdAndBoardId(category.id!!, boardId)).thenReturn(category)
+        whenever(tagRepository.findAllByBoardId(boardId)).thenReturn(emptyList())
+        stubSaveTask()
+        stubToday("2026-09-13T08:00:00Z")
+
+        val result = service.markDone(userId, taskId)!!
+
+        assertEquals(TaskStatus.TODO, result.status)
+        assertEquals(RecurrenceKind.EVERY_N_MONTHS, result.recurrence?.kind)
+        assertEquals(LocalDate.parse("2027-03-13"), result.relevantFrom)
+    }
+
+    @Test
+    fun `markDone is a no-op for a recurring task already completed today`() {
+        val taskId = UUID.randomUUID()
+        val existing = taskEntity(categoryEntity(), id = taskId).apply {
+            recurrenceKind = RecurrenceKind.EVERY_N_DAYS
+            recurrenceEvery = 1
+            lastCompletedOn = LocalDate.parse("2026-09-13")
+            relevantFrom = LocalDate.parse("2026-09-14")
+        }
+        whenever(boardMembershipService.listBoardIds(userId)).thenReturn(listOf(boardId))
+        whenever(backlogTaskRepository.findByIdAndBoardIdIn(taskId, listOf(boardId))).thenReturn(existing)
+        stubToday("2026-09-13T20:00:00Z")
+
+        val result = service.markDone(userId, taskId)
+
+        assertEquals(LocalDate.parse("2026-09-14"), result?.relevantFrom)
+        verify(backlogTaskRepository, never()).save(any<BacklogTaskEntity>())
+    }
+
+    @Test
+    fun `archive keeps the recurrence rule and does not roll forward`() {
+        val taskId = UUID.randomUUID()
+        val category = categoryEntity()
+        val existing = taskEntity(category, id = taskId).apply {
+            recurrenceKind = RecurrenceKind.WEEKLY
+            recurrenceDay = 2
+            relevantFrom = LocalDate.parse("2026-09-15")
+        }
+        whenever(boardMembershipService.listBoardIds(userId)).thenReturn(listOf(boardId))
+        whenever(backlogTaskRepository.findByIdAndBoardIdIn(taskId, listOf(boardId))).thenReturn(existing)
+        whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(existing)
+        whenever(categoryRepository.findByIdAndBoardId(category.id!!, boardId)).thenReturn(category)
+        whenever(tagRepository.findAllByBoardId(boardId)).thenReturn(emptyList())
+        stubSaveTask()
+
+        val result = service.archive(userId, taskId)!!
+
+        assertEquals(TaskStatus.ARCHIVED, result.status)
+        assertEquals(RecurrenceKind.WEEKLY, result.recurrence?.kind)
+        assertEquals(LocalDate.parse("2026-09-15"), result.relevantFrom)
+        verify(backlogTaskRepository, org.mockito.kotlin.times(1)).save(any<BacklogTaskEntity>())
+    }
+
+    @Test
+    fun `saving a recurring task derives the deadline from the rule, ignoring the sent one`() {
+        val taskId = UUID.randomUUID()
+        val catId = UUID.randomUUID()
+        val existing = taskEntity(categoryEntity(id = catId), id = taskId)
+        whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(existing)
+        whenever(categoryRepository.findByIdAndBoardId(catId, boardId)).thenReturn(existing.category)
+        whenever(tagRepository.findAllByBoardId(boardId)).thenReturn(emptyList())
+        stubSaveTask()
+
+        val result = service.updateTask(userId, boardId, taskId, UpdateBacklogTaskRequest(
+            title = "Rent",
+            categoryId = catId.toString(),
+            deadline = "2030-01-01",
+            relevantFrom = "2026-09-25",
+            recurrence = rentRule,
+        ))
+
+        assertEquals(LocalDate.parse("2026-10-02"), result.deadline)
+    }
+
+    @Test
+    fun `creating a recurring task without a date starts at the rule's first occurrence`() {
+        val catId = UUID.randomUUID()
+        whenever(categoryRepository.findByIdAndBoardId(catId, boardId)).thenReturn(categoryEntity(id = catId))
+        whenever(tagRepository.findAllByBoardId(boardId)).thenReturn(emptyList())
+        stubSaveTask()
+        stubToday("2026-09-13T08:00:00Z")
+
+        val result = service.createTask(userId, boardId, CreateBacklogTaskRequest(
+            title = "Rent",
+            categoryId = catId.toString(),
+            recurrence = rentRule,
+        ))
+
+        assertEquals(LocalDate.parse("2026-09-25"), result.relevantFrom)
+        assertEquals(LocalDate.parse("2026-10-02"), result.deadline)
+    }
+
+    @Test
+    fun `an invalid recurrence rule is rejected`() {
+        val catId = UUID.randomUUID()
+        whenever(categoryRepository.findByIdAndBoardId(catId, boardId)).thenReturn(categoryEntity(id = catId))
+
+        assertFailsWith<InvalidRecurrenceException> {
+            service.createTask(userId, boardId, CreateBacklogTaskRequest(
+                title = "Rent",
+                categoryId = catId.toString(),
+                recurrence = RecurrenceInput(kind = "MONTHLY", day = 40),
+            ))
+        }
     }
 
     @Test
