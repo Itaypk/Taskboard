@@ -6,6 +6,7 @@ import { formatDeadline, isOverdue, formatDuration, rotationFromId } from '../ut
 import { WashiTape } from './WashiTape';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { resolveTaskLink, linkLabel } from '../taskLink';
+import { formatShortDate, waitingUntil } from '../recurrence';
 import styles from './PostItNote.module.css';
 
 /** Resolved claimer for the assignee chip; only supplied on shared boards. */
@@ -121,7 +122,16 @@ export function PostItNote({
       )}
 
       <div className="note__meta">
-        {task.deadline && (
+        {task.recurrence && (
+          <span className="note__meta-item" title={t('recurrence.repeats')}>
+            <span aria-hidden="true">↻</span>
+            {waitingUntil(task)
+              ? ` ${t('recurrence.cardNext', { date: formatShortDate(waitingUntil(task)!) })}`
+              : <span className={styles.planSrLabel}>{t('recurrence.repeats')}</span>}
+          </span>
+        )}
+        {/* A waiting recurring task's deadline belongs to an occurrence that hasn't started. */}
+        {task.deadline && !waitingUntil(task) && (
           <span className={`note__meta-item${isOverdue(task.deadline, task.status !== 'todo') ? ' note__meta-item--overdue' : ''}`}>
             <Icon name="cal" /> {formatDeadline(task.deadline, task.status !== 'todo')}
           </span>

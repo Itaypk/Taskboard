@@ -8,7 +8,9 @@ import { TagEditModal } from './TagEditModal';
 import { Autocomplete } from './Autocomplete';
 import { Toggle } from './Toggle';
 import { HelpTip } from './HelpTip';
+import { RecurrenceFields } from './RecurrenceFields';
 import { generateId, formatRelative } from '../utils';
+import { defaultRule, firstOccurrence, formatShortDate, isRuleValid, normalizeRule, todayIso } from '../recurrence';
 import { resolveTaskLink, linkLabel } from '../taskLink';
 import i18n from '../i18n';
 
@@ -41,7 +43,7 @@ interface TaskDrawerProps {
 }
 
 type FormState = Omit<Task, 'id' | 'createdAt' | 'sortKey'>;
-type FieldErrors = Partial<Record<'title' | 'url' | 'description', string>>;
+type FieldErrors = Partial<Record<'title' | 'url' | 'description' | 'recurrence', string>>;
 
 // Mirrors the server-side constraints on CreateBacklogTaskRequest so the user gets an inline,
 // field-specific reason before submitting (rather than a generic "invalid request" toast).
@@ -60,6 +62,7 @@ function validate(form: FormState): FieldErrors {
     if (!URL_PATTERN.test(url)) errors.url = i18n.t('taskDrawer.validation.urlInvalid');
     else if (url.length > 2000) errors.url = i18n.t('taskDrawer.validation.urlTooLong');
   }
+  if (form.recurrence && !isRuleValid(form.recurrence)) errors.recurrence = i18n.t('recurrence.invalid');
   return errors;
 }
 
@@ -90,6 +93,7 @@ function makeEmpty(defaultCategoryId: string | null): FormState {
     categoryId: defaultCategoryId ?? '',
     tags: [],
     hiddenFromAssistant: false,
+    recurrence: null,
   };
 }
 
@@ -127,6 +131,8 @@ export function TaskDrawer({
         categoryId: task.categoryId,
         tags: [...task.tags],
         hiddenFromAssistant: task.hiddenFromAssistant ?? false,
+        // The save is a full replace: leaving this out would silently stop the task recurring.
+        recurrence: task.recurrence ?? null,
       } : makeEmpty(defaultCategoryId));
       setShowTagForm(false);
       setTagLabel('');
@@ -161,7 +167,7 @@ export function TaskDrawer({
     if (!form.categoryId) return;
     setFormError(null);
     const found = validate(form);
-    if (found.title || found.url || found.description) {
+    if (found.title || found.url || found.description || found.recurrence) {
       setErrors(found);
       return;
     }
@@ -177,6 +183,7 @@ export function TaskDrawer({
         deadline: form.deadline || undefined,
         relevantFrom: form.relevantFrom || undefined,
         estimatedMinutes: form.estimatedMinutes || undefined,
+        recurrence: form.recurrence ? normalizeRule(form.recurrence) : null,
       });
     } catch (e) {
       // The drawer owns error display here (the save call opts out of the global toast). Server-side
@@ -188,6 +195,23 @@ export function TaskDrawer({
         setFormError(e instanceof ApiError ? e.userMessage : t('taskDrawer.saveError'));
       }
     }
+  };
+
+  const setRepeats = (on: boolean) => {
+    clearError('recurrence');
+    setForm(f => {
+      if (!on) return { ...f, recurrence: null };
+      const today = todayIso();
+      const rule = defaultRule('EVERY_N_MONTHS', today);
+      return {
+        ...f,
+        recurrence: rule,
+        relevantFrom: f.relevantFrom || firstOccurrence(rule, today),
+        // A recurring task is never stored done (completing it is what rolls it forward), so
+        // switching repeat on for a done task reopens it.
+        status: f.status === 'done' ? 'todo' : f.status,
+      };
+    });
   };
 
   const commitTag = () => {
@@ -271,6 +295,13 @@ export function TaskDrawer({
           )}
           {readOnly && (
             <p className="drawer__readonly-hint">{t('taskDrawer.tutorialHint')}</p>
+          )}
+          {!isNew && task?.recurrenceSourceId && task.lastCompletedOn && (
+            <p className="drawer__readonly-hint">
+              {task.relevantFrom
+                ? t('recurrence.occurrenceNote', { occurrence: formatShortDate(task.relevantFrom), completed: formatShortDate(task.lastCompletedOn) })
+                : t('recurrence.completedNote', { completed: formatShortDate(task.lastCompletedOn) })}
+            </p>
           )}
           <fieldset className="drawer__fieldset" disabled={readOnly}>
           <input
@@ -391,26 +422,47 @@ export function TaskDrawer({
             </div>
           )}
 
-          <div className="row-2">
-            <div className="field">
-              <label className="field__label">{t('taskDrawer.deadline')}</label>
-              <input
-                className="field__input"
-                type="date"
-                value={form.deadline}
-                onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))}
-              />
-            </div>
-            <div className="field">
-              <label className="field__label">{t('taskDrawer.availableFrom')}</label>
-              <input
-                className="field__input"
-                type="date"
-                value={form.relevantFrom}
-                onChange={e => setForm(f => ({ ...f, relevantFrom: e.target.value }))}
-              />
-            </div>
+          <div className="field">
+            <label className="field__label">{t('recurrence.repeats')}</label>
+            <Toggle
+              checked={form.recurrence != null}
+              onChange={setRepeats}
+              label={t('recurrence.repeatsToggle')}
+            />
           </div>
+
+          {form.recurrence ? (
+            <RecurrenceFields
+              recurrence={form.recurrence}
+              relevantFrom={form.relevantFrom ?? ''}
+              error={errors.recurrence}
+              onChange={next => {
+                clearError('recurrence');
+                setForm(f => ({ ...f, recurrence: next.recurrence, relevantFrom: next.relevantFrom }));
+              }}
+            />
+          ) : (
+            <div className="row-2">
+              <div className="field">
+                <label className="field__label">{t('taskDrawer.deadline')}</label>
+                <input
+                  className="field__input"
+                  type="date"
+                  value={form.deadline}
+                  onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))}
+                />
+              </div>
+              <div className="field">
+                <label className="field__label">{t('taskDrawer.availableFrom')}</label>
+                <input
+                  className="field__input"
+                  type="date"
+                  value={form.relevantFrom}
+                  onChange={e => setForm(f => ({ ...f, relevantFrom: e.target.value }))}
+                />
+              </div>
+            </div>
+          )}
 
           <div className="field">
             <label className="field__label">{t('taskDrawer.estMinutes')}</label>

@@ -44,6 +44,18 @@ export interface Category {
   swatchId: PaperSwatchId;
 }
 
+/** Interval kinds count from completion; day-of kinds follow the calendar. See docs/RECURRING-TASKS.md. */
+export type RecurrenceKind = 'EVERY_N_DAYS' | 'EVERY_N_MONTHS' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
+
+export interface Recurrence {
+  kind: RecurrenceKind;
+  every?: number | null;
+  /** ISO weekday (1 = Monday) for WEEKLY; day of month for MONTHLY/YEARLY (31 = last day). */
+  day?: number | null;
+  month?: number | null;
+  dueWithinDays?: number | null;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -65,6 +77,15 @@ export interface Task {
   tutorial?: boolean;
   /** When true, the task is excluded from the AI assistant's context (planner, search, suggestions). */
   hiddenFromAssistant?: boolean;
+  /**
+   * Null = not recurring. Completing a recurring task keeps it `todo` and moves `relevantFrom` to the
+   * next occurrence. The PUT is a full replace, so every save must send this back or recurrence stops.
+   */
+  recurrence?: Recurrence | null;
+  /** Read-only: latest completion of a recurring task, or the completion date of a completed copy. */
+  lastCompletedOn?: string | null;
+  /** Read-only: set on the DONE record of one occurrence, pointing at its recurring task. */
+  recurrenceSourceId?: string | null;
 }
 
 export interface TimeSlot {
@@ -101,7 +122,7 @@ export interface OneOffEvent {
   notes?: string | null;
 }
 
-export type TaskFilter = 'todo' | 'plan' | 'done' | 'all';
+export type TaskFilter = 'todo' | 'plan' | 'recurring' | 'all';
 
 /** How the board renders: the pinboard of full post-its, or the compact stack of tinted strips. */
 export type ViewMode = 'board' | 'compact';

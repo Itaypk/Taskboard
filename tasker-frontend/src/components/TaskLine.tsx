@@ -8,6 +8,7 @@ import { WashiTape } from './WashiTape';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { resolveTaskLink, linkLabel } from '../taskLink';
 import type { AssigneeChipInfo } from './PostItNote';
+import { formatShortDate, waitingUntil } from '../recurrence';
 import styles from './TaskLine.module.css';
 
 interface TaskLineProps {
@@ -130,7 +131,15 @@ export function TaskLine({
         {task.estimatedMinutes != null && (
           <span className={styles.dur}><ClockIcon /> {formatDuration(task.estimatedMinutes)}</span>
         )}
-        {task.deadline && (
+        {task.recurrence && (
+          <span title={t('recurrence.repeats')}>
+            <span aria-hidden="true">↻</span>
+            {waitingUntil(task)
+              ? ` ${t('recurrence.cardNext', { date: formatShortDate(waitingUntil(task)!) })}`
+              : <span className={styles.srOnly}>{t('recurrence.repeats')}</span>}
+          </span>
+        )}
+        {task.deadline && !waitingUntil(task) && (
           <span className={isOverdue(task.deadline, task.status !== 'todo') ? styles.overdue : undefined}>
             <CalIcon /> {formatDeadline(task.deadline, task.status !== 'todo')}
           </span>

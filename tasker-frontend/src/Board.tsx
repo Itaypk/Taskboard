@@ -46,6 +46,7 @@ import { fetchBoards, createBoard, duplicateBoard, fetchTasks, fetchCategories, 
 import { UpdateBanner } from './components/UpdateBanner';
 import type { Task, UserSettings, Tag, CurrentPlan, TaskFilter, ViewMode } from './types';
 import { sortTasks, isSortMode, type SortMode } from './sort';
+import { isFutureDate, todayIso } from './recurrence';
 
 const ACTIVE_BOARD_KEY = 'backlog.activeBoardId';
 // Sort mode is a per-board view preference (per device); the manual order itself lives server-side.
@@ -71,7 +72,7 @@ function emptyMessageFor(filter: TaskFilter): string {
   switch (filter) {
     case 'todo': return i18n.t('app.emptyTodo');
     case 'plan': return i18n.t('app.emptyPlan');
-    case 'done': return i18n.t('app.emptyDone');
+    case 'recurring': return i18n.t('app.emptyRecurring');
     case 'all':  return i18n.t('app.emptyAll');
   }
 }
@@ -233,8 +234,9 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
   }, [activeBoardId, boards]);
 
   // Tasks reload when the board or the status filter changes. 'plan' reuses the open-tasks fetch
-  // and applies plan-membership client-side. This also clears the initial loading flag.
-  const fetchStatus: TaskStatusFilter = filter === 'plan' ? 'todo' : filter;
+  // and applies plan-membership client-side; 'recurring' needs the full list, since the open-tasks
+  // fetch hides recurring tasks waiting for their next date. This also clears the initial loading flag.
+  const fetchStatus: TaskStatusFilter = filter === 'plan' ? 'todo' : filter === 'recurring' ? 'all' : filter;
   useEffect(() => {
     if (!activeBoardId) return;
     let cancelled = false;
@@ -344,19 +346,32 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
   const sortedArchivedTasks = useMemo(() => sortTasks(archivedTasks, sortMode), [archivedTasks, sortMode]);
 
   // Hand-reorder only makes sense against the manual order; a field sort suspends drag.
-  const canReorder = sortMode === 'none';
+  // The Recurring view is ordered by next date, so hand-reorder has nothing to act on there.
+  const canReorder = sortMode === 'none' && filter !== 'recurring';
   const visibleTasks = useMemo(() => {
+    const today = todayIso();
     const base = sortedTasks.filter(t => {
       if (t.id === leavingId) return true;
       switch (filter) {
-        case 'todo': return t.status === 'todo';
-        case 'done': return t.status === 'done';
+        // The server's todo list already omits future-dated tasks; checking here as well drops a
+        // recurring task the moment it rolls forward, without waiting for a refetch.
+        case 'todo': return t.status === 'todo' && !isFutureDate(t.relevantFrom, today);
+        case 'recurring': return t.recurrence != null && t.status !== 'archived';
         case 'all':  return t.status !== 'archived';
-        case 'plan': return t.status === 'todo' && planId !== null && t.lastScheduledInSessionId === planId;
+        case 'plan': return t.status === 'todo' && !isFutureDate(t.relevantFrom, today) && planId !== null && t.lastScheduledInSessionId === planId;
       }
     });
+    if (filter === 'recurring' && sortMode === 'none') {
+      base.sort((a, b) => (a.relevantFrom ?? '').localeCompare(b.relevantFrom ?? ''));
+    }
     return filter === 'all' && showArchived ? [...base, ...sortedArchivedTasks] : base;
-  }, [sortedTasks, sortedArchivedTasks, leavingId, filter, planId, showArchived]);
+  }, [sortedTasks, sortedArchivedTasks, leavingId, filter, planId, showArchived, sortMode]);
+
+  // A rolled-forward recurring task keeps its plan stamp (the plan view joins through it), but it's
+  // done for this week — so don't badge it as planned or offer plan actions on it.
+  const isInCurrentPlan = useCallback((task: Task) =>
+    planId !== null && task.lastScheduledInSessionId === planId && !(task.recurrence && isFutureDate(task.relevantFrom)),
+  [planId]);
 
   const visibleIds = useMemo(() => visibleTasks.map(t => t.id), [visibleTasks]);
 
@@ -463,17 +478,38 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
   const handleMarkDone = useCallback((id: string) => {
     const task = tasks.find(t => t.id === id);
     if (!task || !activeBoardId) return;
-    setLeavingId(id);
+    // A recurring task only moves to its next date, so it stays put on the Recurring and All views.
+    const leaves = !task.recurrence || filter === 'todo' || filter === 'plan';
+    if (leaves) setLeavingId(id);
     const { id: _id, createdAt: _ca, sortKey: _sk, ...payload } = task;
-    updateTask(activeBoardId, id, { ...payload, status: 'done' }).then(() => {
+    updateTask(activeBoardId, id, { ...payload, status: 'done' }).then(saved => {
       setTimeout(() => {
-        setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'done' } : t));
+        // Trust the response: a recurring task comes back `todo` with its next relevantFrom/deadline.
+        setTasks(prev => prev.map(t => t.id === id ? saved : t));
         setLeavingId(null);
-      }, 380);
+        if (saved.recurrence) {
+          // The server also saved a DONE copy of this occurrence, and the plan now shows it as done.
+          fetchTasks(activeBoardId, fetchStatus).then(setTasks).catch(e => console.error('Failed to refresh tasks', e));
+          fetchCurrentPlan().then(setCurrentPlan).catch(e => console.error('Failed to refetch plan', e));
+        }
+      }, leaves ? 380 : 0);
     }).catch(e => {
       console.error('Failed to mark task done', e);
       setLeavingId(null);
     });
+  }, [tasks, activeBoardId, filter, fetchStatus]);
+
+  /** Brings a waiting recurring task back now (e.g. after an accidental "done"). The server re-derives the deadline. */
+  const handleDoItNow = useCallback(async (id: string) => {
+    const task = tasks.find(t => t.id === id);
+    if (!task || !activeBoardId) return;
+    const { id: _id, createdAt: _ca, sortKey: _sk, ...payload } = task;
+    try {
+      const saved = await updateTask(activeBoardId, id, { ...payload, relevantFrom: todayIso() });
+      setTasks(prev => prev.map(t => t.id === id ? saved : t));
+    } catch (e) {
+      console.error('Failed to bring recurring task forward', e);
+    }
   }, [tasks, activeBoardId]);
 
   const handleMarkTodo = useCallback((id: string) => {
@@ -583,6 +619,9 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
     } else {
       actions.push({ label: t('app.contextMenu.markDone'), onClick: () => { handleMarkDone(taskId); } });
     }
+    if (task.recurrence && isFutureDate(task.relevantFrom)) {
+      actions.push({ label: t('app.contextMenu.doItNow'), onClick: () => { void handleDoItNow(taskId); } });
+    }
     actions.push({ label: t('app.contextMenu.edit'), onClick: () => { setIsCreating(false); setSelectedId(taskId); } });
     if (sharedBoard) {
       if (task.assigneeUserId === currentUserId) {
@@ -615,7 +654,7 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
     }
     actions.push({ label: t('app.contextMenu.delete'), danger: true, onClick: () => { requestDelete(taskId); } });
     return actions;
-  }, [tasks, boards, categoryById, currentPlan, sharedBoard, currentUserId, handleSetAssignee, handleMarkDone, handleMarkTodo, handleRemoveFromPlan, handleDuplicate, requestDelete, t]);
+  }, [tasks, boards, categoryById, currentPlan, sharedBoard, currentUserId, handleSetAssignee, handleMarkDone, handleDoItNow, handleMarkTodo, handleRemoveFromPlan, handleDuplicate, requestDelete, t]);
 
   const handleDragStart = (event: DragStartEvent) => {
     setDraggingId(String(event.active.id));
@@ -826,11 +865,11 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
                     task,
                     category: categoryById.get(task.categoryId),
                     leaving: leavingId === task.id,
-                    inCurrentPlan: planId !== null && task.lastScheduledInSessionId === planId,
+                    inCurrentPlan: isInCurrentPlan(task),
                     assignee: resolveAssignee(task),
                     draggable: canReorder,
                     onClick: () => { setIsCreating(false); setSelectedId(task.id); },
-                    onContextMenu: (e: React.MouseEvent) => setContextMenu({ x: e.clientX, y: e.clientY, taskId: task.id, inPlan: planId !== null && task.lastScheduledInSessionId === planId }),
+                    onContextMenu: (e: React.MouseEvent) => setContextMenu({ x: e.clientX, y: e.clientY, taskId: task.id, inPlan: isInCurrentPlan(task) }),
                     onFollowLink: () => followTaskLink(task),
                   };
                   return viewMode === 'compact'
