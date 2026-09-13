@@ -73,12 +73,14 @@ The scope of the individual idea is varying - could be small UI improvements, or
 
 ## UI - Tasks
 - Work on tagline and satellite notes in the welcome page with better texts. See if we need to move a few things around 
-- Better - more satisfying - "mark as done"
+- Better - more satisfying - "mark as done", including an undo toast. For recurring tasks
+  (`docs/RECURRING-TASKS.md`) undo must also reverse the roll-forward: archive the completed copy
+  and restore the previous `relevant_from`/`deadline`.
 - Drawer improvements (buttons are too dense, for example)
 - Task list Markdown (subtasks) checkboxes - makes it possible to check directly from the main screen
 - Filter chips can still wrap on very small screens even after the "Week" shortening. If it keeps bugging us, consider a segmented control or horizontally-scrollable chip row on mobile.
 - Board management: custom board color pin marker (the member count pin)?
-- Center pill bar on mobile; consider dropping the "done" pill.
+- Center pill bar on mobile. (Replacing the "done" pill with "recurring" is part of `docs/RECURRING-TASKS.md`.)
 - Setting dialog - better way to organize it?
 
 ## Following up
@@ -121,10 +123,7 @@ Deferred from the `archive/I18N.md` design (see there for full rationale). Not b
   revokes a session if something tells them to look. The highest-value follow-up now that the
   absolute session lifetime is a year rather than 90 days. Does it make sense when the login itself
   is through that same email? Might make sense for users with more than one channel.
-- Scheduled tasks that appear in a fixed interval, possibly supporting more sophisticated schedules
-  like "last day of the month", for recurring tasks (examples: pay rent, dentist, clean AC filters).
-  Useful on one hand, but correct UI/UX is tricky, and this could be steering off the main focus
-  towards a classic calendar territory.
+- Recurring tasks (pay rent, dentist, clean AC filters) — designed, see `docs/RECURRING-TASKS.md`.
 ## Large projects
 - Web UI quick-add, and incoming email address as an additional way to quick-add tasks —
   see `docs/QUICKADD-CHANNELS.md` for the feasibility/effort exploration.
