@@ -47,9 +47,13 @@ set to `DONE`. When it's marked done, `BacklogTaskService.updateTask` does this 
    resolved the same way `filterOutFutureDated` does it.
 4. Sets `relevant_from = next occurrence` and `deadline = next occurrence + due_within_days`
    (or `null`).
-5. Clears `last_scheduled_in_session_id`, so the task leaves the Week pill. Resets
-   `reschedule_count = 0`, so one occurrence's urgency history doesn't carry into the next. The
-   assignee is kept, so household chores keep their owner.
+5. **Keeps** `last_scheduled_in_session_id`. The plan view (`PlanningSessionController`, Telegram
+   `/current`) joins `planned_task` rows to tasks through that stamp, so clearing it would drop the
+   task from the week it was planned in. The future `relevant_from` already takes it off the Week
+   pill and the planner slate. Because the task stays TODO and stamped,
+   `incrementRescheduleCountForUnfinishedTasks` skips tasks with `last_completed_on` on or after the
+   plan's week start. Resets `reschedule_count = 0`, so one occurrence's urgency history doesn't
+   carry into the next. The assignee is kept, so household chores keep their owner.
 6. Leaves `status = TODO`.
 
 From there, **existing** code hides the task until its next occurrence: the To-do view
@@ -66,9 +70,15 @@ recurrence rule and `newStatus == DONE`. That one place covers every way to mark
 - the web UI's `PUT /api/v1/boards/{b}/tasks/{id}`,
 - `BacklogTaskService.markDone`, used by the Telegram reminder menu (`ReminderActionHandler`) and
   planning reconciliation (`WeeklyPlanningOrchestrator` `RECONCILE_DONE`),
-- the external API's `POST …/tasks/{id}/done`.
+- the external API's `POST …/tasks/{id}/complete`.
 
 Archiving a recurring task does **not** roll it forward. Archiving means "stop this".
+
+**Idempotency:** `markDone` normally treats an already-DONE task as a no-op, but a recurring task is
+never DONE. So `markDone` also returns early when `last_completed_on` is today (in the user's
+timezone). Otherwise a double tap on a reminder button, or a retried external call, would save a
+second copy and push the schedule again. The web UI's PUT isn't guarded, so completing twice in one
+day from the Recurring pill is still possible on purpose.
 
 ### Rejected alternative: templates + spawned copies
 
@@ -270,8 +280,8 @@ must be gender-neutral, and new CSS must use logical properties.
   push hard. `UpdateTaskTool` carries recurrence through unchanged; the assistant can't set it in
   v1.
 - **External API:** add the fields to `openapi.yaml` and `SKILL.md`, and document that
-  `POST …/done` on a recurring task returns `status: "todo"` with the next `relevantFrom`, plus
-  the completed copy's id. The discovery surfaces (api-catalog, llms.txt, sitemap, link relations)
+  `POST …/complete` on a recurring task returns `status: "todo"` with the next `relevantFrom`, plus
+  the completed copy's id (not returned yet after phase 1). The discovery surfaces (api-catalog, llms.txt, sitemap, link relations)
   are unaffected.
 
 ## Out of scope (v1)
@@ -299,9 +309,10 @@ must be gender-neutral, and new CSS must use logical properties.
   - the DONE copy is created with its source link and occurrence dates;
   - the DONE event lands on the copy, with no CREATED event;
   - slots are cancelled;
-  - the original's dates move, it stays TODO, and its session stamp is cleared.
+  - the original's dates move, it stays TODO, and its session stamp is kept;
+  - `markDone` twice on the same day saves only one copy.
 - A full-replace preservation test (an edit that leaves out recurrence keeps it).
-- External API: PATCH replaces the recurrence object, `clear: ["recurrence"]`, and the `/done`
+- External API: PATCH replaces the recurrence object, `clear: ["recurrence"]`, and the `/complete`
   response shape.
 - Frontend: drawer rule controls and summary, Recurring filter, mark-done toast, i18n catalog
   parity.
