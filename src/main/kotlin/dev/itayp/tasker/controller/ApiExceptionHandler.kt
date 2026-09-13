@@ -2,6 +2,7 @@ package dev.itayp.tasker.controller
 
 import dev.itayp.tasker.planning.NoPlannableTasksException
 import dev.itayp.tasker.service.BlockedEmailDomainException
+import dev.itayp.tasker.service.InvalidRecurrenceException
 import dev.itayp.tasker.service.UnclaimedAccountCapExceededException
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
@@ -64,6 +65,14 @@ class ApiExceptionHandler {
         ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.message!!).apply {
             title = "Nothing to plan"
             setProperty("code", "NO_PLANNABLE_TASKS")
+        }
+
+    /** Our own message (it names the offending field and range), so it's safe to echo. */
+    @ExceptionHandler(InvalidRecurrenceException::class)
+    fun handleInvalidRecurrence(ex: InvalidRecurrenceException): ProblemDetail =
+        ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.message!!).apply {
+            title = "Invalid recurrence"
+            setProperty("code", "INVALID_RECURRENCE")
         }
 
     /**

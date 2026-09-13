@@ -76,7 +76,7 @@ class PlanningSessionService(
         if (previous?.id != null) {
             // Carry-over tasks can live on any of the user's boards (the plan spans them all).
             for (boardId in boardMembershipService.listBoardIds(userId)) {
-                backlogTaskRepository.incrementRescheduleCountForUnfinishedTasks(boardId, previous.id!!)
+                backlogTaskRepository.incrementRescheduleCountForUnfinishedTasks(boardId, previous.id!!, previous.weekStart!!)
             }
         }
     }

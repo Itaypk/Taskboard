@@ -1,5 +1,8 @@
 package dev.itayp.tasker.model.request
 
+import dev.itayp.tasker.model.RecurrenceKind
+import dev.itayp.tasker.model.TaskRecurrence
+import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Pattern
 import jakarta.validation.constraints.Size
@@ -9,6 +12,31 @@ data class TagInput(
     @field:NotBlank @field:Size(max = 64) val label: String,
     @field:NotBlank @field:Size(max = 32) val colorId: String
 )
+
+/**
+ * A recurrence rule as it travels on the wire. Cross-field rules (which fields each kind takes) are
+ * checked in the service via [dev.itayp.tasker.model.TaskRecurrence.validationError], since bean
+ * validation can't express them.
+ */
+data class RecurrenceInput(
+    @field:NotBlank @field:Size(max = 16) val kind: String,
+    val every: Int? = null,
+    val day: Int? = null,
+    val month: Int? = null,
+    val dueWithinDays: Int? = null,
+)
+
+fun TaskRecurrence.toInput() = RecurrenceInput(kind.name, every, day, month, dueWithinDays)
+
+/** Null when valid; otherwise a sentence naming the problem and the allowed values. */
+fun RecurrenceInput.validationError(): String? {
+    val parsed = RecurrenceKind.parse(kind)
+        ?: return "Unknown recurrence kind '$kind'. Allowed: ${RecurrenceKind.allowedValues.joinToString()}."
+    return TaskRecurrence(parsed, every, day, month, dueWithinDays).validationError()
+}
+
+/** Only call on an input that passed [validationError]. */
+fun RecurrenceInput.toRule() = TaskRecurrence(RecurrenceKind.parse(kind)!!, every, day, month, dueWithinDays)
 
 data class CreateBacklogTaskRequest(
     @field:NotBlank(message = "Title is required.")
@@ -32,4 +60,6 @@ data class CreateBacklogTaskRequest(
     val relevantFrom: String? = null,
     /** Opt the task out of the AI assistant's context (planner slate, backlog search, quick-add sampling). */
     val hiddenFromAssistant: Boolean = false,
+    /** Null = not recurring. When set, `deadline` is derived from `relevantFrom` + `dueWithinDays`. */
+    @field:Valid val recurrence: RecurrenceInput? = null,
 )

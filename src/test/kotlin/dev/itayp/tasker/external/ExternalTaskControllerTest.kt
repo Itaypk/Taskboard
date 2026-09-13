@@ -7,8 +7,10 @@ import dev.itayp.tasker.model.BacklogTaskTag
 import dev.itayp.tasker.model.BoardRole
 import dev.itayp.tasker.model.BoardSummary
 import dev.itayp.tasker.model.CategoryColor
+import dev.itayp.tasker.model.RecurrenceKind
 import dev.itayp.tasker.model.TagColor
 import dev.itayp.tasker.model.TaskPriority
+import dev.itayp.tasker.model.TaskRecurrence
 import dev.itayp.tasker.model.TaskStatus
 import dev.itayp.tasker.model.request.UpdateBacklogTaskRequest
 import dev.itayp.tasker.security.ApiTokenAuthenticationFilter
@@ -342,6 +344,62 @@ class ExternalTaskControllerTest(@Autowired val mockMvc: MockMvc) {
 
         // Absent and explicit-null are indistinguishable, so both mean "leave alone".
         assertThat(captor.firstValue.description).isEqualTo("Book an appointment first")
+    }
+
+    @Test
+    fun `PATCH that doesn't mention recurrence carries the current rule forward`() {
+        stubBoards()
+        val recurring = aTask().copy(recurrence = TaskRecurrence(RecurrenceKind.MONTHLY, day = 25, dueWithinDays = 7))
+        whenever(backlogTaskService.findTask(userId, taskId)).thenReturn(recurring)
+        whenever(backlogTaskService.updateTask(eq(userId), eq(boardId), eq(taskId), any())).thenReturn(recurring)
+
+        mockMvc.perform(
+            patch("$basePath/$taskId")
+                .with(authentication(auth))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"title":"Pay rent"}""")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.recurrence.kind").value("MONTHLY"))
+
+        val captor = argumentCaptor<UpdateBacklogTaskRequest>()
+        verify(backlogTaskService).updateTask(eq(userId), eq(boardId), eq(taskId), captor.capture())
+        // The service PUT contract is a full replace: dropping this would silently stop the recurrence.
+        assertThat(captor.firstValue.recurrence?.kind).isEqualTo("MONTHLY")
+        assertThat(captor.firstValue.recurrence?.day).isEqualTo(25)
+    }
+
+    @Test
+    fun `PATCH clear recurrence stops recurring`() {
+        stubBoards()
+        val recurring = aTask().copy(recurrence = TaskRecurrence(RecurrenceKind.EVERY_N_DAYS, every = 45))
+        whenever(backlogTaskService.findTask(userId, taskId)).thenReturn(recurring)
+        whenever(backlogTaskService.updateTask(eq(userId), eq(boardId), eq(taskId), any())).thenReturn(aTask())
+
+        mockMvc.perform(
+            patch("$basePath/$taskId")
+                .with(authentication(auth))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"clear":["recurrence"]}""")
+        ).andExpect(status().isOk)
+
+        val captor = argumentCaptor<UpdateBacklogTaskRequest>()
+        verify(backlogTaskService).updateTask(eq(userId), eq(boardId), eq(taskId), captor.capture())
+        assertThat(captor.firstValue.recurrence).isNull()
+    }
+
+    @Test
+    fun `PATCH with a malformed recurrence is a 400 naming the rule`() {
+        whenever(backlogTaskService.findTask(userId, taskId)).thenReturn(aTask())
+
+        mockMvc.perform(
+            patch("$basePath/$taskId")
+                .with(authentication(auth))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"recurrence":{"kind":"MONTHLY","day":40}}""")
+        )
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.detail").value(containsString("MONTHLY requires 'day' between 1 and 31")))
     }
 
     @Test

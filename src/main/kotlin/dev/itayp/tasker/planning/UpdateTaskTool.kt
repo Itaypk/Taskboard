@@ -9,6 +9,7 @@ import dev.itayp.tasker.model.BacklogTaskTag
 import dev.itayp.tasker.model.TaskPriority
 import dev.itayp.tasker.model.request.TagInput
 import dev.itayp.tasker.model.request.UpdateBacklogTaskRequest
+import dev.itayp.tasker.model.request.toInput
 import dev.itayp.tasker.service.BacklogTaskService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -93,6 +94,9 @@ class UpdateTaskTool(
             // Not an LLM-settable field (absent from the tool schema): carry the user's choice forward so a
             // full-replacement update never silently un-hides a task the user withheld from the assistant.
             hiddenFromAssistant = current.hiddenFromAssistant,
+            // Not LLM-settable in v1 either, and for the same reason: omitting it from this full replace
+            // would switch recurrence off.
+            recurrence = current.recurrence?.toInput(),
         )
 
         return runCatching {

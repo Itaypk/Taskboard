@@ -1,5 +1,6 @@
 package dev.itayp.tasker.model.request
 
+import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Pattern
 import jakarta.validation.constraints.Size
@@ -26,4 +27,9 @@ data class UpdateBacklogTaskRequest(
     val relevantFrom: String? = null,
     /** Opt the task out of the AI assistant's context (planner slate, backlog search, quick-add sampling). */
     val hiddenFromAssistant: Boolean = false,
+    /**
+     * Null = not recurring. This is a full replace like every other field: a caller rebuilding a
+     * request from a task must carry the current rule forward or recurrence is silently switched off.
+     */
+    @field:Valid val recurrence: RecurrenceInput? = null,
 )

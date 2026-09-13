@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="013-1-backlog-task-recurrence" author="tasker">
+        <comment>
+            Recurring tasks (docs/RECURRING-TASKS.md). A task with a non-null recurrence_kind rolls
+            forward on completion instead of becoming DONE; each completion saves a DONE copy linked
+            back through recurrence_source_id. Plaintext: schedule metadata, like deadline/relevant_from.
+            The self-FK nulls out on delete so removing an original keeps its completed copies.
+        </comment>
+        <addColumn tableName="backlog_task">
+            <column name="recurrence_kind" type="VARCHAR(16)"/>
+            <column name="recurrence_every" type="INT"/>
+            <column name="recurrence_day" type="INT"/>
+            <column name="recurrence_month" type="INT"/>
+            <column name="due_within_days" type="INT"/>
+            <column name="last_completed_on" type="DATE"/>
+            <column name="recurrence_source_id" type="UUID"/>
+        </addColumn>
+        <addForeignKeyConstraint baseTableName="backlog_task" baseColumnNames="recurrence_source_id"
+                                 constraintName="fk_backlog_task_recurrence_source"
+                                 referencedTableName="backlog_task" referencedColumnNames="id"
+                                 onDelete="SET NULL"/>
+        <createIndex tableName="backlog_task" indexName="idx_backlog_task_recurrence_source">
+            <column name="recurrence_source_id"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

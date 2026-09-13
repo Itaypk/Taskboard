@@ -200,7 +200,7 @@ class PlanningSessionServiceTest {
 
         service.bumpRescheduleCountsForCarriedOverTasks(userId, finalizingWeek)
 
-        verify(backlogTaskRepository).incrementRescheduleCountForUnfinishedTasks(eq(boardId), eq(previousId))
+        verify(backlogTaskRepository).incrementRescheduleCountForUnfinishedTasks(eq(boardId), eq(previousId), any())
     }
 
     @Test
@@ -211,7 +211,7 @@ class PlanningSessionServiceTest {
 
         service.bumpRescheduleCountsForCarriedOverTasks(userId, finalizingWeek)
 
-        verify(backlogTaskRepository, never()).incrementRescheduleCountForUnfinishedTasks(any(), any())
+        verify(backlogTaskRepository, never()).incrementRescheduleCountForUnfinishedTasks(any(), any(), any())
     }
 
     @Test
@@ -224,7 +224,7 @@ class PlanningSessionServiceTest {
 
         service.startSession(userId, weekStart)
 
-        verify(backlogTaskRepository, never()).incrementRescheduleCountForUnfinishedTasks(any(), any())
+        verify(backlogTaskRepository, never()).incrementRescheduleCountForUnfinishedTasks(any(), any(), any())
     }
 
     @Test
@@ -241,7 +241,7 @@ class PlanningSessionServiceTest {
 
         service.startSession(userId, weekStart)
 
-        verify(backlogTaskRepository, never()).incrementRescheduleCountForUnfinishedTasks(any(), any())
+        verify(backlogTaskRepository, never()).incrementRescheduleCountForUnfinishedTasks(any(), any(), any())
     }
 
     @Test

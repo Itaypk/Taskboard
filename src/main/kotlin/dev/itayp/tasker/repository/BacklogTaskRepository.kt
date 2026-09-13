@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.stereotype.Repository
 import java.time.Instant
+import java.time.LocalDate
 import java.util.UUID
 
 @Repository
@@ -78,6 +79,10 @@ interface BacklogTaskRepository : JpaRepository<BacklogTaskEntity, UUID> {
     @Query("SELECT MAX(t.sortKey) FROM BacklogTaskEntity t WHERE t.boardId = :boardId")
     fun findMaxSortKeyByBoardId(boardId: UUID): String?
 
+    /**
+     * A recurring task completed during or after the plan's week stays TODO (it rolled forward) and
+     * keeps its session stamp, so [weekStart] is what tells it apart from genuine carry-over.
+     */
     @Modifying
     @Query(
         """
@@ -86,9 +91,10 @@ interface BacklogTaskRepository : JpaRepository<BacklogTaskEntity, UUID> {
         WHERE t.boardId = :boardId
           AND t.status = dev.itayp.tasker.model.TaskStatus.TODO
           AND t.lastScheduledInSessionId = :sessionId
+          AND (t.lastCompletedOn IS NULL OR t.lastCompletedOn < :weekStart)
         """
     )
-    fun incrementRescheduleCountForUnfinishedTasks(boardId: UUID, sessionId: UUID): Int
+    fun incrementRescheduleCountForUnfinishedTasks(boardId: UUID, sessionId: UUID, weekStart: LocalDate): Int
 
     /** Clears claims a departing member holds on a board's tasks — no ghost assignees behind them. */
     @Modifying

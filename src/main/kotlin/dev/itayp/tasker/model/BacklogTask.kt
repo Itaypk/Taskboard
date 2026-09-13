@@ -70,5 +70,10 @@ data class BacklogTask(
     val relevantFrom: LocalDate?,
     val tutorial: Boolean = false,
     /** When true, the task is excluded from every AI-assistant read path. Orthogonal to [priority]. */
-    val hiddenFromAssistant: Boolean = false
+    val hiddenFromAssistant: Boolean = false,
+    /** Null = not recurring. A recurring task never becomes DONE; it rolls forward instead. */
+    val recurrence: TaskRecurrence? = null,
+    val lastCompletedOn: LocalDate? = null,
+    /** Set on a completed-occurrence copy: the recurring original it was saved from. */
+    val recurrenceSourceId: UUID? = null,
 )
