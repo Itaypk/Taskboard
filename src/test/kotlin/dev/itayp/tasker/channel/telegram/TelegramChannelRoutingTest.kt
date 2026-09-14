@@ -24,17 +24,26 @@ import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.context.support.StaticMessageSource
+import org.telegram.telegrambots.meta.api.methods.BotApiMethod
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery
 import org.telegram.telegrambots.meta.api.objects.Update
 import org.telegram.telegrambots.meta.api.objects.User as TelegramUser
+import org.telegram.telegrambots.meta.api.objects.message.MaybeInaccessibleMessage
 import org.telegram.telegrambots.meta.api.objects.message.Message
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardRow
+import org.telegram.telegrambots.meta.exceptions.TelegramApiRequestException
 import org.telegram.telegrambots.meta.generics.TelegramClient
+import java.io.Serializable
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
 import java.util.Locale
 import java.util.UUID
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -85,8 +94,17 @@ class TelegramChannelRoutingTest {
     private val chatId = 42L
     private val telegramUserId = 7L
 
+    /** Everything the bot handed to Telegram, in order — see [collapseEdits]. */
+    private val executed = mutableListOf<Any?>()
+
+    private fun collapseEdits(): List<EditMessageText> = executed.filterIsInstance<EditMessageText>()
+
     @BeforeEach
     fun stub() {
+        whenever(telegramClient.execute(any<BotApiMethod<Serializable>>())).thenAnswer { invocation ->
+            executed += invocation.arguments[0]
+            null
+        }
         whenever(userRepository.findByTelegramId(telegramUserId))
             .thenReturn(UserEntity().apply { id = userId; telegramId = telegramUserId })
         whenever(userSettingsService.getLocale(userId)).thenReturn(Locale.ENGLISH)
@@ -108,10 +126,32 @@ class TelegramChannelRoutingTest {
     }
 
     private fun callbackUpdate(data: String): Update {
-        val from: TelegramUser = mock()
-        whenever(from.id).thenReturn(telegramUserId)
         val message: Message = mock()
         whenever(message.chatId).thenReturn(chatId)
+        return callbackUpdate(data, message)
+    }
+
+    /** A tap on a card the bot actually rendered: real text and a real inline keyboard. */
+    private fun cardCallbackUpdate(data: String, vararg buttons: Pair<String, String>): Update {
+        val message: Message = mock()
+        whenever(message.chatId).thenReturn(chatId)
+        whenever(message.messageId).thenReturn(99)
+        whenever(message.text).thenReturn("Which week?")
+        whenever(message.replyMarkup).thenReturn(
+            InlineKeyboardMarkup.builder()
+                .keyboard(
+                    buttons.map { (id, label) ->
+                        InlineKeyboardRow(listOf(InlineKeyboardButton.builder().text(label).callbackData(id).build()))
+                    }
+                )
+                .build()
+        )
+        return callbackUpdate(data, message)
+    }
+
+    private fun callbackUpdate(data: String, message: MaybeInaccessibleMessage): Update {
+        val from: TelegramUser = mock()
+        whenever(from.id).thenReturn(telegramUserId)
         val callback: CallbackQuery = mock()
         whenever(callback.id).thenReturn("cb-1")
         whenever(callback.data).thenReturn(data)
@@ -238,5 +278,60 @@ class TelegramChannelRoutingTest {
         channel.consume(callbackUpdate(PlanConfirmationRegistry.OPTION_REVISE))
 
         verify(orchestrator).startRevision(eq(userId), eq(sessionId), any(), eq("move my gym session to Thursday"))
+    }
+
+    @Test
+    fun `tapping a button collapses the card it came from, keeping the prompt and the chosen label`() {
+        channel.consume(cardCallbackUpdate("this_week", "this_week" to "This week", "next_week" to "Next week"))
+
+        val edit = collapseEdits().single()
+        assertEquals(chatId.toString(), edit.chatId)
+        assertEquals(99, edit.messageId)
+        assertEquals("Which week?\n\n\u2713 This week", edit.text)
+        // The keyboard is gone, so the same option can't be tapped twice.
+        assertNull(edit.replyMarkup)
+    }
+
+    @Test
+    fun `a collapsed card falls back to the callback data when the button label can't be recovered`() {
+        // No keyboard on the message — the label has nowhere to come from.
+        channel.consume(callbackUpdate("this_week"))
+
+        assertEquals("\n\n\u2713 this_week", collapseEdits().single().text)
+    }
+
+    @Test
+    fun `a tap on a message too old for Telegram to hand back is left alone`() {
+        val inaccessible: MaybeInaccessibleMessage = mock()
+        whenever(inaccessible.chatId).thenReturn(chatId)
+
+        channel.consume(callbackUpdate("this_week", inaccessible))
+
+        assertTrue(collapseEdits().isEmpty())
+    }
+
+    @Test
+    fun `a card that Telegram refuses to edit still routes the tap`() {
+        whenever(telegramClient.execute(any<BotApiMethod<Serializable>>())).thenAnswer { invocation ->
+            val method = invocation.arguments[0]
+            // What Telegram answers for "message is not modified" / "message to edit not found".
+            if (method is EditMessageText) throw TelegramApiRequestException("Bad Request: message to edit not found")
+            executed += method
+            null
+        }
+        val sessionId = UUID.randomUUID()
+        whenever(planConfirmationRegistry.get(chatId)).thenReturn(
+            PlanConfirmationRegistry.PendingConfirmation(
+                userId = userId,
+                existingSessionId = null,
+                replanWeekStart = null,
+                revisableSessionId = sessionId,
+                revisionSeed = "push gym to Thursday",
+            ),
+        )
+
+        channel.consume(cardCallbackUpdate(PlanConfirmationRegistry.OPTION_REVISE, PlanConfirmationRegistry.OPTION_REVISE to "Revise"))
+
+        verify(orchestrator).startRevision(eq(userId), eq(sessionId), any(), eq("push gym to Thursday"))
     }
 }

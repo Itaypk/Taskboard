@@ -109,9 +109,10 @@ class QuickAddFlow(
         unprompted: Boolean,
     ): CaptureEntry {
         if (!allow(userId, channel)) return CaptureEntry.Captured(null)
-        channel.indicateTyping()
         val op = PendingOp.Draft(request, emptyList())
-        val outcome = suggestionAgent.quickAddDraft(userId, request, emptyList(), mustDraft = false, unprompted = unprompted)
+        val outcome = channel.whileWorking {
+            suggestionAgent.quickAddDraft(userId, request, emptyList(), mustDraft = false, unprompted = unprompted)
+        }
         return renderOutcome(userId, channel, op, outcome, clarifyRound = 1)
     }
 
@@ -167,9 +168,10 @@ class QuickAddFlow(
         if (attachments.isEmpty()) return CaptureEntry.Captured(null)
         entrySource?.let { countEntry(it) }
         if (!allow(userId, channel)) return CaptureEntry.Captured(null)
-        channel.indicateTyping()
         val outcome = try {
-            suggestionAgent.quickAddDraftFromMedia(userId, attachments, caption, unprompted = offerRouting)
+            channel.whileWorking {
+                suggestionAgent.quickAddDraftFromMedia(userId, attachments, caption, unprompted = offerRouting)
+            }
         } catch (e: UnsupportedModalityException) {
             countMedia(attachments, "unsupported")
             log.info("quick-add media capture declined: model lacks modalities {}", e.kinds)
@@ -298,15 +300,16 @@ class QuickAddFlow(
 
         val newClarifications = state.op.clarifications + ClarificationExchange(state.question, answer)
         val mustDraft = state.rounds >= MAX_CLARIFY_ROUNDS
-        channel.indicateTyping()
-        val (newOp, outcome) = when (val op = state.op) {
-            is PendingOp.Draft -> {
-                val o = PendingOp.Draft(op.originalRequest, newClarifications)
-                o to suggestionAgent.quickAddDraft(userId, op.originalRequest, newClarifications, mustDraft)
-            }
-            is PendingOp.Revise -> {
-                val o = PendingOp.Revise(op.originalRequest, op.items, op.instruction, newClarifications)
-                o to suggestionAgent.quickAddRevise(userId, op.originalRequest, op.items, op.instruction, newClarifications, mustDraft)
+        val (newOp, outcome) = channel.whileWorking {
+            when (val op = state.op) {
+                is PendingOp.Draft -> {
+                    val o = PendingOp.Draft(op.originalRequest, newClarifications)
+                    o to suggestionAgent.quickAddDraft(userId, op.originalRequest, newClarifications, mustDraft)
+                }
+                is PendingOp.Revise -> {
+                    val o = PendingOp.Revise(op.originalRequest, op.items, op.instruction, newClarifications)
+                    o to suggestionAgent.quickAddRevise(userId, op.originalRequest, op.items, op.instruction, newClarifications, mustDraft)
+                }
             }
         }
         return renderOutcome(userId, channel, newOp, outcome, clarifyRound = state.rounds + 1).stateOrNull()
@@ -320,9 +323,10 @@ class QuickAddFlow(
         clarifications: List<ClarificationExchange>,
         instruction: String,
     ): QuickAddState? {
-        channel.indicateTyping()
         val op = PendingOp.Revise(originalRequest, items, instruction, clarifications)
-        val outcome = suggestionAgent.quickAddRevise(userId, originalRequest, items, instruction, clarifications, mustDraft = false)
+        val outcome = channel.whileWorking {
+            suggestionAgent.quickAddRevise(userId, originalRequest, items, instruction, clarifications, mustDraft = false)
+        }
         return renderOutcome(userId, channel, op, outcome, clarifyRound = 1).stateOrNull()
     }
 

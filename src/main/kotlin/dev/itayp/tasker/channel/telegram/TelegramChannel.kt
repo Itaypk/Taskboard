@@ -36,6 +36,8 @@ import org.telegram.telegrambots.longpolling.util.DefaultLongPollingUpdateConsum
 import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText
+import org.telegram.telegrambots.meta.api.objects.CallbackQuery
 import org.telegram.telegrambots.meta.api.objects.Update
 import org.telegram.telegrambots.meta.api.objects.commands.BotCommand
 import org.telegram.telegrambots.meta.api.objects.message.Message
@@ -107,6 +109,45 @@ class TelegramChannel(
         }
     }
 
+    /**
+     * Rewrites the card a tapped button belonged to: keeps the prompt, appends the option the
+     * user picked, drops the keyboard. Without it a card keeps its buttons forever — people tap
+     * the same option twice, and a tap on a card whose in-memory state has since expired falls
+     * through to the unprompted-capture branch and gets a puzzled reply.
+     *
+     * Every flow renders its questions as [ChannelMessage.Choice], so doing this once here
+     * covers planning, quick-add, the `/plan` confirmation and slot reminders alike. It runs
+     * ahead of the account lookup deliberately: a stale tap from an unresolvable account should
+     * still lose its buttons. Best-effort — a card Telegram won't let us edit just keeps them.
+     */
+    private fun collapseChoice(query: CallbackQuery) {
+        // An InaccessibleMessage carries no text or markup, so there is nothing to preserve.
+        val message = query.message as? Message ?: return
+        val label = message.replyMarkup
+            ?.keyboard
+            ?.flatten()
+            ?.firstOrNull { it.callbackData == query.data }
+            ?.text
+            ?: query.data
+        try {
+            telegramClient.execute(
+                EditMessageText.builder()
+                    .chatId(message.chatId)
+                    .messageId(message.messageId)
+                    .text(message.text.orEmpty() + "\n\n" + CHOSEN_MARK + label)
+                    // Telegram hands back the text with its markup stripped into `entities`;
+                    // re-sending it under parseMode="HTML" would lose the prompt's formatting and
+                    // mangle any "<" or "&" in it. Appending at the end keeps the offsets valid.
+                    .entities(message.entities.orEmpty())
+                    .replyMarkup(null)
+                    .build()
+            )
+        } catch (e: Exception) {
+            // "message is not modified" / "message to edit not found" are both expected here.
+            logger.debug("Could not collapse choice message {}: {}", message.messageId, e.message)
+        }
+    }
+
     private fun handleUpdate(update: Update) {
         // A photo/voice message needs the user resolved (for its locale, and for the AI opt-out
         // check) before we spend a download on it, so it's carried as a null inbound here and
@@ -121,6 +162,7 @@ class TelegramChannel(
 
             update.hasCallbackQuery() -> {
                 telegramClient.execute(AnswerCallbackQuery(update.callbackQuery.id))
+                collapseChoice(update.callbackQuery)
                 Triple(
                     update.callbackQuery.message.chatId,
                     update.callbackQuery.from.id,
@@ -416,5 +458,8 @@ class TelegramChannel(
 
     companion object {
         private val logger = LoggerFactory.getLogger(TelegramChannel::class.java)
+
+        /** Marks the option the user chose on a collapsed card. A symbol, so it needs no locale. */
+        private const val CHOSEN_MARK = "\u2713 "
     }
 }

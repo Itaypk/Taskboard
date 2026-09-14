@@ -13,7 +13,14 @@ interface ConversationChannel {
     val formatter: MessageFormatter
 
     fun send(message: ChannelMessage)
-    fun indicateTyping() = Unit
+
+    /**
+     * Runs [block] with the channel's activity indicator held up for its whole duration, however
+     * long it takes — this is the only way to raise it, so an indicator can't be left to go stale
+     * halfway through a model round-trip. Channels without an indicator just run the block.
+     */
+    fun <T> whileWorking(block: () -> T): T = block()
+
     fun logToolCall(name: String, arguments: String) = Unit
 }
 

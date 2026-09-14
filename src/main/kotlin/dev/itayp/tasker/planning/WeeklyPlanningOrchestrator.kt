@@ -111,8 +111,7 @@ class WeeklyPlanningOrchestrator(
             Phase.AWAITING_RECONCILE_REPLY -> handleReconcileReply(sessionId, current, inbound, channel)
             Phase.CONVERSING -> {
                 val text = inboundAsText(inbound)
-                channel.indicateTyping()
-                val outcome = aiConversationManager.sendMessage(current.conversationId!!, text)
+                val outcome = channel.whileWorking { aiConversationManager.sendMessage(current.conversationId!!, text) }
                 processOutcome(sessionId, outcome, channel)
                 state[sessionId]?.phase ?: Phase.DONE
             }
@@ -171,8 +170,7 @@ class WeeklyPlanningOrchestrator(
                 append("\n\nHere is what I want to change, in my own words:\n\n").append(it)
             }
         }
-        channel.indicateTyping()
-        val outcome = aiConversationManager.sendMessage(conversationId, kickoff)
+        val outcome = channel.whileWorking { aiConversationManager.sendMessage(conversationId, kickoff) }
         processOutcome(sessionId, outcome, channel)
         return sessionId
     }
@@ -284,8 +282,7 @@ class WeeklyPlanningOrchestrator(
         )
 
         val kickoff = promptAssembler.renderKickoff(capacity, current.carriedOver).trim()
-        channel.indicateTyping()
-        val outcome = aiConversationManager.sendMessage(conversationId, kickoff)
+        val outcome = channel.whileWorking { aiConversationManager.sendMessage(conversationId, kickoff) }
         processOutcome(sessionId, outcome, channel)
         return state[sessionId]?.phase ?: Phase.DONE
     }
@@ -451,8 +448,7 @@ class WeeklyPlanningOrchestrator(
         }
 
         if (dataLookupRan) {
-            channel.indicateTyping()
-            val nextOutcome = aiConversationManager.continueConversation(conversationId)
+            val nextOutcome = channel.whileWorking { aiConversationManager.continueConversation(conversationId) }
             processOutcome(sessionId, nextOutcome, channel)
             return
         }
@@ -547,16 +543,14 @@ class WeeklyPlanningOrchestrator(
                 )
             }
             state[sessionId] = current.copy(phase = Phase.CONVERSING, pendingInteractive = emptyList())
-            channel.indicateTyping()
-            val outcome = aiConversationManager.continueConversation(conversationId)
+            val outcome = channel.whileWorking { aiConversationManager.continueConversation(conversationId) }
             processOutcome(sessionId, outcome, channel)
             return state[sessionId]?.phase ?: Phase.DONE
         }
 
         if (pending.isEmpty()) {
             state[sessionId] = current.copy(phase = Phase.CONVERSING, pendingInteractive = emptyList())
-            channel.indicateTyping()
-            val outcome = aiConversationManager.continueConversation(conversationId)
+            val outcome = channel.whileWorking { aiConversationManager.continueConversation(conversationId) }
             processOutcome(sessionId, outcome, channel)
         } else {
             state[sessionId] = current.copy(pendingInteractive = pending)
