@@ -3,7 +3,7 @@
 Ad-hoc scripts for preparing assets. Not part of the build — run them by hand when
 adding or reworking an asset, then commit the result.
 
-Requires Python 3 with `Pillow` and `numpy` (and `rembg` only for background removal).
+Requires Python 3 with `Pillow` and `numpy` (`scipy` for `split-balloon-faces.py`, `rembg` only for background removal).
 
 ## Refreshing the disposable-email-domain list
 
@@ -99,12 +99,53 @@ board-settings picker. End to end:
    No DB migration is needed — the mascot is a plaintext `board.mascot` column added in
    changeset `005-board-mascot.xml`.
 
+## Preparing the goofy-balloon celebration assets
+
+`Balloon.png` is the source sheet for the "task done" celebration: one
+transparent-background photo holding the balloon-with-googly-eyes plus twelve
+pipe-cleaner mouths in a grid below it. `split-balloon-faces.py` turns it into
+standalone parts so the animation can pick a mouth at random instead of shipping
+a dozen pre-baked faces:
+
+```bash
+python3 tools/split-balloon-faces.py --sheet /tmp/preview.png   # look at the preview first
+python3 tools/split-balloon-faces.py                            # writes the assets
+```
+
+Output lands in `tasker-frontend/src/assets/balloon/` — `balloon.webp`, twelve
+`mouth-<id>.webp`, and `faces.json` (~132 KB for all fourteen files).
+
+The parts never touch in the source, so the script recovers them by
+connected-component labelling on the alpha channel rather than by hardcoded
+crops — re-shoot the sheet and it still works, as long as the mouth count and
+reading order still match `MOUTH_NAMES`.
+
+**Why separate parts rather than baked variants.** The mouths are photographed at
+the same scale as the balloon (each is 27–50% of the balloon's width), so every
+one composites at its *natural* size, centred on a single shared anchor — there
+is no per-mouth tuning table to maintain. Layering therefore costs one balloon
+plus one small mouth instead of twelve full-size faces, and a new expression is
+one ~7 KB file.
+
+`faces.json` stores each mouth's size as a **fraction of the balloon box** and the
+anchor as a fraction too, so the layering is resolution-independent: render the
+balloon at any size, position the mouth with percentages, and it lands correctly.
+Its `file` fields name the sources, not runtime URLs — Vite content-hashes the
+WebPs, so the frontend resolves them by `import` (or `import.meta.glob`) keyed on
+`id`, the way `mascots.ts` does.
+
+Keep `Balloon.png` — it is the master the script re-runs from. Do not register
+these in `MASCOTS`/`BoardMascot`; they are celebration assets, not a board mascot.
+
 ## Scripts
 
 - **`background-remove.py`** — removes a white/near-white background via `rembg`.
   Input/output paths are edited inline; requires `pip install rembg`.
 - **`level-bottom-gap.py`** — normalizes the bottom transparent gap to a reference
   image's height ratio (see step 2). Supports `--dry-run`, `--reference`, `--mode`, `--gap`.
+- **`split-balloon-faces.py`** — splits `Balloon.png` into the balloon and twelve
+  mouths plus a `faces.json` manifest (see above). Supports `--sheet`, `--dry-run`,
+  `--quality`, `--input`, `--out`.
 - **`to-webp.py`** — converts PNG(s) to WebP with alpha. Supports `--quality`, `--lossless`.
 - **`make-mascot-srcset.py`** — resizes a mascot WebP down to a `-sm` companion sized
   for the mobile breakpoint (see step 4). Supports `--height`, `--quality`.

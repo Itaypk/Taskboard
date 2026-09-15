@@ -57,6 +57,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { resolveTaskLink, settingsTabFromPath, type BoardSettingsTab } from './taskLink';
 import { useAuth } from './auth/AuthContext';
 import { mascotFor } from './mascots';
+import BalloonCelebration from './components/BalloonCelebration';
 import i18n from './i18n';
 
 
@@ -137,6 +138,9 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
   // Keyed to its board so a stale fetch from a previous board is ignored without a synchronous reset.
   const [memberData, setMemberData]   = useState<{ boardId: string; members: BoardMember[] } | null>(null);
   const [leavingId, setLeavingId]     = useState<string | null>(null);
+  // One entry per completion in flight; each balloon retires itself when it leaves the screen.
+  const [celebrations, setCelebrations] = useState<number[]>([]);
+  const celebrationSeq = useRef(0);
   const [loading, setLoading]         = useState(true);
   // Always the same failure text (the initial bootstrap fetch), so a boolean is enough; the message
   // itself is resolved at render time via t() rather than stored, so it stays correct across a
@@ -481,6 +485,9 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
     // A recurring task only moves to its next date, so it stays put on the Recurring and All views.
     const leaves = !task.recurrence || filter === 'todo' || filter === 'plan';
     if (leaves) setLeavingId(id);
+    // Fires for recurring tasks too — the row stays put, but the occurrence was still completed.
+    // Capped so a burst of completions doesn't fill the screen with balloons.
+    setCelebrations(prev => [...prev, ++celebrationSeq.current].slice(-3));
     const { id: _id, createdAt: _ca, sortKey: _sk, ...payload } = task;
     updateTask(activeBoardId, id, { ...payload, status: 'done' }).then(saved => {
       setTimeout(() => {
@@ -1075,6 +1082,13 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
           </button>
         </div>
       )}
+
+      {celebrations.map(key => (
+        <BalloonCelebration
+          key={key}
+          onDone={() => setCelebrations(prev => prev.filter(k => k !== key))}
+        />
+      ))}
     </>
   );
 }

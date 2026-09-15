@@ -1,0 +1,85 @@
+{
+  "balloon": {
+    "file": "balloon.webp",
+    "width": 540,
+    "height": 782,
+    "mouthAnchor": {
+      "x": 0.5,
+      "y": 0.655
+    }
+  },
+  "mouths": [
+    {
+      "id": "grin",
+      "file": "mouth-grin.webp",
+      "width": 0.4759,
+      "height": 0.1317
+    },
+    {
+      "id": "open-smile",
+      "file": "mouth-open-smile.webp",
+      "width": 0.4648,
+      "height": 0.1829
+    },
+    {
+      "id": "squiggle",
+      "file": "mouth-squiggle.webp",
+      "width": 0.463,
+      "height": 0.0985
+    },
+    {
+      "id": "tongue-out",
+      "file": "mouth-tongue-out.webp",
+      "width": 0.4611,
+      "height": 0.1957
+    },
+    {
+      "id": "flat",
+      "file": "mouth-flat.webp",
+      "width": 0.4,
+      "height": 0.0575
+    },
+    {
+      "id": "frown",
+      "file": "mouth-frown.webp",
+      "width": 0.4296,
+      "height": 0.1458
+    },
+    {
+      "id": "zigzag",
+      "file": "mouth-zigzag.webp",
+      "width": 0.4519,
+      "height": 0.1023
+    },
+    {
+      "id": "heart",
+      "file": "mouth-heart.webp",
+      "width": 0.2722,
+      "height": 0.1573
+    },
+    {
+      "id": "smirk",
+      "file": "mouth-smirk.webp",
+      "width": 0.3778,
+      "height": 0.1509
+    },
+    {
+      "id": "mustache",
+      "file": "mouth-mustache.webp",
+      "width": 0.4963,
+      "height": 0.1202
+    },
+    {
+      "id": "stitched",
+      "file": "mouth-stitched.webp",
+      "width": 0.3778,
+      "height": 0.1036
+    },
+    {
+      "id": "wobble",
+      "file": "mouth-wobble.webp",
+      "width": 0.4556,
+      "height": 0.0754
+    }
+  ]
+}

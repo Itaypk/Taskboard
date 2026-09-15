@@ -1,0 +1,73 @@
+.stage {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  /* Above the board and its drawers, below modals/toasts (z-index 9999+). */
+  z-index: 60;
+  --balloon-height: 200px;
+}
+
+.rise {
+  position: absolute;
+  /* Direction-neutral centring: 50% mirrors onto itself, so RTL is unaffected. */
+  inset-inline-start: 50%;
+  bottom: 0;
+  will-change: transform;
+  animation: balloon-rise var(--balloon-duration) cubic-bezier(0.33, 0.1, 0.5, 1) forwards;
+}
+
+@keyframes balloon-rise {
+  from { transform: translate(-50%, 40vh); }
+  to   { transform: translate(calc(-50% + var(--balloon-drift)), -120vh); }
+}
+
+/* Separate element so the lazy side-to-side sway composes with the climb instead of
+   overwriting its transform. */
+.sway {
+  animation: balloon-sway 2.3s ease-in-out infinite alternate;
+}
+
+@keyframes balloon-sway {
+  from { transform: rotate(calc(var(--balloon-tilt) - 4deg)); }
+  to   { transform: rotate(calc(var(--balloon-tilt) + 4deg)); }
+}
+
+.balloon {
+  display: block;
+  height: var(--balloon-height);
+  width: auto;
+  filter: drop-shadow(0 6px 14px rgb(0 0 0 / 0.18));
+}
+
+.face {
+  position: relative;
+}
+
+/* Positioned entirely from `BALLOON_FACES` via inline styles — the coordinates are
+   physical on purpose (asymmetric googly eyes) and must not mirror. */
+.mouth {
+  position: absolute;
+  height: auto;
+  transform: translate(-50%, -50%);
+}
+
+@media (max-width: 620px) {
+  .stage { --balloon-height: 150px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Still celebrate — just without the climb. A balloon that only fades has the same
+     payoff and none of the vestibular trigger; rendering nothing would leave a
+     completed task with no feedback at all. */
+  .rise {
+    animation: balloon-greet 1.4s ease-in-out forwards;
+  }
+  .sway { animation: none; }
+  @keyframes balloon-greet {
+    0%   { opacity: 0; transform: translate(-50%, 0); }
+    25%  { opacity: 1; transform: translate(-50%, -12vh); }
+    75%  { opacity: 1; transform: translate(-50%, -12vh); }
+    100% { opacity: 0; transform: translate(-50%, -12vh); }
+  }
+}
