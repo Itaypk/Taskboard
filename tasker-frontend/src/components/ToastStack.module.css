@@ -1,0 +1,118 @@
+.stack {
+  position: fixed;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  inset-inline-end: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 10000;
+  pointer-events: none;
+  max-width: min(420px, calc(100vw - 48px));
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  line-height: 1.4;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+  pointer-events: auto;
+  animation: toast-in 0.18s ease;
+}
+
+.error   { background: #7a1d1d; }
+.success { background: #2f5d3a; }
+.info    { background: var(--ink, #1c1a14); }
+
+.icon {
+  flex: 0 0 auto;
+  font-weight: 700;
+  margin-top: 1px;
+}
+
+.message {
+  flex: 1 1 auto;
+  min-width: 0;
+  word-break: break-word;
+}
+
+/* Pushed to the end of the row; on a phone it moves to a row of its own (see the media query). */
+.action {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+  border: 0;
+  border-radius: 999px;
+  padding: 3px 12px;
+  background: #fff;
+  color: #222;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.action:hover {
+  opacity: 0.85;
+}
+
+.close {
+  flex: 0 0 auto;
+  background: transparent;
+  border: 0;
+  color: #fff;
+  opacity: 0.85;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+  margin-block: -2px;
+  margin-inline: -4px 0;
+}
+
+.close:hover {
+  opacity: 1;
+}
+
+/* Phones: full-width rather than a fixed-width card. The old centred pill had no width cap at
+   all, so a translated message overflowed both viewport edges. Sits above the account-claim band
+   (which measures itself into `--nudge-h` on #root) and clear of the iOS home indicator. */
+@media (max-width: 600px) {
+  .stack {
+    inset-inline: 12px;
+    max-width: none;
+    bottom: calc(12px + var(--nudge-h, 0px) + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* The action drops to a row of its own under the message: at this width a translated label plus
+     a sentence of message leaves the two fighting over one line. The close button stays on the
+     message's row either way — a grid, rather than a wrapping flex row, is what pins it there. */
+  .toast {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: start;
+    column-gap: 10px;
+    row-gap: 8px;
+  }
+
+  .action {
+    grid-column: 2 / -1;
+    grid-row: 2;
+    justify-self: end;
+    margin-inline-start: 0;
+  }
+
+  /* Explicit, or auto-placement drops it below the action instead of beside the message. */
+  .close {
+    grid-column: 3;
+    grid-row: 1;
+  }
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
