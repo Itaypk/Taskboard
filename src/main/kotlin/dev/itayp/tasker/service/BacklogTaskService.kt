@@ -13,6 +13,7 @@ import dev.itayp.tasker.model.request.CreateBacklogTaskRequest
 import dev.itayp.tasker.model.request.RecurrenceInput
 import dev.itayp.tasker.model.request.ReorderTaskRequest
 import dev.itayp.tasker.model.request.TagInput
+import dev.itayp.tasker.model.request.TaskUrl
 import dev.itayp.tasker.model.request.UpdateBacklogTaskRequest
 import dev.itayp.tasker.model.request.toInput
 import dev.itayp.tasker.model.request.toRule
@@ -232,6 +233,10 @@ class BacklogTaskService(
     @Transactional
     fun createTask(userId: UUID, boardId: UUID, request: CreateBacklogTaskRequest): BacklogTask {
         boardMembershipService.requireMember(userId, boardId)
+        // Bean validation covers the web's own POST; this also catches callers that hand the service a
+        // request directly (the external API builds its own DTOs).
+        if (!TaskUrl.isAcceptable(request.url)) throw InvalidTaskUrlException()
+
         val categoryId = UUID.fromString(request.categoryId)
         val category = categoryRepository.findByIdAndBoardId(categoryId, boardId)
             ?: throw NoSuchElementException("Category $categoryId not found")
@@ -272,6 +277,7 @@ class BacklogTaskService(
         boardMembershipService.requireMember(userId, boardId)
         val entity = backlogTaskRepository.findByIdAndBoardId(id, boardId)
             ?: throw NoSuchElementException("Task $id not found")
+        if (!TaskUrl.isAcceptable(request.url, entity.url)) throw InvalidTaskUrlException()
 
         val categoryId = UUID.fromString(request.categoryId)
         val category = categoryRepository.findByIdAndBoardId(categoryId, boardId)
@@ -280,26 +286,43 @@ class BacklogTaskService(
         val previousStatus = entity.status!!
         val newStatus = TaskStatus.valueOf(request.status.uppercase())
         val rule = parseRecurrence(request.recurrence)
-        val rollsForward = rule != null && newStatus == TaskStatus.DONE && previousStatus != TaskStatus.DONE
+        val completesRecurring = rule != null && newStatus == TaskStatus.DONE && previousStatus != TaskStatus.DONE
+        // A recurring task is never stored DONE, so `previousStatus` can't recognize a repeat: the row
+        // is TODO again the moment it rolls. `markDone` guards the reminder and external paths the same
+        // way; without this, a double tap (or a tab replaying a stale payload) would file a second copy
+        // and push the schedule another period. Read-then-check, so two *simultaneous* completions can
+        // still both get through — it closes the reachable, sequential case.
+        val alreadyCompletedToday = completesRecurring && entity.lastCompletedOn == todayFor(userId)
+        val rollsForward = completesRecurring && !alreadyCompletedToday
+        if (alreadyCompletedToday) log.debug("Recurring task {} was already completed today; ignoring the repeat", id)
 
         entity.title = boardCrypto.encrypt(boardId, request.title)
         entity.description = boardCrypto.encrypt(boardId, request.description)
         entity.url = request.url
         entity.priority = request.priority?.let { TaskPriority.valueOf(it.uppercase()) }
         entity.estimatedMinutes = request.estimatedMinutes
-        entity.status = if (rollsForward) TaskStatus.TODO else newStatus
+        // Never DONE while it recurs — including on the repeat, which rolls nothing but must not
+        // leave the row in a status the recurrence machinery doesn't expect.
+        entity.status = if (completesRecurring) TaskStatus.TODO else newStatus
         entity.category = category
         entity.tags = resolveOrCreateTags(boardId, request.tags)
         entity.hiddenFromAssistant = request.hiddenFromAssistant
         entity.updatedAt = Instant.now()
-        applySchedule(entity, userId, rule, request.relevantFrom, request.deadline)
+        // A repeat completion is precisely the case where the caller's dates are stale — it hasn't seen
+        // the roll its first request caused — so writing them back would drag the occurrence into the
+        // past. Keep the stored schedule instead.
+        applySchedule(
+            entity, userId, rule,
+            if (alreadyCompletedToday) entity.relevantFrom?.toString() else request.relevantFrom,
+            if (alreadyCompletedToday) entity.deadline?.toString() else request.deadline,
+        )
 
         val completedCopy = if (rollsForward) {
             val today = todayFor(userId)
             // The copy is taken after the request's edits and before the roll, so it records this
             // occurrence's own dates.
             val copy = saveCompletedCopy(entity, request.title, request.description, today)
-            val next = RecurrenceCalculator.nextOccurrence(rule!!, entity.relevantFrom, today)
+            val next = RecurrenceCalculator.nextOccurrence(rule, entity.relevantFrom, today)
             entity.lastCompletedOn = today
             entity.relevantFrom = next
             entity.deadline = RecurrenceCalculator.deadlineFor(rule, next)
@@ -326,7 +349,7 @@ class BacklogTaskService(
         // Completing or archiving a task ahead of its scheduled time block(s) — done or no longer
         // planned for that time either way — makes any still-pending reminder and calendar invite for
         // it stale. Cancel them, mirroring what a plan revision does for a dropped slot.
-        if (newStatus in TERMINAL_STATUSES && previousStatus !in TERMINAL_STATUSES) {
+        if (newStatus in TERMINAL_STATUSES && previousStatus !in TERMINAL_STATUSES && !alreadyCompletedToday) {
             entity.lastScheduledInSessionId?.let { sessionId ->
                 taskCompletionCancellationService.cancelUpcomingSlots(userId, sessionId, id)
             }
@@ -645,6 +668,13 @@ class AssigneeNotMemberException(userId: UUID, boardId: UUID) :
 
 /** Raised for a malformed recurrence rule. Maps to HTTP 400 with code `INVALID_RECURRENCE` in `ApiExceptionHandler`. */
 class InvalidRecurrenceException(message: String) : RuntimeException(message)
+
+/**
+ * Raised for a task link that isn't an `http(s)` URL and isn't the stored value carried back
+ * unchanged (see [dev.itayp.tasker.model.request.TaskUrl]). Maps to HTTP 400 in
+ * `ApiExceptionHandler`, which attributes it to the `url` field so the editor can show it inline.
+ */
+class InvalidTaskUrlException : RuntimeException(TaskUrl.REQUIREMENT_MESSAGE)
 
 /** Raised when a move targets the board the task already lives on. Maps to HTTP 400. */
 @ResponseStatus(HttpStatus.BAD_REQUEST)

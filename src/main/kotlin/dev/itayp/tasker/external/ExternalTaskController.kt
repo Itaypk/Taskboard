@@ -9,6 +9,7 @@ import dev.itayp.tasker.model.request.RecurrenceInput
 import dev.itayp.tasker.model.request.TagInput
 import dev.itayp.tasker.model.request.UpdateBacklogTaskRequest
 import dev.itayp.tasker.model.request.toInput
+import dev.itayp.tasker.model.request.TaskUrl
 import dev.itayp.tasker.model.request.validationError
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.BacklogTaskCategoryService
@@ -176,6 +177,7 @@ class ExternalTaskController(
         validateDate(request.deadline, "deadline")?.let { return it }
         validateDate(request.relevantFrom, "relevantFrom")?.let { return it }
         validateRecurrence(request.recurrence)?.let { return it }
+        validateUrl(request.url)?.let { return it }
 
         val created = backlogTaskService.createTask(
             userId, boardId,
@@ -236,6 +238,7 @@ class ExternalTaskController(
         validateDate(request.deadline, "deadline")?.let { return it }
         validateDate(request.relevantFrom, "relevantFrom")?.let { return it }
         validateRecurrence(request.recurrence)?.let { return it }
+        request.url?.let { validateUrl(it, current.url)?.let { problem -> return problem } }
 
         val categoryId = if (request.categoryId != null) {
             val parsed = request.categoryId.toUuidOrNull()
@@ -350,6 +353,18 @@ class ExternalTaskController(
         if (raw.isNullOrBlank()) return null
         return if (DATE_PATTERN.matches(raw)) null else badRequest("'$field' must be YYYY-MM-DD.")
     }
+
+    /**
+     * Checked here, like [validateRecurrence], so an agent gets an instructional detail rather than
+     * the terse message `BacklogTaskService` raises for the SPA. [current] is the stored link: a
+     * PATCH may carry an in-app tutorial link back unchanged, which the service accepts.
+     */
+    private fun validateUrl(url: String?, current: String? = null): ResponseEntity<ProblemDetail>? =
+        if (TaskUrl.isAcceptable(url, current)) {
+            null
+        } else {
+            badRequest("'url' must start with http:// or https://, or be omitted.")
+        }
 
     private fun validateRecurrence(input: RecurrenceInput?): ResponseEntity<ProblemDetail>? =
         input?.validationError()?.let {

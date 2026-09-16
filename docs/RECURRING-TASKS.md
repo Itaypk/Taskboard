@@ -1,6 +1,6 @@
 # Recurring tasks
 
-Status: **Design — not implemented.**
+Status: **Implemented.** This note is the design it was built from; it still describes the shipped behavior.
 
 Recurring tasks are tasks that come back at regular intervals: an annual dentist checkup, cleaning
 the vacuum filters, changing the car's oil, paying rent.
@@ -77,8 +77,12 @@ Archiving a recurring task does **not** roll it forward. Archiving means "stop t
 **Idempotency:** `markDone` normally treats an already-DONE task as a no-op, but a recurring task is
 never DONE. So `markDone` also returns early when `last_completed_on` is today (in the user's
 timezone). Otherwise a double tap on a reminder button, or a retried external call, would save a
-second copy and push the schedule again. The web UI's PUT isn't guarded, so completing twice in one
-day from the Recurring pill is still possible on purpose.
+second copy and push the schedule again. `updateTask` carries the same guard for the web UI's PUT:
+a repeat completion on the same day files no copy, leaves the schedule where the first one put it,
+and ignores the request's own `relevant_from` — a double tap replays the pre-roll payload, so
+writing it back would drag the occurrence into the past. The check reads and then decides, without
+a row lock, so two *simultaneous* completions can still both pass; it closes the reachable case (a
+second tap, a stale tab) rather than the race.
 
 ### Rejected alternative: templates + spawned copies
 

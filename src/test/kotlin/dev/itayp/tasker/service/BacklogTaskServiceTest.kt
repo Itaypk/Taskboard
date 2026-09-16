@@ -514,6 +514,102 @@ class BacklogTaskServiceTest {
     }
 
     @Test
+    fun `a second completion on the same day rolls nothing and keeps the stored schedule`() {
+        val taskId = UUID.randomUUID()
+        val catId = UUID.randomUUID()
+        val sessionId = UUID.randomUUID()
+        // State after a first completion: already rolled to October, stamped with today's date.
+        val existing = taskEntity(categoryEntity(id = catId), id = taskId, title = "Rent", lastScheduledInSessionId = sessionId).apply {
+            recurrenceKind = RecurrenceKind.MONTHLY
+            recurrenceDay = 25
+            dueWithinDays = 7
+            relevantFrom = LocalDate.parse("2026-10-25")
+            deadline = LocalDate.parse("2026-11-01")
+            lastCompletedOn = LocalDate.parse("2026-09-27")
+        }
+        whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(existing)
+        whenever(categoryRepository.findByIdAndBoardId(catId, boardId)).thenReturn(existing.category)
+        whenever(tagRepository.findAllByBoardId(boardId)).thenReturn(emptyList())
+        stubSaveTask()
+        stubToday("2026-09-27T10:05:00Z")
+
+        // The double tap replays the pre-roll payload — the tab that sent it never saw the new dates.
+        val result = service.updateTask(userId, boardId, taskId, UpdateBacklogTaskRequest(
+            title = "Rent",
+            status = "done",
+            categoryId = catId.toString(),
+            relevantFrom = "2026-09-25",
+            recurrence = rentRule,
+        ))
+
+        val saved = argumentCaptor<BacklogTaskEntity>()
+        verify(backlogTaskRepository).save(saved.capture())
+        assertNull(saved.allValues.find { it.recurrenceSourceId == taskId }, "no second DONE copy")
+        assertEquals(TaskStatus.TODO, result.status)
+        // The stale relevantFrom must not land: it would drag the occurrence back into the past.
+        assertEquals(LocalDate.parse("2026-10-25"), result.relevantFrom)
+        assertEquals(LocalDate.parse("2026-11-01"), result.deadline)
+        assertEquals(LocalDate.parse("2026-09-27"), result.lastCompletedOn)
+        // Already cancelled by the first completion; a repeat must not re-send the invite cancellations.
+        verify(taskCompletionCancellationService, never()).cancelUpcomingSlots(any(), any(), any())
+    }
+
+    // --- task links ---
+
+    @Test
+    fun `an unchanged in-app link is accepted, so a seeded tutorial card can be completed`() {
+        val taskId = UUID.randomUUID()
+        val catId = UUID.randomUUID()
+        val existing = taskEntity(categoryEntity(id = catId), id = taskId, title = "Save your tasks").apply {
+            url = "/settings/general"
+        }
+        whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(existing)
+        whenever(categoryRepository.findByIdAndBoardId(catId, boardId)).thenReturn(existing.category)
+        whenever(tagRepository.findAllByBoardId(boardId)).thenReturn(emptyList())
+        stubSaveTask()
+
+        val result = service.updateTask(userId, boardId, taskId, UpdateBacklogTaskRequest(
+            title = "Save your tasks",
+            url = "/settings/general",
+            status = "done",
+            categoryId = catId.toString(),
+        ))
+
+        assertEquals(TaskStatus.DONE, result.status)
+        assertEquals("/settings/general", result.url)
+    }
+
+    @Test
+    fun `an update cannot introduce a new in-app link`() {
+        val taskId = UUID.randomUUID()
+        val catId = UUID.randomUUID()
+        val existing = taskEntity(categoryEntity(id = catId), id = taskId).apply { url = "/settings/general" }
+        whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(existing)
+
+        assertFailsWith<InvalidTaskUrlException> {
+            service.updateTask(userId, boardId, taskId, UpdateBacklogTaskRequest(
+                title = "Task",
+                url = "app:clear-tutorial",
+                categoryId = catId.toString(),
+            ))
+        }
+        verify(backlogTaskRepository, never()).save(any<BacklogTaskEntity>())
+    }
+
+    @Test
+    fun `create rejects a link that is not a web URL`() {
+        // The external API hands the service its own DTO, so bean validation never runs for it.
+        assertFailsWith<InvalidTaskUrlException> {
+            service.createTask(userId, boardId, CreateBacklogTaskRequest(
+                title = "Task",
+                url = "app:clear-tutorial",
+                categoryId = UUID.randomUUID().toString(),
+            ))
+        }
+        verify(backlogTaskRepository, never()).save(any<BacklogTaskEntity>())
+    }
+
+    @Test
     fun `archive keeps the recurrence rule and does not roll forward`() {
         val taskId = UUID.randomUUID()
         val category = categoryEntity()

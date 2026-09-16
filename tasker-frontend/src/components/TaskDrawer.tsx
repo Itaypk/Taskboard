@@ -49,7 +49,8 @@ type FieldErrors = Partial<Record<'title' | 'url' | 'description' | 'recurrence'
 // field-specific reason before submitting (rather than a generic "invalid request" toast).
 const URL_PATTERN = /^https?:\/\//i;
 
-function validate(form: FormState): FieldErrors {
+/** `storedUrl` is the link the task was loaded with; see the unchanged-link exemption below. */
+function validate(form: FormState, storedUrl?: string | null): FieldErrors {
   const errors: FieldErrors = {};
   const title = form.title.trim();
   if (!title) errors.title = i18n.t('taskDrawer.validation.titleRequired');
@@ -59,7 +60,11 @@ function validate(form: FormState): FieldErrors {
   }
   const url = form.url?.trim();
   if (url) {
-    if (!URL_PATTERN.test(url)) errors.url = i18n.t('taskDrawer.validation.urlInvalid');
+    // A link left exactly as loaded is allowed, because the server now allows it (see `TaskUrl`):
+    // only a *new* link has to be http(s). Keeping the two rules in step is the point of mirroring
+    // them here — otherwise this form refuses a save the API would have accepted, with no way for
+    // the user to clear the error except retyping a link they never touched.
+    if (url !== storedUrl && !URL_PATTERN.test(url)) errors.url = i18n.t('taskDrawer.validation.urlInvalid');
     else if (url.length > 2000) errors.url = i18n.t('taskDrawer.validation.urlTooLong');
   }
   if (form.recurrence && !isRuleValid(form.recurrence)) errors.recurrence = i18n.t('recurrence.invalid');
@@ -166,7 +171,7 @@ export function TaskDrawer({
   const handleSave = async () => {
     if (!form.categoryId) return;
     setFormError(null);
-    const found = validate(form);
+    const found = validate(form, task?.url);
     if (found.title || found.url || found.description || found.recurrence) {
       setErrors(found);
       return;
