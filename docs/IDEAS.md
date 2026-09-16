@@ -23,7 +23,7 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Notifications: toggle whether calendar invite emails include a notification, or not (in case users prefer other means of notifications and just want the calendar sync for blocking time).
 - Notifications: consider web push notifications (https://web.dev/articles/push-notifications-overview) - they work even if the users are not active in the site.
 - Why do we have both English (UK) and English (US) if we only support English US? Either support it properly or drop it.
-- "App was updated" notice on mobile - looks bad. Use less text and fix CSS.
+- Smoother loading - when opening the app, show a cached copy in read-only mode instead of waiting for the initial load of board data. R/O access would save us the trouble of sync issues. Main consideration is about keeping sensitive data in the browser's memory, and the induced complexity.
 
 ## Auth & accounts
 - Add Google OAuth as a login provider — drops in as another `loginOrRegister('google', sub, …)`
@@ -73,15 +73,12 @@ The scope of the individual idea is varying - could be small UI improvements, or
 
 ## UI - Tasks
 - Work on tagline and satellite notes in the welcome page with better texts. See if we need to move a few things around 
-- Better - more satisfying - "mark as done", including an undo toast. For recurring tasks
-  (`docs/RECURRING-TASKS.md`) undo must also reverse the roll-forward: archive the completed copy
-  and restore the previous `relevant_from`/`deadline`.
 - Drawer improvements (buttons are too dense, for example)
 - Task list Markdown (subtasks) checkboxes - makes it possible to check directly from the main screen
 - Filter chips can still wrap on very small screens even after the "Week" shortening. If it keeps bugging us, consider a segmented control or horizontally-scrollable chip row on mobile.
-- Board management: custom board color pin marker (the member count pin)?
+- Board management: custom board color pin marker (the member count pin) - consider; the number - could be the number of open tasks rather than the number of members.
 - Center pill bar on mobile. (Replacing the "done" pill with "recurring" is part of `docs/RECURRING-TASKS.md`.)
-- Setting dialog - better way to organize it?
+- Setting dialog - better ways to organize it?
 
 ## Following up
 - The assistant could follow up on tasks that were scheduled but not marked done after their scheduled time. 
@@ -90,6 +87,7 @@ The scope of the individual idea is varying - could be small UI improvements, or
 ## Proactive Task Helper
 - We'll recognize tasks that are repeatedly rescheduled or not marked done, and proactively suggest help.
 - Possible help ideas include breaking them down to multiple tasks, finding time for them, or even just reminding us about them.
+- Possible direction - make it configurable (a toggle in the "assistant" tab, enabled by default), and keep the frequency to once a month. The assistant will make at most one suggestion at the end of the planning session (feels like one conversation, but we can use a separate flow for it, that's just starting right before the plan is concluded - the planning agent will hand it off). 
 
 ## Web UI i18n follow-ups
 Deferred from the `archive/I18N.md` design (see there for full rationale). Not blocking any phase:
@@ -113,7 +111,6 @@ Deferred from the `archive/I18N.md` design (see there for full rationale). Not b
 - Birthday calendar, or general reminders (probably not: can be standalone focused product)
 - Support non-latin calendars (probably not: it involves a lot of effort for almost no gain).
 - Add multi-modal support to the planning conversation; support more files, like PDFs.
-
 - **Per-session revoke in "active sessions"** — today Settings only offers "sign out everywhere
   else". Per-session revocation would mean stamping an opaque random ref per session (never the
   real session id, which must not be handed to a browser that might be the attacker's) and mapping
@@ -123,7 +120,8 @@ Deferred from the `archive/I18N.md` design (see there for full rationale). Not b
   revokes a session if something tells them to look. The highest-value follow-up now that the
   absolute session lifetime is a year rather than 90 days. Does it make sense when the login itself
   is through that same email? Might make sense for users with more than one channel.
-- Recurring tasks (pay rent, dentist, clean AC filters) — designed, see `docs/RECURRING-TASKS.md`.
+- PWA with a full offline support. 
+
 ## Large projects
 - Web UI quick-add, and incoming email address as an additional way to quick-add tasks —
   see `docs/QUICKADD-CHANNELS.md` for the feasibility/effort exploration.
