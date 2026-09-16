@@ -1,6 +1,8 @@
 .stack {
   position: fixed;
-  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  /* Clears the account-claim band, which is fixed to the bottom at every width and measures itself
+     into `--nudge-h` on #root, plus the iOS home indicator. */
+  bottom: calc(24px + var(--nudge-h, 0px) + env(safe-area-inset-bottom, 0px));
   inset-inline-end: 24px;
   display: flex;
   flex-direction: column;
@@ -77,9 +79,8 @@
   opacity: 1;
 }
 
-/* Phones: full-width rather than a fixed-width card. The old centred pill had no width cap at
-   all, so a translated message overflowed both viewport edges. Sits above the account-claim band
-   (which measures itself into `--nudge-h` on #root) and clear of the iOS home indicator. */
+/* Phones: full-width rather than a fixed-width card. The old centred pill had no width cap at all,
+   so a translated message overflowed both viewport edges. */
 @media (max-width: 600px) {
   .stack {
     inset-inline: 12px;
