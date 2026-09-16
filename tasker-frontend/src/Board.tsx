@@ -43,7 +43,8 @@ import { FeedbackModal } from './components/FeedbackModal';
 import { BoardSettingsModal } from './components/BoardSettingsModal';
 import { DEFAULT_SETTINGS } from './data';
 import { fetchBoards, createBoard, duplicateBoard, fetchTasks, fetchCategories, fetchUserSettings, fetchTags, updateTag, fetchCurrentPlan, fetchSync, createTask, updateTask, deleteTask, duplicateTask, moveTaskToBoard, reorderTask, removeTaskFromPlan, clearTutorialTasks, addTaskToPlan, changeTaskSlot, notifyError, fetchMembers, setTaskAssignee, type TaskStatusFilter, type Board, type BoardMember } from './api';
-import { UpdateBanner } from './components/UpdateBanner';
+import { notifyToast } from './toast';
+import { formatDate } from './i18n/format';
 import type { Task, UserSettings, Tag, CurrentPlan, TaskFilter, ViewMode } from './types';
 import { sortTasks, isSortMode, type SortMode } from './sort';
 import { isFutureDate, todayIso } from './recurrence';
@@ -175,6 +176,19 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
     version: string;
   } | null>(null);
   const [updateAvailable, setUpdateAvailable] = useState(false);
+
+  // The redeploy nudge rides the shared toast stack rather than its own fixed banner, so it can't
+  // overlap an error toast or the account-claim band. Persistent: a tab on stale JS should keep the
+  // offer in view until it is taken or dismissed.
+  useEffect(() => {
+    if (!updateAvailable) return;
+    notifyToast({
+      key: 'app-update',
+      message: t('updateBanner.message'),
+      durationMs: 0,
+      action: { label: t('updateBanner.refresh'), onClick: () => window.location.reload() },
+    });
+  }, [updateAvailable, t]);
 
   // Mouse: start drag after 5px to keep clicks alive.
   // Touch: long-press (~200ms) so tap-to-open and finger-scroll still work.
@@ -416,10 +430,12 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
     try {
       await deleteTask(activeBoardId, id);
       setTasks(prev => prev.filter(t => t.id !== id));
+      // No undo: the delete is already behind a confirmation, and the row is gone server-side.
+      notifyToast({ key: 'task-deleted', message: t('toast.taskDeleted') });
     } catch (e) {
       console.error('Failed to delete task', e);
     }
-  }, [activeBoardId]);
+  }, [activeBoardId, t]);
 
   const handleDuplicate = useCallback(async (id: string) => {
     if (!activeBoardId) return;
@@ -479,46 +495,6 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
     }
   }, [navigate, handleClearTutorial, openPlanDrawer]);
 
-  const handleMarkDone = useCallback((id: string) => {
-    const task = tasks.find(t => t.id === id);
-    if (!task || !activeBoardId) return;
-    // A recurring task only moves to its next date, so it stays put on the Recurring and All views.
-    const leaves = !task.recurrence || filter === 'todo' || filter === 'plan';
-    if (leaves) setLeavingId(id);
-    // Fires for recurring tasks too — the row stays put, but the occurrence was still completed.
-    // Capped so a burst of completions doesn't fill the screen with balloons.
-    setCelebrations(prev => [...prev, ++celebrationSeq.current].slice(-3));
-    const { id: _id, createdAt: _ca, sortKey: _sk, ...payload } = task;
-    updateTask(activeBoardId, id, { ...payload, status: 'done' }).then(saved => {
-      setTimeout(() => {
-        // Trust the response: a recurring task comes back `todo` with its next relevantFrom/deadline.
-        setTasks(prev => prev.map(t => t.id === id ? saved : t));
-        setLeavingId(null);
-        if (saved.recurrence) {
-          // The server also saved a DONE copy of this occurrence, and the plan now shows it as done.
-          fetchTasks(activeBoardId, fetchStatus).then(setTasks).catch(e => console.error('Failed to refresh tasks', e));
-          fetchCurrentPlan().then(setCurrentPlan).catch(e => console.error('Failed to refetch plan', e));
-        }
-      }, leaves ? 380 : 0);
-    }).catch(e => {
-      console.error('Failed to mark task done', e);
-      setLeavingId(null);
-    });
-  }, [tasks, activeBoardId, filter, fetchStatus]);
-
-  /** Brings a waiting recurring task back now (e.g. after an accidental "done"). The server re-derives the deadline. */
-  const handleDoItNow = useCallback(async (id: string) => {
-    const task = tasks.find(t => t.id === id);
-    if (!task || !activeBoardId) return;
-    const { id: _id, createdAt: _ca, sortKey: _sk, ...payload } = task;
-    try {
-      const saved = await updateTask(activeBoardId, id, { ...payload, relevantFrom: todayIso() });
-      setTasks(prev => prev.map(t => t.id === id ? saved : t));
-    } catch (e) {
-      console.error('Failed to bring recurring task forward', e);
-    }
-  }, [tasks, activeBoardId]);
-
   const handleMarkTodo = useCallback((id: string) => {
     const task = tasks.find(t => t.id === id) ?? archivedTasks.find(t => t.id === id);
     if (!task || !activeBoardId) return;
@@ -535,6 +511,68 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
       console.error('Failed to mark task todo', e);
     });
   }, [tasks, archivedTasks, activeBoardId]);
+
+  /**
+   * The post-completion toast. Undo is offered only for a plain task, where it is exactly the
+   * "mark to-do" flip: completing a *recurring* task also files a DONE copy of the occurrence and
+   * rolls the schedule forward server-side (docs/RECURRING-TASKS.md), so a status flip would not
+   * undo it — those get the next occurrence's date instead. Keyed, so a burst of completions
+   * leaves one undo offer rather than a column of them.
+   */
+  const announceCompletion = useCallback((saved: Task) => {
+    const nextDate = saved.recurrence && saved.relevantFrom
+      ? formatDate(new Date(`${saved.relevantFrom}T00:00:00`), { month: 'short', day: 'numeric' })
+      : null;
+    notifyToast({
+      key: 'task-done',
+      kind: 'success',
+      message: nextDate ? t('toast.recurringDone', { date: nextDate }) : t('toast.taskDone'),
+      action: saved.recurrence
+        ? undefined
+        : { label: t('toast.undo'), onClick: () => handleMarkTodo(saved.id) },
+    });
+  }, [handleMarkTodo, t]);
+
+  const handleMarkDone = useCallback((id: string) => {
+    const task = tasks.find(t => t.id === id);
+    if (!task || !activeBoardId) return;
+    // A recurring task only moves to its next date, so it stays put on the Recurring and All views.
+    const leaves = !task.recurrence || filter === 'todo' || filter === 'plan';
+    if (leaves) setLeavingId(id);
+    // Fires for recurring tasks too — the row stays put, but the occurrence was still completed.
+    // Capped so a burst of completions doesn't fill the screen with balloons.
+    setCelebrations(prev => [...prev, ++celebrationSeq.current].slice(-3));
+    const { id: _id, createdAt: _ca, sortKey: _sk, ...payload } = task;
+    updateTask(activeBoardId, id, { ...payload, status: 'done' }).then(saved => {
+      announceCompletion(saved);
+      setTimeout(() => {
+        // Trust the response: a recurring task comes back `todo` with its next relevantFrom/deadline.
+        setTasks(prev => prev.map(t => t.id === id ? saved : t));
+        setLeavingId(null);
+        if (saved.recurrence) {
+          // The server also saved a DONE copy of this occurrence, and the plan now shows it as done.
+          fetchTasks(activeBoardId, fetchStatus).then(setTasks).catch(e => console.error('Failed to refresh tasks', e));
+          fetchCurrentPlan().then(setCurrentPlan).catch(e => console.error('Failed to refetch plan', e));
+        }
+      }, leaves ? 380 : 0);
+    }).catch(e => {
+      console.error('Failed to mark task done', e);
+      setLeavingId(null);
+    });
+  }, [tasks, activeBoardId, filter, fetchStatus, announceCompletion]);
+
+  /** Brings a waiting recurring task back now (e.g. after an accidental "done"). The server re-derives the deadline. */
+  const handleDoItNow = useCallback(async (id: string) => {
+    const task = tasks.find(t => t.id === id);
+    if (!task || !activeBoardId) return;
+    const { id: _id, createdAt: _ca, sortKey: _sk, ...payload } = task;
+    try {
+      const saved = await updateTask(activeBoardId, id, { ...payload, relevantFrom: todayIso() });
+      setTasks(prev => prev.map(t => t.id === id ? saved : t));
+    } catch (e) {
+      console.error('Failed to bring recurring task forward', e);
+    }
+  }, [tasks, activeBoardId]);
 
   const handleRemoveFromPlan = useCallback(async (id: string) => {
     if (!activeBoardId) return;
@@ -797,7 +835,6 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
 
   return (
     <>
-      {updateAvailable && <UpdateBanner onReload={() => window.location.reload()} />}
       <header className="header">
         <BrandBoard
           boards={boards}

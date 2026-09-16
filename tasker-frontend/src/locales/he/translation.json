@@ -65,9 +65,13 @@
     "cancel": "ביטול",
     "confirm": "אישור"
   },
-  "errorToast": {
+  "toast": {
     "region": "התראות",
-    "dismiss": "סגירה"
+    "dismiss": "סגירה",
+    "undo": "ביטול",
+    "taskDone": "סומן כבוצע",
+    "recurringDone": "סומן כבוצע — בפעם הבאה ב-{{date}}",
+    "taskDeleted": "המשימה נמחקה"
   },
   "api": {
     "errors": {

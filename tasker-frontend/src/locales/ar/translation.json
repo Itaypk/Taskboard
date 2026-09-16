@@ -65,9 +65,13 @@
     "cancel": "إلغاء",
     "confirm": "تأكيد"
   },
-  "errorToast": {
+  "toast": {
     "region": "إشعارات",
-    "dismiss": "إخفاء"
+    "dismiss": "إخفاء",
+    "undo": "تراجع",
+    "taskDone": "تمّ التعليم كمنجز",
+    "recurringDone": "تمّ التعليم كمنجز — المرة القادمة في {{date}}",
+    "taskDeleted": "تمّ حذف المهمة"
   },
   "api": {
     "errors": {

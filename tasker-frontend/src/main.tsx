@@ -5,7 +5,7 @@ import './index.css'
 import { bootCatalogReady } from './i18n'
 import App from './App.tsx'
 import { AuthProvider } from './auth/AuthContext'
-import { ErrorToastStack } from './components/ErrorToast'
+import { ToastStack } from './components/ToastStack'
 
 // Mount once the boot language's catalog is in place, so the first paint is already in the right
 // language and direction. Resolved immediately for English; see `bootCatalogReady`.
@@ -15,7 +15,7 @@ void bootCatalogReady.then(() => {
       <BrowserRouter>
         <AuthProvider>
           <App />
-          <ErrorToastStack />
+          <ToastStack />
         </AuthProvider>
       </BrowserRouter>
     </StrictMode>,

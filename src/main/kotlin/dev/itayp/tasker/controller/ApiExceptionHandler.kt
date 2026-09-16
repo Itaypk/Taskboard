@@ -3,6 +3,7 @@ package dev.itayp.tasker.controller
 import dev.itayp.tasker.planning.NoPlannableTasksException
 import dev.itayp.tasker.service.BlockedEmailDomainException
 import dev.itayp.tasker.service.InvalidRecurrenceException
+import dev.itayp.tasker.service.InvalidTaskUrlException
 import dev.itayp.tasker.service.UnclaimedAccountCapExceededException
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
@@ -73,6 +74,18 @@ class ApiExceptionHandler {
         ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.message!!).apply {
             title = "Invalid recurrence"
             setProperty("code", "INVALID_RECURRENCE")
+        }
+
+    /**
+     * Carries the same `errors` shape bean validation produces, attributed to `url`: the rule only
+     * moved into the service because it needs the stored value, and the task editor highlights the
+     * offending input from this list.
+     */
+    @ExceptionHandler(InvalidTaskUrlException::class)
+    fun handleInvalidTaskUrl(ex: InvalidTaskUrlException): ProblemDetail =
+        ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.message!!).apply {
+            title = "Validation failed"
+            setProperty("errors", listOf(FieldError("url", ex.message!!)))
         }
 
     /**

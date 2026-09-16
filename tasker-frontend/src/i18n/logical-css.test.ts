@@ -48,7 +48,6 @@ const ALLOWED = [
     'index.css :: right: 4px',
     // Direction-neutral horizontal centring (paired with translateX(-50%)).
     'auth/EmailLoginConfirmPage.module.css :: left: 50%',
-    'components/UpdateBanner.module.css :: left: 50%',
     'index.css :: left: 50%',
     'index.css :: left: 50%',
     'index.css :: left: 50%',

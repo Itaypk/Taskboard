@@ -65,9 +65,13 @@
     "cancel": "Отмена",
     "confirm": "Подтвердить"
   },
-  "errorToast": {
+  "toast": {
     "region": "Уведомления",
-    "dismiss": "Скрыть"
+    "dismiss": "Скрыть",
+    "undo": "Отменить",
+    "taskDone": "Отмечено как выполненное",
+    "recurringDone": "Отмечено как выполненное — следующий раз: {{date}}",
+    "taskDeleted": "Задача удалена"
   },
   "api": {
     "errors": {

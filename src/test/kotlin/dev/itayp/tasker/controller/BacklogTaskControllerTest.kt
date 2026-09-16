@@ -9,6 +9,7 @@ import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.AssigneeNotMemberException
 import dev.itayp.tasker.service.BacklogTaskService
 import dev.itayp.tasker.service.BoardAccessDeniedException
+import dev.itayp.tasker.service.InvalidTaskUrlException
 import dev.itayp.tasker.service.SameBoardMoveException
 import dev.itayp.tasker.service.SortKeyGenerator
 import org.junit.jupiter.api.Test
@@ -167,6 +168,25 @@ class BacklogTaskControllerTest(@Autowired val mockMvc: MockMvc) {
             .andExpect(jsonPath("$.detail").value("Link must start with http:// or https://"))
             .andExpect(jsonPath("$.errors[0].field").value("url"))
             .andExpect(jsonPath("$.errors[0].message").value("Link must start with http:// or https://"))
+    }
+
+    @Test
+    fun `PUT with a link the service rejects keeps the field-level error shape`() {
+        // The update rule lives in the service (it needs the stored value), so the 400 comes from an
+        // exception rather than bean validation — but the editor highlights `url` off the same list.
+        whenever(backlogTaskService.updateTask(eq(userId), eq(boardId), eq(taskId), any()))
+            .thenThrow(InvalidTaskUrlException())
+
+        mockMvc.perform(
+            put("$basePath/$taskId")
+                .with(authentication(auth))
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"title":"Task","status":"todo","categoryId":"$categoryId","url":"app:clear-tutorial","tags":[]}""")
+        )
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.detail").value("Link must start with http:// or https://"))
+            .andExpect(jsonPath("$.errors[0].field").value("url"))
     }
 
     @Test

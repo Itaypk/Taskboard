@@ -65,9 +65,13 @@
     "cancel": "Cancel",
     "confirm": "Confirm"
   },
-  "errorToast": {
+  "toast": {
     "region": "Notifications",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "undo": "Undo",
+    "taskDone": "Marked as done",
+    "recurringDone": "Marked as done — next on {{date}}",
+    "taskDeleted": "Task deleted"
   },
   "api": {
     "errors": {

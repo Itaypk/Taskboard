@@ -428,6 +428,20 @@ class ExternalTaskControllerTest(@Autowired val mockMvc: MockMvc) {
             .andExpect(jsonPath("$.detail").value(containsString("low")))
     }
 
+    @Test
+    fun `PATCH rejects an in-app link with a 400`() {
+        whenever(backlogTaskService.findTask(userId, taskId)).thenReturn(aTask())
+
+        mockMvc.perform(
+            patch("$basePath/$taskId")
+                .with(authentication(auth))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"url":"app:clear-tutorial"}""")
+        )
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.detail").value(containsString("http://")))
+    }
+
     // --- Create ---
 
     @Test

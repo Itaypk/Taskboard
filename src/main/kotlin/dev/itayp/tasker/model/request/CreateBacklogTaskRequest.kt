@@ -45,7 +45,7 @@ data class CreateBacklogTaskRequest(
     @field:Size(max = 5000, message = "Description must be at most 5000 characters.")
     val description: String? = null,
     @field:Size(max = 2000, message = "Link must be at most 2000 characters.")
-    @field:Pattern(regexp = "^$|^https?://.*", message = "Link must start with http:// or https://")
+    @field:Pattern(regexp = TaskUrl.WEB_URL_REGEX, message = TaskUrl.REQUIREMENT_MESSAGE)
     val url: String? = null,
     @field:Size(max = 32) val priority: String? = null,
     @field:Size(max = 64)
