@@ -96,10 +96,23 @@ class WeeklyPlanningOrchestrator(
         val settings = userSettingsService.getOrCreate(userId)
         val locale = Locale.forLanguageTag(settings.preferredLanguage)
         val prompt = buildCapacityPrompt(weekStart, locale, channel.formatter)
-        channel.send(ChannelMessage.Choice(
-            prompt = prompt,
-            options = buildCapacityOptions(locale),
-        ))
+        // The kickoff send is the one step here that can fail for reasons outside the app: the
+        // weekly cron pushes to Telegram, and a chat the user never opened answers "chat not
+        // found". Roll the session back rather than leaving an ACTIVE row nobody can ever reply
+        // to — an orphan one suppresses the web drawer's completed plan for *other* weeks, since
+        // `WebPlanningController.entry` only looks for a finalized plan when no session is active.
+        try {
+            channel.send(ChannelMessage.Choice(
+                prompt = prompt,
+                options = buildCapacityOptions(locale),
+            ))
+        } catch (e: Exception) {
+            state.remove(sessionId)
+            runCatching { planningSessionService.abandonSession(userId, sessionId) }.onFailure {
+                log.warn("Could not abandon planning session {} after a failed kickoff", sessionId, it)
+            }
+            throw e
+        }
         return sessionId
     }
 

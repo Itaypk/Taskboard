@@ -25,6 +25,7 @@ import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.context.support.StaticMessageSource
 import org.telegram.telegrambots.meta.api.methods.botapimethods.BotApiMethod
+import org.telegram.telegrambots.meta.api.methods.send.SendMessage
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery
 import org.telegram.telegrambots.meta.api.objects.Update
@@ -68,6 +69,8 @@ class TelegramChannelRoutingTest {
     private val messageSource = StaticMessageSource().apply {
         addMessage("command.unprompted.unclear", Locale.ENGLISH, "Send me a task")
         addMessage("quickadd.in_session", Locale.ENGLISH, "We're planning right now")
+        addMessage("command.start", Locale.ENGLISH, "Sign up at backlog.fyi")
+        addMessage("command.link.welcome", Locale.ENGLISH, "Telegram is connected")
     }
 
     private val channel = TelegramChannel(
@@ -98,6 +101,8 @@ class TelegramChannelRoutingTest {
     private val executed = mutableListOf<Any?>()
 
     private fun collapseEdits(): List<EditMessageText> = executed.filterIsInstance<EditMessageText>()
+
+    private fun sentTexts(): List<String> = executed.filterIsInstance<SendMessage>().map { it.text }
 
     @BeforeEach
     fun stub() {
@@ -333,5 +338,34 @@ class TelegramChannelRoutingTest {
         channel.consume(cardCallbackUpdate(PlanConfirmationRegistry.OPTION_REVISE, PlanConfirmationRegistry.OPTION_REVISE to "Revise"))
 
         verify(orchestrator).startRevision(eq(userId), eq(sessionId), any(), eq("push gym to Thursday"))
+    }
+
+    /**
+     * A bot cannot message anyone who has not written to it first, so a user who linked Telegram
+     * on the web is unreachable until they open the chat — and `/start` is the only way they get
+     * there. Answering them with the sign-up instructions sent them back to the step they had
+     * already done, which is how the "chat not found" welcome failure left them stuck.
+     */
+    @Test
+    fun `start from an already-linked account replies with the welcome, not the sign-up instructions`() {
+        channel.consume(textUpdate("/start"))
+
+        assertEquals(listOf("Telegram is connected"), sentTexts())
+    }
+
+    @Test
+    fun `start from an unknown Telegram account replies with the sign-up instructions`() {
+        whenever(userRepository.findByTelegramId(telegramUserId)).thenReturn(null)
+
+        channel.consume(textUpdate("/start"))
+
+        assertEquals(listOf("Sign up at backlog.fyi"), sentTexts())
+    }
+
+    @Test
+    fun `the deep-link form of start is recognized too`() {
+        channel.consume(textUpdate("/start linked"))
+
+        assertEquals(listOf("Telegram is connected"), sentTexts())
     }
 }

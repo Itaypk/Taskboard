@@ -167,6 +167,8 @@
     "none": "لا توجد طرق دخول مرتبطة بعد.",
     "linkTelegram": "ربط Telegram",
     "linkAnotherFirst": "ربط طريقة أخرى أولًا قبل إزالة هذه",
+    "telegramNextStep": "تم ربط Telegram. بقيت خطوة واحدة: فتح المحادثة مع البوت والضغط على Start — إذ لا يسمح Telegram له بإرسال الرسائل إلا بعد أول رسالة منك.",
+    "openTelegramChat": "فتح المحادثة مع {{bot}}",
     "providers": {
       "telegram": "Telegram",
       "email": "البريد الإلكتروني",

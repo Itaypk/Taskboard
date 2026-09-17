@@ -21,9 +21,11 @@ import org.springframework.mock.web.MockHttpSession
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.core.authority.SimpleGrantedAuthority
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication
+import org.springframework.test.context.TestPropertySource
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import java.time.Instant
@@ -31,6 +33,7 @@ import java.util.UUID
 
 @WebMvcTest(TelegramOidcController::class)
 @Import(SecurityConfiguration::class, LocaleNegotiationService::class)
+@TestPropertySource(properties = ["tasker.telegram.bot-username=BacklogFyiBot"])
 class TelegramOidcControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @MockitoBean lateinit var telegramOidcService: TelegramOidcService
@@ -139,5 +142,22 @@ class TelegramOidcControllerTest(@Autowired val mockMvc: MockMvc) {
         )
             .andExpect(status().isFound)
             .andExpect(redirectedUrl("/settings?telegramLink=conflict"))
+    }
+
+    /**
+     * The handle the SPA needs for the post-link "open the chat" step — linking authenticates the
+     * account but leaves the bot unable to write until the user opens the chat themselves.
+     */
+    @Test
+    fun `bot exposes the configured username to a signed-in user`() {
+        mockMvc.perform(get("/api/auth/telegram/bot").with(authentication(auth)))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.username").value("BacklogFyiBot"))
+    }
+
+    @Test
+    fun `bot requires authentication`() {
+        mockMvc.perform(get("/api/auth/telegram/bot"))
+            .andExpect(status().isUnauthorized)
     }
 }

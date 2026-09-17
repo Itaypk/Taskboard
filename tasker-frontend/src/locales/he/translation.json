@@ -152,6 +152,8 @@
     "none": "עדיין לא קושרו שיטות כניסה.",
     "linkTelegram": "קישור Telegram",
     "linkAnotherFirst": "יש לקשר שיטה נוספת לפני הסרת זו",
+    "telegramNextStep": "Telegram מחובר. נשאר שלב אחד: לפתוח את הצ׳אט עם הבוט וללחוץ על Start — Telegram מאפשר לו לשלוח הודעות רק אחרי הודעה ראשונה מהצד שלך.",
+    "openTelegramChat": "פתיחת הצ׳אט עם {{bot}}",
     "providers": {
       "telegram": "Telegram",
       "email": "אימייל",
