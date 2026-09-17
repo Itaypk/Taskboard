@@ -172,12 +172,27 @@ class SecurityConfiguration(
                 authorize(anyRequest, permitAll)
             }
             headers {
-                // By default, Spring Security disables caching by setting Cache-Control: no-cache, no-store, max-age=0, must-revalidate and Pragma: no-cache.
-                // This breaks caching of static assets, so we turn it off and rely on our own cache-control headers (defined in Nginx + Spring resource handlers).
+                // By default Spring Security sets `Cache-Control: no-cache, no-store, max-age=0,
+                // must-revalidate` (plus `Pragma: no-cache`) on every response, which would make the
+                // hashed Vite assets uncacheable. Disabling the writer here means the app emits no
+                // Cache-Control of its own; caching policy is Nginx's, in the `itayp-dev` Ansible repo
+                // (`roles/nginx/templates/vhost.conf.j2`, the `spa: true` branch). There is no
+                // `addResourceHandlers` override and no `spring.web.resources.cache` config — Nginx
+                // does all of it:
+                //   /assets/      -> public, max-age=31536000, immutable   (Vite content-hashes the names)
+                //   / , /index.html -> no-cache, no-store, must-revalidate (entry points are not hashed)
+                //   /favicon.svg  -> public, max-age=86400
+                // Each of those locations sets `proxy_hide_header Cache-Control` first, so whatever the
+                // app sends on them is replaced regardless. Everything else — `/api/**`, the discovery
+                // documents, and the unhashed files from `tasker-frontend/public/` (icons.svg,
+                // manifest.json, og-image.png, …) — falls through Nginx's catch-all `location /`, which
+                // does not touch Cache-Control. Those responses therefore carry no Cache-Control header
+                // at all and are left to browser heuristics. That is an accident of this `disable()`
+                // rather than a decision; see `docs/FAST-INITIAL-LOAD.md` (option C) before changing it.
                 cacheControl { disable() }
                 // All response security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options,
                 // Referrer-Policy, Permissions-Policy) are owned by Nginx in front of the app — see the
-                // `tasks` service `csp` value and security-headers.conf in the itayp_dev Ansible repo.
+                // `tasks` service `csp` value and security-headers.conf in the itayp-dev Ansible repo.
                 // CSP in particular *must* live there: Spring's HeaderWriterFilter never runs on the
                 // welcome-page / forwarded index.html responses (`/`, `/settings`, `/terms`, …), so the
                 // app layer cannot protect the SPA's HTML document — the response that matters most.

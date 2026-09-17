@@ -7,6 +7,15 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
+    properties:
+      hibernate:
+        # Every task read maps `category` (@ManyToOne LAZY) and `tags` (@ManyToMany LAZY), so a board
+        # of N tasks used to issue ~1 + N selects for the tag collections alone. Batch fetching
+        # collapses those per-row lookups into `IN (...)` batches, making a board list a constant
+        # ~3 queries regardless of size. Global rather than a per-query @EntityGraph because the same
+        # two associations are walked from the board list, the planner's cross-board reads, /sync and
+        # the external API — one setting covers every path instead of a fetch hint on each.
+        default_batch_fetch_size: 100
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.xml
     enabled: true

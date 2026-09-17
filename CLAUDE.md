@@ -108,15 +108,22 @@ rule doesn't hide them).
   an agent can self-correct.
 - Remember to clear new user-owned tables in `AccountService.deleteUserData` (`api_token` already is).
 
-## Security response headers
+## Security response headers and caching
 
-All HTTP response security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy) are owned by **Nginx in front of the app**, not Spring. The Nginx config lives in a separate Ansible repo (`../itayp_dev`, role `nginx`).
+All HTTP response security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy) **and all `Cache-Control` policy** are owned by **Nginx in front of the app**, not Spring. The Nginx config lives in a separate Ansible repo, `Itaypk/itayp-dev`, under `ansible/roles/nginx/` — there is **no** copy of it in this repo (one used to be checked in under `nginx/` and had drifted badly; don't reintroduce it).
 
 - **Why not the app**: in prod the SPA's HTML document (`/`, and the SPA routes `/settings`, `/terms`, … which are `forward:/index.html`) is served by Spring's welcome-page / static-resource handler, and Spring Security's `HeaderWriterFilter` does **not** run on that forwarded response — so an app-layer CSP would silently miss the one response that matters most for XSS. Putting headers in Nginx covers it uniformly, and avoids emitting a duplicate header behind the proxy.
 - **Do not add `contentSecurityPolicy`/header writers to `SecurityConfiguration`'s session chain.** `SecurityIntegrationTest` asserts the app emits *no* CSP precisely to catch a re-introduction (which would double the header behind Nginx). The dev-only `h2ConsoleFilterChain` is the lone exception (its own `frame-ancestors 'self'`).
 - **CSP is per-vhost, never in the shared snippet.** `roles/nginx/files/snippets/security-headers.conf` (HSTS/X-Frame-Options/nosniff/Referrer/Permissions) is included by *every* vhost, so a CSP there would impose Backlog's policy on the other sites. CSP is instead a `csp:` field on the `tasks` service in `group_vars/all/main.yml`, emitted by `templates/vhost.conf.j2` into each Backlog `location` (the SPA static locations **and** the catch-all that serves the document forwards + API). Because Nginx `add_header` is replace-not-merge, every location that emits CSP must also re-`include security-headers.conf` or it drops the rest.
 - **Local dev has no Nginx**, so responses carry no security headers there — expected; don't "fix" it by adding them to Spring.
 - Known cosmetic wart: Spring's default `X-Frame-Options: DENY` still leaks on directly-served responses (e.g. `/assets/*`), doubling Nginx's `SAMEORIGIN`. Harmless (CSP `frame-ancestors 'none'` is authoritative), left as-is.
+
+Caching, same ownership, same file (`templates/vhost.conf.j2`, the `spa: true` branch — the `tasks` service sets `spa: true`):
+
+- `SecurityConfiguration` sets `cacheControl { disable() }` on the session and external-API chains, so **the app emits no `Cache-Control` of its own**. It is not that Spring sets a permissive value — the writer is off. Don't read that `disable()` as "assets are cached by Spring"; there is no `addResourceHandlers` override and no `spring.web.resources.cache` config anywhere.
+- Nginx sets the policy on four locations, each of which does `proxy_hide_header Cache-Control` first (so the app's value, if it ever had one, is replaced): `/assets/` → `public, max-age=31536000, immutable` (Vite content-hashes those filenames); `/` and `/index.html` → `no-cache, no-store, must-revalidate` (entry points are unhashed and must always re-resolve to current asset names); `/favicon.svg` → `public, max-age=86400`.
+- **Everything else gets no `Cache-Control` at all** — it falls through Nginx's catch-all `location /`, which doesn't touch the header. That covers `/api/**` (so task JSON ships with no `private` and no `no-store`), the discovery documents, and the unhashed files copied from `tasker-frontend/public/` (`icons.svg`, `manifest.json`, `og-image.png`, the PNG favicons). Those are left to browser heuristic caching. This is an accident of the blanket `disable()`, not a decision; `docs/FAST-INITIAL-LOAD.md` (option C) is where it gets revisited.
+- **Local dev has no Nginx**, so nothing carries `Cache-Control` there either — same reason security headers are absent locally. Don't "fix" it in Spring.
 
 ## Data model
 

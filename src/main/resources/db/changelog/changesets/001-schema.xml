@@ -241,7 +241,7 @@
             <column name="title" type="BYTEA">
                 <constraints nullable="false"/>
             </column>
-            <!-- Encrypted under the user's DEK. -->
+            <!-- Encrypted under the board's DEK. -->
             <column name="description" type="BYTEA">
                 <constraints nullable="true"/>
             </column>
@@ -470,7 +470,7 @@
             <column name="new_status" type="VARCHAR(50)">
                 <constraints nullable="true"/>
             </column>
-            <!-- Encrypted under the user's DEK. -->
+            <!-- Encrypted under the board's DEK (BacklogTaskChangeService). -->
             <column name="task_title_snapshot" type="BYTEA">
                 <constraints nullable="true"/>
             </column>
