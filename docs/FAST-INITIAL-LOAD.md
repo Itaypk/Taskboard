@@ -7,6 +7,9 @@ Status: **exploration only** — options, tradeoffs and a recommendation, not a 
 implementation should start from this document without a separate follow-up decision. Supersedes the
 one-line idea at `docs/IDEAS.md` ("Smoother loading — show a cached copy in read-only mode…").
 
+None of options A–H has been built. Some of the *pre-existing issues* listed at the end have since
+been fixed (the N+1, the stale Nginx copy, the misleading comments); each is marked inline.
+
 The trigger is felt slowness, specifically on **mobile cold open**, and the `IDEAS.md` framing: it is
 acceptable to show stale data before the initial load, and acceptable to be read-only until it lands.
 That framing turns out to be more permissive than the problem requires — see "Why the cached-copy idea
@@ -134,7 +137,10 @@ but its behaviour for `fetch()`-issued subresource requests is **not something t
 verifying against real browsers before anything is designed around it.
 
 Note this cannot be done today without first fixing the missing `Cache-Control` described under
-"Pre-existing issues" below.
+"Pre-existing issues" below. The Nginx side has since been read directly (`Itaypk/itayp-dev`,
+`ansible/roles/nginx/templates/vhost.conf.j2`): the catch-all `location /` that serves `/api/**` does
+not touch `Cache-Control` at all, so whatever the app sends is what the browser sees. That makes this
+option a pure app-side change — no Ansible change is needed to set `private` on the tasks endpoint.
 
 ### D. Client-persisted snapshot (the `IDEAS.md` idea)
 
@@ -207,30 +213,53 @@ strongly that they do not.
 
 ## Pre-existing issues noticed while tracing this
 
-Not part of any option above, but all verified, and the first two touch this area directly.
+Not part of any option above, but all verified, and the first two touch this area directly. Items
+marked *Fixed* were dealt with in a later pass; the rest are still open.
 
-- **N+1 on the tasks endpoint.** `jpa/BacklogTaskMapper.kt:21-22` dereferences the lazy
-  `@ManyToOne category` and `@ManyToMany tags` (`jpa/BacklogTask.kt:50,54`) for every task. There is no
-  `@EntityGraph`, no `@BatchSize`, and no `hibernate.default_batch_fetch_size` in `application.yaml`.
-  A board of N tasks therefore issues roughly 1 + N selects for the tag collections alone (category
-  proxies at least dedupe through the persistence context). This is on the exact endpoint under
-  discussion and is the cheapest real server-side win available.
-- **Authenticated API responses carry no `Cache-Control` at all.** `SecurityConfiguration.kt:177`
-  disables Spring Security's cache-control writer so that static assets can be cached, and nothing
-  re-adds a header for `/api/v1/**`. Task JSON therefore ships with no `private` and no `no-store`.
-  Harmless today — there is no shared cache between Nginx and the browser — but it is an accident
-  rather than a decision, and option C would have to fix it first.
-- **The comment at `SecurityConfiguration.kt:176` is half wrong.** It says asset cache headers come
-  from "Nginx + Spring resource handlers". There is no `addResourceHandlers` override and no
-  `spring.web.resources.*` config anywhere; Nginx does all of it.
-- **Stale changeset comment.** In `001-schema.xml`, `backlog_task.title` (line 240) is correctly
-  commented "Encrypted under the board's DEK" while `description` (line 244) says "under the user's
-  DEK" — same table, and both actually go through `BoardCryptoService`. Comment only, no behaviour
-  change, but misleading for exactly the kind of work this note describes.
-- **A second, stale Nginx config is checked in.** `nginx/sites-available/tasks.itayp.dev` still lives in
-  this repo while the root `CLAUDE.md` states the live config is owned by the separate `itayp_dev`
-  Ansible repo. Two sources of truth for cache headers is precisely the thing that would bite during
-  option C.
+- **N+1 on the tasks endpoint.** *Fixed.* `jpa/BacklogTaskMapper.kt:21-22` dereferences the lazy
+  `@ManyToOne category` and `@ManyToMany tags` (`jpa/BacklogTask.kt:50,54`) for every task, and there
+  was no `@EntityGraph`, no `@BatchSize` and no `hibernate.default_batch_fetch_size` anywhere — a board
+  of N tasks issued roughly 1 + N selects for the tag collections alone. `application.yaml` now sets
+  `spring.jpa.properties.hibernate.default_batch_fetch_size: 100`, which collapses those into `IN (...)`
+  batches: a board list is now a constant ~3 queries regardless of size. Set globally rather than as a
+  per-query fetch hint because the same two associations are walked from the board list, the planner's
+  cross-board reads, `/sync` and the external API. **Not covered by a test** — a query-count regression
+  test would need `hibernate.generate_statistics` wired into the test profile; worth adding if this
+  area is touched again.
+- **Authenticated API responses carry no `Cache-Control` at all.** *Still open; now documented.*
+  `SecurityConfiguration`'s `cacheControl { disable() }` turns Spring's writer off so the hashed assets
+  can be cached, and nothing re-adds a header for `/api/v1/**`. Reading the real Nginx config confirms
+  it: the four locations that do set caching (`/assets/`, `/`, `/index.html`, `/favicon.svg`) each
+  `proxy_hide_header Cache-Control` and set their own; everything else — `/api/**` included — falls
+  through the catch-all `location /`, which leaves the header alone. So task JSON ships with no
+  `private` and no `no-store`. Harmless today (no shared cache sits between Nginx and the browser) but
+  an accident rather than a decision, and option C's prerequisite.
+- **The unhashed files in `tasker-frontend/public/` also get no `Cache-Control`.** Same catch-all:
+  `icons.svg`, `manifest.json`, `og-image.png` and the PNG favicons are served straight from Spring's
+  static handler with the header disabled, so they are left to browser heuristic caching. `icons.svg`
+  in particular is on the cold-open path. Fixing this is Nginx-side (the `spa: true` branch already has
+  the shape for it — `/favicon.svg` is exactly such a location) and belongs in the `itayp-dev` repo.
+- **That `/favicon.svg` Nginx location is dead for this app.** The template caches `/favicon.svg` for a
+  day, but `tasker-frontend/index.html` references `/favicon.ico` and `/favicon-{16,32}x32.png` — there
+  is no `favicon.svg`. The template is shared across vhosts, so this is a note for whoever generalises
+  that branch, not a bug in this repo.
+- **The comment at `SecurityConfiguration.kt:176` is half wrong.** *Fixed.* It said asset cache headers
+  come from "Nginx + Spring resource handlers". There is no `addResourceHandlers` override and no
+  `spring.web.resources.*` config anywhere; Nginx does all of it. The comment now spells out the actual
+  per-location policy and the fall-through above.
+- **Stale changeset comments.** *Fixed.* In `001-schema.xml`, `backlog_task.description` (line 244)
+  and `backlog_task_change_event.task_title_snapshot` (line 473) both said "Encrypted under the user's
+  DEK" while the code path for both is `BoardCryptoService` (the board's DEK). XML comments are not
+  part of a changeset's parsed content, so editing them does not move the Liquibase checksum — which is
+  why this was safe to change on an already-applied changeset. The other eight "user's DEK" comments in
+  that file were checked against their services and are correct.
+- **A second, stale Nginx config was checked in.** *Fixed — `nginx/` is deleted.* It had drifted
+  badly against the live Ansible-owned config: it still named `tasks.itayp.dev` (the service moved to
+  `backlog.fyi` with a `www` → canonical 301), carried no CSP, omitted the `limit_conn addr 50` override
+  on `/assets/` that was added in prod after a cold SPA load tripped the per-IP connection cap, and its
+  `nginx.conf` predated Brotli. None of the cache locations re-included `security-headers.conf`, so
+  anyone reasoning from that copy would have concluded the assets ship without HSTS. Two sources of
+  truth for cache headers is precisely the thing that would have bitten during option C.
 - **Dead weight on the signed-in path.** The `<div id="prerendered-landing" hidden>` block in
   `index.html` (~2 KB of crawler-facing copy) ships to signed-in users and is never touched by JS.
   Minor, and it is on the cold-open path for everyone. `docs/IDEAS.md` already notes that this block's
