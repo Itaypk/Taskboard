@@ -23,7 +23,11 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Notifications: toggle whether calendar invite emails include a notification, or not (in case users prefer other means of notifications and just want the calendar sync for blocking time).
 - Notifications: consider web push notifications (https://web.dev/articles/push-notifications-overview) - they work even if the users are not active in the site.
 - Why do we have both English (UK) and English (US) if we only support English US? Either support it properly or drop it.
-- Smoother loading - when opening the app, show a cached copy in read-only mode instead of waiting for the initial load of board data. R/O access would save us the trouble of sync issues. Main consideration is about keeping sensitive data in the browser's memory, and the induced complexity.
+- Faster initial display of tasks when opening the app — see `docs/FAST-INITIAL-LOAD.md` for the
+  feasibility/effort exploration. Short version: the wait is a six-hop waterfall, and the cached
+  read-only copy sketched here would only compress the last two hops; cheaper anonymous-safe fixes
+  (skeleton, chunk split, gated chunk speculation, a bootstrap response) come first, and nothing
+  should be built before the load is actually measured.
 
 ## Auth & accounts
 - Add Google OAuth as a login provider — drops in as another `loginOrRegister('google', sub, …)`
