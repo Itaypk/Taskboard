@@ -57,7 +57,7 @@ class TelegramOidcController(
      * they open the chat themselves. The SPA needs this handle to walk them there, and gets it at
      * runtime rather than baked into the bundle so the value tracks the deployment's config.
      *
-     * Authenticated by the `/api/**` catch-all — the only caller is the Settings screen.
+     * Authenticated by the `/api/..` catch-all — the only caller is the Settings screen.
      */
     @GetMapping("/bot")
     fun bot(): TelegramBotResponse = TelegramBotResponse(username = botUsername.ifBlank { null })
