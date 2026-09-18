@@ -23,29 +23,29 @@
     "@tiptap/starter-kit": "^3.31.3",
     "dompurify": "^3.4.15",
     "i18next": "26.4.2",
-    "marked": "^18.0.12",
+    "marked": "^18.0.13",
     "marked-bidi": "^1.0.15",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
-    "react-i18next": "17.0.13",
-    "react-router-dom": "^7.18.3"
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-i18next": "17.0.14",
+    "react-router-dom": "^7.18.4"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@testing-library/jest-dom": "7.0.1",
     "@testing-library/react": "16.3.3",
-    "@types/node": "^26.4.1",
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.7",
+    "@types/node": "^26.5.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
     "eslint": "^10.10.0",
     "eslint-plugin-react-hooks": "^7.0.1",
-    "eslint-plugin-react-refresh": "^0.5.6",
+    "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^17.12.0",
     "jsdom": "30.0.1",
-    "typescript": "~6.0.3",
-    "typescript-eslint": "^8.69.0",
-    "vite": "^8.2.2",
-    "vitest": "5.0.0"
+    "typescript": "~7.0.2",
+    "typescript-eslint": "^8.70.0",
+    "vite": "^8.3.0",
+    "vitest": "5.0.1"
   }
 }
