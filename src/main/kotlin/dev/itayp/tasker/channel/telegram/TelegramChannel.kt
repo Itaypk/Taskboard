@@ -176,10 +176,21 @@ class TelegramChannel(
 
         val channel = TelegramConversationChannel(chatId, telegramClient)
 
-        // /start is the standard first-contact command and must work before any account exists —
-        // always English, since a brand-new user has no language preference yet.
+        // /start is the standard first-contact command and must work before any account exists.
+        // Two audiences, though: a stranger needs the sign-up instructions (always English — they
+        // have no language preference yet), while someone who already linked Telegram on the web
+        // gets the localized welcome. Telling the latter to "connect Telegram from settings" was
+        // the dead end that stranded them: a bot cannot message anyone who has not written to it
+        // first, so a linked user whose welcome failed with "chat not found" arrives here as their
+        // only way back, and must not be sent round the loop again.
         if (inbound is ChannelInbound.Text && isStartCommand(inbound.text)) {
-            channel.send(ChannelMessage.Text(messageSource.getMessage("command.start", null, Locale.ENGLISH)))
+            val linkedUserId = userRepository.findByTelegramId(telegramUserId)?.id
+            val text = if (linkedUserId != null) {
+                messageSource.getMessage("command.link.welcome", null, userSettingsService.getLocale(linkedUserId))
+            } else {
+                messageSource.getMessage("command.start", null, Locale.ENGLISH)
+            }
+            channel.send(ChannelMessage.Text(text))
             return
         }
 

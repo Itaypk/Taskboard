@@ -1631,6 +1631,26 @@ input[type="number"] { -moz-appearance: textfield; }
   margin-top: 6px;
 }
 
+/* A settings-surface panel for a step the user still has to take themselves — sits alongside
+   .settings-hint / .settings-error rather than in a module, because those live here too. */
+.settings-notice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--paper-border);
+  border-radius: 8px;
+  background: var(--paper-surface-2);
+}
+
+.settings-notice__text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .settings-toggle {
   display: flex;
   align-items: flex-start;

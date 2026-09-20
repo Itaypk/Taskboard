@@ -147,6 +147,8 @@
     "none": "No login methods linked yet.",
     "linkTelegram": "Link Telegram",
     "linkAnotherFirst": "Link another method before removing this one",
+    "telegramNextStep": "Telegram is connected. One step left: open the chat with the bot and tap Start — Telegram only lets it message you once you’ve written to it first.",
+    "openTelegramChat": "Open the chat with {{bot}}",
     "providers": {
       "telegram": "Telegram",
       "email": "Email",

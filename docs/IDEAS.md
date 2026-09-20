@@ -36,6 +36,17 @@ The scope of the individual idea is varying - could be small UI improvements, or
 - Account-linking UX: linking an identity already owned by a different account is currently just
   refused (409). Decide if/how to offer a real merge flow, including how to re-prove ownership of
   the other account before merging.
+- **Track whether a linked Telegram chat is actually reachable.** Linking via OIDC yields a
+  `telegram_id` but no chat: Telegram refuses to let a bot write to anyone who hasn't written to it
+  first ("chat not found"). So `ScheduledConversationChannelResolver.hasDeliverableChannel` — whose
+  whole job is to avoid registering a cron that could only no-op — answers on identity rather than
+  reachability, and every weekly cron for such a user fails the same way. Settings now walks the
+  user into the chat and `/start` greets them properly, which covers the common case, but nothing
+  *knows* whether they went. Fix: a `telegram_chat_ready_at` column stamped the first time the bot
+  receives any update from that chat, required by `hasDeliverableChannel`, cleared when a send comes
+  back "chat not found"; then Settings can show a real "finish setup" state instead of a standing
+  hint, and `settingsModal.assistant.weeklyPlanningHelp` stops promising a conversation that can't
+  be delivered. Needs a migration, hence deferred.
 
 ## Landing page & SEO
 - Footer: GitHub link, if we go with AGPL. (The footer itself now ships — About/FAQ/Terms/Privacy.)

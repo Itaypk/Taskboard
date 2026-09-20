@@ -3,6 +3,7 @@ package dev.itayp.tasker.controller
 import dev.itayp.nescioquid.telegram.TelegramAuthException
 import dev.itayp.nescioquid.telegram.TelegramOidcService
 import dev.itayp.tasker.config.AppProperties
+import dev.itayp.tasker.model.response.TelegramBotResponse
 import dev.itayp.tasker.security.SessionAuthenticator
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.AccountLinkService
@@ -14,6 +15,7 @@ import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import jakarta.servlet.http.HttpSession
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.GetMapping
@@ -24,12 +26,13 @@ import java.net.URI
 
 /**
  * Telegram login via the OIDC Authorization Code + PKCE redirect flow. Replaces the legacy
- * Login Widget (iframe + HMAC). Three GET endpoints, all browser-navigation based:
+ * Login Widget (iframe + HMAC). Three browser-navigation GETs, plus one JSON read:
  *
  *  - `/start`        — begin a login; stash state+PKCE in session, 302 to Telegram.
  *  - `/link/start`   — begin linking Telegram to the signed-in account (authenticated).
  *  - `/callback`     — Telegram returns here; we exchange the code, validate the id_token,
  *                      then either create a session (login) or attach the identity (link).
+ *  - `/bot`          — the messaging bot's @username, for the post-link "open the chat" step.
  *
  * State/PKCE live in the HTTP session, so the callback is CSRF-safe (the `state` parameter is
  * the anti-forgery token) without needing the SPA's XSRF header — which a top-level redirect
@@ -44,7 +47,20 @@ class TelegramOidcController(
     private val sessionAuthenticator: SessionAuthenticator,
     private val localeNegotiationService: LocaleNegotiationService,
     private val appProperties: AppProperties,
+    @Value("\${tasker.telegram.bot-username}") private val botUsername: String,
 ) {
+
+    /**
+     * The messaging bot's handle. Linking Telegram authenticates the account but does *not* create
+     * a chat with the bot: Telegram refuses to let a bot write to someone who has never written to
+     * it first ("[400] Bad Request: chat not found"), so a freshly-linked user is unreachable until
+     * they open the chat themselves. The SPA needs this handle to walk them there, and gets it at
+     * runtime rather than baked into the bundle so the value tracks the deployment's config.
+     *
+     * Authenticated by the `/api/..` catch-all — the only caller is the Settings screen.
+     */
+    @GetMapping("/bot")
+    fun bot(): TelegramBotResponse = TelegramBotResponse(username = botUsername.ifBlank { null })
 
     @GetMapping("/start")
     fun startLogin(@RequestParam(required = false) next: String?, request: HttpServletRequest): ResponseEntity<Void> {

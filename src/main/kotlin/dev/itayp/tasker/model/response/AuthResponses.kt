@@ -55,3 +55,9 @@ fun UserEntity.toMeResponse(crypto: UserCryptoService, preferredLanguage: String
         preferredLanguage = preferredLanguage,
     )
 }
+
+/**
+ * The messaging bot's @username, for the "open the chat" step the SPA shows after a Telegram link.
+ * Null when no bot is configured, which the UI reads as "there is no chat to send anyone to".
+ */
+data class TelegramBotResponse(val username: String?)

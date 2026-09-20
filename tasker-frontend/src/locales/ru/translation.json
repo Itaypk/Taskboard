@@ -157,6 +157,8 @@
     "none": "Пока нет привязанных способов входа.",
     "linkTelegram": "Привязать Telegram",
     "linkAnotherFirst": "Сначала привяжите другой способ входа, прежде чем удалять этот",
+    "telegramNextStep": "Telegram привязан. Остался один шаг: откройте чат с ботом и нажмите Start — Telegram разрешает ему писать только после вашего первого сообщения.",
+    "openTelegramChat": "Открыть чат с {{bot}}",
     "providers": {
       "telegram": "Telegram",
       "email": "Email",

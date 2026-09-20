@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext';
 import {
     fetchIdentities,
     fetchMe,
+    fetchTelegramBot,
     unlinkIdentity,
     TELEGRAM_LINK_URL,
     type LinkedIdentity,
@@ -17,16 +18,16 @@ const PROVIDER_LABEL_KEYS: Record<string, string> = {
 };
 
 // Surfaced after the Telegram link redirect lands back on /settings?telegramLink=<code>.
-const LINK_NOTICE_KEYS: Record<string, string> = {
+// `success` is absent deliberately — it gets the "open the chat" panel below, not an error line.
+const LINK_ERROR_KEYS: Record<string, string> = {
     conflict: 'connectedAccounts.linkNotices.conflict',
     exists: 'connectedAccounts.linkNotices.exists',
     failed: 'connectedAccounts.linkNotices.failed',
     unavailable: 'connectedAccounts.linkNotices.unavailable',
 };
 
-function readLinkNoticeKey(): string | null {
-    const code = new URLSearchParams(window.location.search).get('telegramLink');
-    return code && code !== 'success' ? LINK_NOTICE_KEYS[code] ?? LINK_NOTICE_KEYS.failed : null;
+function readLinkCode(): string | null {
+    return new URLSearchParams(window.location.search).get('telegramLink');
 }
 
 /**
@@ -34,14 +35,25 @@ function readLinkNoticeKey(): string | null {
  * Telegram account (via the OIDC redirect flow) and unlink any method, guarded so they can't
  * remove their last way to sign in. Email is linked through the verify-email field above; it
  * appears here once verified. Provider-agnostic so a future Google method just shows up as a row.
+ *
+ * Linking Telegram needs one step the OIDC round-trip cannot do for the user: Telegram refuses to
+ * let a bot message anyone who has not written to it first, so a linked-but-never-opened chat is
+ * unreachable and the weekly planning conversation silently never arrives. A successful link
+ * therefore ends on an explicit "open the chat" panel rather than the silent button-disappears
+ * state it used to, and the bot link stays available afterwards for anyone who missed it.
  */
 export function ConnectedAccounts() {
     const { t } = useTranslation();
     const { setUser } = useAuth();
     const [identities, setIdentities] = useState<LinkedIdentity[] | null>(null);
     const [busy, setBusy] = useState(false);
-    const initialNoticeKey = readLinkNoticeKey();
-    const [error, setError] = useState<string | null>(initialNoticeKey ? t(initialNoticeKey) : null);
+    const [botUsername, setBotUsername] = useState<string | null>(null);
+    // Read once on mount: the effect below scrubs the query string, so a per-render read would
+    // come back null and the panel would vanish on the next state change.
+    const [linkCode] = useState(readLinkCode);
+    const justLinked = linkCode === 'success';
+    const initialErrorKey = linkCode && !justLinked ? LINK_ERROR_KEYS[linkCode] ?? LINK_ERROR_KEYS.failed : null;
+    const [error, setError] = useState<string | null>(initialErrorKey ? t(initialErrorKey) : null);
 
     const refresh = useCallback(async () => {
         try {
@@ -68,6 +80,22 @@ export function ConnectedAccounts() {
     }, []);
 
     const hasTelegram = identities?.some(i => i.provider === 'telegram') ?? false;
+
+    // Only worth a request once there is a chat to point at — an email-only account never needs it.
+    const needsBotHandle = justLinked || hasTelegram;
+    useEffect(() => {
+        if (!needsBotHandle) return;
+        let cancelled = false;
+        fetchTelegramBot()
+            .then(info => { if (!cancelled) setBotUsername(info.username); })
+            .catch(e => console.error('Failed to load Telegram bot handle', e));
+        return () => { cancelled = true; };
+    }, [needsBotHandle]);
+
+    const botUrl = botUsername ? `https://t.me/${botUsername}` : null;
+    const openChatLabel = botUsername
+        ? t('connectedAccounts.openTelegramChat', { bot: `@${botUsername}` })
+        : null;
 
     const handleUnlink = async (provider: string) => {
         setBusy(true);
@@ -118,10 +146,28 @@ export function ConnectedAccounts() {
                 )}
             </ul>
 
-            {!hasTelegram && (
+            {!hasTelegram && !justLinked && (
                 <a className="btn btn--ghost" href={TELEGRAM_LINK_URL}>
                     {t('connectedAccounts.linkTelegram')}
                 </a>
+            )}
+
+            {justLinked && (
+                <div className="settings-notice" role="status">
+                    <p className="settings-notice__text">{t('connectedAccounts.telegramNextStep')}</p>
+                    {botUrl && openChatLabel && (
+                        <a className="btn btn--primary" href={botUrl} target="_blank" rel="noreferrer">
+                            {openChatLabel}
+                        </a>
+                    )}
+                </div>
+            )}
+
+            {/* Permanent way back to the chat for anyone who navigated past the panel above. */}
+            {!justLinked && hasTelegram && botUrl && openChatLabel && (
+                <p className="settings-hint">
+                    <a href={botUrl} target="_blank" rel="noreferrer">{openChatLabel}</a>
+                </p>
             )}
 
             {error && <p className="settings-error">{error}</p>}

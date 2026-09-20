@@ -26,6 +26,19 @@ export const telegramLoginUrl = (next?: string): string =>
 
 export const TELEGRAM_LINK_URL = '/api/auth/telegram/link/start';
 
+/** The messaging bot's handle, or null when the deployment runs no bot. */
+export interface TelegramBotInfo {
+    username: string | null;
+}
+
+/**
+ * Linking Telegram does not open a chat with the bot, and Telegram won't let a bot write to
+ * someone who has never written to it first. Settings uses this handle to send a freshly-linked
+ * user into the chat so the assistant can actually reach them.
+ */
+export const fetchTelegramBot = (): Promise<TelegramBotInfo> =>
+    request<TelegramBotInfo>('/api/auth/telegram/bot');
+
 export const devLogin = (): Promise<AuthUser> =>
     request<AuthUser>('/api/auth/dev-login', { method: 'POST' });
 
