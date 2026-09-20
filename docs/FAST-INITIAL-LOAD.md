@@ -8,7 +8,8 @@ implementation should start from this document without a separate follow-up deci
 one-line idea at `docs/IDEAS.md` ("Smoother loading — show a cached copy in read-only mode…").
 
 None of options A–H has been built. Some of the *pre-existing issues* listed at the end have since
-been fixed (the N+1, the stale Nginx copy, the misleading comments); each is marked inline.
+been fixed (the N+1, the stale Nginx copy, the misleading comments, and the uncached `public/` assets);
+each is marked inline. The one that still blocks option C — no `Cache-Control` on `/api/**` — is open.
 
 The trigger is felt slowness, specifically on **mobile cold open**, and the `IDEAS.md` framing: it is
 acceptable to show stale data before the initial load, and acceptable to be read-only until it lands.
@@ -234,15 +235,23 @@ marked *Fixed* were dealt with in a later pass; the rest are still open.
   through the catch-all `location /`, which leaves the header alone. So task JSON ships with no
   `private` and no `no-store`. Harmless today (no shared cache sits between Nginx and the browser) but
   an accident rather than a decision, and option C's prerequisite.
-- **The unhashed files in `tasker-frontend/public/` also get no `Cache-Control`.** Same catch-all:
-  `icons.svg`, `manifest.json`, `og-image.png` and the PNG favicons are served straight from Spring's
-  static handler with the header disabled, so they are left to browser heuristic caching. `icons.svg`
-  in particular is on the cold-open path. Fixing this is Nginx-side (the `spa: true` branch already has
-  the shape for it — `/favicon.svg` is exactly such a location) and belongs in the `itayp-dev` repo.
-- **That `/favicon.svg` Nginx location is dead for this app.** The template caches `/favicon.svg` for a
-  day, but `tasker-frontend/index.html` references `/favicon.ico` and `/favicon-{16,32}x32.png` — there
-  is no `favicon.svg`. The template is shared across vhosts, so this is a note for whoever generalises
-  that branch, not a bug in this repo.
+- **The unhashed files in `tasker-frontend/public/` also got no `Cache-Control`.** *Fixed upstream, in
+  `Itaypk/itayp-dev#25`.* They fell through the same catch-all, so `manifest.json`, `apple-touch-icon.png`,
+  `favicon.ico` and the PNG favicons — all referenced from `index.html`'s `<head>`, so all on the
+  cold-open path — plus `og-image.png` were served with no `Cache-Control` and left to browser
+  heuristics. The `spa: true` branch now caches root-level unhashed assets for a day, via a regex
+  anchored to one path segment (it must stay anchored: regex locations outrank the `location /assets/`
+  prefix, so a looser pattern would quietly downgrade the immutable hashed assets). Verified against
+  prod: `/favicon.ico`, `/favicon-32x32.png`, `/apple-touch-icon.png`, `/manifest.json` and
+  `/og-image.png` all return `public, max-age=86400`, while `/assets/*` still returns
+  `public, max-age=31536000, immutable`.
+  That change also removed the template's `/favicon.svg` location, which matched nothing on this vhost —
+  `index.html` references `/favicon.ico` and `/favicon-{16,32}x32.png`, and there is no `favicon.svg`.
+- **`icons.svg` is unused.** *Correction to an earlier draft of this note, which claimed it was on the
+  cold-open path.* `tasker-frontend/public/icons.svg` (5 KB) is referenced from nowhere in the
+  frontend — not as an `<img>`, not as a CSS `url()`, and not as an SVG sprite (`<use href>` /
+  `xlinkHref`). It is copied into the bundle and never fetched. That makes it dead weight to delete,
+  not a caching question.
 - **The comment at `SecurityConfiguration.kt:176` is half wrong.** *Fixed.* It said asset cache headers
   come from "Nginx + Spring resource handlers". There is no `addResourceHandlers` override and no
   `spring.web.resources.*` config anywhere; Nginx does all of it. The comment now spells out the actual
