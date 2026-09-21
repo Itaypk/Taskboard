@@ -3,13 +3,14 @@
 Exploration note on what a signed-in user waits for between opening the app and seeing their tasks,
 and what could be done about it.
 
-Status: **exploration plus a first round of measurements** (see "Measurements" at the end,
-2026-09-21), which identified a 300 ms React Suspense fallback throttle as the single largest item
-on the signed-in cold open — larger than every round trip combined, and addressed by none of the
-options below. The options and the recommendation below are still exploration, not a build plan, and
-the measurements correct several claims in them — read that section before acting on any option.
-No implementation should start from this document without a separate follow-up decision. Supersedes the
-one-line idea at `docs/IDEAS.md` ("Smoother loading — show a cached copy in read-only mode…").
+Status: **closed for now — measured, one fix shipped, direction parked.** See "Bottom line" at the
+end for where this landed and why nothing further is recommended. In short: the single largest item
+was a 300 ms React Suspense fallback throttle that no option below anticipated; removing it roughly
+halved time-to-tasks. Everything else that was measured turned out to be either already minimal or
+not worth its cost. **Options A–H and the recommendation ladder below are superseded** by the
+measurement sections at the end — they are kept as the reasoning that led there, not as a build
+plan, and several of their claims are corrected further down. Supersedes the one-line idea at
+`docs/IDEAS.md` ("Smoother loading — show a cached copy in read-only mode…").
 
 None of options A–H has been built. Some of the *pre-existing issues* listed at the end have since
 been fixed (the N+1, the stale Nginx copy, the misleading comments, and the uncached `public/` assets);
@@ -528,11 +529,8 @@ It is nowhere near the range where any of this matters.
   phone at 150–250 ms RTT the three serial round trips grow to 450–750 ms and the entry-bundle
   download grows with them, which would make A1 and A2 worth more than the percentages above.
 - **A cellular run.** Everything on-device so far was over Wi-Fi; see section 2b.
-- **Whether the anonymous entry bundle can shrink.** 130,612 B brotli must land before `/me` is
-  even issued, making it ~23% of the cold budget. No option in this note targets it, because the
-  note is written about the signed-in path — but on a cold mobile open it is the first thing the
-  user waits for. The dead `prerendered-landing` block and the unused `icons.svg` noted below are
-  the trivial end of this; the real question is what else is in that 240 KB entry chunk.
+- ~~**Whether the anonymous entry bundle can shrink.**~~ **Answered — see "Bottom line" below.**
+  It is ~90% framework and cannot shrink without leaving React, React Router or i18next.
 
 ## Verification of the fix (2026-09-21, same day)
 
@@ -611,3 +609,56 @@ stage waits on the one before. The levers that can still move it are the ones th
 round trip or remove bytes**, not the ones that re-order them: A2 (one bootstrap response instead
 of the `/me` → boards → tasks chain) and shrinking the 240 KB entry chunk that must land before
 `/me` is even issued. Re-ranking the options against that is the next open question.
+
+## Bottom line (2026-09-21)
+
+**One fix shipped, and it was the one that mattered.** Removing the Suspense throttle
+(`d248926`) roughly halved time-to-tasks on a real phone — 765–945 ms → 427–464 ms warm. It was
+~70 lines, no new dependencies, no new i18n keys, and it worked because it deleted a *timer*
+rather than moving bytes around.
+
+**Everything else measured turned out not to be worth doing**, and that is the useful part of this
+note:
+
+- **The server was never the problem.** ~2% of the budget, and flat from 25 to 500 tasks. That
+  settles C, D, F and G exactly as option H predicted.
+- **A1 was built, deployed, A/B'd over eleven interleaved pairs, and reverted.** It closed the gap
+  it targeted (224 → 10 ms) and moved board-painted by one millisecond, because a cold open on a
+  phone link is bandwidth-bound: fetching the chunk alongside `/me` reorders a queue rather than
+  creating parallelism.
+- **The eager bundle cannot meaningfully shrink.** A `rollup-plugin-visualizer` run over the
+  production build settles the last open question in "Still missing":
+
+  | eager file | brotli | composition (rendered share) |
+  |---|---|---|
+  | `index-*.js` | 69.8k | **react-dom 88%**, LoginPage 3%, react-i18next 3% |
+  | `authApi-*.js` | 25.2k | i18next 61%, `locales/en` 25%, `api.ts` 9% |
+  | `chunk-OB3PAWPO` | 13.0k | react-router 98% |
+  | `index-*.css` | 13.0k | |
+  | `jsx-runtime-*.js` | 5.3k | react 58%, react-i18next 35% |
+  | `rolldown-runtime` | 0.3k | |
+  | **total** | **~127k** | lands before `/me` is even issued |
+
+  **Application code is 10% of that graph** (84,939 B rendered of 854,785); the other 90% is
+  framework. `react-dom-client.production.js` alone is 88% of the main chunk. There is nothing
+  dumb in there to delete — the candidates are replacing React Router with a hand-rolled matcher
+  (~12k brotli, touches every route plus `SpaForwardController`) or splitting the English catalogue
+  into namespaces (~4–5k, fights the four-locale parity gate in `catalog.test.ts`). Both are
+  large-effort, low-yield, and neither is recommended.
+
+**So this direction is parked.** The cheap, high-yield change has been made. What remains — A2's
+bootstrap endpoint, a bundle rewrite, a client-side cache — is high-cost or high-risk for a few
+hundred milliseconds on cold opens only, at a scale of a handful of beta users. The remaining
+levers are written down above if the picture changes; nothing here needs doing now.
+
+**If this is ever picked up again, start here:**
+
+- **B (a skeleton) is still untouched and still the best value per hour.** It is the one item on
+  the original ladder that was never built, it is anonymous-safe, and it addresses the felt
+  complaint that prompted this note rather than the measured one.
+- **A2** is the only remaining structural lever, worth ~200–450 ms on a cold phone open.
+- **A cellular measurement** is still missing (everything on-device was over Wi-Fi). On a
+  150–250 ms RTT link the serial waves grow and A2's value grows with them.
+- **Enable `management.metrics.distribution.percentiles-histogram`** before trusting any Grafana
+  tail number here; the max column above is a decaying max, not a percentile.
+
