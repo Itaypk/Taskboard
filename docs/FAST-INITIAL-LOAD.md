@@ -527,12 +527,50 @@ It is nowhere near the range where any of this matters.
   flat server curve) is device-independent and carries over; the *absolute* numbers do not. On a
   phone at 150–250 ms RTT the three serial round trips grow to 450–750 ms and the entry-bundle
   download grows with them, which would make A1 and A2 worth more than the percentages above.
-- **Confirmation of the Suspense-throttle fix.** The mechanism is identified (section 3); what is
-  untested is the remedy. Build one of the candidate fixes and re-measure the gap — it should drop
-  from ~305 ms to near zero.
 - **A cellular run.** Everything on-device so far was over Wi-Fi; see section 2b.
 - **Whether the anonymous entry bundle can shrink.** 130,612 B brotli must land before `/me` is
   even issued, making it ~23% of the cold budget. No option in this note targets it, because the
   note is written about the signed-in path — but on a cold mobile open it is the first thing the
   user waits for. The dead `prerendered-landing` block and the unused `icons.svg` noted below are
   the trivial end of this; the real question is what else is in that 240 KB entry chunk.
+
+## Verification of the fix (2026-09-21, same day)
+
+Commit `d248926` removed the Suspense boundary from the signed-in path: `lazyComponent.ts`
+resolves the board module itself and renders `RouteFallback` directly, so no fallback ever
+commits and nothing stamps `globalMostRecentFallbackTime`. Deployed to production
+(`index-e3lVPyDe.js`) and re-measured on the same Pixel 6a with the same CDP rig.
+
+**Warm (HTTP cache populated), the directly comparable case:**
+
+| `/me` resolved → `fetchBoards` issued | before | after |
+|---|---|---|
+| Pixel 6a | 313 / 303 / 309 ms | **8 / 10 / 7 / 42 ms** |
+| tasks complete | 765 / 888 / 945 ms | **450 / 464 / 427 / 463 ms** |
+| board painted | — | 489 / 495 / 457 / 493 ms |
+
+The window is gone. Time-to-tasks on the phone roughly halved, because the whole downstream
+waterfall shifts earlier rather than just the one window closing. The 42 ms outlier is the single
+run where the board chunk actually had to be revalidated (8 ms) rather than served from memory.
+
+**Cold (`Network.clearBrowserCache` before each navigate):**
+
+| | run 1 | run 2 | run 3 |
+|---|---|---|---|
+| entry chunk | 127→435 ms | 116→390 ms | 106→373 ms |
+| `/me` resolved | 577 ms | 618 ms | 530 ms |
+| **`/me` → `fetchBoards`** | **138 ms** | **115 ms** | **183 ms** |
+| `Board-*.js` (49,588 B) | 582→681 ms | 620→719 ms | 537→701 ms |
+| board painted | 1090 ms | 1001 ms | 969 ms |
+
+**This is what makes A1 worth building now.** The residual gap is no longer a timer — it is
+*exactly* the board chunk download (99 / 99 / 164 ms against a gap of 138 / 115 / 183 ms). Before
+the fix a preload moved that request 100 ms earlier and bought nothing, because the 300 ms throttle
+swallowed it; the preload control experiment in section 3 is what proved that. With the throttle
+gone, the same preload is worth the full chunk fetch on a cold open, and ~0 on a warm one.
+
+The constraint A1 has to respect is `tasker-frontend/CLAUDE.md`'s anonymous first-paint budget:
+the board chunk must not be requested by a visitor who is not signed in, which rules out a
+`<link rel="modulepreload">` in `index.html` and rules out starting the import above `AuthShell`'s
+early returns. It needs a signed-in hint that is readable before `/me` answers.
+
