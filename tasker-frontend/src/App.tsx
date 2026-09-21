@@ -1,18 +1,23 @@
 /**
  * Route shell. Deliberately light: only what an anonymous first paint needs is imported eagerly
  * (auth state, the login page, the footer). Everything else — the signed-in board, the markdown
- * policy pages, the one-off confirmation pages — is a `lazy` chunk, so the landing page a new
- * visitor (or a PageSpeed run) downloads no longer carries the whole application.
+ * policy pages, the one-off confirmation pages — is a separate chunk, so the landing page a new
+ * visitor (or a PageSpeed run) downloads no longer carries the whole application. The board is
+ * split by hand rather than with `lazy` (see `lazyComponent`); everything else uses `lazy`.
  */
-import { lazy, Suspense, type ReactNode } from 'react';
+import { lazy, useEffect, Suspense, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Routes, Route } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
 import { LoginPage } from './auth/LoginPage';
 import AppFooter from './components/AppFooter';
+import { lazyComponent, useLazyComponent } from './lazyComponent';
+import { notifyToast } from './toast';
 import './App.css';
 
-const Board = lazy(() => import('./Board'));
+// Not `lazy`: the board is the one chunk that races the signed-in first paint, and a Suspense
+// fallback commit there costs a flat 300 ms of React's anti-flicker throttle. See `lazyComponent`.
+const boardChunk = lazyComponent(() => import('./Board'));
 const NotFoundPage = lazy(() => import('./NotFoundPage').then(m => ({ default: m.NotFoundPage })));
 const EmailLoginConfirmPage = lazy(() => import('./auth/EmailLoginConfirmPage').then(m => ({ default: m.EmailLoginConfirmPage })));
 const EmailVerifyConfirmPage = lazy(() => import('./auth/EmailVerifyConfirmPage').then(m => ({ default: m.EmailVerifyConfirmPage })));
@@ -71,5 +76,34 @@ function AuthShell() {
     return <LoginPage />;
   }
 
-  return <Lazy><Board onSignOut={signOut} /></Lazy>;
+  return <BoardRoute onSignOut={signOut} />;
+}
+
+/**
+ * Split out of `AuthShell` so the chunk request starts only once the visitor is known to be signed
+ * in — `useLazyComponent` preloads on render, and a hook above `AuthShell`'s early returns would
+ * put the whole signed-in surface on the anonymous entry path.
+ */
+function BoardRoute({ onSignOut }: { onSignOut: () => Promise<void> }) {
+  const { t } = useTranslation();
+  const { component: Board, failed } = useLazyComponent(boardChunk);
+
+  // A chunk that won't load is nearly always a tab holding an `index.html` from before a redeploy,
+  // pointing at asset hashes that no longer exist. Offer the same refresh the version nudge does,
+  // rather than leaving the placeholder up forever.
+  useEffect(() => {
+    if (!failed) return;
+    notifyToast({
+      key: 'app-update',
+      message: t('updateBanner.message'),
+      durationMs: 0,
+      action: { label: t('updateBanner.refresh'), onClick: () => window.location.reload() },
+    });
+  }, [failed, t]);
+
+  if (!Board) {
+    return <RouteFallback />;
+  }
+
+  return <Board onSignOut={onSignOut} />;
 }
