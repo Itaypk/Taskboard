@@ -11,6 +11,7 @@ import { Routes, Route } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
 import { LoginPage } from './auth/LoginPage';
 import AppFooter from './components/AppFooter';
+import { wasSignedIn } from './auth/signedInHint';
 import { lazyComponent, useLazyComponent } from './lazyComponent';
 import { notifyToast } from './toast';
 import './App.css';
@@ -18,6 +19,13 @@ import './App.css';
 // Not `lazy`: the board is the one chunk that races the signed-in first paint, and a Suspense
 // fallback commit there costs a flat 300 ms of React's anti-flicker throttle. See `lazyComponent`.
 const boardChunk = lazyComponent(() => import('./Board'));
+
+// For a browser that was signed in last time, start the board chunk now rather than waiting for
+// `/me` to say so — measured at 99-164 ms of dead serial time on a cold phone open. Gated on the
+// hint, so an anonymous visitor's first paint stays exactly as small as it was.
+if (wasSignedIn()) {
+  boardChunk.preload();
+}
 const NotFoundPage = lazy(() => import('./NotFoundPage').then(m => ({ default: m.NotFoundPage })));
 const EmailLoginConfirmPage = lazy(() => import('./auth/EmailLoginConfirmPage').then(m => ({ default: m.EmailLoginConfirmPage })));
 const EmailVerifyConfirmPage = lazy(() => import('./auth/EmailVerifyConfirmPage').then(m => ({ default: m.EmailVerifyConfirmPage })));
