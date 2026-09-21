@@ -572,5 +572,42 @@ gone, the same preload is worth the full chunk fetch on a cold open, and ~0 on a
 The constraint A1 has to respect is `tasker-frontend/CLAUDE.md`'s anonymous first-paint budget:
 the board chunk must not be requested by a visitor who is not signed in, which rules out a
 `<link rel="modulepreload">` in `index.html` and rules out starting the import above `AuthShell`'s
-early returns. It needs a signed-in hint that is readable before `/me` answers.
+early returns. It needs a signed-in hint that is readable before `/me` answers. That was built,
+deployed and measured — see the next section.
 
+## A1 was built, measured and reverted (2026-09-21)
+
+`7e69231` gated the preload on a one-bit `localStorage` hint written whenever auth resolved, so a
+returning signed-in browser started the chunk in parallel with `/me` while an anonymous visitor's
+first paint stayed untouched. Because the gate is a storage bit, clearing it disables the preload
+for a single load — which makes a proper interleaved A/B possible on one deployed build, same
+phone, same minutes, alternating arms. Eleven pairs, cold cache each time:
+
+| | OFF (n=11) | ON (n=11) |
+|---|---|---|
+| `/me` resolved → `fetchBoards` | 224 ms | **10 ms** |
+| `/me` round trip | 98 ms | **247 ms** |
+| **board painted** | **1174 ms** | **1173 ms** |
+
+(medians; the chunk request moved ahead of `/me` in 11/11 ON loads and 0/11 OFF loads, so the arms
+really are what they claim to be.)
+
+**The preload does exactly what it was designed to do and buys nothing.** The gap closes as
+predicted, and `/me` absorbs precisely what the gap gives up. The reason is that a cold open on
+this link is **bandwidth-bound, not latency-bound**: fetching 49.6 kB concurrently with `/me`
+doesn't create parallelism, it reorders one queue. The paired median was −56 ms against a
+run-to-run spread of −652 to +450 ms, and the apparent wins were driven by outliers in the OFF
+arm rather than by a consistent gain.
+
+Reverted in `821ec45`. It left a `localStorage` side-channel coupled to auth state, paying for
+nothing. It is recoverable from `7e69231` if a bandwidth-rich, high-RTT link ever makes it worth
+re-testing — that is the regime where it would win.
+
+**This retires A1 and reframes the rest of the note.** Both remedies tried so far moved *when*
+bytes are fetched; only the Suspense fix helped, because it removed a timer rather than a
+transfer. What is left on a cold phone open is a byte- and round-trip-serial chain —
+entry chunk ~390-480 ms → `/me` ~650 ms → boards wave ~880 ms → tasks ~1100 ms — where every
+stage waits on the one before. The levers that can still move it are the ones that **remove a
+round trip or remove bytes**, not the ones that re-order them: A2 (one bootstrap response instead
+of the `/me` → boards → tasks chain) and shrinking the 240 KB entry chunk that must land before
+`/me` is even issued. Re-ranking the options against that is the next open question.
