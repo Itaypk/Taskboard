@@ -3,8 +3,12 @@
 Exploration note on what a signed-in user waits for between opening the app and seeing their tasks,
 and what could be done about it.
 
-Status: **exploration only** — options, tradeoffs and a recommendation, not a build plan. No
-implementation should start from this document without a separate follow-up decision. Supersedes the
+Status: **exploration plus a first round of measurements** (see "Measurements" at the end,
+2026-09-21), which identified a 300 ms React Suspense fallback throttle as the single largest item
+on the signed-in cold open — larger than every round trip combined, and addressed by none of the
+options below. The options and the recommendation below are still exploration, not a build plan, and
+the measurements correct several claims in them — read that section before acting on any option.
+No implementation should start from this document without a separate follow-up decision. Supersedes the
 one-line idea at `docs/IDEAS.md` ("Smoother loading — show a cached copy in read-only mode…").
 
 None of options A–H has been built. Some of the *pre-existing issues* listed at the end have since
@@ -198,7 +202,9 @@ A ladder, in this order, stopping whenever it feels fast enough:
 
 ## Measure first
 
-There are no numbers today, which is why this note recommends no build. The decomposition to attribute:
+**Done — see "Measurements (2026-09-21)" at the end of this note.** The original decomposition is
+kept below for reference; note that its first bullet's scaling hypothesis is stale (the N+1 was
+fixed before the measurements were taken). The decomposition to attribute:
 
 - **Server time** for `GET /boards/{id}/tasks` — how long, and how it scales with task count
   (the N+1 means it should scale worse than linearly; that is the thing to look for).
@@ -273,3 +279,260 @@ marked *Fixed* were dealt with in a later pass; the rest are still open.
   `index.html` (~2 KB of crawler-facing copy) ships to signed-in users and is never touched by JS.
   Minor, and it is on the cold-open path for everyone. `docs/IDEAS.md` already notes that this block's
   copy is out of date; that it is also dead weight is a second reason to revisit it.
+
+---
+
+## Measurements (2026-09-21)
+
+Taken against production (`backlog.fyi`) on a real account and a throwaway test account, plus
+Grafana Cloud for real-user server timings. **These supersede "There are no numbers today."**
+
+### Method and its limits
+
+- **Server time and payload**: the external API (`/api/external/v1/tasks?board=…&status=todo`)
+  with a read token on the real account, over a warm connection so TLS is paid once and
+  `time_starttransfer` ≈ RTT + server time. A `/me` call on the same connection is the RTT
+  baseline. **Caveat**: that is not the SPA's endpoint — the DTO differs (`toExternalResponse`
+  vs `BacklogTaskMapper`) and it paginates. Passing `board=` forces the same
+  `backlogTaskService.getTasks` call the SPA endpoint makes, so server *time* is comparable;
+  payload *bytes* are only indicative. The Grafana numbers below cover the real endpoint.
+- **Waterfall**: Playwright/Chromium against prod, signed in via `POST /api/auth/demo-login`,
+  with `fetch` patched and a `MutationObserver` installed *before* document load. Cache cleared
+  between cold runs via CDP `Network.clearBrowserCache`. Desktop Linux, 8 cores, RTT ~80 ms.
+  **"Cold" here means the HTTP cache was cleared, not a genuine first-ever visit** — V8's code
+  cache was not verifiably cleared, and the 305 ms window below was identical cold and warm, which
+  only makes sense if whatever dominates it survived the clear. Treat the 987 ms cold figure as a
+  **lower bound** on a true first visit.
+  **Caveat**: headless Chromium, and a desktop connection. Per this note's own instruction, the
+  per-RTT mobile numbers still need a real phone; what is measured here is *structure*, which is
+  device-independent, plus one finding that needs confirming in real Chrome (flagged inline).
+- **Real-user server time**: `http_server_requests_seconds` from Grafana Cloud, 30-day window.
+
+### 1. The server and the payload are not the problem
+
+Real account, default board, `status=todo` — the actual cold-open call:
+
+| call | n | ttfb (warm conn) | server time over baseline | JSON | brotli |
+|---|---|---|---|---|---|
+| `/me` (baseline) | — | 80–85 ms | — | 202 B | — |
+| **tasks, `status=todo`** | **7** | **85–98 ms** | **~5–15 ms** | **5.2 KB** | **1.4 KB** |
+| tasks, `status=archived` | 66 | 135–145 ms | ~55 ms | 48.5 KB | 7.9 KB |
+
+~740 B/task, of which `description` is 23–28%.
+
+Real-user server time for the **actual SPA endpoints** (Grafana, 30 d). Traffic is small
+(~120 cold opens in 30 days), so the means are skewed by post-deploy JIT warmup and the max
+column is the more useful signal:
+
+| endpoint | avg | max | reqs/30 d |
+|---|---|---|---|
+| `/api/auth/me` | 13.8 ms | 99.9 ms | 120 |
+| `/api/v1/boards/{boardId}/tasks` | 33.7 ms | 215.7 ms | 243 |
+| `/api/v1/settings` | 36.9 ms | 186.7 ms | 139 |
+| `/api/v1/boards` | 54.9 ms | 234.9 ms | 134 |
+| `/api/v1/plans/current` | **60.6 ms** | **447.6 ms** | 141 |
+
+`management.metrics.distribution.percentiles-histogram` is **not** enabled for
+`http.server.requests` anywhere in `application.yaml`, so the max column is Micrometer's decaying
+max, not a percentile. On 120–250 requests spread over 30 days, a single pathological request —
+a cold JIT hit after a deploy, say — sets it. Read those as "one request was observed this slow",
+not as a tail distribution. Enabling the histogram is the cheap fix if this area is revisited.
+
+Server time is **~2% of the cold-open budget**. This settles options **C**, **D**, **F** and
+**G** the way option **H** predicted: they are complexity spent on the part that was never slow.
+
+### 2. The cold-open waterfall
+
+Median of 3 cold runs (cache cleared) and 3 warm runs, times in ms from navigation start:
+
+| step | cold | warm |
+|---|---|---|
+| document | 79 | 81 |
+| entry bundle downloaded + booted, `/me` issued | 400 | 140 |
+| `/me` resolved | 479 | 218 |
+| **`import('./Board')` resolves, bootstrap fetch issued** | **786** | **523** |
+| `boards` / `settings` / `plans/current` resolved | 882 | 611 |
+| **tasks on screen** | **987** | **696** |
+
+The anonymous entry bundle is **130,612 B brotli** across six files, and on a cold open all of
+it must land before `/me` is even issued. Signed-in adds **80,367 B brotli**
+(`Board-*.js` 49,289 + `Board-*.css` 7,528 + `config-*.js` 23,550).
+
+### 2b. On a real phone (Pixel 6a, Chrome 153, Wi-Fi)
+
+Driven over ADB wireless debugging + CDP. Device reports 8 cores, `deviceMemory` 4, `4g`,
+`downlink` 1.45 Mb, `navigator.connection.rtt` 50 ms.
+
+| | run 1 | run 2 | run 3 |
+|---|---|---|---|
+| `/me` round trip | 94 ms | 89 ms | 88 ms |
+| **`/me` resolved → `fetchBoards` issued** | **313 ms** | **303 ms** | **309 ms** |
+| `boards`/`settings`/`plan` wave | 133 ms | 101 ms | 99 ms |
+| tasks complete | 888 ms | 765 ms | 945 ms |
+
+Two things to take from this. **The 305 ms window is identical on the phone** — a Pixel 6a is
+several times slower than the desktop used above, and the number does not move, which is what
+finally identified it (see below). And **the per-round-trip cost roughly matches the desktop**
+(~90–130 ms vs ~80–95 ms), because this was measured over Wi-Fi.
+
+**Still not measured: mobile data.** ADB *wireless* debugging requires the phone to stay on the
+same LAN, so a cellular run needs USB debugging instead. On a cellular link at 150–250 ms RTT the
+three serial waves would grow to roughly 450–750 ms and A2 would become the second-biggest lever
+after the Suspense fix.
+
+### 3. The largest single item is a 300 ms React Suspense fallback throttle
+
+Between `/me` resolving and Board's bootstrap `useEffect` firing:
+
+| | run 1 | run 2 | run 3 |
+|---|---|---|---|
+| cold | 310 | 306 | 307 |
+| warm | 316 | 309 | 305 |
+
+Median **307 ms, spread 305–316 ms across all six runs — identical whether the `Board` chunk was
+downloaded (94 ms) or served from cache (0 ms)**. Inside that window:
+
+- CPU (CDP `Performance.getMetrics`): `TaskDuration` +20–21 ms, `ScriptDuration` +11 ms.
+  The main thread is **~94% idle**.
+- Long tasks (observer installed pre-document): 0–1 per run, and the one that appears is *after*
+  the tasks arrive.
+- The DOM does not change at all: it goes 2,618 B → 2,417 B at `/me` resolution (landing removed,
+  `RouteFallback` shown, 0 buttons), then nothing until 27,944 B / 63 buttons long after.
+
+So it is not download, not parse, not evaluate, and not render. It is ~290 ms of idle sitting
+inside the resolution of `import('./Board')` (`App.tsx:15`).
+
+**This is the single largest item in the budget — larger than every round trip combined — and no
+option in this note addresses it, because the trace above assumed that span was download + parse.**
+
+**It is React's Suspense fallback throttle, and the arithmetic is exact.** On the desktop trace
+the `RouteFallback` commits at **t=209** (DOM 2,618 → 2,417 B, 0 buttons, immediately after `/me`
+resolves) and `fetchBoards` fires at **t=510**. **209 + 300 = 509.**
+
+`react-dom` 19.3.0 defines `FALLBACK_THROTTLE_MS = 300`
+(`cjs/react-dom-client.development.js:30031`, and inlined as
+`globalMostRecentFallbackTime + 300 - now()` in `react-dom-client.production.js` — verified, so
+this is the build that actually ships). When a Suspense fallback commits, React stamps
+`globalMostRecentFallbackTime`; it then refuses to commit the resolved content until 300 ms have
+elapsed, to avoid flashing a fallback on and off. The rest of the evidence agrees:
+
+- **The window is 300 ms, not "about 300 ms".** 303/303/304 ms on the phone, 305–316 ms on desktop.
+- **It is device-independent.** A Pixel 6a and an 8-core desktop produce the same number. Real CPU
+  work would not.
+- **Preloading the chunk does not help** (see below), because `React.lazy` suspends on its *first
+  render* whether or not the module is already in the module map. The fallback commits, the
+  timestamp is stamped, and the throttle applies regardless.
+
+Measured on the phone, `import('/assets/Board-*.js')` kicked off at document start via
+`Page.addScriptToEvaluateOnNewDocument`:
+
+| | baseline | preloaded |
+|---|---|---|
+| gap | 303 / 303 / 304 / 306 ms | 305 / 307 / 305 / 304 / 306 ms |
+| when `Board-*.js` was requested | t=189, 208 ms (*after* `/me` resolves) | **t=99, 107 ms** (*before* `/me` resolves) |
+
+The second row is the control: it confirms the preload genuinely populated the module map ahead of
+time rather than silently missing. It did, and the gap did not move.
+
+**The irony is that the throttle is protecting against a flash this code deliberately does not
+have.** `App.tsx:26-28` already documents that `RouteFallback` uses "the same markup as the
+auth-bootstrap placeholder, so a cold load that is both fetching `/me` and fetching the board chunk
+doesn't flicker between two different loading states." The user sees an identical placeholder
+before and after the fallback commit — so the 300 ms buys nothing here and costs a third of the
+warm cold-open budget.
+
+**This is the single biggest available win, and it is not A1.** The fix is to stop committing a
+Suspense fallback on that transition. Candidates, **in no particular order — the relative cost is untested**:
+mark the auth-state update with `startTransition` (React keeps the current UI rather than showing a
+fallback; note the current UI at that instant is already `RouteFallback` from the
+`state.status === 'loading'` branch at `App.tsx:66`, so this is visually a no-op — but whether it
+actually skips the fallback *commit*, and therefore the timestamp, is a React-internals question
+this note has not tested); or resolve the `Board` module into state and render it without a
+`Suspense` boundary in that position; or hoist the `Suspense` boundary so it is not re-entered when
+`state.status` flips. Each needs verifying against the numbers above; reproducing the harness is
+~20 lines of CDP.
+
+**Remaining uncertainty**: the mechanism is inferred from React's source plus behaviour, not from a
+React-internals trace. Building the fix and re-measuring the gap is the cheapest confirmation.
+
+### 4. What this does to the options
+
+- **A1 (gated chunk speculation)** — **~78 ms, and measurably *not* a fix for the 305 ms window.**
+  The preload experiment above is exactly A1's mechanism, and the gap did not move. A1 still saves
+  the `/me` round trip on a cold visit (the chunk download overlaps the auth call), and that is
+  worth proportionally more on a phone at 150–250 ms RTT — but it must not be sold as addressing
+  the window. Fixing the Suspense throttle is a separate, larger and cheaper change.
+- **A2 (bootstrap response)** — saves one round trip, **~89 ms of 987 ms (9%)**. Real, modest.
+- **A4 (plan must not block tasks)** — **weakly supported, and worth doing anyway.** In the demo
+  trace the three parallel calls were 83/85/81 ms, so the typical saving is ~6 ms. `/plans/current`
+  is the slowest of the three by mean (60.6 ms) and has the single worst observed request
+  (447.6 ms) — but see the caveat above: that is one observation, not a measured tail. The honest
+  summary is that A4 buys a few ms typically and removes an unquantified worst case. It stays on
+  the ladder because it is small, contained and anonymous-safe, not because the numbers demand it.
+- **A5 (split the `Board` chunk)** — **its stated targets are stale; see the corrections below.**
+  It can only help the cold download (49 KB brotli, ~94 ms), not the 305 ms window, which is
+  CPU-free.
+- **B (skeleton)** — unchanged and still the best value per hour: it covers the entire
+  **~987 ms** of blank screen on a cold open, whatever the 305 ms turns out to be.
+- **C, D, F, G** — server time is 2% of the budget. Confirmed not worth their complexity.
+
+### 5. How server time scales with task count
+
+Run on a throwaway test account (empty board, then tasks created in increments via the external
+API's `POST /tasks`), same warm-connection method, `/me` on the same connection as the baseline.
+The external list caps at `limit=200`, but `BacklogTaskService.getTasks` loads the whole board
+before paginating in memory — so the 500-task row still does 500 tasks' worth of server work.
+
+| tasks on board | returned | `/me` median | tasks median | server delta | JSON bytes |
+|---:|---:|---:|---:|---:|---:|
+| 0 | 0 | 79.5 ms | 78.7 ms | −0.8 ms | 40 |
+| 25 | 25 | 76.3 ms | 121.8 ms | 45.5 ms | 19,006 |
+| 50 | 50 | 75.7 ms | 123.9 ms | 48.2 ms | 37,981 |
+| 100 | 100 | 76.3 ms | 102.9 ms | 26.6 ms | 75,933 |
+| 250 | 200 | 99.1 ms | 144.4 ms | 45.3 ms | 151,932 |
+| 500 | 200 | 74.3 ms | 131.3 ms | 57.0 ms | 151,932 |
+
+**Server time is essentially flat in task count.** From 25 to 500 tasks the delta stays in a
+27–57 ms band with no trend — a twentyfold increase in rows buys no measurable slope. The N+1 fix
+holds, and the superlinear curve the original "Measure first" section told us to look for does not
+exist. What there *is* is a fixed ~45 ms step between 0 and 25 tasks — a per-request setup cost
+(board DEK unwrap and decryption setup are the obvious candidates) that does not grow afterwards.
+
+Payload, by contrast, is exactly linear at **~760 B/task**. A 500-task board would be ~380 KB of
+JSON (~60 KB brotli) if it were not capped — which is the one place a large backlog would start to
+matter, and it argues for pagination or for dropping `description` from the list payload long
+before it argues for any caching option.
+
+For calibration: the real account this note was prompted by has **7 todo tasks** (and 66 archived).
+It is nowhere near the range where any of this matters.
+
+### 6. Corrections to claims in this note
+
+- **A5's targets are wrong.** tiptap is **already** split out: `TaskDrawer.tsx:19` does
+  `const NoteEditor = lazy(() => import('./NoteEditor'))`, and the build emits it as its own
+  501 KB chunk that the `Board` chunk does not contain. And marked/dompurify are **not**
+  "drawer/detail concerns": `MarkdownRenderer` is rendered by `TaskLine.tsx:166` and
+  `PostItNote.tsx:120` — the task-list rows themselves render the description as markdown. They
+  are on the paint-the-list path and cannot be split out without changing what the list shows.
+  What remains of A5 is the modals and dnd-kit, which is a much smaller prize than stated.
+- **The N+1 scaling hypothesis under "Measure first" is stale.** It predates the
+  `hibernate.default_batch_fetch_size: 100` fix recorded in the pre-existing-issues section.
+  There is no superlinear curve to look for; see the sweep below.
+- `vite.config.ts` still sets no `manualChunks` — confirmed. (The build is rolldown, via Vite 8.)
+
+### 7. Still missing
+
+- **Per-RTT latency on a real phone on mobile data.** Everything above was measured from a desktop
+  at ~80 ms RTT. The *structure* (round-trip count, serialization order, the 305 ms window, the
+  flat server curve) is device-independent and carries over; the *absolute* numbers do not. On a
+  phone at 150–250 ms RTT the three serial round trips grow to 450–750 ms and the entry-bundle
+  download grows with them, which would make A1 and A2 worth more than the percentages above.
+- **Confirmation of the Suspense-throttle fix.** The mechanism is identified (section 3); what is
+  untested is the remedy. Build one of the candidate fixes and re-measure the gap — it should drop
+  from ~305 ms to near zero.
+- **A cellular run.** Everything on-device so far was over Wi-Fi; see section 2b.
+- **Whether the anonymous entry bundle can shrink.** 130,612 B brotli must land before `/me` is
+  even issued, making it ~23% of the cold budget. No option in this note targets it, because the
+  note is written about the signed-in path — but on a cold mobile open it is the first thing the
+  user waits for. The dead `prerendered-landing` block and the unused `icons.svg` noted below are
+  the trivial end of this; the real question is what else is in that 240 KB entry chunk.
