@@ -10,7 +10,6 @@ import {
 import { UNAUTHENTICATED_EVENT } from '../api';
 import { applyLocale } from '../i18n';
 import { type AuthUser, fetchMe, logout as logoutCall } from './authApi';
-import { rememberSignedIn } from './signedInHint';
 
 type AuthState =
     | { status: 'loading' }
@@ -27,18 +26,7 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-    const [state, setStateDirectly] = useState<AuthState>({ status: 'loading' });
-
-    // Every auth transition funnels through here so the returning-visitor hint can't drift from
-    // the real state. There are three ways to become unauthenticated — sign-out, a null or failed
-    // `/me`, and the 401 event `api.ts` raises when a session expires mid-use — and a hint left
-    // set by the third would cost a wasted board-chunk fetch on every load until the next sign-in.
-    const setState = useCallback((next: AuthState) => {
-        if (next.status !== 'loading') {
-            rememberSignedIn(next.status === 'authenticated');
-        }
-        setStateDirectly(next);
-    }, []);
+    const [state, setState] = useState<AuthState>({ status: 'loading' });
 
     const refresh = useCallback(async () => {
         try {
@@ -52,7 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch {
             setState({ status: 'unauthenticated' });
         }
-    }, [setState]);
+    }, []);
 
     useEffect(() => {
         let mounted = true;
@@ -69,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             mounted = false;
             window.removeEventListener(UNAUTHENTICATED_EVENT, onUnauth);
         };
-    }, [setState]);
+    }, []);
 
     const signOut = useCallback(async () => {
         try {
@@ -78,12 +66,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             /* ignore — we're logging out anyway */
         }
         setState({ status: 'unauthenticated' });
-    }, [setState]);
+    }, []);
 
     const setUser = useCallback((user: AuthUser) => {
         void applyLocale(user.preferredLanguage);
         setState({ status: 'authenticated', user });
-    }, [setState]);
+    }, []);
 
     const value = useMemo(
         () => ({ state, refresh, signOut, setUser }),
