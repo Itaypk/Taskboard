@@ -249,7 +249,7 @@ export function TaskDrawer({
     .filter(tag => !form.tags.some(ft => ft.id === tag.id || ft.label.toLowerCase() === tag.label.toLowerCase()))
     .slice(0, 6);
 
-  // Tapes loaded from a saved task carry no id (the task API embeds only label+colour), so resolve the
+  // Tapes loaded from a saved task carry no id (the task API embeds only label+color), so resolve the
   // board tag id by label. Returns undefined for a freshly-typed tag that hasn't been persisted yet.
   const resolveBoardTagId = (tag: Tag): string | undefined =>
     tag.id || availableTags.find(existing => existing.label.toLowerCase() === tag.label.toLowerCase())?.id;

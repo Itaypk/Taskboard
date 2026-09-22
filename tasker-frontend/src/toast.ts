@@ -18,7 +18,7 @@ export interface ToastAction {
 
 export interface ToastRequest {
     message: string;
-    /** Drives the colour and the ARIA role (`error` is an assertive alert). Defaults to `info`. */
+    /** Drives the color and the ARIA role (`error` is an assertive alert). Defaults to `info`. */
     kind?: ToastKind;
     action?: ToastAction;
     /** Auto-dismiss delay; `0` keeps the toast up until it is dismissed or superseded. */

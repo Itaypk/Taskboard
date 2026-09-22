@@ -105,7 +105,7 @@ The recommended lane. A1 and A3 are **speculation, and speculation must be gated
 anonymous load. The cheapest honest gate is a non-secret `localStorage` flag written when `/me` returns
 authenticated, cleared on logout and on the `auth:unauthenticated` 401 event `src/api.ts` already
 dispatches — no server change, no new cookie, nothing sensitive in it. A first-time or signed-out
-visitor has no flag and gets today's behaviour byte for byte; so does every crawler and PageSpeed run.
+visitor has no flag and gets today's behavior byte for byte; so does every crawler and PageSpeed run.
 The worst case for a stale flag (expired session) is one wasted chunk fetch that warms the cache.
 
 - **A1 — speculative `Board` chunk, gated.** Start `import('./Board')` alongside `/me` instead of
@@ -139,7 +139,7 @@ Give the tasks endpoint explicit `Cache-Control: private` plus proper conditiona
 let the browser's own cache do the work — no bespoke cache code, and the data lives inside the site-data
 lifecycle the browser already manages (cleared with site data, partitioned per origin) rather than in
 storage we have to remember to wipe. `stale-while-revalidate` would be the interesting directive here,
-but its behaviour for `fetch()`-issued subresource requests is **not something to assume** — it needs
+but its behavior for `fetch()`-issued subresource requests is **not something to assume** — it needs
 verifying against real browsers before anything is designed around it.
 
 Note this cannot be done today without first fixing the missing `Cache-Control` described under
@@ -453,7 +453,7 @@ this note has not tested); or resolve the `Board` module into state and render i
 `state.status` flips. Each needs verifying against the numbers above; reproducing the harness is
 ~20 lines of CDP.
 
-**Remaining uncertainty**: the mechanism is inferred from React's source plus behaviour, not from a
+**Remaining uncertainty**: the mechanism is inferred from React's source plus behavior, not from a
 React-internals trace. Building the fix and re-measuring the gap is the cheapest confirmation.
 
 ### 4. What this does to the options

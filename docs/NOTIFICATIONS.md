@@ -222,7 +222,7 @@ A `tasker.notification.sent` counter tagged `type` (`slot_reminder`), `channel` 
 
 Phase 2b adds two independent things on top of 2a's one-way text: an **interactive menu** on every
 reminder, and an **AI-generated message** for users who want it. The trigger (Phase 1) and the
-status lifecycle are unchanged; all the new behaviour lives in the dispatcher, a new action handler,
+status lifecycle are unchanged; all the new behavior lives in the dispatcher, a new action handler,
 and the settings/UI plumbing.
 
 ### The interactive menu (all notified users)

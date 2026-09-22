@@ -47,7 +47,7 @@ import java.time.Instant
 import java.util.UUID
 
 /**
- * Slice test for the external task API. The behaviour that matters most here is the PATCH merge:
+ * Slice test for the external task API. The behavior that matters most here is the PATCH merge:
  * the SPA's PUT is a full replace, and the whole point of this surface is that a partial update
  * cannot silently destroy fields the caller didn't mention.
  */

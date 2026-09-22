@@ -87,7 +87,7 @@ class AccountController(
 
     /**
      * Content-validation failures inside the import service still throw plain [IllegalArgumentException]
-     * (unknown swatch/colour, out-of-range index, bad date, invalid settings). They all mean the same
+     * (unknown swatch/color, out-of-range index, bad date, invalid settings). They all mean the same
      * thing to a user — the file can't be read — so map them to the `CORRUPTED_FILE` category.
      */
     @ExceptionHandler(IllegalArgumentException::class)

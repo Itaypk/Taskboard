@@ -64,7 +64,7 @@ class EmailDomainBlocklistService(properties: EmailProperties) {
     /**
      * Fails **soft**: a packaging mistake must not stop the app booting, because every login path
      * runs through this class. Losing the list degrades to "config-only blocklist", which is
-     * exactly the behaviour that shipped before the list existed.
+     * exactly the behavior that shipped before the list existed.
      */
     private fun loadBundledDomains(): Set<String> {
         val stream = javaClass.getResourceAsStream(BUNDLED_RESOURCE)

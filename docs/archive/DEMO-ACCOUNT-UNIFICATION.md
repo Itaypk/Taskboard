@@ -23,7 +23,7 @@ that happens to have **no login identity yet**. The user is nudged to add an ema
 keep their data. Accounts that are never claimed and go inactive are still reclaimed automatically,
 but on an **activity-based** schedule rather than a fixed wall-clock TTL.
 
-Non-goals: changing the identity model, board model, or any authenticated-account behaviour.
+Non-goals: changing the identity model, board model, or any authenticated-account behavior.
 
 ## Account lifecycle
 
@@ -179,7 +179,7 @@ This gives a real "anonymous → engaged → claimed" funnel, which the old bool
 ## Frontend changes
 
 - Keep the one-click start (currently "play in a sandbox →" / `onSandbox` → `demoLogin`). Rename
-  copy away from "sandbox/demo" toward "start now" framing; the endpoint behaviour is unchanged
+  copy away from "sandbox/demo" toward "start now" framing; the endpoint behavior is unchanged
   apart from no longer being throwaway.
 - Add a persistent, dismissible **"Add an email or Telegram to keep your tasks"** banner shown while
   `claimed = false`. `MeResponse` needs to expose `claimed` for this.

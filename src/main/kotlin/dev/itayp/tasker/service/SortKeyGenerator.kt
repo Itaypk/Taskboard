@@ -5,7 +5,7 @@ package dev.itayp.tasker.service
  *
  * Keys use the printable ASCII range `0`–`z` (codes 48–122, 75 characters wide)
  * as the "alphabet".  Lexicographic string comparison matches the SQL
- * `ORDER BY sort_key ASC` behaviour, so no special DB collation is required.
+ * `ORDER BY sort_key ASC` behavior, so no special DB collation is required.
  *
  * ## Properties
  * - Any two distinct keys always have a valid midpoint key between them.

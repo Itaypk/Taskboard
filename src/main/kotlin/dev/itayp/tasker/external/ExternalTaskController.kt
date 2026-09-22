@@ -322,8 +322,8 @@ class ExternalTaskController(
             .map { TagInput(id = null, label = it, colorId = defaultColorFor(it)) }
 
     /**
-     * Colour for a tag the caller invented. Derived from the label so the same tag name always
-     * gets the same colour, and so a batch of new tags doesn't come out monochrome. Only used
+     * color for a tag the caller invented. Derived from the label so the same tag name always
+     * gets the same color, and so a batch of new tags doesn't come out monochrome. Only used
      * when no tag with that label already exists — `resolveOrCreateTags` matches by label first.
      */
     private fun defaultColorFor(label: String): String {
