@@ -5,6 +5,7 @@ import dev.itayp.nescioquid.openrouter.AiCallListener
 import dev.itayp.nescioquid.openrouter.AiRequest
 import dev.itayp.nescioquid.openrouter.AiResponse
 import dev.itayp.nescioquid.openrouter.ChatRequest
+import dev.itayp.nescioquid.openrouter.ChatResponse
 import dev.itayp.nescioquid.openrouter.ModelCapabilityService
 import dev.itayp.nescioquid.openrouter.Usage
 import io.micrometer.core.instrument.MeterRegistry
@@ -58,7 +59,7 @@ class AiUsageTracker(
             model = model,
             provider = response.provider,
             effort = effortLabel(request),
-            status = AiUsageStatus.SUCCESS,
+            status = if (producedNothing(response)) AiUsageStatus.EMPTY else AiUsageStatus.SUCCESS,
             promptTokens = usage?.promptTokens,
             completionTokens = usage?.completionTokens,
             totalTokens = usage?.totalTokens
@@ -82,6 +83,18 @@ class AiUsageTracker(
             cachedTokens = null,
             cacheWriteTokens = null,
         )
+    }
+
+    /**
+     * Whether a chat call came back with no generation at all — no content and no tool calls. The
+     * transport counts it a success (it was a 200), but it is the shape an upstream failure takes
+     * when OpenRouter answers 200 anyway, so it is tagged [AiUsageStatus.EMPTY] instead. Only the
+     * chat shape can be empty in this sense; image and transcription responses are left alone.
+     */
+    private fun producedNothing(response: AiResponse): Boolean {
+        val chatResponse = response as? ChatResponse ?: return false
+        val choice = chatResponse.choices.firstOrNull() ?: return true
+        return choice.message.toolCalls.isNullOrEmpty() && choice.message.contentText.isNullOrBlank()
     }
 
     private fun record(

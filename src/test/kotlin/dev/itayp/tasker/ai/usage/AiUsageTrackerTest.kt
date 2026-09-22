@@ -6,10 +6,12 @@ import dev.itayp.nescioquid.openrouter.ChatMessage
 import dev.itayp.nescioquid.openrouter.ChatRequest
 import dev.itayp.nescioquid.openrouter.ChatResponse
 import dev.itayp.nescioquid.openrouter.Choice
+import dev.itayp.nescioquid.openrouter.FunctionCallDetails
 import dev.itayp.nescioquid.openrouter.ModelCapabilities
 import dev.itayp.nescioquid.openrouter.ModelCapabilityService
 import dev.itayp.nescioquid.openrouter.PromptTokensDetails
 import dev.itayp.nescioquid.openrouter.ReasoningConfig
+import dev.itayp.nescioquid.openrouter.ToolCall
 import dev.itayp.nescioquid.openrouter.Usage
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.junit.jupiter.api.Test
@@ -226,6 +228,75 @@ class AiUsageTrackerTest {
                 "outcome", "success",
             ).count(),
         )
+    }
+
+    @Test
+    fun `a 200 that produced no content and no tool calls is recorded as EMPTY`() {
+        whenever(repository.save(any<AiUsageEventEntity>())).thenAnswer { it.arguments[0] }
+        val context = AiCallContext(userId.toString(), AiConversationType.WEEKLY_PLANNING, conversationId = conversationId.toString())
+        // What a provider-side failure looks like when OpenRouter still answers 200: the transport
+        // calls it a success, but nothing usable came back.
+        val empty = ChatResponse(
+            id = "resp-1",
+            choices = listOf(
+                Choice(
+                    ChatMessage(role = "assistant", content = ""),
+                    finishReason = "error",
+                    nativeFinishReason = "MALFORMED_FUNCTION_CALL",
+                ),
+            ),
+            usage = Usage(promptTokens = 0, completionTokens = 0),
+            model = "resolved/model",
+            provider = "Google",
+        )
+
+        tracker.recordSuccess(context, request(), empty)
+
+        val captor = argumentCaptor<AiUsageEventEntity>()
+        verify(repository).save(captor.capture())
+        assertEquals(AiUsageStatus.EMPTY, captor.firstValue.status)
+        // The outcome tag is what makes this alertable; folded into "success" it was invisible.
+        assertEquals(
+            1.0,
+            registry.counter(
+                "tasker.ai.requests",
+                "conversation_type", AiConversationType.WEEKLY_PLANNING,
+                "model", "resolved/model",
+                "provider", "Google",
+                "effort", "none",
+                "outcome", "empty",
+            ).count(),
+        )
+    }
+
+    @Test
+    fun `a tool-call-only turn is still a success`() {
+        whenever(repository.save(any<AiUsageEventEntity>())).thenAnswer { it.arguments[0] }
+        val context = AiCallContext(userId.toString(), AiConversationType.WEEKLY_PLANNING)
+        val toolCallsOnly = ChatResponse(
+            id = "resp-1",
+            choices = listOf(
+                Choice(
+                    // `content` omitted rather than passed as null: ChatMessage has both a
+                    // MessageContent? and a String? constructor, and an untyped null is ambiguous
+                    // between them. A pure tool-call turn carries no content anyway.
+                    ChatMessage(
+                        role = "assistant",
+                        toolCalls = listOf(ToolCall(id = "c1", function = FunctionCallDetails("say", "{}"))),
+                    ),
+                    finishReason = "tool_calls",
+                ),
+            ),
+            usage = Usage(promptTokens = 10, completionTokens = 4),
+            model = "resolved/model",
+            provider = "Google",
+        )
+
+        tracker.recordSuccess(context, request(), toolCallsOnly)
+
+        val captor = argumentCaptor<AiUsageEventEntity>()
+        verify(repository).save(captor.capture())
+        assertEquals(AiUsageStatus.SUCCESS, captor.firstValue.status)
     }
 
     @Test

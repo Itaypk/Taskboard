@@ -57,4 +57,12 @@ class AiUsageEventEntity {
 enum class AiUsageStatus {
     SUCCESS,
     ERROR,
+
+    /**
+     * The call itself succeeded — HTTP 200, no exception — but the model produced neither content
+     * nor tool calls, so nothing usable came back. Its own status rather than [SUCCESS] because
+     * that is a failure from every caller's point of view, and folding it into SUCCESS is what hid
+     * it: the `outcome` tag on `tasker.ai.requests` is the only thing that makes it alertable.
+     */
+    EMPTY,
 }
