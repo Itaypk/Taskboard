@@ -3,6 +3,8 @@ package dev.itayp.tasker.ai
 import dev.itayp.nescioquid.openrouter.AiCallContext
 import dev.itayp.nescioquid.openrouter.ChatMessage
 import dev.itayp.nescioquid.openrouter.ChatRequest
+import dev.itayp.nescioquid.openrouter.ChatResponse
+import dev.itayp.nescioquid.openrouter.Choice
 import dev.itayp.nescioquid.openrouter.ToolCall
 import dev.itayp.tasker.ai.conversation.ConversationService
 import dev.itayp.nescioquid.openrouter.tool.ToolRegistry
@@ -107,20 +109,31 @@ class AiConversationManager(
             conversationId = conversationId.toString(),
         )
         val response = aiClient.chat(request, context)
-        val choice = response.choices.first()
-        val usage = response.usage
+        val choice = response.choices.firstOrNull()
+        val toolCalls = choice?.message?.toolCalls
+        val contentText = choice?.message?.contentText
 
+        // A turn that produced nothing is not appended to the transcript: an assistant message with
+        // neither content nor tool calls would be replayed to the provider on every later call, for
+        // no gain, and leaving the transcript untouched is what makes the caller's retry a clean
+        // re-issue of the identical request. Token accounting still happens — AiUsageTracker writes
+        // its own row per call — so only the conversation's rollup misses these (always zero in
+        // practice, since a provider that never generated anything bills nothing).
+        if (toolCalls.isNullOrEmpty() && contentText.isNullOrBlank()) {
+            logEmptyTurn(conversationId, response, choice)
+            return TurnOutcome.Empty
+        }
+
+        val usage = response.usage
         conversationService.addMessage(
             conversationId = conversationId,
             role = "assistant",
-            content = choice.message.contentText,
-            toolCallsJson = choice.message.toolCalls
-                ?.let { objectMapper.writeValueAsString(it) },
+            content = contentText,
+            toolCallsJson = toolCalls?.let { objectMapper.writeValueAsString(it) },
             promptTokens = usage?.promptTokens,
             completionTokens = usage?.completionTokens,
         )
 
-        val toolCalls = choice.message.toolCalls
         return if (!toolCalls.isNullOrEmpty()) {
             TurnOutcome.ToolCalls(toolCalls.map { call ->
                 RequestedToolCall(
@@ -130,10 +143,27 @@ class AiConversationManager(
                 )
             })
         } else {
-            if (choice.message.contentText.isNullOrBlank()) {
-                log.warn("Model returned neither content nor tool_calls for conversation {}", conversationId)
-            }
-            TurnOutcome.TextReply(choice.message.contentText ?: "")
+            TurnOutcome.TextReply(contentText.orEmpty())
         }
+    }
+
+    /**
+     * Reports an empty turn with everything that distinguishes a provider fault from a model that
+     * chose to say nothing: OpenRouter's normalized `finish_reason`, the provider's own unmapped
+     * reason (e.g. Gemini's `MALFORMED_FUNCTION_CALL`), and either error payload. Without these the
+     * failure is undiagnosable after the fact — a zero-token call and no explanation.
+     */
+    private fun logEmptyTurn(conversationId: UUID, response: ChatResponse, choice: Choice?) {
+        log.warn(
+            "Model returned neither content nor tool_calls for conversation {} " +
+                "(generation={}, model={}, provider={}, finishReason={}, nativeFinishReason={}, error={})",
+            conversationId,
+            response.id,
+            response.model,
+            response.provider,
+            choice?.finishReason,
+            choice?.nativeFinishReason,
+            choice?.error ?: response.error,
+        )
     }
 }

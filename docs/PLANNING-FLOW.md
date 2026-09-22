@@ -153,6 +153,32 @@ If a single turn contains, in order: `say(A)`, `ask_choice(Q1)`, `say(B)`,
 In short: one-way calls always render in declared order; interactive calls render
 serially in declared order, gated on user input.
 
+### When a turn comes back empty
+
+A turn can produce neither content nor tool calls. This is not the model choosing
+silence — it is what an upstream failure looks like when OpenRouter answers HTTP
+200 anyway: an empty assistant message, zeroed usage, and the real reason only in
+`finish_reason` / `native_finish_reason` / `error` (seen in production as Gemini
+Flash Lite's `MALFORMED_FUNCTION_CALL` on the turn that was about to call
+`submit_plan`, whose nested payload is the largest schema in the toolset).
+
+`AiConversationManager` returns `TurnOutcome.Empty` for it and does **not** append
+the empty assistant message to the transcript — it would be replayed on every later
+call for no gain, and leaving the transcript untouched is what makes the retry a
+clean re-issue of the identical request. `WeeklyPlanningOrchestrator.handleEmptyTurn`
+then retries once and, if that is empty too, sends `planning.empty_turn` and leaves
+the session in `CONVERSING` so any reply resumes it.
+
+The "say something" part is load-bearing. The Telegram channel pushes, so silence
+there reads as latency; the web drawer renders a turn that buffered no messages as
+nothing at all — the spinner stops and the session looks idle, with no affordance to
+recover. The client keeps its own backstop for the same reason
+(`WeeklyPlanDrawer.applyTurn`).
+
+Empty turns are counted: `AiUsageTracker` tags them `AiUsageStatus.EMPTY`, which
+surfaces as `outcome="empty"` on `tasker.ai.requests` rather than hiding inside
+`success`.
+
 ## Prompt assembly
 
 Order mirrors `MEMORY-MODEL.md`:

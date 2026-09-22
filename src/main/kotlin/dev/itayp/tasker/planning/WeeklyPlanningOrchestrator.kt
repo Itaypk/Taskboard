@@ -376,7 +376,12 @@ class WeeklyPlanningOrchestrator(
 
     // ── Turn outcome dispatch ------------------------------------------------------------
 
-    private fun processOutcome(sessionId: UUID, outcome: TurnOutcome, channel: ConversationChannel) {
+    private fun processOutcome(
+        sessionId: UUID,
+        outcome: TurnOutcome,
+        channel: ConversationChannel,
+        emptyTurnRetried: Boolean = false,
+    ) {
         when (outcome) {
             is TurnOutcome.TextReply -> {
                 if (outcome.text.isNotBlank()) {
@@ -386,7 +391,34 @@ class WeeklyPlanningOrchestrator(
                 markConversing(sessionId)
             }
             is TurnOutcome.ToolCalls -> dispatchToolCalls(sessionId, outcome.calls, channel)
+            is TurnOutcome.Empty -> handleEmptyTurn(sessionId, channel, emptyTurnRetried)
         }
+    }
+
+    /**
+     * Recovers from a turn the model answered with nothing at all (see [TurnOutcome.Empty]).
+     *
+     * Retried once: the failure is provider-side and transient, and because nothing was appended to
+     * the transcript the retry re-issues the identical request. If it happens again, the session
+     * must still say *something* — every channel here is a conversation the user is waiting on, and
+     * the web drawer in particular renders a turn that buffered no messages as pure silence, with
+     * no affordance to recover. The session stays open, so any reply resumes it.
+     */
+    private fun handleEmptyTurn(sessionId: UUID, channel: ConversationChannel, alreadyRetried: Boolean) {
+        val current = state[sessionId]
+        val conversationId = current?.conversationId
+        if (!alreadyRetried && conversationId != null) {
+            log.warn("Empty model turn for session {}; retrying once", sessionId)
+            val retry = channel.whileWorking { aiConversationManager.continueConversation(conversationId) }
+            processOutcome(sessionId, retry, channel, emptyTurnRetried = true)
+            return
+        }
+        log.warn("Empty model turn for session {} (retried={}); telling the user", sessionId, alreadyRetried)
+        if (current != null) {
+            val locale = userSettingsService.getLocale(current.userId)
+            channel.send(ChannelMessage.Text(messageSource.getMessage("planning.empty_turn", null, locale)))
+        }
+        markConversing(sessionId)
     }
 
     private fun dispatchToolCalls(

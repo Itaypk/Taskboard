@@ -781,6 +781,8 @@
     "emptyHintPast": "Planning is available for the current and upcoming weeks only.",
     "emptyHintFuture": "Plan it with the assistant below, or start a session on Telegram.",
     "planFinalized": "Plan finalized",
+    "noReply": "No reply came back — something went wrong on the way. Send a message to pick up where you left off.",
+    "turnFailed": "That didn't go through. Check your connection and try again.",
     "thinkingPlaceholder": "Thinking…",
     "typeMessagePlaceholder": "Type a message…",
     "messageAria": "Message",

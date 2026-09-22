@@ -174,6 +174,12 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
     setEvents(prev => prev.filter(e => e.id !== eventId));
   }, []);
 
+  // A locally-authored assistant bubble — for saying something the server did not (a failed turn,
+  // or one that came back with nothing). Plain text, no choices, so it renders like any other.
+  const notice = useCallback((text: string): AssistantTurn => (
+    { id: nextId(), role: 'assistant', message: { type: 'text', text, completions: [], options: [] } }
+  ), []);
+
   const applyTurn = useCallback((turn: PlanningTurn) => {
     setSessionId(turn.sessionId);
     setPhase(turn.phase);
@@ -182,9 +188,15 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
         ...prev,
         ...turn.messages.map(message => ({ id: nextId(), role: 'assistant' as const, message })),
       ]);
+    } else if (turn.phase !== DONE) {
+      // A turn that buffered nothing would otherwise land as pure silence: the spinner stops and
+      // the drawer looks idle, with no hint that anything went wrong or that a reply would help.
+      // The server tries not to let this happen (see WeeklyPlanningOrchestrator.handleEmptyTurn);
+      // this is the client-side backstop.
+      setTranscript(prev => [...prev, notice(t('weeklyPlanDrawer.noReply'))]);
     }
     if (turn.phase === DONE) onFinalized();
-  }, [onFinalized]);
+  }, [onFinalized, notice, t]);
 
   const resetToOverview = useCallback(() => {
     setSessionId(null);
@@ -248,6 +260,10 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
     }
   }, [resetToOverview]);
 
+  // One turn. `text` is what goes in the transcript; when `optionId` is set it is the chosen
+  // option's label, shown locally but not sent — the server binds the choice by id, and a `text`
+  // alongside it lands in the tool result's `free_text`, which means "the user typed something on
+  // top of their choice" (Telegram sends nothing there).
   const send = useCallback(async (text: string, optionId?: string) => {
     if (!sessionId || thinking) return;
     const display = text.trim();
@@ -255,14 +271,17 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
     setInput('');
     setThinking(true);
     try {
-      const body = optionId ? { optionId, text: display || undefined } : { text: display };
+      const body = optionId ? { optionId } : { text: display };
       applyTurn(await replyPlanning(sessionId, body));
     } catch (e) {
+      // 409 means the session is gone server-side, so the overview is the honest place to land.
+      // Anything else leaves the session usable — say so rather than swallowing it silently.
       if (e instanceof ApiError && e.status === 409) resetToOverview();
+      else setTranscript(prev => [...prev, notice(t('weeklyPlanDrawer.turnFailed'))]);
     } finally {
       setThinking(false);
     }
-  }, [sessionId, thinking, applyTurn, resetToOverview]);
+  }, [sessionId, thinking, applyTurn, resetToOverview, notice, t]);
 
   // Explicitly abandon the in-progress session and return to the overview. Abandoning an
   // ACTIVE session drops it server-side, so the board's read-only plan falls back to the last

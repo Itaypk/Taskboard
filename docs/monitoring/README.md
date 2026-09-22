@@ -24,7 +24,11 @@ pools, GC, CPU internals, DB pool, and per-endpoint HTTP stats.
   block on the OpenRouter call (see "Excluding AI latency" below).
 - **AI usage**: requests/min by model & outcome, tokens/min by type (prompt,
   completion, and — when the provider reports prompt caching — cached and
-  cache_write), 24h token totals, and active conversations.
+  cache_write), 24h token totals, and active conversations. The `outcome` tag on
+  `tasker.ai.requests` has three values: `success`, `error` (the call failed) and
+  `empty` (the call returned 200 but the model produced neither content nor tool
+  calls — a provider-side failure OpenRouter reported as a success). `empty` is
+  worth alerting on; it is invisible in latency and error-rate panels.
 - **Current totals**: users, users by type (claimed / unclaimed-idle /
   unclaimed-engaged), total tasks, tasks by status, planning sessions by status.
 - **Email delivery & quick add**: emails sent/min by sender purpose (auth vs
