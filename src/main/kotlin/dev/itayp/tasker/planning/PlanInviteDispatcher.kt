@@ -1,5 +1,6 @@
 package dev.itayp.tasker.planning
 
+import dev.itayp.tasker.channel.email.SmtpEmailChannel.Companion.mask
 import dev.itayp.tasker.channel.email.invitation.CalendarEvent
 import dev.itayp.tasker.channel.email.invitation.CalendarInvitationComposer
 import dev.itayp.tasker.planning.dto.AgreedPlan
@@ -40,19 +41,19 @@ class PlanInviteDispatcher(
         locale: Locale,
         sequence: Int,
     ) {
-        for (task in plan.tasks) {
-            for (slot in task.slots) {
+        for ((taskId, title, slots, notes) in plan.tasks) {
+            for ((startIso, endIso) in slots) {
                 runCatching {
-                    val start = OffsetDateTime.parse(slot.startIso).toZonedDateTime()
-                    val end = OffsetDateTime.parse(slot.endIso).toZonedDateTime()
+                    val start = OffsetDateTime.parse(startIso).toZonedDateTime()
+                    val end = OffsetDateTime.parse(endIso).toZonedDateTime()
                     // Stable UID so calendar clients deduplicate re-sends of the same slot.
-                    val uid = "${task.taskId}-${slot.startIso}"
+                    val uid = "$taskId-$startIso"
                     calendarInvitationComposer.sendInvitation(
                         to = listOf(userEmail),
                         event = CalendarEvent(
                             uid = uid,
-                            title = task.title,
-                            description = task.notes,
+                            title = title,
+                            description = notes,
                             start = start,
                             end = end,
                             organizerEmail = organizerEmail,
@@ -63,7 +64,7 @@ class PlanInviteDispatcher(
                         ),
                     )
                 }.onFailure { e ->
-                    log.error("Failed to send calendar invite for task '{}': {}", task.title, e.message)
+                    log.error("Failed to send calendar invite for task {}: {}", taskId, e.message, e)
                 }
             }
         }
@@ -77,18 +78,18 @@ class PlanInviteDispatcher(
         tasks: List<AgreedPlanTask>,
         locale: Locale,
     ) {
-        for (task in tasks) {
-            for (slot in task.slots) {
+        for ((taskId, title, slots, notes) in tasks) {
+            for ((startIso, endIso) in slots) {
                 runCatching {
-                    val start = OffsetDateTime.parse(slot.startIso).toZonedDateTime()
-                    val end = OffsetDateTime.parse(slot.endIso).toZonedDateTime()
-                    val uid = "${task.taskId}-${slot.startIso}"
+                    val start = OffsetDateTime.parse(startIso).toZonedDateTime()
+                    val end = OffsetDateTime.parse(endIso).toZonedDateTime()
+                    val uid = "$taskId-$startIso"
                     calendarInvitationComposer.sendCancellation(
                         to = listOf(userEmail),
                         event = CalendarEvent(
                             uid = uid,
-                            title = task.title,
-                            description = task.notes,
+                            title = title,
+                            description = notes,
                             start = start,
                             end = end,
                             organizerEmail = organizerEmail,
@@ -98,7 +99,7 @@ class PlanInviteDispatcher(
                         ),
                     )
                 }.onFailure { e ->
-                    log.error("Failed to send cancellation for task '{}': {}", task.title, e.message)
+                    log.error("Failed to send cancellation for task {}: {}", taskId, e.message, e)
                 }
             }
         }
