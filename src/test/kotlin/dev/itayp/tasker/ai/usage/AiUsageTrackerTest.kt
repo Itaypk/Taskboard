@@ -277,9 +277,11 @@ class AiUsageTrackerTest {
             id = "resp-1",
             choices = listOf(
                 Choice(
+                    // `content` omitted rather than passed as null: ChatMessage has both a
+                    // MessageContent? and a String? constructor, and an untyped null is ambiguous
+                    // between them. A pure tool-call turn carries no content anyway.
                     ChatMessage(
                         role = "assistant",
-                        content = null,
                         toolCalls = listOf(ToolCall(id = "c1", function = FunctionCallDetails("say", "{}"))),
                     ),
                     finishReason = "tool_calls",
