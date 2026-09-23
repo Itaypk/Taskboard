@@ -472,7 +472,7 @@ class ExternalTaskControllerTest(@Autowired val mockMvc: MockMvc) {
                 .with(authentication(auth))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"title":"Renew passport"}""")
-        ).andExpect(status().isUnprocessableEntity)
+        ).andExpect(status().isUnprocessableContent)
     }
 
     // --- Actions ---
