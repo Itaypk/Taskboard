@@ -94,7 +94,7 @@ data class ExternalTaskListResponse(
  * [categoryId] to that board's first category, so a minimal call is `{"title": "..."}`.
  *
  * [tags] are plain labels. An existing tag is matched case-insensitively; an unknown one is
- * created with an auto-assigned colour.
+ * created with an auto-assigned color.
  */
 data class ExternalCreateTaskRequest(
     /**

@@ -56,7 +56,7 @@ function ChevronIcon() {
  * top row for the action buttons. The tag name is width-capped + ellipsized so
  * a long board name can never push the buttons onto a second row.
  *
- * Behaviour (outside-click + Escape to close, radio menu of boards plus manage
+ * behavior (outside-click + Escape to close, radio menu of boards plus manage
  * actions) is unchanged from the original BoardSwitcher.
  */
 export function BrandBoard({

@@ -385,7 +385,7 @@ components:
           items: { type: string }
           description: |
             Plain labels. An existing tag is matched case-insensitively; an unknown one is
-            created with an auto-assigned colour.
+            created with an auto-assigned color.
         relevantFrom: { type: string, description: "YYYY-MM-DD" }
         hiddenFromAssistant: { type: boolean, default: false }
 

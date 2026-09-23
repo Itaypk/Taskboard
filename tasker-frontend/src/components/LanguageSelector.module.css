@@ -1,4 +1,4 @@
-/* Sized and coloured to sit inside the footer strip beside the policy links, not to look like a
+/* Sized and colored to sit inside the footer strip beside the policy links, not to look like a
    form field — it is chrome, not an input the visitor has to fill in. */
 .select {
   font-family: inherit;

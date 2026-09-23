@@ -505,7 +505,7 @@ class BacklogTaskService(
      * (categories are board-scoped, so the destination category is picked explicitly in the UI). The
      * task keeps its id (and thus its change history); only its board context is rewritten. Board-owned
      * content is re-encrypted under the destination board's DEK and tags are re-resolved by
-     * label/colour. The claim and plan stamp are cleared because they belong to the origin
+     * label/color. The claim and plan stamp are cleared because they belong to the origin
      * board/session. No CREATED/DELETED change events are recorded — the task is the same one, so
      * double-recording would inflate stats and the planner's weekly diff; both boards' watermarks are
      * bumped so open tabs refresh.

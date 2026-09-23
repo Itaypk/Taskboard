@@ -47,7 +47,7 @@ class BacklogTaskTagService(
 
     /**
      * Renames and/or recolors a board tag. The change fans out to every task carrying it (tasks embed
-     * the tag's label/colour in their API view), so we bump both the tags and tasks watermarks.
+     * the tag's label/color in their API view), so we bump both the tags and tasks watermarks.
      */
     @Transactional
     fun updateTag(userId: UUID, boardId: UUID, id: UUID, request: UpdateTagRequest): TagUsage {

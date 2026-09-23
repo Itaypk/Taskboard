@@ -963,7 +963,7 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
         onSetAssignee={handleSetAssignee}
         onUpdateTag={(tagId, label, colorId) => {
           if (!activeBoardId) return;
-          // Board-wide tag rename/recolor from the inline editor; refresh tags + tasks (tapes embed label/colour).
+          // Board-wide tag rename/recolor from the inline editor; refresh tags + tasks (tapes embed label/color).
           updateTag(activeBoardId, tagId, { label, colorId })
             .then(() => Promise.all([fetchTags(activeBoardId), fetchTasks(activeBoardId, fetchStatus)]))
             .then(([freshTags, freshTasks]) => { setTags(freshTags); setTasks(freshTasks); })
@@ -1021,7 +1021,7 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
         onBoardChanged={handleBoardChanged}
         onCategoriesChanged={next => setSettings(prev => ({ ...prev, categories: next }))}
         onTagsChanged={() => {
-          // Tag rename/recolor/delete fans out to tasks (they embed the tag label/colour), so refresh both.
+          // Tag rename/recolor/delete fans out to tasks (they embed the tag label/color), so refresh both.
           fetchTags(activeBoardId).then(setTags).catch(e => console.error('Failed to refetch tags', e));
           fetchTasks(activeBoardId, fetchStatus).then(setTasks).catch(e => console.error('Failed to refetch tasks', e));
         }}

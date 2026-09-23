@@ -5,7 +5,7 @@ import dev.itayp.tasker.model.request.TagInput
 
 /**
  * Maps an approved [TaskDraft] to the [CreateBacklogTaskRequest] that persists it, resolving each
- * tag's colour through [TagColorOptions]. Shared by the in-session `create_task` tool and the
+ * tag's color through [TagColorOptions]. Shared by the in-session `create_task` tool and the
  * Telegram quick-add flow so the draft → persisted-task translation lives in exactly one place.
  *
  * [categoryId] must be non-null by this point — both callers resolve/validate it first — so a null

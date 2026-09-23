@@ -12,7 +12,7 @@ export interface ApiErrorDetail {
     path: string;
 }
 
-/** Per-call client behaviour, separate from fetch's `RequestInit`. */
+/** Per-call client behavior, separate from fetch's `RequestInit`. */
 export interface RequestConfig {
     /**
      * When false, suppress the global error toast/event on failure — the caller takes full

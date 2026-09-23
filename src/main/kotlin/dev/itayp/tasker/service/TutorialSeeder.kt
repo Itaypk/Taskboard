@@ -68,7 +68,7 @@ class TutorialSeeder(
                 this.description = card.description?.let { boardCrypto.encrypt(boardId, it) }
                 this.url = card.url
                 this.status = TaskStatus.TODO
-                // Spread the cards across distinct categories for a "rainbow" of post-it colours; tutorial
+                // Spread the cards across distinct categories for a "rainbow" of post-it colors; tutorial
                 // tasks aren't really about categorisation, so the exact mapping doesn't matter.
                 this.category = categories[index % categories.size]
                 this.sortKey = key

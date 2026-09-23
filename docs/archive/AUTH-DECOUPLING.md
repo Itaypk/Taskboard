@@ -171,7 +171,7 @@ Design points:
 When a magic-link login resolves an email that already relates to an existing account, the
 callback must decide whether to log into that account, create a new one, or refuse. Rules:
 
-| Situation | Behaviour |
+| Situation | Behavior |
 |-----------|-----------|
 | Email matches an existing user with that email **verified** | Log into that existing user (attach an `email` identity if one isn't already present). |
 | Email matches an existing user with that email **unverified** | **Fail** the login: ask the user to sign in with Telegram and verify the email in settings, and show a support/help email for "I don't recognize this account". This is a rare edge case — keep it cheap, do not auto-merge. |
