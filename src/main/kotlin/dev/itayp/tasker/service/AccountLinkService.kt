@@ -90,6 +90,7 @@ class AccountLinkService(
                 user.telegramUsername = null
                 user.telegramFirstName = null
                 user.telegramPhotoUrl = null
+                user.telegramChatReadyAt = null
                 userRepository.save(user)
                 // Push channel gone; cancel/skip the planning cron.
                 eventPublisher.publishEvent(UserPlanningScheduleChangedEvent(userId))

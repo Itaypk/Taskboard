@@ -25,6 +25,14 @@ class UserEntity {
     @Column(name = "telegram_photo_url", length = 1000)
     var telegramPhotoUrl: String? = null
 
+    /**
+     * When the bot last learned it can write to [telegramId]'s private chat; null while it can't (or
+     * doesn't know). A Telegram identity alone isn't enough — a bot can't message someone who never
+     * wrote to it. Maintained by `TelegramReachabilityService`.
+     */
+    @Column(name = "telegram_chat_ready_at")
+    var telegramChatReadyAt: Instant? = null
+
     @Column
     var email: ByteArray? = null
 

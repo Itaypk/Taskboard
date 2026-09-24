@@ -1,6 +1,7 @@
 package dev.itayp.tasker.planning
 
 import dev.itayp.tasker.channel.ChannelMessage
+import dev.itayp.tasker.channel.ChannelUnreachableException
 import dev.itayp.tasker.channel.ConversationChannel
 import dev.itayp.tasker.repository.UserSettingsRepository
 import dev.itayp.tasker.service.UserPlanningScheduleChangedEvent
@@ -30,6 +31,8 @@ import java.util.concurrent.ScheduledFuture
  * Rescheduling is driven by [UserPlanningScheduleChangedEvent] published from
  * `UserSettingsService.update` (and should be re-published when a push channel is linked). The
  * scheduler is fail-soft: invalid cron expressions or a missing channel log and skip rather than throw.
+ * A run that finds the chat unreachable unschedules the user by the same route: the channel reports
+ * it to `TelegramReachabilityService`, whose schedule-changed event lands back in [scheduleFor].
  */
 @Component
 class PlanningSessionScheduler(
@@ -124,6 +127,9 @@ class PlanningSessionScheduler(
             // the guard existed the cron opened a session anyway and messaged them about an empty
             // slate, burning an AI call. Skip quietly and try again next week.
             log.info("Scheduled run for user {}: nothing plannable, skipping", userId)
+        } catch (e: ChannelUnreachableException) {
+            // Already recorded by the channel, which also dropped this cron; nothing left to retry.
+            log.info("Scheduled run for user {}: chat unreachable, weekly planning paused until they write to the bot", userId)
         } catch (e: Exception) {
             log.error("Failed to run scheduled planning session for user {}", userId, e)
         }

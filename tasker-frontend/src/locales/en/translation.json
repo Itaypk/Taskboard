@@ -563,6 +563,7 @@
       "aiPlanHelp": "Your token budget for AI-driven features over a rolling 30-day window.",
       "weeklyPlanning": "Weekly planning session",
       "weeklyPlanningHelp": "We'll start your planning conversation via Telegram at this time each week.",
+      "weeklyPlanningUnreachable": "Telegram can’t reach you yet, so this conversation won’t start on its own. Connect Telegram under General, then open the chat with the bot.",
       "weeklyPlanningToggle": "Start a weekly planning session",
       "planningDay": "Planning day",
       "planningTime": "Planning time",

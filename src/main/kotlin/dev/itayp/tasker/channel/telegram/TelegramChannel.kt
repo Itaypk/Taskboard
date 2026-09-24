@@ -65,6 +65,7 @@ class TelegramChannel(
     private val reminderActionHandler: ReminderActionHandler,
     private val aiAccessService: AiAccessService,
     private val userSettingsService: UserSettingsService,
+    private val reachability: TelegramReachabilityService,
     private val messageSource: MessageSource,
     private val telegramClient: TelegramClient,
     private val clock: Clock,
@@ -175,6 +176,15 @@ class TelegramChannel(
         val (chatId, telegramUserId, inbound) = routed
 
         val channel = TelegramConversationChannel(chatId, telegramClient)
+        val user = userRepository.findByTelegramId(telegramUserId)
+
+        // Anything the user sends from their own private chat proves the bot may write back to it,
+        // which is what unprompted pushes (weekly planning, reminders) wait for. Checked against the
+        // loaded row first so an already-reachable user costs no write per message. A group chat
+        // (chatId != user id) proves nothing about the private one we push to.
+        if (user != null && user.telegramChatReadyAt == null && chatId == telegramUserId) {
+            reachability.markReachable(user.id!!)
+        }
 
         // /start is the standard first-contact command and must work before any account exists.
         // Two audiences, though: a stranger needs the sign-up instructions (always English — they
@@ -184,9 +194,8 @@ class TelegramChannel(
         // first, so a linked user whose welcome failed with "chat not found" arrives here as their
         // only way back, and must not be sent round the loop again.
         if (inbound is ChannelInbound.Text && isStartCommand(inbound.text)) {
-            val linkedUserId = userRepository.findByTelegramId(telegramUserId)?.id
-            val text = if (linkedUserId != null) {
-                messageSource.getMessage("command.link.welcome", null, userSettingsService.getLocale(linkedUserId))
+            val text = if (user != null) {
+                messageSource.getMessage("command.link.welcome", null, userSettingsService.getLocale(user.id!!))
             } else {
                 messageSource.getMessage("command.start", null, Locale.ENGLISH)
             }
@@ -194,7 +203,6 @@ class TelegramChannel(
             return
         }
 
-        val user = userRepository.findByTelegramId(telegramUserId)
         if (user == null) {
             channel.send(ChannelMessage.Text("Please sign up at backlog.fyi to use the planner."))
             return

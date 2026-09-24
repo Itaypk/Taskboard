@@ -7,6 +7,11 @@ export interface AuthUser {
     telegramUsername: string | null;
     telegramFirstName: string | null;
     telegramPhotoUrl: string | null;
+    /**
+     * Whether the bot can message this user unprompted. False for a linked Telegram account whose
+     * chat was never opened (Telegram won't let a bot write first), and for no Telegram at all.
+     */
+    telegramChatReady: boolean;
     email: string | null;
     /** False while the account has no login identity yet — drives the "save your account" nudge. */
     claimed: boolean;

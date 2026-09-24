@@ -64,6 +64,7 @@ class TelegramChannelRoutingTest {
     private val reminderActionHandler: ReminderActionHandler = mock()
     private val aiAccessService: AiAccessService = mock()
     private val userSettingsService: UserSettingsService = mock()
+    private val reachability: TelegramReachabilityService = mock()
     private val telegramClient: TelegramClient = mock()
 
     private val messageSource = StaticMessageSource().apply {
@@ -88,6 +89,7 @@ class TelegramChannelRoutingTest {
         reminderActionHandler = reminderActionHandler,
         aiAccessService = aiAccessService,
         userSettingsService = userSettingsService,
+        reachability = reachability,
         messageSource = messageSource,
         telegramClient = telegramClient,
         clock = Clock.fixed(Instant.parse("2026-06-11T10:00:00Z"), ZoneOffset.UTC),
@@ -116,13 +118,14 @@ class TelegramChannelRoutingTest {
         whenever(aiAccessService.isAiAvailableForUser(userId)).thenReturn(true)
     }
 
-    private fun textUpdate(text: String): Update {
+    /** [chat] defaults to a group-ish chat id; pass [telegramUserId] for the user's private chat. */
+    private fun textUpdate(text: String, chat: Long = chatId): Update {
         val from: TelegramUser = mock()
         whenever(from.id).thenReturn(telegramUserId)
         val message: Message = mock()
         whenever(message.hasText()).thenReturn(true)
         whenever(message.text).thenReturn(text)
-        whenever(message.chatId).thenReturn(chatId)
+        whenever(message.chatId).thenReturn(chat)
         whenever(message.from).thenReturn(from)
         val update: Update = mock()
         whenever(update.hasMessage()).thenReturn(true)
@@ -367,5 +370,38 @@ class TelegramChannelRoutingTest {
         channel.consume(textUpdate("/start linked"))
 
         assertEquals(listOf("Telegram is connected"), sentTexts())
+    }
+
+    /**
+     * The chat becomes pushable the moment the user writes to the bot — that is what registers
+     * their weekly planning cron after a link whose welcome hit "chat not found".
+     */
+    @Test
+    fun `a message from the user's private chat marks it reachable`() {
+        channel.consume(textUpdate("/start", chat = telegramUserId))
+
+        verify(reachability).markReachable(userId)
+    }
+
+    @Test
+    fun `an already-reachable chat is not re-marked on every message`() {
+        whenever(userRepository.findByTelegramId(telegramUserId)).thenReturn(
+            UserEntity().apply {
+                id = userId
+                telegramId = telegramUserId
+                telegramChatReadyAt = Instant.parse("2026-06-01T00:00:00Z")
+            },
+        )
+
+        channel.consume(textUpdate("/start", chat = telegramUserId))
+
+        verify(reachability, never()).markReachable(any())
+    }
+
+    @Test
+    fun `a message from a group chat says nothing about the private one`() {
+        channel.consume(textUpdate("/start"))
+
+        verify(reachability, never()).markReachable(any())
     }
 }

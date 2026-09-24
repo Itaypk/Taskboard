@@ -2,6 +2,7 @@ package dev.itayp.tasker.channel.telegram
 
 import dev.itayp.tasker.channel.ChannelCapabilities
 import dev.itayp.tasker.channel.ChannelMessage
+import dev.itayp.tasker.channel.ChannelUnreachableException
 import dev.itayp.tasker.channel.ConversationChannel
 import dev.itayp.tasker.channel.HtmlMessageFormatter
 import dev.itayp.tasker.channel.MessageFormatter
@@ -14,6 +15,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKe
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardRow
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow
+import org.telegram.telegrambots.meta.exceptions.TelegramApiRequestException
 import org.telegram.telegrambots.meta.generics.TelegramClient
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicBoolean
@@ -23,6 +25,12 @@ class TelegramConversationChannel(
     private val telegramClient: TelegramClient,
     /** How often the chat action is re-sent while work is in flight. Overridden in tests. */
     private val typingRefresh: Duration = DEFAULT_TYPING_REFRESH,
+    /**
+     * Called when Telegram refuses a send because the chat itself is unreachable, just before
+     * [send] throws [ChannelUnreachableException]. Push channels use it to record that; a reply
+     * channel (answering a message the user just sent) leaves it null and sees Telegram's own error.
+     */
+    private val onUnreachable: (() -> Unit)? = null,
 ) : ConversationChannel {
 
     override val capabilities = ChannelCapabilities(
@@ -71,9 +79,20 @@ class TelegramConversationChannel(
         }
     }
 
-    override fun send(message: ChannelMessage) = when (message) {
-        is ChannelMessage.Text -> sendText(message)
-        is ChannelMessage.Choice -> sendChoice(message)
+    override fun send(message: ChannelMessage) {
+        try {
+            when (message) {
+                is ChannelMessage.Text -> sendText(message)
+                is ChannelMessage.Choice -> sendChoice(message)
+            }
+        } catch (e: TelegramApiRequestException) {
+            // Only push channels translate: a reply channel's caller (TelegramChannel.consume)
+            // already handles the raw Telegram error.
+            val report = onUnreachable
+            if (report == null || !isRecipientUnreachable(e)) throw e
+            report()
+            throw ChannelUnreachableException("Telegram chat $chatId is unreachable: ${e.apiResponse}", e)
+        }
     }
 
     private fun sendText(message: ChannelMessage.Text) {
@@ -116,6 +135,16 @@ class TelegramConversationChannel(
     }
 
     companion object {
+        /**
+         * Tells "this chat can't receive anything" apart from every other failure. Every 403 on a
+         * send means the recipient is out of reach (blocked the bot, deactivated, never started a
+         * chat the bot may not initiate), while a 400 only does for "chat not found" — the others
+         * (bad markup, message too long) are our bug and must not mark the user unreachable.
+         */
+        internal fun isRecipientUnreachable(e: TelegramApiRequestException): Boolean =
+            e.errorCode == 403 ||
+                (e.errorCode == 400 && e.apiResponse.orEmpty().contains("chat not found", ignoreCase = true))
+
         /** Telegram clears a chat action after ~5 seconds, so refresh a beat inside that. */
         private val DEFAULT_TYPING_REFRESH: Duration = Duration.ofSeconds(4)
 

@@ -577,6 +577,7 @@
       "aiPlanHelp": "תקציב הטוקנים ליכולות מבוססות AI בחלון מתגלגל של 30 יום.",
       "weeklyPlanning": "סשן תכנון שבועי",
       "weeklyPlanningHelp": "נפתח את שיחת התכנון דרך Telegram בשעה הזו בכל שבוע.",
+      "weeklyPlanningUnreachable": "הבוט עדיין לא יכול לשלוח הודעות ב-Telegram, ולכן השיחה לא תתחיל מעצמה. יש לחבר את Telegram בלשונית „כללי” ולפתוח את הצ׳אט עם הבוט.",
       "weeklyPlanningToggle": "לפתוח סשן תכנון שבועי",
       "planningDay": "יום התכנון",
       "planningTime": "שעת התכנון",
