@@ -65,7 +65,7 @@ class CalendarInvitationComposer(
             for (email in event.attendeeEmails) {
                 add(fold("ATTENDEE;PARTSTAT=DECLINED:mailto:$email"))
             }
-            add("SEQUENCE:1")
+            add("SEQUENCE:${event.sequence}")
             add("STATUS:CANCELLED")
             add("END:VEVENT")
             add("END:VCALENDAR")

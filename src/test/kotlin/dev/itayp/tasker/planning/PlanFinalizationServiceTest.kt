@@ -1,6 +1,7 @@
 package dev.itayp.tasker.planning
 
 import dev.itayp.tasker.channel.email.EmailProperties
+import dev.itayp.tasker.channel.email.invitation.ICalSequence
 import dev.itayp.tasker.notification.SlotReminderService
 import dev.itayp.tasker.planning.dto.AgreedPlan
 import dev.itayp.tasker.planning.dto.AgreedPlanTask
@@ -36,6 +37,9 @@ class PlanFinalizationServiceTest {
     @Mock lateinit var planWatermarkService: PlanWatermarkService
     @Mock lateinit var slotReminderService: SlotReminderService
 
+    private val clock = java.time.Clock.fixed(Instant.parse("2026-05-10T12:00:00Z"), java.time.ZoneOffset.UTC)
+    private val expectedSequence = ICalSequence(clock).next()
+
     private val emailProps = EmailProperties(
         enabled = true,
         scheduling = EmailProperties.SenderConfig(from = "noreply@backlog.fyi", fromName = "Backlog.fyi"),
@@ -45,7 +49,7 @@ class PlanFinalizationServiceTest {
         PlanFinalizationService(
             planningSessionService, backlogTaskService, plannedTaskService,
             planInviteDispatcher, emailProps, inviteDeliveryResolver, planWatermarkService,
-            slotReminderService,
+            slotReminderService, ICalSequence(clock),
         )
     }
 
@@ -133,6 +137,7 @@ class PlanFinalizationServiceTest {
             eq("Backlog.fyi"),
             captor.capture(),
             any(),
+            eq(expectedSequence),
         )
         assertEquals(planWithTasks.tasks, captor.firstValue.tasks)
     }
@@ -142,7 +147,7 @@ class PlanFinalizationServiceTest {
         // stubDefaults() already returns null from the resolver.
         service.complete(userId, sessionId, planWithTasks)
 
-        verify(planInviteDispatcher, never()).dispatch(any(), any(), any(), any(), any())
+        verify(planInviteDispatcher, never()).dispatch(any(), any(), any(), any(), any(), any())
     }
 
     // ── revisePlan ───────────────────────────────────────────────────────────
@@ -186,6 +191,7 @@ class PlanFinalizationServiceTest {
             eq("Backlog.fyi"),
             captor.capture(),
             any(),
+            any(),
         )
         assertEquals(planWithTasks.tasks, captor.firstValue.tasks)
     }
@@ -194,7 +200,7 @@ class PlanFinalizationServiceTest {
     fun `revisePlan does not dispatch when not opted in`() {
         service.revisePlan(userId, sessionId, planWithTasks)
 
-        verify(planInviteDispatcher, never()).dispatch(any(), any(), any(), any(), any())
+        verify(planInviteDispatcher, never()).dispatch(any(), any(), any(), any(), any(), any())
     }
 
     // ── revisePlan: diff-based invite dispatch ─────────────────────────────────
@@ -205,9 +211,9 @@ class PlanFinalizationServiceTest {
 
         service.revisePlan(userId, sessionId, planWithTasks)
 
-        verify(planInviteDispatcher, never()).dispatch(any(), any(), any(), any(), any())
-        verify(planInviteDispatcher, never()).dispatchUpdates(any(), any(), any(), any(), any())
-        verify(planInviteDispatcher, never()).dispatchCancellations(any(), any(), any(), any(), any())
+        verify(planInviteDispatcher, never()).dispatch(any(), any(), any(), any(), any(), any())
+        verify(planInviteDispatcher, never()).dispatchUpdates(any(), any(), any(), any(), any(), any())
+        verify(planInviteDispatcher, never()).dispatchCancellations(any(), any(), any(), any(), any(), any())
     }
 
     @Test
@@ -219,10 +225,10 @@ class PlanFinalizationServiceTest {
         service.revisePlan(userId, sessionId, planWithTasks)
 
         val captor = argumentCaptor<AgreedPlan>()
-        verify(planInviteDispatcher).dispatch(any(), any(), any(), captor.capture(), any())
+        verify(planInviteDispatcher).dispatch(any(), any(), any(), captor.capture(), any(), any())
         assertEquals(listOf(taskId2), captor.firstValue.tasks.map { it.taskId })
-        verify(planInviteDispatcher, never()).dispatchUpdates(any(), any(), any(), any(), any())
-        verify(planInviteDispatcher, never()).dispatchCancellations(any(), any(), any(), any(), any())
+        verify(planInviteDispatcher, never()).dispatchUpdates(any(), any(), any(), any(), any(), any())
+        verify(planInviteDispatcher, never()).dispatchCancellations(any(), any(), any(), any(), any(), any())
     }
 
     @Test
@@ -235,10 +241,10 @@ class PlanFinalizationServiceTest {
         service.revisePlan(userId, sessionId, trimmed)
 
         val captor = argumentCaptor<List<AgreedPlanTask>>()
-        verify(planInviteDispatcher).dispatchCancellations(any(), any(), any(), captor.capture(), any())
+        verify(planInviteDispatcher).dispatchCancellations(any(), any(), any(), captor.capture(), any(), any())
         assertEquals(listOf(taskId2), captor.firstValue.map { it.taskId })
-        verify(planInviteDispatcher, never()).dispatch(any(), any(), any(), any(), any())
-        verify(planInviteDispatcher, never()).dispatchUpdates(any(), any(), any(), any(), any())
+        verify(planInviteDispatcher, never()).dispatch(any(), any(), any(), any(), any(), any())
+        verify(planInviteDispatcher, never()).dispatchUpdates(any(), any(), any(), any(), any(), any())
     }
 
     @Test
@@ -254,10 +260,10 @@ class PlanFinalizationServiceTest {
         service.revisePlan(userId, sessionId, renamed)
 
         val captor = argumentCaptor<AgreedPlan>()
-        verify(planInviteDispatcher).dispatchUpdates(any(), any(), any(), captor.capture(), any())
+        verify(planInviteDispatcher).dispatchUpdates(any(), any(), any(), captor.capture(), any(), any())
         assertEquals(listOf(taskId1), captor.firstValue.tasks.map { it.taskId })
-        verify(planInviteDispatcher, never()).dispatch(any(), any(), any(), any(), any())
-        verify(planInviteDispatcher, never()).dispatchCancellations(any(), any(), any(), any(), any())
+        verify(planInviteDispatcher, never()).dispatch(any(), any(), any(), any(), any(), any())
+        verify(planInviteDispatcher, never()).dispatchCancellations(any(), any(), any(), any(), any(), any())
     }
 
     @Test
@@ -273,9 +279,9 @@ class PlanFinalizationServiceTest {
         )
         service.revisePlan(userId, sessionId, moved)
 
-        verify(planInviteDispatcher).dispatch(any(), any(), any(), any(), any())
-        verify(planInviteDispatcher).dispatchCancellations(any(), any(), any(), any(), any())
-        verify(planInviteDispatcher, never()).dispatchUpdates(any(), any(), any(), any(), any())
+        verify(planInviteDispatcher).dispatch(any(), any(), any(), any(), any(), any())
+        verify(planInviteDispatcher).dispatchCancellations(any(), any(), any(), any(), any(), any())
+        verify(planInviteDispatcher, never()).dispatchUpdates(any(), any(), any(), any(), any(), any())
     }
 
     // ── addTaskToSession ─────────────────────────────────────────────────────
@@ -303,7 +309,7 @@ class PlanFinalizationServiceTest {
         val task = AgreedPlanTask(taskId = taskId1, title = "Task A", slots = listOf(slot))
         service.addTaskToSession(userId, sessionId, task)
 
-        verify(planInviteDispatcher).dispatch(any(), any(), any(), any(), any())
+        verify(planInviteDispatcher).dispatch(any(), any(), any(), any(), any(), any())
     }
 
     @Test
@@ -311,7 +317,7 @@ class PlanFinalizationServiceTest {
         val task = AgreedPlanTask(taskId = taskId1, title = "Task A", slots = listOf(slot))
         service.addTaskToSession(userId, sessionId, task)
 
-        verify(planInviteDispatcher, never()).dispatch(any(), any(), any(), any(), any())
+        verify(planInviteDispatcher, never()).dispatch(any(), any(), any(), any(), any(), any())
     }
 
     @Test
@@ -375,9 +381,9 @@ class PlanFinalizationServiceTest {
         val movedSlot = AgreedTimeSlot("2026-05-13T14:00:00+02:00", "2026-05-13T16:00:00+02:00")
         service.changeTaskSlot(userId, sessionId, taskId1, movedSlot)
 
-        verify(planInviteDispatcher).dispatch(any(), any(), any(), any(), any())
-        verify(planInviteDispatcher).dispatchCancellations(any(), any(), any(), any(), any())
-        verify(planInviteDispatcher, never()).dispatchUpdates(any(), any(), any(), any(), any())
+        verify(planInviteDispatcher).dispatch(any(), any(), any(), any(), any(), any())
+        verify(planInviteDispatcher).dispatchCancellations(any(), any(), any(), any(), any(), any())
+        verify(planInviteDispatcher, never()).dispatchUpdates(any(), any(), any(), any(), any(), any())
     }
 
     @Test
@@ -390,9 +396,9 @@ class PlanFinalizationServiceTest {
         val extended = AgreedTimeSlot(slot.startIso, "2026-05-11T12:00:00+02:00")
         service.changeTaskSlot(userId, sessionId, taskId1, extended)
 
-        verify(planInviteDispatcher).dispatchUpdates(any(), any(), any(), any(), any())
-        verify(planInviteDispatcher, never()).dispatch(any(), any(), any(), any(), any())
-        verify(planInviteDispatcher, never()).dispatchCancellations(any(), any(), any(), any(), any())
+        verify(planInviteDispatcher).dispatchUpdates(any(), any(), any(), any(), any(), any())
+        verify(planInviteDispatcher, never()).dispatch(any(), any(), any(), any(), any(), any())
+        verify(planInviteDispatcher, never()).dispatchCancellations(any(), any(), any(), any(), any(), any())
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

@@ -14,6 +14,7 @@ import org.mockito.kotlin.eq
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import dev.itayp.tasker.channel.email.invitation.ICalSequence
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
@@ -40,6 +41,7 @@ class TaskCompletionCancellationServiceTest {
     private val service by lazy {
         TaskCompletionCancellationService(
             plannedTaskService, slotReminderService, planInviteDispatcher, inviteDeliveryResolver, emailProps, clock,
+            ICalSequence(clock),
         )
     }
 
@@ -57,7 +59,7 @@ class TaskCompletionCancellationServiceTest {
         service.cancelUpcomingSlots(userId, sessionId, taskId)
 
         verify(slotReminderService, never()).cancelForTask(any(), any(), any())
-        verify(planInviteDispatcher, never()).dispatchCancellations(any(), any(), any(), any(), any())
+        verify(planInviteDispatcher, never()).dispatchCancellations(any(), any(), any(), any(), any(), any())
     }
 
     @Test
@@ -68,7 +70,7 @@ class TaskCompletionCancellationServiceTest {
         service.cancelUpcomingSlots(userId, sessionId, taskId)
 
         verify(slotReminderService, never()).cancelForTask(any(), any(), any())
-        verify(planInviteDispatcher, never()).dispatchCancellations(any(), any(), any(), any(), any())
+        verify(planInviteDispatcher, never()).dispatchCancellations(any(), any(), any(), any(), any(), any())
     }
 
     @Test
@@ -92,7 +94,7 @@ class TaskCompletionCancellationServiceTest {
 
         service.cancelUpcomingSlots(userId, sessionId, taskId)
 
-        verify(planInviteDispatcher, never()).dispatchCancellations(any(), any(), any(), any(), any())
+        verify(planInviteDispatcher, never()).dispatchCancellations(any(), any(), any(), any(), any(), any())
     }
 
     @Test
@@ -109,6 +111,7 @@ class TaskCompletionCancellationServiceTest {
         val tasksCaptor = argumentCaptor<List<AgreedPlanTask>>()
         verify(planInviteDispatcher).dispatchCancellations(
             eq("alice@example.com"), eq("noreply@backlog.fyi"), eq("Backlog.fyi"), tasksCaptor.capture(), eq(Locale.ENGLISH),
+            eq(ICalSequence(clock).next()),
         )
         assertEquals(1, tasksCaptor.firstValue.size)
         assertEquals(listOf(futureSlot), tasksCaptor.firstValue.first().slots)

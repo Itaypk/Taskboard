@@ -1,6 +1,7 @@
 package dev.itayp.tasker.planning
 
 import dev.itayp.tasker.channel.email.EmailProperties
+import dev.itayp.tasker.channel.email.invitation.ICalSequence
 import dev.itayp.tasker.notification.SlotReminderService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -26,6 +27,7 @@ class TaskCompletionCancellationService(
     private val inviteDeliveryResolver: InviteDeliveryResolver,
     private val emailProperties: EmailProperties,
     private val clock: Clock,
+    private val iCalSequence: ICalSequence,
 ) {
     private val log = LoggerFactory.getLogger(TaskCompletionCancellationService::class.java)
 
@@ -43,7 +45,7 @@ class TaskCompletionCancellationService(
         val ctx = inviteDeliveryResolver.resolveEmailContext(userId) ?: return
         planInviteDispatcher.dispatchCancellations(
             ctx.email, emailProperties.scheduling.from, emailProperties.scheduling.fromName,
-            listOf(task.copy(slots = futureSlots)), ctx.locale,
+            listOf(task.copy(slots = futureSlots)), ctx.locale, iCalSequence.next(),
         )
     }
 }

@@ -19,6 +19,7 @@ import org.mockito.kotlin.eq
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import dev.itayp.tasker.channel.email.invitation.ICalSequence
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
@@ -61,6 +62,7 @@ class OneOffEventServiceTest {
             inviteDeliveryResolver = inviteDeliveryResolver,
             inviteDispatcher = inviteDispatcher,
             emailProperties = emailProperties,
+            iCalSequence = ICalSequence(clock),
         )
     }
 

@@ -16,6 +16,6 @@ data class CalendarEvent(
     val attendeeEmails: List<String>,
     val rsvp: Boolean = false,
     val locale: Locale = Locale.ENGLISH,
-    // iCalendar revision counter. 0 for a fresh invite; bump for updates so clients apply the change.
-    val sequence: Int = 0,
+    // iCalendar revision counter; see ICalSequence. No default so every sender picks one deliberately.
+    val sequence: Int,
 )

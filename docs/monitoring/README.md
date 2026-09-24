@@ -50,7 +50,8 @@ The custom application metrics are defined in
 `dev.itayp.tasker.metrics.UsageMetrics` (gauges — users/tasks/planning-sessions),
 `dev.itayp.tasker.ai.usage.AiUsageTracker` (AI request/token counters),
 `dev.itayp.tasker.channel.email.EmailMetricsOutboundChannel` (`tasker.email.sent`
-counter), and `dev.itayp.tasker.capture.QuickAddFlow` /
+counter — one final outcome per email, after the scheduling sender's retries;
+`RetryingOutboundChannel` counts the retries themselves on `tasker.email.retries`), and `dev.itayp.tasker.capture.QuickAddFlow` /
 `dev.itayp.tasker.channel.telegram.QuickAddRegistry` (`tasker.quickadd.outcome`
 counter). They are scraped from `/actuator/prometheus` (HTTP Basic auth — see
 `PrometheusAuthProperties`). The recent-log-lines panel instead queries

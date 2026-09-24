@@ -44,6 +44,7 @@ class CalendarInvitationComposerTest {
         organizerEmail = "organizer@example.com",
         organizerName = "Alice",
         attendeeEmails = listOf("bob@example.com", "carol@example.com"),
+        sequence = 0,
     )
 
     @Test
@@ -85,11 +86,12 @@ class CalendarInvitationComposerTest {
     }
 
     @Test
-    fun `buildICalContent renders the event sequence`() {
-        assertTrue(composer.buildICalContent(sampleEvent()).contains("SEQUENCE:0"), "fresh invite should be SEQUENCE:0")
+    fun `invite and cancellation both render the event sequence`() {
+        val event = sampleEvent().copy(sequence = 55_000_000)
+        assertTrue(composer.buildICalContent(event).contains("SEQUENCE:55000000"), "invite should carry the given sequence")
         assertTrue(
-            composer.buildICalContent(sampleEvent().copy(sequence = 1)).contains("SEQUENCE:1"),
-            "update should carry the bumped sequence",
+            composer.buildCancellationICalContent(event).contains("SEQUENCE:55000000"),
+            "cancellation must not fall back to a fixed sequence, or it can lose to an earlier update",
         )
     }
 
