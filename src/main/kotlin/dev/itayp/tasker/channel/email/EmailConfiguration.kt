@@ -34,7 +34,10 @@ class EmailConfiguration(
         } else {
             LoggingEmailChannel(purpose)
         }
-        return EmailMetricsOutboundChannel(base, meterRegistry, purpose)
+        // Auth sends are synchronous on the request path and the user can simply re-request the
+        // link, so only the async scheduling sender retries. Retry sits inside metrics on purpose.
+        val delivering = if (purpose == SCHEDULING) RetryingOutboundChannel(base, meterRegistry, purpose) else base
+        return EmailMetricsOutboundChannel(delivering, meterRegistry, purpose)
     }
 
     private fun mailSender(smtp: EmailProperties.SmtpConfig): JavaMailSender =

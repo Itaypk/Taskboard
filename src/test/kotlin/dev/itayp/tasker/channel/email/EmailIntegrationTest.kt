@@ -96,6 +96,7 @@ class EmailIntegrationTest {
             organizerEmail = from,
             organizerName = env.getOrDefault("TASKER_EMAIL_FROM_NAME", "Backlog.fyi Test"),
             attendeeEmails = listOf(to),
+            sequence = 0,
         )
 
         composer.sendInvitation(listOf(to), event)

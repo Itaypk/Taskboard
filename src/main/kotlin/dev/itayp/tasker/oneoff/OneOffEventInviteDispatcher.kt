@@ -26,6 +26,8 @@ class OneOffEventInviteDispatcher(
         val organizerName: String,
         val locale: Locale,
         val zone: ZoneId,
+        /** From [dev.itayp.tasker.channel.email.invitation.ICalSequence], taken before the async hand-off. */
+        val sequence: Int,
     )
 
     @Async
@@ -34,7 +36,7 @@ class OneOffEventInviteDispatcher(
             runCatching {
                 calendarInvitationComposer.sendInvitation(
                     to = listOf(invite.userEmail),
-                    event = invite.toCalendarEvent(sequence = 0),
+                    event = invite.toCalendarEvent(),
                 )
             }.onFailure { e ->
                 log.error("Failed to send one-off event invite for event {}: {}", invite.event.id, e.message)
@@ -53,7 +55,7 @@ class OneOffEventInviteDispatcher(
             runCatching {
                 calendarInvitationComposer.sendCancellation(
                     to = listOf(invite.userEmail),
-                    event = invite.toCalendarEvent(sequence = 1),
+                    event = invite.toCalendarEvent(),
                 )
             }.onFailure { e ->
                 log.error("Failed to send one-off event cancellation for event {}: {}", invite.event.id, e.message)
@@ -61,7 +63,7 @@ class OneOffEventInviteDispatcher(
         }
     }
 
-    private fun Invite.toCalendarEvent(sequence: Int) = CalendarEvent(
+    private fun Invite.toCalendarEvent() = CalendarEvent(
         uid = event.icalUid,
         title = event.title,
         description = event.notes,

@@ -1,6 +1,7 @@
 package dev.itayp.tasker.oneoff
 
 import dev.itayp.tasker.channel.email.EmailProperties
+import dev.itayp.tasker.channel.email.invitation.ICalSequence
 import dev.itayp.tasker.crypto.BoardCryptoService
 import dev.itayp.tasker.jpa.OneOffEventEntity
 import dev.itayp.tasker.planning.InviteDeliveryResolver
@@ -31,6 +32,7 @@ class OneOffEventService(
     private val inviteDeliveryResolver: InviteDeliveryResolver,
     private val inviteDispatcher: OneOffEventInviteDispatcher,
     private val emailProperties: EmailProperties,
+    private val iCalSequence: ICalSequence,
 ) {
     private val log = LoggerFactory.getLogger(OneOffEventService::class.java)
 
@@ -71,6 +73,7 @@ class OneOffEventService(
                     organizerName = emailProperties.scheduling.fromName,
                     locale = ctx.locale,
                     zone = zone,
+                    sequence = iCalSequence.next(),
                 ),
             ),
         )
@@ -105,6 +108,7 @@ class OneOffEventService(
         }
         val zone = runCatching { ZoneId.of(userSettingsService.getOrCreate(userId).timeZone) }
             .getOrDefault(ZoneId.of("UTC"))
+        val sequence = iCalSequence.next()
         val invites = events.map { event ->
             OneOffEventInviteDispatcher.Invite(
                 event = event,
@@ -113,6 +117,7 @@ class OneOffEventService(
                 organizerName = emailProperties.scheduling.fromName,
                 locale = ctx.locale,
                 zone = zone,
+                sequence = sequence,
             )
         }
         inviteDispatcher.dispatch(invites)

@@ -1,6 +1,7 @@
 package dev.itayp.tasker.planning
 
 import dev.itayp.tasker.channel.email.EmailProperties
+import dev.itayp.tasker.channel.email.invitation.ICalSequence
 import dev.itayp.tasker.notification.SlotReminderService
 import dev.itayp.tasker.planning.dto.AgreedPlan
 import dev.itayp.tasker.planning.dto.AgreedPlanTask
@@ -20,6 +21,7 @@ class PlanFinalizationService(
     private val inviteDeliveryResolver: InviteDeliveryResolver,
     private val planWatermarkService: PlanWatermarkService,
     private val slotReminderService: SlotReminderService,
+    private val iCalSequence: ICalSequence,
 ) {
     private val log = LoggerFactory.getLogger(PlanFinalizationService::class.java)
 
@@ -114,22 +116,23 @@ class PlanFinalizationService(
         if (diff.added.isEmpty() && diff.changed.isEmpty() && diff.removed.isEmpty()) return
 
         val ctx = inviteDeliveryResolver.resolveEmailContext(userId) ?: return
+        val sequence = iCalSequence.next()
         if (diff.added.isNotEmpty()) {
             planInviteDispatcher.dispatch(
                 ctx.email, emailProperties.scheduling.from, emailProperties.scheduling.fromName,
-                AgreedPlan(PlanSlotDiffer.regroup(diff.added), summary = ""), ctx.locale,
+                AgreedPlan(PlanSlotDiffer.regroup(diff.added), summary = ""), ctx.locale, sequence,
             )
         }
         if (diff.changed.isNotEmpty()) {
             planInviteDispatcher.dispatchUpdates(
                 ctx.email, emailProperties.scheduling.from, emailProperties.scheduling.fromName,
-                AgreedPlan(PlanSlotDiffer.regroup(diff.changed), summary = ""), ctx.locale,
+                AgreedPlan(PlanSlotDiffer.regroup(diff.changed), summary = ""), ctx.locale, sequence,
             )
         }
         if (diff.removed.isNotEmpty()) {
             planInviteDispatcher.dispatchCancellations(
                 ctx.email, emailProperties.scheduling.from, emailProperties.scheduling.fromName,
-                PlanSlotDiffer.regroup(diff.removed), ctx.locale,
+                PlanSlotDiffer.regroup(diff.removed), ctx.locale, sequence,
             )
         }
     }
@@ -144,6 +147,7 @@ class PlanFinalizationService(
             organizerName = emailProperties.scheduling.fromName,
             plan = plan,
             locale = ctx.locale,
+            sequence = iCalSequence.next(),
         )
         return true
     }

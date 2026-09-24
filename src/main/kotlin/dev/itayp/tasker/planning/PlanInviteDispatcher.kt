@@ -2,6 +2,7 @@ package dev.itayp.tasker.planning
 
 import dev.itayp.tasker.channel.email.invitation.CalendarEvent
 import dev.itayp.tasker.channel.email.invitation.CalendarInvitationComposer
+import dev.itayp.tasker.channel.email.invitation.ICalSequence
 import dev.itayp.tasker.planning.dto.AgreedPlan
 import dev.itayp.tasker.planning.dto.AgreedPlanTask
 import org.slf4j.LoggerFactory
@@ -16,20 +17,23 @@ class PlanInviteDispatcher(
 ) {
     private val log = LoggerFactory.getLogger(PlanInviteDispatcher::class.java)
 
-    /** Sends fresh invitations (SEQUENCE 0) for newly-added slots. */
+    /**
+     * Sends fresh invitations for newly-added slots. [sequence] comes from [ICalSequence], taken by
+     * the caller before this async hand-off (see there for why).
+     */
     @Async
-    fun dispatch(userEmail: String, organizerEmail: String, organizerName: String, plan: AgreedPlan, locale: Locale) {
-        sendInvites(userEmail, organizerEmail, organizerName, plan, locale, sequence = 0)
+    fun dispatch(userEmail: String, organizerEmail: String, organizerName: String, plan: AgreedPlan, locale: Locale, sequence: Int) {
+        sendInvites(userEmail, organizerEmail, organizerName, plan, locale, sequence)
     }
 
     /**
-     * Re-sends invitations for slots whose details changed at the same start time (label/title/notes
-     * or end time). The shared UID plus a bumped SEQUENCE makes calendar clients update the existing
+     * Re-sends invitations for slots whose details changed at the same start time (title/notes or
+     * end time). The shared UID plus a higher SEQUENCE makes calendar clients update the existing
      * event in place rather than create a duplicate.
      */
     @Async
-    fun dispatchUpdates(userEmail: String, organizerEmail: String, organizerName: String, plan: AgreedPlan, locale: Locale) {
-        sendInvites(userEmail, organizerEmail, organizerName, plan, locale, sequence = 1)
+    fun dispatchUpdates(userEmail: String, organizerEmail: String, organizerName: String, plan: AgreedPlan, locale: Locale, sequence: Int) {
+        sendInvites(userEmail, organizerEmail, organizerName, plan, locale, sequence)
     }
 
     private fun sendInvites(
@@ -76,6 +80,7 @@ class PlanInviteDispatcher(
         organizerName: String,
         tasks: List<AgreedPlanTask>,
         locale: Locale,
+        sequence: Int,
     ) {
         for ((taskId, title, slots, notes) in tasks) {
             for ((startIso, endIso) in slots) {
@@ -95,6 +100,7 @@ class PlanInviteDispatcher(
                             organizerName = organizerName,
                             attendeeEmails = listOf(userEmail),
                             locale = locale,
+                            sequence = sequence,
                         ),
                     )
                 }.onFailure { e ->
