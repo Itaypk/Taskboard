@@ -43,6 +43,16 @@ interface UserRepository : JpaRepository<UserEntity, UUID> {
     @Query("UPDATE UserEntity u SET u.engagedAt = :now WHERE u.id = :userId AND u.engagedAt IS NULL")
     fun stampEngagedAt(@Param("userId") userId: UUID, @Param("now") now: Instant)
 
+    /** Idempotent; returns 1 only on the transition from unreachable, so callers act once. */
+    @Modifying
+    @Query("UPDATE UserEntity u SET u.telegramChatReadyAt = :now WHERE u.id = :userId AND u.telegramChatReadyAt IS NULL")
+    fun stampTelegramChatReady(@Param("userId") userId: UUID, @Param("now") now: Instant): Int
+
+    /** Idempotent; returns 1 only on the transition from reachable, so callers act once. */
+    @Modifying
+    @Query("UPDATE UserEntity u SET u.telegramChatReadyAt = NULL WHERE u.id = :userId AND u.telegramChatReadyAt IS NOT NULL")
+    fun clearTelegramChatReady(@Param("userId") userId: UUID): Int
+
     fun countByClaimed(claimed: Boolean): Long
 
     fun countByClaimedAndEngagedAtNotNull(claimed: Boolean): Long

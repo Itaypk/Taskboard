@@ -1,10 +1,12 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LinkedIdentity } from '../auth/authApi';
 
-const { fetchIdentities, fetchTelegramBot } = vi.hoisted(() => ({
+const { fetchIdentities, fetchTelegramBot, auth } = vi.hoisted(() => ({
     fetchIdentities: vi.fn(),
     fetchTelegramBot: vi.fn(),
+    // Only the field this component reads; the rest of AuthUser is irrelevant here.
+    auth: { telegramChatReady: false, refresh: vi.fn() },
 }));
 
 vi.mock('../auth/authApi', async () => {
@@ -12,7 +14,13 @@ vi.mock('../auth/authApi', async () => {
     return { ...actual, fetchIdentities, fetchTelegramBot, fetchMe: vi.fn(), unlinkIdentity: vi.fn() };
 });
 
-vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ setUser: vi.fn() }) }));
+vi.mock('../auth/AuthContext', () => ({
+    useAuth: () => ({
+        state: { status: 'authenticated', user: { telegramChatReady: auth.telegramChatReady } },
+        setUser: vi.fn(),
+        refresh: auth.refresh,
+    }),
+}));
 
 import { ConnectedAccounts } from './ConnectedAccounts';
 
@@ -30,6 +38,7 @@ function atSettings(query = '') {
 beforeEach(() => {
     vi.clearAllMocks();
     fetchTelegramBot.mockResolvedValue({ username: 'BacklogFyiBot' });
+    auth.telegramChatReady = false;
     atSettings();
 });
 afterEach(cleanup);
@@ -51,6 +60,18 @@ describe('ConnectedAccounts', () => {
             .toHaveAttribute('href', 'https://t.me/BacklogFyiBot');
     });
 
+    it('skips the next step when the chat was already open before linking', async () => {
+        // The post-link welcome got through, so the server already knows the bot can reach them.
+        fetchIdentities.mockResolvedValue([identity('telegram')]);
+        auth.telegramChatReady = true;
+        atSettings('?telegramLink=success');
+
+        render(<ConnectedAccounts />);
+
+        expect(await screen.findByRole('link', { name: 'Open the chat with @BacklogFyiBot' })).toBeInTheDocument();
+        expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    });
+
     it('keeps the panel up after the notice is scrubbed from the URL', async () => {
         fetchIdentities.mockResolvedValue([identity('telegram')]);
         atSettings('?telegramLink=success');
@@ -65,8 +86,27 @@ describe('ConnectedAccounts', () => {
         expect(screen.getByRole('status')).toBeInTheDocument();
     });
 
-    it('offers the chat link to an already-linked user who missed the panel', async () => {
+    it('keeps asking a linked user to open the chat on later visits until the bot can reach them', async () => {
         fetchIdentities.mockResolvedValue([identity('email'), identity('telegram')]);
+
+        render(<ConnectedAccounts />);
+
+        expect(await screen.findByRole('status')).toHaveTextContent(/open the chat with the bot/i);
+    });
+
+    it('re-checks reachability when the user comes back from Telegram', async () => {
+        fetchIdentities.mockResolvedValue([identity('telegram')]);
+
+        render(<ConnectedAccounts />);
+        await screen.findByRole('status');
+        fireEvent.focus(window);
+
+        expect(auth.refresh).toHaveBeenCalled();
+    });
+
+    it('offers only a quiet chat link once the bot can reach the user', async () => {
+        fetchIdentities.mockResolvedValue([identity('email'), identity('telegram')]);
+        auth.telegramChatReady = true;
 
         render(<ConnectedAccounts />);
 

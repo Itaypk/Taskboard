@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Telegram reachability. Linking Telegram (or signing in with it) proves who the user is but
+        opens no chat with the bot, and Telegram refuses to let a bot write first ("chat not found").
+        telegram_id therefore says nothing about whether we can push to the user; this column does.
+        Stamped on the first update the bot receives from the user's private chat (or a successful
+        post-link welcome), cleared when a send is refused because the chat is gone or blocked.
+    -->
+    <changeSet id="014-1-users-telegram-chat-ready-at" author="tasker">
+        <addColumn tableName="users">
+            <column name="telegram_chat_ready_at" type="TIMESTAMP"/>
+        </addColumn>
+    </changeSet>
+
+    <!--
+        Existing links are backfilled as reachable. Almost all of them have been receiving weekly
+        planning and reminders fine, and starting them pessimistically would silently stop both until
+        each user happened to message the bot. The few that are really unreachable fail their next
+        push, which clears the stamp and drops their planning cron — one wasted attempt each.
+    -->
+    <changeSet id="014-2-backfill-telegram-chat-ready-at" author="tasker">
+        <update tableName="users">
+            <column name="telegram_chat_ready_at" valueComputed="CURRENT_TIMESTAMP"/>
+            <where>telegram_id IS NOT NULL</where>
+        </update>
+    </changeSet>
+
+</databaseChangeLog>

@@ -38,13 +38,15 @@ function readLinkCode(): string | null {
  *
  * Linking Telegram needs one step the OIDC round-trip cannot do for the user: Telegram refuses to
  * let a bot message anyone who has not written to it first, so a linked-but-never-opened chat is
- * unreachable and the weekly planning conversation silently never arrives. A successful link
- * therefore ends on an explicit "open the chat" panel rather than the silent button-disappears
- * state it used to, and the bot link stays available afterwards for anyone who missed it.
+ * unreachable and the weekly planning conversation silently never arrives. The server tracks
+ * whether the chat has been opened (`telegramChatReady` on `/me`), and until it has, this shows an
+ * "open the chat" panel — after the link redirect and on every later visit. It re-checks when the
+ * tab regains focus, which is when someone comes back from pressing Start in Telegram.
  */
 export function ConnectedAccounts() {
     const { t } = useTranslation();
-    const { setUser } = useAuth();
+    const { state: authState, setUser, refresh: refreshUser } = useAuth();
+    const chatReady = authState.status === 'authenticated' && authState.user.telegramChatReady;
     const [identities, setIdentities] = useState<LinkedIdentity[] | null>(null);
     const [busy, setBusy] = useState(false);
     const [botUsername, setBotUsername] = useState<string | null>(null);
@@ -91,6 +93,15 @@ export function ConnectedAccounts() {
             .catch(e => console.error('Failed to load Telegram bot handle', e));
         return () => { cancelled = true; };
     }, [needsBotHandle]);
+
+    // Linked (or just now linking) but the bot can't write to them yet.
+    const needsChatOpened = (justLinked || hasTelegram) && !chatReady;
+    useEffect(() => {
+        if (!needsChatOpened) return;
+        const recheck = () => { void refreshUser(); };
+        window.addEventListener('focus', recheck);
+        return () => window.removeEventListener('focus', recheck);
+    }, [needsChatOpened, refreshUser]);
 
     const botUrl = botUsername ? `https://t.me/${botUsername}` : null;
     const openChatLabel = botUsername
@@ -152,7 +163,7 @@ export function ConnectedAccounts() {
                 </a>
             )}
 
-            {justLinked && (
+            {needsChatOpened && (
                 <div className="settings-notice" role="status">
                     <p className="settings-notice__text">{t('connectedAccounts.telegramNextStep')}</p>
                     {botUrl && openChatLabel && (
@@ -163,8 +174,8 @@ export function ConnectedAccounts() {
                 </div>
             )}
 
-            {/* Permanent way back to the chat for anyone who navigated past the panel above. */}
-            {!justLinked && hasTelegram && botUrl && openChatLabel && (
+            {/* Once the chat works, a quiet way back to it. */}
+            {!needsChatOpened && hasTelegram && botUrl && openChatLabel && (
                 <p className="settings-hint">
                     <a href={botUrl} target="_blank" rel="noreferrer">{openChatLabel}</a>
                 </p>

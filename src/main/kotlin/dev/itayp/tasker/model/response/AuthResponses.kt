@@ -9,6 +9,11 @@ data class MeResponse(
     val telegramUsername: String?,
     val telegramFirstName: String?,
     val telegramPhotoUrl: String?,
+    /**
+     * Whether the bot can message this user unprompted. False for a linked Telegram account whose
+     * chat was never opened (or was blocked) — the SPA shows an "open the chat to finish" step.
+     */
+    val telegramChatReady: Boolean,
     val email: String?,
     /** False while the account has no login identity yet — the SPA shows a "save your account" nudge. */
     val claimed: Boolean,
@@ -50,6 +55,7 @@ fun UserEntity.toMeResponse(crypto: UserCryptoService, preferredLanguage: String
         telegramUsername = telegramUsername,
         telegramFirstName = crypto.decrypt(ownerId, telegramFirstName),
         telegramPhotoUrl = telegramPhotoUrl,
+        telegramChatReady = telegramId != null && telegramChatReadyAt != null,
         email = crypto.decrypt(ownerId, email),
         claimed = claimed,
         preferredLanguage = preferredLanguage,

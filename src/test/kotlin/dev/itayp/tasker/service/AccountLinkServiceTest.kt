@@ -106,7 +106,9 @@ class AccountLinkServiceTest {
 
     @Test
     fun `unlink telegram clears profile and reschedules when another method remains`() {
-        val user = UserEntity().apply { id = userId; telegramId = 42L; telegramUsername = "bob" }
+        val user = UserEntity().apply {
+            id = userId; telegramId = 42L; telegramUsername = "bob"; telegramChatReadyAt = fixedNow
+        }
         whenever(authIdentityRepository.findAllByUserId(userId))
             .thenReturn(listOf(identity(AuthProvider.TELEGRAM), identity(AuthProvider.EMAIL)))
         whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
@@ -116,6 +118,8 @@ class AccountLinkServiceTest {
 
         assertThat(result).isEqualTo(UnlinkResult.Success)
         assertThat(user.telegramId).isNull()
+        // A re-link (possibly to a different Telegram account) must prove its chat afresh.
+        assertThat(user.telegramChatReadyAt).isNull()
         assertThat(user.telegramUsername).isNull()
         verify(authIdentityRepository).delete(any<AuthIdentityEntity>())
         verify(eventPublisher).publishEvent(UserPlanningScheduleChangedEvent(userId))

@@ -5,6 +5,7 @@ import type { UserSettings, SettingsOptions } from '../types';
 import { AiUsageMeter } from './AiUsageMeter';
 import { ActiveSessions } from './ActiveSessions';
 import { ConnectedAccounts } from './ConnectedAccounts';
+import { useAuth } from '../auth/AuthContext';
 import { ImportResultDialog } from './ImportResultDialog';
 import { categorizeImportError, type ImportResult } from './importResult';
 import { HelpTip } from './HelpTip';
@@ -68,6 +69,9 @@ export function SettingsModal({ settings, open, initialTab, onClose, onSave, onA
   const settingsTabs = SETTINGS_TAB_IDS.map(id => ({ id, label: t(SETTINGS_TAB_LABEL_KEYS[id]) }));
   const daysOfWeek = DAY_VALUES.map(d => ({ value: d.value, cron: d.cron, label: t(d.labelKey) }));
   const [form, setForm] = useState<UserSettings>(settings);
+  const { state: authState } = useAuth();
+  // Weekly planning is pushed over Telegram, which needs a chat the user has opened — not just a link.
+  const telegramChatReady = authState.status === 'authenticated' && authState.user.telegramChatReady;
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab ?? 'general');
   const [lastInitialTab, setLastInitialTab] = useState(initialTab);
   const [wasOpen, setWasOpen] = useState(open);
@@ -521,6 +525,9 @@ export function SettingsModal({ settings, open, initialTab, onClose, onSave, onA
                       onChange={e => setForm(f => ({ ...f, planningCron: composeCron(planningParts.day, e.target.value) }))}
                     />
                   </div>
+                )}
+                {planningEnabled && !telegramChatReady && (
+                  <p className="settings-hint">{t('settingsModal.assistant.weeklyPlanningUnreachable')}</p>
                 )}
               </div>
 

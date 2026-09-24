@@ -103,6 +103,24 @@ class PlanningSessionSchedulerTest {
         verify(taskScheduler, never()).schedule(any(), any<Trigger>())
     }
 
+    /**
+     * How an unreachable chat drops out of the weekly schedule: the reachability flip re-publishes
+     * the schedule-changed event, and re-evaluating must cancel the cron already registered.
+     */
+    @Test
+    fun `scheduleFor cancels a registered cron once the channel stops being deliverable`() {
+        whenever(settingsRepository.findById(userId)).thenReturn(Optional.of(settings("0 30 9 * * MON")))
+        whenever(channelResolver.hasDeliverableChannel(userId)).thenReturn(true, false)
+        val future: ScheduledFuture<Any> = mock()
+        whenever(taskScheduler.schedule(any(), any<Trigger>())).thenReturn(future)
+        scheduler.scheduleFor(userId)
+
+        scheduler.onScheduleChanged(UserPlanningScheduleChangedEvent(userId))
+
+        verify(future).cancel(false)
+        verify(taskScheduler).schedule(any(), any<Trigger>())
+    }
+
     @Test
     fun `scheduleFor with null cron cancels existing future and schedules nothing`() {
         whenever(settingsRepository.findById(userId)).thenReturn(Optional.of(settings(null)))

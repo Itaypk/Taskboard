@@ -24,6 +24,13 @@ interface ConversationChannel {
     fun logToolCall(name: String, arguments: String) = Unit
 }
 
+/**
+ * The channel refused a push because the recipient can't be reached there at all — as opposed to a
+ * transient or content failure. On Telegram: the user never opened the chat with the bot, blocked
+ * it, or deleted their account. Retrying is pointless until the user acts, so callers stop trying.
+ */
+class ChannelUnreachableException(message: String, cause: Throwable) : RuntimeException(message, cause)
+
 data class ChannelCapabilities(
     val supportsAutocompletions: Boolean,
     val supportsInlineButtons: Boolean,

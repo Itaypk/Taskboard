@@ -17,5 +17,6 @@
     <include file="db/changelog/changesets/011-task-hidden-from-assistant.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changesets/012-api-token.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changesets/013-recurring-tasks.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changesets/014-telegram-chat-ready.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>
