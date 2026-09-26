@@ -682,11 +682,11 @@ class QuickAddFlow(
                 is CapturedItem.Event -> {
                     val start = parseDateTime(item.draft.startIso, zone)
                     if (start == null) {
-                        log.warn("quick-add dropping event '{}': unparseable start", item.draft.title)
+                        log.warn("quick-add dropping an event: unparseable start '{}'", item.draft.startIso)
                         return@mapNotNull null
                     }
                     if (start.toInstant().isBefore(nowInstant.minusSeconds(PAST_GRACE_SECONDS))) {
-                        log.warn("quick-add dropping event '{}': start is in the past", item.draft.title)
+                        log.warn("quick-add dropping an event: start {} is in the past", start)
                         return@mapNotNull null
                     }
                     val parsedEnd = item.draft.endIso?.let { parseDateTime(it, zone) }

@@ -610,21 +610,29 @@ class BacklogTaskService(
         })
     }
 
-    /** Computes a sort key that goes after all existing tasks on the board. */
+    /**
+     * Computes a sort key that goes after all existing tasks on the board.
+     *
+     * [SortKeyGenerator.after] grows the key by one character per call, so a board that is only ever
+     * appended to (create, copy, move, recurrence roll-forward) would overflow the 255-char column after
+     * ~250 tasks. Reordering is not the only place that rebalances: an over-long tail key does it here.
+     */
     private fun computeAppendKey(boardId: UUID): String {
-        val maxKey = backlogTaskRepository.findMaxSortKeyByBoardId(boardId)
-        return if (maxKey == null) SortKeyGenerator.INITIAL else SortKeyGenerator.after(maxKey)
+        val maxKey = backlogTaskRepository.findMaxSortKeyByBoardId(boardId) ?: return SortKeyGenerator.INITIAL
+        val tailKey = if (maxKey.length > REBALANCE_KEY_LENGTH_THRESHOLD) rebalanceKeys(boardId) ?: maxKey else maxKey
+        return SortKeyGenerator.after(tailKey)
     }
 
     /**
-     * Reassigns evenly-spaced sort keys to all of the board's tasks.
-     * Called lazily when any key exceeds [REBALANCE_KEY_LENGTH_THRESHOLD].
+     * Reassigns evenly-spaced sort keys to all of the board's tasks and returns the last one (null for
+     * an empty board). Called lazily when any key exceeds [REBALANCE_KEY_LENGTH_THRESHOLD].
      */
-    private fun rebalanceKeys(boardId: UUID) {
+    private fun rebalanceKeys(boardId: UUID): String? {
         val tasks = backlogTaskRepository.findAllByBoardIdOrderBySortKeyAsc(boardId)
         val freshKeys = SortKeyGenerator.spreadKeys(tasks.size)
         tasks.zip(freshKeys).forEach { (task, key) -> task.sortKey = key }
         backlogTaskRepository.saveAll(tasks)
+        return freshKeys.lastOrNull()
     }
 
     private fun resolveOrCreateTags(boardId: UUID, inputs: List<TagInput>): MutableSet<BacklogTaskTagEntity> {
