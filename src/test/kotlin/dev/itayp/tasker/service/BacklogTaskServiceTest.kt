@@ -27,6 +27,7 @@ import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.atLeastOnce
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
@@ -190,6 +191,33 @@ class BacklogTaskServiceTest {
         val captor = argumentCaptor<BacklogTaskEntity>()
         verify(backlogTaskRepository).save(captor.capture())
         assertTrue(captor.firstValue.sortKey!! > "M", "new sort key should be after 'M'")
+    }
+
+    @Test
+    fun `createTask keeps sort keys short when a board is only ever appended to`() {
+        // Production regression: a script created ~500 tasks through the external API and every create
+        // after the ~250th failed with "value too long for type character varying(255)" on sort_key,
+        // because appending grew the key by one character and only reordering ever rebalanced.
+        val catId = UUID.randomUUID()
+        whenever(categoryRepository.findByIdAndBoardId(catId, boardId)).thenReturn(categoryEntity(id = catId))
+        whenever(tagRepository.findAllByBoardId(boardId)).thenReturn(emptyList())
+        val board = mutableListOf<BacklogTaskEntity>()
+        whenever(backlogTaskRepository.findMaxSortKeyByBoardId(boardId)).thenAnswer { board.maxOfOrNull { it.sortKey!! } }
+        whenever(backlogTaskRepository.findAllByBoardIdOrderBySortKeyAsc(boardId)).thenAnswer { board.sortedBy { it.sortKey } }
+        whenever(backlogTaskRepository.save(any<BacklogTaskEntity>())).thenAnswer { inv ->
+            (inv.arguments[0] as BacklogTaskEntity).also {
+                it.id = UUID.randomUUID()
+                board += it
+            }
+        }
+
+        repeat(300) { i ->
+            service.createTask(userId, boardId, CreateBacklogTaskRequest(title = "Task $i", categoryId = catId.toString()))
+        }
+
+        assertTrue(board.all { it.sortKey!!.length <= 51 }, "longest key: ${board.maxOf { it.sortKey!!.length }}")
+        assertEquals(board.map { it.title!!.decodeToString() }, board.sortedBy { it.sortKey }.map { it.title!!.decodeToString() })
+        verify(backlogTaskRepository, atLeastOnce()).saveAll(any<List<BacklogTaskEntity>>())
     }
 
     @Test
