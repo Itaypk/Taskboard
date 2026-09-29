@@ -16,7 +16,7 @@ interface UserRepository : JpaRepository<UserEntity, UUID> {
 
     fun findByEmailHash(emailHash: String): UserEntity?
 
-    fun findByEmailVerificationToken(token: String): UserEntity?
+    fun findByEmailVerificationTokenHash(tokenHash: String): UserEntity?
 
     /**
      * Unclaimed accounts eligible for automatic reclamation. `claimed = false` is the hard guard;

@@ -100,8 +100,8 @@ rule doesn't hide them).
   that one chain only).
 - **Token minting stays on the session chain** (`/api/v1/api-tokens`, `ApiTokenController`) so a
   token can never mint a successor or widen its own scope. Only the SHA-256 hex digest is stored;
-  the plaintext is shown once. Generate secrets with `SecureRandom` — **not** the
-  `UUID.randomUUID()` construction used by `EmailLoginService`/`EmailVerificationService`.
+  the plaintext is shown once. Generate and hash every capability secret (magic
+  links, invitations, email verification, API tokens) with `CapabilityTokens`; never store the plaintext.
 - **New endpoints go in `dev.itayp.tasker.external` as thin adapters** — DTO shaping and argument
   validation only, delegating to the existing services. Never reimplement access checks there.
   Errors are RFC 7807 with a `detail` written for a model to read (name the allowed values), so

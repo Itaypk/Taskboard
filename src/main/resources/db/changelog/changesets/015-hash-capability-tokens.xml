@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Store the SHA-256 hex digest of the emailed capability tokens instead of the tokens themselves,
+        so a database dump or read replica can no longer be used to mint a login, accept a board
+        invitation or verify an email. The columns (VARCHAR(64) / 64-char primary key) already fit a
+        SHA-256 hex digest, so the change is data-only: pending rows are hashed in place, which keeps
+        links that are already in inboxes valid. The application hashes the presented token before
+        every lookup (CapabilityTokens.hash).
+
+        Nulls stay null: hashing NULL yields NULL on both engines. The H2 branch only ever sees empty
+        tables (dev/test) but must still parse.
+    -->
+    <changeSet id="015-1-hash-capability-tokens-postgresql" author="tasker" dbms="postgresql">
+        <sql>
+            UPDATE email_login_token SET token = encode(sha256(convert_to(token, 'UTF8')), 'hex');
+            UPDATE board_invitation SET token = encode(sha256(convert_to(token, 'UTF8')), 'hex');
+            UPDATE users SET email_verification_token = encode(sha256(convert_to(email_verification_token, 'UTF8')), 'hex')
+                WHERE email_verification_token IS NOT NULL;
+        </sql>
+    </changeSet>
+
+    <changeSet id="015-2-hash-capability-tokens-h2" author="tasker" dbms="h2">
+        <sql>
+            UPDATE email_login_token SET token = LOWER(RAWTOHEX(HASH('SHA-256', STRINGTOUTF8(token))));
+            UPDATE board_invitation SET token = LOWER(RAWTOHEX(HASH('SHA-256', STRINGTOUTF8(token))));
+            UPDATE users SET email_verification_token = LOWER(RAWTOHEX(HASH('SHA-256', STRINGTOUTF8(email_verification_token))))
+                WHERE email_verification_token IS NOT NULL;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

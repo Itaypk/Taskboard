@@ -3,12 +3,12 @@ package dev.itayp.tasker.service
 import dev.itayp.tasker.jpa.ApiTokenEntity
 import dev.itayp.tasker.jpa.ApiTokenScope
 import dev.itayp.tasker.repository.ApiTokenRepository
+import dev.itayp.tasker.util.CapabilityTokens
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.ResponseStatus
-import java.security.MessageDigest
 import java.security.SecureRandom
 import java.time.Clock
 import java.time.Instant
@@ -36,12 +36,11 @@ class ApiTokenLimitExceededException(message: String) : RuntimeException(message
  * Mints, resolves and revokes the long-lived API tokens behind `/api/external/v1`.
  *
  * Security model:
- * - The secret is 32 bytes from [SecureRandom], URL-safe base64, prefixed `blf_`. (Deliberately
- *   *not* the `UUID.randomUUID()` construction used by [EmailLoginService] and
- *   [EmailVerificationService] — those predate this and are tracked for follow-up.)
- * - Only the SHA-256 hex digest is stored. Unsalted is the right call: the input is 256 bits of
- *   uniform entropy, so there is no dictionary to run, and a fast digest is what allows an
- *   indexed single-row lookup on the hot authentication path.
+ * - The secret is 32 bytes from [SecureRandom], URL-safe base64, prefixed `blf_`.
+ * - Only the SHA-256 hex digest is stored ([CapabilityTokens.hash], shared with the email-link
+ *   tokens). Unsalted is the right call: the input is 256 bits of uniform entropy, so there is no
+ *   dictionary to run, and a fast digest is what allows an indexed single-row lookup on the hot
+ *   authentication path.
  * - The plaintext is never logged. Log lines carry the token id only.
  */
 @Service
@@ -75,7 +74,7 @@ class ApiTokenService(
             this.id = UUID.randomUUID()
             this.userId = userId
             this.name = name.trim()
-            this.tokenHash = hash(plaintext)
+            this.tokenHash = CapabilityTokens.hash(plaintext)
             this.prefix = plaintext.take(PREFIX_LENGTH)
             this.scope = scope
             this.createdAt = clock.instant()
@@ -93,7 +92,7 @@ class ApiTokenService(
     @Transactional
     fun resolve(rawToken: String): AuthenticatedApiToken? {
         if (rawToken.isBlank()) return null
-        val entity = apiTokenRepository.findByTokenHash(hash(rawToken)) ?: return null
+        val entity = apiTokenRepository.findByTokenHash(CapabilityTokens.hash(rawToken)) ?: return null
         val tokenId = entity.id ?: return null
         val userId = entity.userId ?: return null
 
@@ -141,11 +140,6 @@ class ApiTokenService(
         val bytes = ByteArray(TOKEN_BYTES)
         random.nextBytes(bytes)
         return TOKEN_PREFIX + urlEncoder.encodeToString(bytes)
-    }
-
-    private fun hash(rawToken: String): String {
-        val digest = MessageDigest.getInstance("SHA-256").digest(rawToken.toByteArray(Charsets.UTF_8))
-        return digest.joinToString("") { "%02x".format(it) }
     }
 
     companion object {

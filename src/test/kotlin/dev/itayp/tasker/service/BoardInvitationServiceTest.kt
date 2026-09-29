@@ -16,6 +16,7 @@ import dev.itayp.tasker.repository.BoardMembershipRepository
 import dev.itayp.tasker.repository.BoardRepository
 import dev.itayp.tasker.repository.UserRepository
 import dev.itayp.tasker.repository.UserSettingsRepository
+import dev.itayp.tasker.util.CapabilityTokens
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
@@ -186,7 +187,7 @@ class BoardInvitationServiceTest {
     fun `accept consumes the token and creates a MEMBER membership`() {
         val acceptor = UUID.randomUUID()
         val invitation = pendingInvitation()
-        whenever(invitationRepository.findByToken("tok")).thenReturn(invitation)
+        whenever(invitationRepository.findByTokenHash(CapabilityTokens.hash("tok"))).thenReturn(invitation)
         whenever(boardRepository.findById(boardId)).thenReturn(Optional.of(BoardEntity().apply { id = boardId; createdAt = now }))
         whenever(boardMembershipRepository.findByUserIdAndBoardId(acceptor, boardId)).thenReturn(null)
         whenever(boardMembershipRepository.findAllByBoardId(boardId)).thenReturn(emptyList())
@@ -207,7 +208,7 @@ class BoardInvitationServiceTest {
     fun `accept is a no-op for an existing member but still consumes the token`() {
         val acceptor = UUID.randomUUID()
         val invitation = pendingInvitation()
-        whenever(invitationRepository.findByToken("tok")).thenReturn(invitation)
+        whenever(invitationRepository.findByTokenHash(CapabilityTokens.hash("tok"))).thenReturn(invitation)
         whenever(boardRepository.findById(boardId)).thenReturn(Optional.of(BoardEntity().apply { id = boardId; createdAt = now }))
         whenever(boardMembershipRepository.findByUserIdAndBoardId(acceptor, boardId))
             .thenReturn(BoardMembershipEntity().apply { userId = acceptor; role = BoardRole.MEMBER })
@@ -221,7 +222,7 @@ class BoardInvitationServiceTest {
     @Test
     fun `accept rejects a consumed token`() {
         val invitation = pendingInvitation().apply { consumedAt = now.minusSeconds(10) }
-        whenever(invitationRepository.findByToken("tok")).thenReturn(invitation)
+        whenever(invitationRepository.findByTokenHash(CapabilityTokens.hash("tok"))).thenReturn(invitation)
 
         assertThrows<InvitationNotFoundException> { service.accept("tok", UUID.randomUUID()) }
     }
@@ -229,14 +230,14 @@ class BoardInvitationServiceTest {
     @Test
     fun `accept rejects an expired token`() {
         val invitation = pendingInvitation().apply { expiresAt = now.minusSeconds(1) }
-        whenever(invitationRepository.findByToken("tok")).thenReturn(invitation)
+        whenever(invitationRepository.findByTokenHash(CapabilityTokens.hash("tok"))).thenReturn(invitation)
 
         assertThrows<InvitationNotFoundException> { service.accept("tok", UUID.randomUUID()) }
     }
 
     @Test
     fun `accept rejects an unknown token`() {
-        whenever(invitationRepository.findByToken("nope")).thenReturn(null)
+        whenever(invitationRepository.findByTokenHash(CapabilityTokens.hash("nope"))).thenReturn(null)
 
         assertThrows<InvitationNotFoundException> { service.accept("nope", UUID.randomUUID()) }
     }
@@ -246,7 +247,7 @@ class BoardInvitationServiceTest {
     @Test
     fun `preview returns board and inviter for a valid token`() {
         val invitation = pendingInvitation()
-        whenever(invitationRepository.findByToken("tok")).thenReturn(invitation)
+        whenever(invitationRepository.findByTokenHash(CapabilityTokens.hash("tok"))).thenReturn(invitation)
         whenever(boardRepository.findById(boardId)).thenReturn(Optional.of(BoardEntity().apply { id = boardId; name = "Home".toByteArray(); createdAt = now }))
         whenever(displayNameResolver.resolve(listOf(owner))).thenReturn(mapOf(owner to "Alice"))
 
@@ -271,7 +272,7 @@ class BoardInvitationServiceTest {
         id = UUID.randomUUID()
         boardId = this@BoardInvitationServiceTest.boardId
         emailHash = EmailHasher.hash(email)
-        token = "tok"
+        tokenHash = CapabilityTokens.hash("tok")
         invitedByUserId = owner
         createdAt = now.minusSeconds(100)
         expiresAt = now.plus(java.time.Duration.ofDays(7))

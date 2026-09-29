@@ -9,6 +9,7 @@ import dev.itayp.tasker.crypto.newTestUserCryptoService
 import dev.itayp.tasker.jpa.EmailLoginTokenEntity
 import dev.itayp.tasker.jpa.UserEntity
 import dev.itayp.tasker.repository.EmailLoginTokenRepository
+import dev.itayp.tasker.util.CapabilityTokens
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -61,6 +62,10 @@ class EmailLoginServiceTest {
 
         val loginUrl = templateVars.firstValue["login_url"] as String
         assertThat(loginUrl).startsWith("https://backlog.fyi/email-login?token=")
+        // Only the digest is persisted; the plaintext exists solely in the emailed link.
+        val emailedToken = loginUrl.substringAfter("token=")
+        assertThat(saved.tokenHash).isEqualTo(CapabilityTokens.hash(emailedToken))
+        assertThat(saved.tokenHash).isNotEqualTo(emailedToken)
         assertThat(loginUrl).doesNotContain("/api/auth/email/callback")
 
         val msgCaptor = argumentCaptor<EmailMessage>()
@@ -130,7 +135,7 @@ class EmailLoginServiceTest {
         consumed: Instant? = null,
         expiresAt: Instant = fixedNow.plusSeconds(600),
     ) = EmailLoginTokenEntity().apply {
-        token = "tok"
+        tokenHash = CapabilityTokens.hash("tok")
         emailHash = EmailHasher.hash(email)
         emailEnc = crypto.encryptSystem(email)
         createdAt = fixedNow
@@ -140,26 +145,26 @@ class EmailLoginServiceTest {
 
     @Test
     fun `precheckToken returns true for a valid unconsumed token`() {
-        whenever(tokenRepository.findById("tok")).thenReturn(Optional.of(tokenRow("user@example.com")))
+        whenever(tokenRepository.findById(CapabilityTokens.hash("tok"))).thenReturn(Optional.of(tokenRow("user@example.com")))
         assertThat(service.precheckToken("tok")).isTrue()
     }
 
     @Test
     fun `precheckToken returns false for an unknown token`() {
-        whenever(tokenRepository.findById("nope")).thenReturn(Optional.empty())
+        whenever(tokenRepository.findById(CapabilityTokens.hash("nope"))).thenReturn(Optional.empty())
         assertThat(service.precheckToken("nope")).isFalse()
     }
 
     @Test
     fun `precheckToken returns false for a consumed token`() {
-        whenever(tokenRepository.findById("tok"))
+        whenever(tokenRepository.findById(CapabilityTokens.hash("tok")))
             .thenReturn(Optional.of(tokenRow("user@example.com", consumed = fixedNow.minusSeconds(1))))
         assertThat(service.precheckToken("tok")).isFalse()
     }
 
     @Test
     fun `precheckToken returns false for an expired token`() {
-        whenever(tokenRepository.findById("tok"))
+        whenever(tokenRepository.findById(CapabilityTokens.hash("tok")))
             .thenReturn(Optional.of(tokenRow("user@example.com", expiresAt = fixedNow.minusSeconds(1))))
         assertThat(service.precheckToken("tok")).isFalse()
     }
@@ -167,7 +172,7 @@ class EmailLoginServiceTest {
     @Test
     fun `completeLogin consumes the token and returns the resolved user`() {
         val user = UserEntity().apply { id = UUID.randomUUID() }
-        whenever(tokenRepository.findById("tok")).thenReturn(Optional.of(tokenRow("user@example.com")))
+        whenever(tokenRepository.findById(CapabilityTokens.hash("tok"))).thenReturn(Optional.of(tokenRow("user@example.com")))
         whenever(userAuthService.loginByEmail("user@example.com")).thenReturn(EmailLoginOutcome.Success(user))
 
         val result = service.completeLogin("tok")
@@ -181,13 +186,13 @@ class EmailLoginServiceTest {
 
     @Test
     fun `completeLogin rejects an unknown token`() {
-        whenever(tokenRepository.findById("nope")).thenReturn(Optional.empty())
+        whenever(tokenRepository.findById(CapabilityTokens.hash("nope"))).thenReturn(Optional.empty())
         assertThat(service.completeLogin("nope")).isEqualTo(EmailLoginResult.Invalid)
     }
 
     @Test
     fun `completeLogin rejects a replayed token without resolving an account`() {
-        whenever(tokenRepository.findById("tok"))
+        whenever(tokenRepository.findById(CapabilityTokens.hash("tok")))
             .thenReturn(Optional.of(tokenRow("user@example.com", consumed = fixedNow.minusSeconds(60))))
 
         assertThat(service.completeLogin("tok")).isEqualTo(EmailLoginResult.Invalid)
@@ -196,7 +201,7 @@ class EmailLoginServiceTest {
 
     @Test
     fun `completeLogin rejects an expired token`() {
-        whenever(tokenRepository.findById("tok"))
+        whenever(tokenRepository.findById(CapabilityTokens.hash("tok")))
             .thenReturn(Optional.of(tokenRow("user@example.com", expiresAt = fixedNow.minusSeconds(1))))
 
         assertThat(service.completeLogin("tok")).isEqualTo(EmailLoginResult.Invalid)
@@ -204,7 +209,7 @@ class EmailLoginServiceTest {
 
     @Test
     fun `completeLogin surfaces an unverified conflict`() {
-        whenever(tokenRepository.findById("tok")).thenReturn(Optional.of(tokenRow("user@example.com")))
+        whenever(tokenRepository.findById(CapabilityTokens.hash("tok"))).thenReturn(Optional.of(tokenRow("user@example.com")))
         whenever(userAuthService.loginByEmail("user@example.com")).thenReturn(EmailLoginOutcome.UnverifiedConflict)
 
         assertThat(service.completeLogin("tok")).isEqualTo(EmailLoginResult.UnverifiedConflict)

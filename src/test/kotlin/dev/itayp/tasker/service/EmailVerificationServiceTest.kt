@@ -10,6 +10,7 @@ import dev.itayp.tasker.jpa.UserEntity
 import dev.itayp.tasker.ratelimit.InMemoryRateLimiter
 import dev.itayp.tasker.repository.AuthIdentityRepository
 import dev.itayp.tasker.repository.UserRepository
+import dev.itayp.tasker.util.CapabilityTokens
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.kotlin.any
@@ -84,11 +85,11 @@ class EmailVerificationServiceTest {
         val userId = UUID.randomUUID()
         val user = UserEntity().apply {
             id = userId
-            emailVerificationToken = "tok"
+            emailVerificationTokenHash = CapabilityTokens.hash("tok")
             emailVerificationTokenExpiresAt = clock.instant().plusSeconds(60)
             emailHash = "hash"
         }
-        whenever(userRepository.findByEmailVerificationToken("tok")).thenReturn(user)
+        whenever(userRepository.findByEmailVerificationTokenHash(CapabilityTokens.hash("tok"))).thenReturn(user)
         whenever(authIdentityRepository.findByProviderAndProviderUserId(AuthProvider.EMAIL, "hash")).thenReturn(null)
 
         val result = service.confirmVerification("tok")
@@ -103,10 +104,10 @@ class EmailVerificationServiceTest {
         val userId = UUID.randomUUID()
         val user = UserEntity().apply {
             id = userId
-            emailVerificationToken = "tok"
+            emailVerificationTokenHash = CapabilityTokens.hash("tok")
             emailVerificationTokenExpiresAt = clock.instant().minusSeconds(60)
         }
-        whenever(userRepository.findByEmailVerificationToken("tok")).thenReturn(user)
+        whenever(userRepository.findByEmailVerificationTokenHash(CapabilityTokens.hash("tok"))).thenReturn(user)
 
         val result = service.confirmVerification("tok")
 
