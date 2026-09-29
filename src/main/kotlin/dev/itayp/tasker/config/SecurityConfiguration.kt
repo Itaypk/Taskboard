@@ -166,6 +166,8 @@ class SecurityConfiguration(
                 // authorization, so it's reachable unauthenticated. Accept (POST .../accept) is not
                 // matched here and falls through to authenticated.
                 authorize(HttpMethod.GET, "/api/v1/invitations/*", permitAll)
+                // Running commit, probed by the deploy right after a restart (see VersionController).
+                authorize(HttpMethod.GET, "/api/version", permitAll)
                 authorize("/api/**", authenticated)
                 authorize("/actuator/health", permitAll)
                 authorize("/actuator/health/**", permitAll)

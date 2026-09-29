@@ -19,7 +19,7 @@ A few things to consider while working on the project:
 - The number of active users is still very low, and they are all aware of the beta status. When absolutely necessary, breaking changes are not out of the question.
 - On production, the app runs as a single instance on an Ubuntu VPS. Short downtime is acceptable.
 - **The backlog lives in GitHub issues**, not in a markdown file. Labels: a type (`enhancement`, `tech-debt`, `security`, `epic`), one or more `area/*`, and `needs-discussion` for ideas that need a design conversation before anyone builds them. When a doc says something is deferred, link an issue rather than starting a new ideas/TODO file (`docs/IDEAS.md` was retired on purpose). Don't file security weaknesses as public issues.
-- Deployment: **a push to `main` deploys.** The `deploy` job in `.github/workflows/gradle.yml` hands the built JAR to a reusable workflow in the separate ops repo (`Itaypk/itayp-dev`, Ansible), which is also where Nginx is configured. Don't merge or push to `main` unless asked to, and never deploy by other means.
+- Deployment: **a push to `main` publishes a release; it does not deploy.** The `release` job in `.github/workflows/gradle.yml` publishes the built JAR as a GitHub Release (tag `build-<run number>`). Production is deployed from the separate ops repo (`Itaypk/itayp-dev`, Ansible), which is also where Nginx is configured, by manually running its "Deploy release" workflow, which pulls that JAR. Don't merge or push to `main` unless asked to, and never deploy by other means.
 - When something stands out, consider the product perspective: flag cases where added complexity may not be justified or where user value is unclear—suggesting alternatives where it makes sense.
 
 ## Repo layout
@@ -30,7 +30,7 @@ A few things to consider while working on the project:
 - `docs/SPEC.md` — product spec (source of truth for intent).
 - `docs/MULTIMODAL-CAPTURE.md` — how Telegram quick-add captures from photos and voice notes.
 - `tools/` — ad-hoc asset-prep scripts (background removal, bottom-gap leveling, WebP conversion). See `tools/README.md` for the "add a new board mascot" workflow.
-- `.github/workflows/gradle.yml` — PR verification (on PRs to `main`) and deploy (on push to `main`, via the `deploy` job): a `frontend` job (`npm ci` + `lint` + `test` + `build` in `tasker-frontend/`), the backend `build` job (`./gradlew build` — compiles, runs backend tests, bundles the frontend), and a `dependency-submission` job for Dependabot. Keep both the frontend job and the backend job green — neither subsumes the other (Gradle's `buildFrontend` task runs `npm run build` as a side effect, but never `lint` or `test`).
+- `.github/workflows/gradle.yml` — PR verification (on PRs to `main`) and release (on push to `main`, via the `release` job): a `frontend` job (`npm ci` + `lint` + `test` + `build` in `tasker-frontend/`), the backend `build` job (`./gradlew build` — compiles, runs backend tests, bundles the frontend), and a `dependency-submission` job for Dependabot. Keep both the frontend job and the backend job green — neither subsumes the other (Gradle's `buildFrontend` task runs `npm run build` as a side effect, but never `lint` or `test`).
 
 ## Web environment note
 

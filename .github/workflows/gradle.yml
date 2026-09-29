@@ -147,8 +147,8 @@ jobs:
           build/reports/kover/html
         retention-days: 3
 
-    # Only needed to ship the release; skipped entirely on PR builds.
-    - name: Upload JAR for deploy
+    # Only needed to publish the release; skipped entirely on PR builds.
+    - name: Upload JAR for release
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       uses: actions/upload-artifact@v7
       with:
@@ -156,18 +156,45 @@ jobs:
         path: build/libs/Taskboard-*-SNAPSHOT.jar
         retention-days: 1
 
-  deploy:
-
-    name: Deploy tasks
+  # Publishes the verified JAR as a GitHub Release. This repo does not deploy: a public repo can't
+  # call the reusable deploy workflow in the private ops repo (Itaypk/itayp-dev), so production is
+  # deployed from there by hand ("Deploy release" workflow), which pulls this release's JAR. That
+  # also keeps the deploy SSH key out of this repo entirely.
+  release:
+    name: Publish release
     needs: [ frontend, build ]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    uses: Itaypk/itayp-dev/.github/workflows/deploy-service.yml@main
-    with:
-      service: tasks
-      artifact: jar
-      jar-glob: 'Taskboard-*-SNAPSHOT.jar'
-    secrets:
-      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+
+    steps:
+    - uses: actions/download-artifact@v7
+      with:
+        name: jar
+        path: jar
+
+    # The ops repo's deploy refuses anything but exactly one matching asset (a Spring build's
+    # -plain.jar has no Main-Class), so refuse to publish an ambiguous release in the first place.
+    - name: Create release
+      env:
+        GH_TOKEN: ${{ github.token }}
+        TAG: build-${{ github.run_number }}
+      run: |
+        set -euo pipefail
+        shopt -s nullglob
+        jars=(jar/Taskboard-*-SNAPSHOT.jar)
+        if [ "${#jars[@]}" -ne 1 ]; then
+          echo "::error::expected exactly 1 JAR, got ${#jars[@]}: ${jars[*]:-<none>}"
+          exit 1
+        fi
+        gh release create "$TAG" "${jars[0]}" \
+          --repo "$GITHUB_REPOSITORY" \
+          --target "$GITHUB_SHA" \
+          --title "$TAG (${GITHUB_SHA::7})" \
+          --generate-notes
 
   dependency-submission:
     needs: changes

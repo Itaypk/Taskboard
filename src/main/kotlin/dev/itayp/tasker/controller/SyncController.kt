@@ -1,12 +1,11 @@
 package dev.itayp.tasker.controller
 
+import dev.itayp.tasker.config.AppVersion
 import dev.itayp.tasker.model.response.SyncResponse
 import dev.itayp.tasker.planning.BacklogTaskChangeService
 import dev.itayp.tasker.planning.PlanWatermarkService
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.BoardMembershipService
-import org.springframework.beans.factory.ObjectProvider
-import org.springframework.boot.info.BuildProperties
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.GetMapping
@@ -31,14 +30,8 @@ class SyncController(
     private val planWatermarkService: PlanWatermarkService,
     private val boardMembershipService: BoardMembershipService,
     private val clock: Clock,
-    buildProperties: ObjectProvider<BuildProperties>,
+    private val appVersion: AppVersion,
 ) {
-
-    // Resolved once: the git commit baked in by `buildInfo()`, falling back to build time, then "dev"
-    // (dev/test runs without a generated build-info.properties).
-    private val appVersion: String = buildProperties.getIfAvailable()
-        ?.let { it.get("commit") ?: it.time?.toString() }
-        ?: "dev"
 
     @GetMapping
     fun sync(
@@ -54,7 +47,7 @@ class SyncController(
                 tagsChangedAt = watermark?.tagsChangedAt?.toString(),
                 categoriesChangedAt = watermark?.categoriesChangedAt?.toString(),
                 planChangedAt = planWatermarkService.read(principal.userId)?.toString(),
-                appVersion = appVersion,
+                appVersion = appVersion.commit,
             )
         )
     }
