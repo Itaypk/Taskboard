@@ -2,8 +2,8 @@
 
 How task ownership, multi-board, and sharing work today. This is current-state documentation, not
 a plan — for the design rationale and phased rollout that produced this model, see
-`docs/archive/BOARD-SHARING.md` and its Phase 0/1/2 companions. Open follow-ups are tracked in
-`docs/IDEAS.md`.
+`docs/archive/BOARD-SHARING.md` and its Phase 0/1/2 companions. Open follow-ups are tracked as GitHub
+issues.
 
 ## The core idea
 
@@ -130,10 +130,10 @@ lists members and, for owners, exposes invite/remove/role-change; an `/invite?to
 renders the accept screen for both signed-in and signed-out visitors. An assignee chip/claim
 action appears on task cards only when a board has more than one member.
 
-## Known gaps (tracked in `docs/IDEAS.md`)
+## Known gaps (tracked as GitHub issues)
 
 - No per-board planner fairness caps — a busy board could in principle crowd out a quiet one in
-  the candidate pool.
+  the candidate pool (#234).
 - Shared-board export/import doesn't reconstruct membership: export emits every board you belong
   to with your role, import always recreates you as sole `OWNER` of each.
-- No viewer/commenter role tier, no per-task permissions beyond the assignee primitive.
+- No viewer/commenter role tier, no per-task permissions beyond the assignee primitive (#266).

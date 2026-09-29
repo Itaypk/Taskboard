@@ -1,7 +1,7 @@
 # Launch plan: from one user to the first hundred
 
-Status: proposal, 2026-09. Companion to `docs/SPEC.md` (what the product is) and `docs/IDEAS.md`
-(what's deferred). This file is about distribution, not features.
+Status: proposal, 2026-09. Companion to `docs/SPEC.md` (what the product is) and the GitHub issue
+tracker (what's deferred). This file is about distribution, not features.
 
 ## The honest starting point
 
@@ -62,8 +62,8 @@ misdiagnosed. Corrections are inline.
       (1200×630).~~ **Mostly already done** — `og-image.png` ships at exactly 1200×630, and the
       OG/Twitter/JSON-LD/canonical tags are all present. What remains is narrower than this item
       implied: the hidden `#prerendered-landing` crawler fallback still pitches the old
-      Telegram-only flow, and its `<nav>` omits `/about` and `/faq`. That's copy, and `IDEAS.md`
-      already says the verbiage needs a human pass.
+      Telegram-only flow, and its `<nav>` omits `/about` and `/faq`. That's copy, tracked in issue #256
+      (blocked on the tagline rework, #245), and the verbiage needs a human pass.
 - [x] **Make the demo/sandbox the default call-to-action** on the landing page. Nobody signs
       in to a product they haven't seen. **Done** — the sandbox is now the filled primary button
       and "or sign in" the secondary link. Rationale: an unclaimed account becomes a full one just
@@ -101,13 +101,13 @@ misdiagnosed. Corrections are inline.
       leaks worst; and `UnclaimedAccountCleanupService` deletes never-engaged unclaimed accounts
       after 2 days, well before a day-7 mail. At 10–20 warm users a personal note beats a template
       in four locales.
-- [ ] **Decide on the license** (`IDEAS.md` mentions AGPL; there is no `LICENSE` file). This is
-      a launch decision, not a legal footnote: "open source, self-hostable, AGPL" is a
-      *channel* — it unlocks r/selfhosted, Show HN framing, and the awesome-list ecosystem —
-      and it matches the "no investors, your data is yours" story. Cost: some support burden
-      from self-hosters, and you need a `README` that honestly says self-hosting requires a
-      Telegram bot, an OpenRouter key and two SMTP accounts. If you'd rather not, launch as
-      "free, source-available later" and revisit. Don't launch with the question open.
+- [x] **Decide on the license.** Decided: AGPL-3.0-only (see `LICENSE`), no external
+      contributions (see `CONTRIBUTING.md`). This is a launch decision, not a legal footnote:
+      "open source, self-hostable, AGPL" is a *channel* — it unlocks r/selfhosted, Show HN
+      framing, and the awesome-list ecosystem — and it matches the "no investors, your data is
+      yours" story. Cost: some support burden from self-hosters, and a `README` that honestly
+      says self-hosting requires a Telegram bot, an OpenRouter key and two SMTP accounts
+      (self-hosting ergonomics: issue #271).
 
 Explicitly **not** blockers, however tempting: Google login and Google Calendar sync. They're
 the most-requested features you'll hear about in phase 1, and that's fine — "coming, here's how

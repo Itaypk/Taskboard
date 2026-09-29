@@ -4,7 +4,7 @@ Status: implementation plan — no code yet.
 
 ## Why this improvement (and why first)
 
-Of the three assistant ideas in [`IDEAS.md`](../IDEAS.md) — quick add, out-of-the-blue
+Of the three assistant ideas in the former `IDEAS.md` (since moved to GitHub issues) — quick add, out-of-the-blue
 responses, and the proactive task helper — quick add gives the most end-user value:
 
 - **It closes the capture gap in the core loop.** `SPEC.md` step 1 is *Capture*, but today

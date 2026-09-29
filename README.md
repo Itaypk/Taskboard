@@ -1,6 +1,8 @@
-# Tasker
+# Backlog.fyi
 
-An AI-powered weekly planner. Pin tasks to a backlog board; each week, a Telegram conversation walks you through which tasks to schedule, reads your Google Calendar, and writes the ones you pick back as time blocks.
+An AI-powered weekly planner. Pin tasks to a backlog board; each week, a planning conversation (Telegram or web) walks you through which tasks to schedule, and turns the ones you agree to into calendar time blocks, delivered as emailed calendar invitations.
+
+Hosted at [backlog.fyi](https://backlog.fyi). The source is open (AGPL-3.0-only) so you can read it, audit how it handles your data, and run it yourself. See [License](#license) and [Contributing](#contributing).
 
 Product spec: [`docs/SPEC.md`](docs/SPEC.md).
 
@@ -18,7 +20,7 @@ Incomplete, but functional:
 
 ## Stack
 
-- **Backend**: Kotlin 2.3 + Spring Boot 4.0 on JVM 25, Spring Data JPA, Spring Security 7, Liquibase.
+- **Backend**: Kotlin 2.3 + Spring Boot 4.1 on JVM 25, Spring Data JPA, Spring Security 7, Liquibase.
 - **Database**: Postgres in dev/prod, H2 for tests and in-memory dev.
 - **Frontend**: React 19 + TypeScript + Vite 8, bundled into the backend at build time and served same-origin.
 - **Auth**: multiple providers resolved through an `auth_identities` table (Telegram HMAC, email magic-link, demo, dev) → `HttpSession` cookie (`SameSite=Lax`, `HttpOnly`, `Secure` in prod). `TaskerPrincipal` carries only `userId`, so the session layer is provider-agnostic. Prometheus scraper uses HTTP Basic Auth on a separate stateless filter chain. See [`docs/archive/AUTH-DECOUPLING.md`](docs/archive/AUTH-DECOUPLING.md).
@@ -195,3 +197,17 @@ Every pull request to `main` runs [`.github/workflows/gradle.yml`](.github/workf
 - `frontend` job — `npm ci`, `npm run lint`, `npm run test`, `npm run build`, all in `tasker-frontend/`.
 - `build` job — `./gradlew build` (compiles, runs backend tests, bundles the frontend into the JAR).
 - `dependency-submission` job — submits the Gradle dependency graph for Dependabot alerts.
+
+## Self-hosting
+
+Possible, but not turnkey yet: you need Postgres, a Telegram bot (optional for web-only use), an OpenRouter key for the AI features, and SMTP accounts for email. See "Production deployment" above and [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md). Easier self-hosting (a Docker Compose setup, a self-hosting guide) is tracked in [issue #271](https://github.com/Itaypk/Taskboard/issues/271).
+
+## License
+
+Copyright (C) 2026 Itay Polack-Gadassi.
+
+Licensed under the [GNU Affero General Public License v3.0 only](LICENSE) (`AGPL-3.0-only`). If you run a modified version as a network service, the AGPL requires you to offer its users the corresponding source.
+
+## Contributing
+
+This is a solo project and pull requests are not accepted. Bug reports are welcome; see [`CONTRIBUTING.md`](CONTRIBUTING.md) for details.

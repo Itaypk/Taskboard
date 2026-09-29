@@ -5,8 +5,8 @@ web UI quick-add, and an inbound email address users can send/forward mail to.
 
 Status: **exploration only** — feasibility, effort, and design tradeoffs, not a build plan.
 No implementation should start from this document without a separate follow-up decision.
-Supersedes the one-line idea at `docs/IDEAS.md` ("Incoming email address, as an additional way
-to quick-add tasks.").
+Supersedes the earlier one-line idea ("Incoming email address, as an additional way to quick-add
+tasks"), now tracked as issue #267.
 
 ## Why this is easier than it looks
 
@@ -92,7 +92,7 @@ mail-receiving webhook, no reply-to-invite handling (calendar invites are one-wa
 vendor or Protonmail Bridge).** Run Postfix on the VPS for a dedicated subdomain (e.g.
 `add.backlog.fyi`), with no mailboxes and no SMTP-auth outbound — it only accepts inbound SMTP
 for that subdomain and hands each message to the app (HTTP callback or LMTP). This avoids a
-new vendor dependency and fits the existing Ansible + Nginx ops repo (`../itayp_dev`) rather
+new vendor dependency and fits the existing Ansible + Nginx ops repo (the separate Ansible repo) rather
 than introducing a Mailgun/Postmark-style account. The tradeoff, now owned by us instead of a
 vendor: SPF/DKIM verification and spam filtering (rspamd/opendkim, or an equivalent
 lightweight check) are our responsibility, not handed to us as a pre-verified webhook payload.

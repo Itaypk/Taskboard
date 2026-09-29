@@ -68,7 +68,7 @@ template links can be shared directly (communities, newsletters) without needing
 - **Public gallery costs**, beyond the pages themselves: the first unauthenticated content
   endpoints on a currently fully session-gated surface (new `permitAll` paths on the session
   chain, or static pre-rendering); SEO prerendering work (note the `index.html` crawler fallback
-  is already stale — see `docs/IDEAS.md`); per-template OG/meta assets. None of it hard, all of it
+  is already stale — see issue #256); per-template OG/meta assets. None of it hard, all of it
   carry-forward surface area.
 - **Staging, if the bet is made**: gallery + instantiation land together (the gallery is the
   acquisition channel, instantiation is the conversion), with a small curated set whose editorial

@@ -15,7 +15,7 @@ context edits — is now built). See `SPEC.md` for the broader product context.
 - LLM-curated long-term memory (the model silently writing facts about the user).
 - Cross-user / shared memory.
 - Learned behavioral patterns ("user always pushes back on Thursday meetings"). That belongs in
-  the future Proactive Task Helper (see `IDEAS.md`), built as analytics over task signals — not as
+  the future Proactive Task Helper (issue #232), built as analytics over task signals — not as
   memory.
 
 ## The three stores
