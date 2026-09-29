@@ -206,7 +206,9 @@ Possible, but not turnkey yet: you need Postgres, a Telegram bot (optional for w
 
 Copyright (C) 2026 Itay Polack-Gadassi.
 
-Licensed under the [GNU Affero General Public License v3.0 only](LICENSE) (`AGPL-3.0-only`). If you run a modified version as a network service, the AGPL requires you to offer its users the corresponding source.
+Code: [GNU Affero General Public License v3.0 only](LICENSE) (`AGPL-3.0-only`). If you run a modified version as a network service, the AGPL requires you to offer its users the corresponding source.
+
+Artwork (mascots, icons, social image): [CC BY 4.0](LICENSES/CC-BY-4.0.txt). The name and logo are not licensed as trademarks. Third-party components (fonts, the disposable-domain list) and details: [`NOTICE.md`](NOTICE.md).
 
 ## Contributing
 
