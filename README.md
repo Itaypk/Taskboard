@@ -23,7 +23,7 @@ Incomplete, but functional:
 - **Backend**: Kotlin 2.3 + Spring Boot 4.1 on JVM 25, Spring Data JPA, Spring Security 7, Liquibase.
 - **Database**: Postgres in dev/prod, H2 for tests and in-memory dev.
 - **Frontend**: React 19 + TypeScript + Vite 8, bundled into the backend at build time and served same-origin.
-- **Auth**: multiple providers resolved through an `auth_identities` table (Telegram HMAC, email magic-link, demo, dev) → `HttpSession` cookie (`SameSite=Lax`, `HttpOnly`, `Secure` in prod). `TaskerPrincipal` carries only `userId`, so the session layer is provider-agnostic. Prometheus scraper uses HTTP Basic Auth on a separate stateless filter chain. See [`docs/archive/AUTH-DECOUPLING.md`](docs/archive/AUTH-DECOUPLING.md).
+- **Auth**: multiple providers resolved through an `auth_identities` table (Telegram OIDC, email magic-link, demo, dev) → `HttpSession` cookie (`SameSite=Lax`, `HttpOnly`, `Secure` in prod). `TaskerPrincipal` carries only `userId`, so the session layer is provider-agnostic. Prometheus scraper uses HTTP Basic Auth on a separate stateless filter chain. See [`docs/archive/AUTH-DECOUPLING.md`](docs/archive/AUTH-DECOUPLING.md).
 - **Observability**: Micrometer + Prometheus registry; health probes for liveness/readiness; structured JSON log rotation via Logstash encoder (prod profile).
 
 ## Getting started
@@ -153,7 +153,7 @@ Required environment variables:
 
 Startup fails fast if any of the database, data-encryption, or Prometheus credentials are absent (no fallback defaults in the prod profile).
 
-**Email** (optional, for login magic links and calendar invites) is split into two independent SMTP senders — `auth` (login/register/verification) and `scheduling` (calendar invites). Enable with `TASKER_EMAIL_ENABLED=true` and set the `TASKER_EMAIL_AUTH_*` / `TASKER_EMAIL_SCHEDULING_*` variables (from address + SMTP host/port/username/password per sender). Full list in [`CLAUDE.md`](CLAUDE.md). When disabled, both senders log instead of sending (the magic link is printed to the log).
+**Email** (optional, for login magic links and calendar invites) is split into two independent SMTP senders — `auth` (login/register/verification) and `scheduling` (calendar invites). Enable with `TASKER_EMAIL_ENABLED=true` and set the `TASKER_EMAIL_AUTH_*` / `TASKER_EMAIL_SCHEDULING_*` variables (from address + SMTP host/port/username/password per sender). Full list in [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md). When disabled, both senders log instead of sending (the magic link is printed to the log).
 
 ### Observability endpoints
 
@@ -208,7 +208,7 @@ Copyright (C) 2026 Itay Polack-Gadassi.
 
 Code: [GNU Affero General Public License v3.0 only](LICENSE) (`AGPL-3.0-only`). If you run a modified version as a network service, the AGPL requires you to offer its users the corresponding source.
 
-Mascot artwork: [CC BY 4.0](LICENSES/CC-BY-4.0.txt). The "Backlog.fyi" name, logo and icons are reserved: fine to use as-is when self-hosting, not for forks or public services; see [`TRADEMARKS.md`](TRADEMARKS.md). Third-party components (fonts, the disposable-domain list) and details: [`NOTICE.md`](NOTICE.md).
+Mascot artwork: [CC BY 4.0](LICENSES/CC-BY-4.0.txt). The "Backlog.fyi" name, logo and icons are reserved: fine to keep when self-hosting (modified or not), but a public service needs its own logo and icons and must not pose as the official one; see [`TRADEMARKS.md`](TRADEMARKS.md). Third-party components (fonts, the disposable-domain list) and details: [`NOTICE.md`](NOTICE.md).
 
 ## Contributing
 

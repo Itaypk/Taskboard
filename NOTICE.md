@@ -14,9 +14,9 @@ The mascots are licensed under
 [**Creative Commons Attribution 4.0 International**](https://creativecommons.org/licenses/by/4.0/)
 (`CC-BY-4.0`); the full text is in [`LICENSES/CC-BY-4.0.txt`](LICENSES/CC-BY-4.0.txt). This covers:
 
-- the board mascots and the balloon faces: `tasker-frontend/src/assets/balloon/`,
-  `mr_roboto*.webp`, `pineapple*.webp`, `stationery_holder*.webp`, and the source image
-  `tools/Balloon.png`.
+- the board mascots and the balloon faces: `tasker-frontend/src/assets/balloon/`;
+  `mr_roboto*.webp`, `pineapple*.webp` and `stationery_holder*.webp` in `tasker-frontend/src/assets/`;
+  and the source image `tools/Balloon.png`.
 
 You may share and adapt them, including commercially, as long as you give credit. A suitable credit
 is: "Artwork from Backlog.fyi (github.com/Itaypk/Taskboard), by Itay Polack-Gadassi, CC BY 4.0".
@@ -29,8 +29,9 @@ holds, and the artwork comes without warranty.
 ## Branding
 
 The logo and app icons are **not** under the licenses above. Copyright (C) 2026 Itay Polack-Gadassi,
-all rights reserved, except that you may use the files unmodified as part of a self-hosted
-deployment of the software, as described in [`TRADEMARKS.md`](TRADEMARKS.md). They are:
+all rights reserved, except that you may use the files as they are in a self-hosted deployment of
+the software, whether or not you modify the software itself, as described in
+[`TRADEMARKS.md`](TRADEMARKS.md). They are:
 
 - `tasker-frontend/public/`: `favicon.ico`, `favicon-*.png`, `apple-touch-icon.png`, `icon-*.png`,
   `og-image.png`;
