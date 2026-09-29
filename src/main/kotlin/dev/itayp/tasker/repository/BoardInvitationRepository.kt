@@ -12,7 +12,7 @@ import java.util.UUID
 @Repository
 interface BoardInvitationRepository : JpaRepository<BoardInvitationEntity, UUID> {
 
-    fun findByToken(token: String): BoardInvitationEntity?
+    fun findByTokenHash(tokenHash: String): BoardInvitationEntity?
 
     /** Pending (not consumed, not revoked) invitations for a board — the service filters expiry. */
     fun findAllByBoardIdAndConsumedAtIsNullAndRevokedAtIsNull(boardId: UUID): List<BoardInvitationEntity>

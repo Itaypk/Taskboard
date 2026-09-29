@@ -8,6 +8,7 @@ import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.jpa.EmailLoginTokenEntity
 import dev.itayp.tasker.jpa.UserEntity
 import dev.itayp.tasker.repository.EmailLoginTokenRepository
+import dev.itayp.tasker.util.CapabilityTokens
 import dev.itayp.tasker.util.localRedirect
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
@@ -18,7 +19,6 @@ import org.springframework.transaction.annotation.Transactional
 import java.net.URLEncoder
 import java.time.Clock
 import java.time.Duration
-import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 /**
@@ -26,8 +26,9 @@ import java.util.concurrent.TimeUnit
  * proves ownership and logs the user in (registering on first use). Reuses the email-channel
  * and template machinery; identity resolution and the collision rules live in [UserAuthService].
  *
- * Tokens are stored hashed-by-handle only — the address itself is encrypted under the app KEK
- * via [UserCryptoService.encryptSystem] since no user (and thus no user DEK) exists yet.
+ * Only the SHA-256 digest of the emailed token is stored (see [CapabilityTokens]). The address
+ * itself is encrypted under the app KEK via [UserCryptoService.encryptSystem] since no user (and
+ * thus no user DEK) exists yet.
  */
 @Service
 class EmailLoginService(
@@ -72,9 +73,9 @@ class EmailLoginService(
             return
         }
 
-        val token = UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", "").take(8)
+        val token = CapabilityTokens.generate()
         tokenRepository.save(EmailLoginTokenEntity().apply {
-            this.token = token
+            this.tokenHash = CapabilityTokens.hash(token)
             this.emailHash = emailHash
             this.emailEnc = userCrypto.encryptSystem(normalised)
             this.createdAt = now
@@ -113,7 +114,7 @@ class EmailLoginService(
      */
     @Transactional(readOnly = true)
     fun precheckToken(token: String): Boolean {
-        val row = tokenRepository.findById(token).orElse(null) ?: return false
+        val row = tokenRepository.findById(CapabilityTokens.hash(token)).orElse(null) ?: return false
         val expiry = row.expiresAt ?: return false
         return row.consumedAt == null && !clock.instant().isAfter(expiry)
     }
@@ -124,7 +125,7 @@ class EmailLoginService(
      */
     @Transactional
     fun completeLogin(token: String, acceptLanguage: String? = null): EmailLoginResult {
-        val row = tokenRepository.findById(token).orElse(null)
+        val row = tokenRepository.findById(CapabilityTokens.hash(token)).orElse(null)
             ?: return EmailLoginResult.Invalid
         val expiry = row.expiresAt ?: return EmailLoginResult.Invalid
         if (row.consumedAt != null || clock.instant().isAfter(expiry)) {

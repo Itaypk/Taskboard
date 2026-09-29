@@ -42,8 +42,9 @@ class UserEntity {
     @Column(name = "email_verified_at")
     var emailVerifiedAt: Instant? = null
 
+    /** SHA-256 hex of the emailed secret (see [dev.itayp.tasker.util.CapabilityTokens]); the plaintext is never stored. */
     @Column(name = "email_verification_token", length = 64)
-    var emailVerificationToken: String? = null
+    var emailVerificationTokenHash: String? = null
 
     @Column(name = "email_verification_token_expires_at")
     var emailVerificationTokenExpiresAt: Instant? = null

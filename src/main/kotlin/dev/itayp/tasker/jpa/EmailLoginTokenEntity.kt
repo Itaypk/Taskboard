@@ -17,9 +17,10 @@ import java.time.Instant
 @Entity
 @Table(name = "email_login_token")
 class EmailLoginTokenEntity {
+    /** SHA-256 hex of the emailed secret (see [dev.itayp.tasker.util.CapabilityTokens]); the plaintext is never stored. */
     @Id
     @Column(name = "token", length = 64)
-    var token: String? = null
+    var tokenHash: String? = null
 
     @Column(name = "email_hash", nullable = false, length = 64)
     var emailHash: String? = null

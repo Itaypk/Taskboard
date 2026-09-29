@@ -17,6 +17,7 @@ import dev.itayp.tasker.repository.BoardMembershipRepository
 import dev.itayp.tasker.repository.BoardRepository
 import dev.itayp.tasker.repository.UserRepository
 import dev.itayp.tasker.repository.UserSettingsRepository
+import dev.itayp.tasker.util.CapabilityTokens
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.context.MessageSource
@@ -97,12 +98,12 @@ class BoardInvitationService(
         invitationRepository.findAllByBoardIdAndEmailHashAndConsumedAtIsNullAndRevokedAtIsNull(boardId, emailHash)
             .forEach { it.revokedAt = now }
 
-        val token = generateToken()
+        val token = CapabilityTokens.generate()
         val invitation = invitationRepository.save(BoardInvitationEntity().apply {
             this.id = UUID.randomUUID()
             this.boardId = boardId
             this.emailHash = emailHash
-            this.token = token
+            this.tokenHash = CapabilityTokens.hash(token)
             this.invitedByUserId = inviterUserId
             this.createdAt = now
             this.expiresAt = now.plus(TOKEN_TTL)
@@ -229,7 +230,7 @@ class BoardInvitationService(
     }
 
     private fun validPendingByToken(token: String): BoardInvitationEntity? {
-        val invitation = invitationRepository.findByToken(token) ?: return null
+        val invitation = invitationRepository.findByTokenHash(CapabilityTokens.hash(token)) ?: return null
         val expiry = invitation.expiresAt ?: return null
         if (invitation.consumedAt != null || invitation.revokedAt != null || clock.instant().isAfter(expiry)) {
             return null
@@ -242,10 +243,6 @@ class BoardInvitationService(
             throw BoardOwnerRequiredException()
         }
     }
-
-    private fun generateToken(): String =
-        UUID.randomUUID().toString().replace("-", "") +
-            UUID.randomUUID().toString().replace("-", "").take(8)
 
     private fun BoardInvitationEntity.toPending() = PendingInvitation(id!!, createdAt!!, expiresAt!!)
 

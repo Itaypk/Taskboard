@@ -10,6 +10,7 @@ import dev.itayp.tasker.jpa.AuthProvider
 import dev.itayp.tasker.ratelimit.RateLimiter
 import dev.itayp.tasker.repository.AuthIdentityRepository
 import dev.itayp.tasker.repository.UserRepository
+import dev.itayp.tasker.util.CapabilityTokens
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.context.properties.EnableConfigurationProperties
@@ -58,11 +59,11 @@ class EmailVerificationService(
         val user = userRepository.findById(userId).orElseThrow { NoSuchElementException("User not found") }
 
         val now = clock.instant()
-        val token = UUID.randomUUID().toString().replace("-", "")
+        val token = CapabilityTokens.generate()
         user.email = userCrypto.encrypt(userId, normalised)
         user.emailHash = emailHash
         user.emailVerifiedAt = null
-        user.emailVerificationToken = token
+        user.emailVerificationTokenHash = CapabilityTokens.hash(token)
         user.emailVerificationTokenExpiresAt = now.plus(Duration.ofHours(24))
         userRepository.save(user)
 
@@ -91,13 +92,13 @@ class EmailVerificationService(
     }
 
     fun confirmVerification(token: String): Boolean {
-        val user = userRepository.findByEmailVerificationToken(token) ?: return false
+        val user = userRepository.findByEmailVerificationTokenHash(CapabilityTokens.hash(token)) ?: return false
         val expiry = user.emailVerificationTokenExpiresAt ?: return false
         if (clock.instant().isAfter(expiry)) return false
 
         val now = clock.instant()
         user.emailVerifiedAt = now
-        user.emailVerificationToken = null
+        user.emailVerificationTokenHash = null
         user.emailVerificationTokenExpiresAt = null
         // A verified email is a login method, so it claims the account (one-way latch).
         user.claimed = true

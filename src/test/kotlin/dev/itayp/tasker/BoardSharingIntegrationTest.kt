@@ -13,6 +13,7 @@ import dev.itayp.tasker.service.AccountService
 import dev.itayp.tasker.service.BacklogTaskService
 import dev.itayp.tasker.service.BoardInvitationService
 import dev.itayp.tasker.service.BoardMembershipService
+import dev.itayp.tasker.util.CapabilityTokens
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -49,6 +50,19 @@ class BoardSharingIntegrationTest(
 
     private fun boardOf(userId: UUID): UUID = membershipService.listBoardIds(userId).first()
 
+    /**
+     * Sends an invitation and returns a usable plaintext token for it. Only the digest is stored
+     * (the plaintext lives solely in the email), so the test swaps in the digest of a token it knows.
+     */
+    private fun inviteAndGetToken(ownerId: UUID, boardId: UUID, email: String): String {
+        invitationService.invite(ownerId, boardId, email)
+        val known = CapabilityTokens.generate()
+        val row = invitationRepository.findAll().first { it.boardId == boardId }
+        row.tokenHash = CapabilityTokens.hash(known)
+        invitationRepository.save(row)
+        return known
+    }
+
     private fun seedTaskWithClaim(ownerId: UUID, boardId: UUID): UUID {
         val categoryId = categoryRepository.findAllByBoardId(boardId).first().id!!
         val task = backlogTaskService.createTask(
@@ -69,8 +83,7 @@ class BoardSharingIntegrationTest(
         val boardId = boardOf(owner)
         val taskId = seedTaskWithClaim(owner, boardId)
 
-        invitationService.invite(owner, boardId, "anything@example.com")
-        val token = invitationRepository.findAll().first { it.boardId == boardId }.token!!
+        val token = inviteAndGetToken(owner, boardId, "anything@example.com")
 
         val accepted = invitationService.accept(token, invitee)
 
@@ -88,8 +101,7 @@ class BoardSharingIntegrationTest(
         val boardId = boardOf(owner)
         val taskId = seedTaskWithClaim(owner, boardId)
 
-        invitationService.invite(owner, boardId, "x@example.com")
-        invitationService.accept(invitationRepository.findAll().first { it.boardId == boardId }.token!!, member)
+        invitationService.accept(inviteAndGetToken(owner, boardId, "x@example.com"), member)
 
         accountService.deleteAccount(owner)
 

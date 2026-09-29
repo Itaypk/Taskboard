@@ -18,5 +18,6 @@
     <include file="db/changelog/changesets/012-api-token.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changesets/013-recurring-tasks.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changesets/014-telegram-chat-ready.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changesets/015-hash-capability-tokens.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

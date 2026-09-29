@@ -31,8 +31,9 @@ class BoardInvitationEntity {
     @Column(name = "email_hash", nullable = false, length = 64)
     var emailHash: String? = null
 
+    /** SHA-256 hex of the emailed secret (see [dev.itayp.tasker.util.CapabilityTokens]); the plaintext is never stored. */
     @Column(name = "token", nullable = false, length = 64)
-    var token: String? = null
+    var tokenHash: String? = null
 
     /** The OWNER who sent the invite; nulled (not deleted) if their account is removed. */
     @Column(name = "invited_by_user_id")
