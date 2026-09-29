@@ -257,8 +257,8 @@ marked *Fixed* were dealt with in a later pass; the rest are still open.
 - **`icons.svg` is unused.** *Correction to an earlier draft of this note, which claimed it was on the
   cold-open path.* `tasker-frontend/public/icons.svg` (5 KB) is referenced from nowhere in the
   frontend — not as an `<img>`, not as a CSS `url()`, and not as an SVG sprite (`<use href>` /
-  `xlinkHref`). It is copied into the bundle and never fetched. That makes it dead weight to delete,
-  not a caching question.
+  `xlinkHref`). It is copied into the bundle and never fetched. That made it dead weight to delete,
+  not a caching question. *Deleted.*
 - **The comment at `SecurityConfiguration.kt:176` is half wrong.** *Fixed.* It said asset cache headers
   come from "Nginx + Spring resource handlers". There is no `addResourceHandlers` override and no
   `spring.web.resources.*` config anywhere; Nginx does all of it. The comment now spells out the actual

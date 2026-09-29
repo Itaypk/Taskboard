@@ -208,7 +208,7 @@ Copyright (C) 2026 Itay Polack-Gadassi.
 
 Code: [GNU Affero General Public License v3.0 only](LICENSE) (`AGPL-3.0-only`). If you run a modified version as a network service, the AGPL requires you to offer its users the corresponding source.
 
-Artwork (mascots, icons, social image): [CC BY 4.0](LICENSES/CC-BY-4.0.txt). The name and logo are not licensed as trademarks. Third-party components (fonts, the disposable-domain list) and details: [`NOTICE.md`](NOTICE.md).
+Mascot artwork: [CC BY 4.0](LICENSES/CC-BY-4.0.txt). The "Backlog.fyi" name, logo and icons are reserved: fine to use as-is when self-hosting, not for forks or public services; see [`TRADEMARKS.md`](TRADEMARKS.md). Third-party components (fonts, the disposable-domain list) and details: [`NOTICE.md`](NOTICE.md).
 
 ## Contributing
 
