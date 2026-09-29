@@ -1,7 +1,7 @@
 # Git history secret scan (pre-open-sourcing)
 
 Status: **done, clean**. Performed 2026-07-27 ahead of a possible switch from private to public
-repo visibility. Referenced from `docs/IDEAS.md` ("Open source the application under AGPL").
+repo visibility, as a prerequisite for open-sourcing the application under AGPL-3.0.
 
 ## Why
 

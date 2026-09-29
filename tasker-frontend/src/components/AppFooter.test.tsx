@@ -8,6 +8,7 @@ const EXPECTED: [string, string][] = [
   ['FAQ', '/faq'],
   ['Terms', '/terms'],
   ['Privacy', '/privacy'],
+  ['GitHub', 'https://github.com/Itaypk/Taskboard'],
 ];
 
 /** Stubs the compact breakpoint; jsdom has no layout, so the component can't detect it itself. */
@@ -23,7 +24,7 @@ function stubViewport(compact: boolean) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('AppFooter', () => {
-  it('links to every static content page on wide screens', () => {
+  it('links to every static content page and the source repository on wide screens', () => {
     stubViewport(false);
     render(<MemoryRouter><AppFooter /></MemoryRouter>);
 

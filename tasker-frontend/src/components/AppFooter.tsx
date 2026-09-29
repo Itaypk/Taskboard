@@ -11,6 +11,9 @@ const LINKS = [
     { to: '/privacy', key: 'privacy' },
 ] as const;
 
+/** Public source repository (AGPL-3.0). Update here if the repository is renamed or moved. */
+const SOURCE_URL = 'https://github.com/Itaypk/Taskboard';
+
 /** Mirrors the `max-width: 600px` breakpoint the rest of the app uses for phone layouts. */
 const COMPACT_QUERY = '(max-width: 600px)';
 
@@ -60,6 +63,9 @@ export default function AppFooter({ showLanguage = false }: { showLanguage?: boo
                 {LINKS.map(({ to, key }) => (
                     <Link key={to} to={to} className={styles.link}>{t(`footer.${key}`)}</Link>
                 ))}
+                <a href={SOURCE_URL} className={styles.link} target="_blank" rel="noopener noreferrer">
+                    {t('footer.github')}
+                </a>
                 {showLanguage && <LanguageSelector />}
             </footer>
         );
@@ -87,6 +93,18 @@ export default function AppFooter({ showLanguage = false }: { showLanguage?: boo
                                 </Link>
                             </li>
                         ))}
+                        <li role="none">
+                            <a
+                                role="menuitem"
+                                href={SOURCE_URL}
+                                className={styles.menuItem}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={() => setOpen(false)}
+                            >
+                                {t('footer.github')}
+                            </a>
+                        </li>
                         {showLanguage && (
                             <li role="none" className={styles.menuLanguage}>
                                 <LanguageSelector />

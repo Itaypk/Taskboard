@@ -1,9 +1,10 @@
 # Decoupling auth from Telegram — plan
 
 Status: **Phases 1–4 implemented** (identity layer, email magic-link login, channel-less
-hardening, account linking — see the per-phase ✅ notes under [Phasing](#phasing)). **Phases 5–6
-deferred**: Google OAuth login, and retiring the legacy `telegram_id` / `email_hash` lookup
-columns. This doc remains the source of truth for the design and the remaining work.
+hardening, account linking — see the per-phase ✅ notes under [Phasing](#phasing)). **Phase 5
+deferred**: Google OAuth login (tracked as a GitHub issue). **Phase 6 dropped**: retiring the
+`telegram_id` / `email_hash` columns. On investigation they are not superseded lookup keys but
+profile state, so they stay.
 
 ## Goal
 
@@ -270,8 +271,8 @@ email buttons stubbed with a "Soon" badge**. For this milestone:
      same screen, no new flow. `AccountLinkService`/`AccountLinkController` are the seam.
 5. **(Later, out of scope)** Google OAuth as a provider — drops in as another
    `loginOrRegister('google', sub, …)` caller + identity rows, no schema change.
-6. **(Later)** Once nothing reads `users.telegram_id` / `email_hash` as a lookup key, retire
-   those columns/constraints in a dedicated changeset (or during a beta reseed).
+6. **(Dropped)** ~~Retire `users.telegram_id` / `email_hash`.~~ Investigated later: they hold
+   profile state and are not superseded by `auth_identities`, so they are kept.
 
 ## Open questions / risks
 

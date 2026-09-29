@@ -9,14 +9,14 @@ was a 300 ms React Suspense fallback throttle that no option below anticipated; 
 halved time-to-tasks. Everything else that was measured turned out to be either already minimal or
 not worth its cost. **Options A–H and the recommendation ladder below are superseded** by the
 measurement sections at the end — they are kept as the reasoning that led there, not as a build
-plan, and several of their claims are corrected further down. Supersedes the one-line idea at
-`docs/IDEAS.md` ("Smoother loading — show a cached copy in read-only mode…").
+plan, and several of their claims are corrected further down. Supersedes the earlier one-line
+idea ("Smoother loading — show a cached copy in read-only mode…"), now tracked as issue #265.
 
 None of options A–H has been built. Some of the *pre-existing issues* listed at the end have since
 been fixed (the N+1, the stale Nginx copy, the misleading comments, and the uncached `public/` assets);
 each is marked inline. The one that still blocks option C — no `Cache-Control` on `/api/**` — is open.
 
-The trigger is felt slowness, specifically on **mobile cold open**, and the `IDEAS.md` framing: it is
+The trigger is felt slowness, specifically on **mobile cold open**, and the original idea's framing: it is
 acceptable to show stale data before the initial load, and acceptable to be read-only until it lands.
 That framing turns out to be more permissive than the problem requires — see "Why the cached-copy idea
 is the wrong first move".
@@ -86,7 +86,7 @@ variant that actually helps here, and it is exactly the variant carrying the rea
   backed by the `backlog_task_watermark` and `plan_watermark` tables) returns `tasksChangedAt`,
   `tagsChangedAt`, `categoriesChangedAt`, `planChangedAt` and `appVersion`. A cached snapshot could be
   cheaply **validated** — "this is still current" — rather than displayed as stale. If a cache is ever
-  built, this removes most of the read-only/staleness argument in `IDEAS.md`, and that is worth
+  built, this removes most of the read-only/staleness argument in the original idea, and that is worth
   recording even though the recommendation below is not to build one yet.
 - **Conditional requests already work.** `ShallowEtagHeaderFilter` is registered on `/api/v1/*`
   (`WebConfiguration.kt:31`). Shallow, so a 304 saves bytes on the wire but not server work — the
@@ -148,13 +148,13 @@ Note this cannot be done today without first fixing the missing `Cache-Control` 
 not touch `Cache-Control` at all, so whatever the app sends is what the browser sees. That makes this
 option a pure app-side change — no Ansible change is needed to set `private` on the tasks endpoint.
 
-### D. Client-persisted snapshot (the `IDEAS.md` idea)
+### D. Client-persisted snapshot (the original idea)
 
 Covered above. Variants, worst to best on privacy: `localStorage` with everything; `localStorage` with
 titles/metadata only and no descriptions or notes; `sessionStorage`. The value ranking is the exact
 reverse, and the variant that helps cold open is the one with the real exposure. If it is ever built,
 build it against `/sync` validation (see above) so it is *confirmed current* rather than *displayed
-stale* — which also lets it skip the read-only mode `IDEAS.md` assumed it would need.
+stale* — which also lets it skip the read-only mode the original idea assumed it would need.
 
 ### E. Service worker, without the rest of the PWA
 
@@ -257,8 +257,8 @@ marked *Fixed* were dealt with in a later pass; the rest are still open.
 - **`icons.svg` is unused.** *Correction to an earlier draft of this note, which claimed it was on the
   cold-open path.* `tasker-frontend/public/icons.svg` (5 KB) is referenced from nowhere in the
   frontend — not as an `<img>`, not as a CSS `url()`, and not as an SVG sprite (`<use href>` /
-  `xlinkHref`). It is copied into the bundle and never fetched. That makes it dead weight to delete,
-  not a caching question.
+  `xlinkHref`). It is copied into the bundle and never fetched. That made it dead weight to delete,
+  not a caching question. *Deleted.*
 - **The comment at `SecurityConfiguration.kt:176` is half wrong.** *Fixed.* It said asset cache headers
   come from "Nginx + Spring resource handlers". There is no `addResourceHandlers` override and no
   `spring.web.resources.*` config anywhere; Nginx does all of it. The comment now spells out the actual
@@ -278,7 +278,7 @@ marked *Fixed* were dealt with in a later pass; the rest are still open.
   truth for cache headers is precisely the thing that would have bitten during option C.
 - **Dead weight on the signed-in path.** The `<div id="prerendered-landing" hidden>` block in
   `index.html` (~2 KB of crawler-facing copy) ships to signed-in users and is never touched by JS.
-  Minor, and it is on the cold-open path for everyone. `docs/IDEAS.md` already notes that this block's
+  Minor, and it is on the cold-open path for everyone. Issue #256 already notes that this block's
   copy is out of date; that it is also dead weight is a second reason to revisit it.
 
 ---

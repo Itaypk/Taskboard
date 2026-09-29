@@ -8,7 +8,7 @@ the vacuum filters, changing the car's oil, paying rent.
 **Product guardrail.** Recurrence only decides *when a task comes back into the backlog*. The
 weekly planner still decides when in the week it gets done. There are no calendar series, no
 reminders for each occurrence, and no end dates. That keeps the feature out of the "classic
-calendar" territory `IDEAS.md` worried about.
+calendar" territory the product deliberately avoids.
 
 ## Decisions at a glance
 
@@ -214,7 +214,7 @@ Pin this with a test: an edit that doesn't touch recurrence must keep it.
 - **Wrong "done" click:** v1 takes two manual steps. Archive the completed copy, then use **"Do it
   now"** on the recurring card, which sets `relevant_from = today` and recomputes `deadline`. A real
   undo toast is out of scope. It belongs with the "more satisfying mark as done" work
-  (`IDEAS.md` → UI - Tasks), and must also undo the roll-forward there.
+  (not yet tracked), and must also undo the roll-forward there.
 - **Reopening a completed copy** (mark to-do) turns it into a plain one-off task without touching
   the original's schedule. It's easy to understand, so it isn't blocked.
 - **Deleting the original** leaves its copies alone (`recurrence_source_id` becomes null).
@@ -243,8 +243,8 @@ Pin this with a test: an edit that doesn't touch recurrence must keep it.
 
 ### Filter pills
 
-`To-do · Week · Recurring · All`. This drops **Done** (as `IDEAS.md` already suggested for
-mobile width).
+`To-do · Week · Recurring · All`. This drops **Done**, which also helps at mobile
+width (see issue #238).
 
 - The server keeps `status=done` for the API. Done tasks, completed copies included, stay visible
   under **All**, and archived ones behind the existing archive toggle. Auto-archive stays a user

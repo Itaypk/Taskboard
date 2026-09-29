@@ -181,12 +181,13 @@ class SecurityConfiguration(
                 // does all of it:
                 //   /assets/      -> public, max-age=31536000, immutable   (Vite content-hashes the names)
                 //   / , /index.html -> no-cache, no-store, must-revalidate (entry points are not hashed)
-                //   /favicon.svg  -> public, max-age=86400
+                //   root-level unhashed assets (the files Vite copies from `tasker-frontend/public/`:
+                //   favicons, app icons, og-image.png, manifest.json)
+                //                 -> public, max-age=86400
                 // Each of those locations sets `proxy_hide_header Cache-Control` first, so whatever the
                 // app sends on them is replaced regardless. Everything else — `/api/**`, the discovery
-                // documents, and the unhashed files from `tasker-frontend/public/` (icons.svg,
-                // manifest.json, og-image.png, …) — falls through Nginx's catch-all `location /`, which
-                // does not touch Cache-Control. Those responses therefore carry no Cache-Control header
+                // documents, robots.txt and sitemap.xml — falls through Nginx's catch-all `location /`,
+                // which does not touch Cache-Control. Those responses therefore carry no Cache-Control header
                 // at all and are left to browser heuristics. That is an accident of this `disable()`
                 // rather than a decision; see `docs/FAST-INITIAL-LOAD.md` (option C) before changing it.
                 cacheControl { disable() }

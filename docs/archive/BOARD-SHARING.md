@@ -2,7 +2,7 @@
 
 Status: **Phase 0 shipped to production; Phase 1 in progress (`docs/BOARD-SHARING-PHASE1.md`); Phase 2 planned (`docs/BOARD-SHARING-PHASE2.md`).**
 This is the source of truth for the design and the phased work. It supersedes the
-"Multi-board and sharing support" line in `docs/IDEAS.md` and
+"Multi-board and sharing support" line in the former `docs/IDEAS.md` (since moved to GitHub issues) and
 extends the non-goal "Shared tasks or collaboration features" in `docs/SPEC.md` (that non-goal is
 being deliberately revisited — see [Goal](#goal)).
 

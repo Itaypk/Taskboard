@@ -4,7 +4,7 @@ Status: implementation plan — no code yet.
 
 ## Why this improvement (and why first)
 
-Of the three assistant ideas in [`IDEAS.md`](../IDEAS.md) — quick add, out-of-the-blue
+Of the three assistant ideas in the former `IDEAS.md` (since moved to GitHub issues) — quick add, out-of-the-blue
 responses, and the proactive task helper — quick add gives the most end-user value:
 
 - **It closes the capture gap in the core loop.** `SPEC.md` step 1 is *Capture*, but today
@@ -82,7 +82,7 @@ agent may return a **clarification** instead of a draft:
 
 ### Deliberate design choice: a bounded conversation, not an agent
 
-`IDEAS.md` notes the adjustment loop "will be a conversation". From the user's point of
+The former `IDEAS.md` noted the adjustment loop "will be a conversation". From the user's point of
 view it is one — free text is accepted at every step. But the *orchestration* is a
 deterministic state machine; the only model involvement is single-turn draft/revise calls
 to `TaskSuggestionAgent`, which may at most surface a capped number of clarifying
@@ -245,7 +245,7 @@ template variable, as in the planning prompts).
   ("this looks similar to *Renew passport* — add anyway?").
 - **Phase 3 (later, optional):** web quick-add entry point reusing `QuickAddFlow` through
   a buffered channel (the `WEB-PLANNING.md` pattern); multimodal capture (voice/photo)
-  per `IDEAS.md` if/when multimodal lands.
+  if/when multimodal lands (it has since shipped; see `docs/MULTIMODAL-CAPTURE.md`).
 
 ## Testing
 

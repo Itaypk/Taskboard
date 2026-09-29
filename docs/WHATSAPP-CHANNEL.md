@@ -5,7 +5,7 @@ the weekly planning conversation, and slot reminders — the way `TelegramChanne
 
 Status: **exploration only** — feasibility, effort, and design tradeoffs, not a build plan. No
 implementation should start from this document without a separate follow-up decision. Supersedes
-the one-line idea at `docs/IDEAS.md` ("WhatsApp as a communication channel support.").
+the earlier one-line idea ("WhatsApp as a communication channel support"), now tracked as issue #268.
 
 Hardware assumption behind the questions this note answers: a spare always-on Moto G5S Plus
 (Android 8.1) with an Israeli SIM, fully under our control, while the app runs on a VPS in
