@@ -1,5 +1,6 @@
 package dev.itayp.tasker.controller
 
+import dev.itayp.tasker.config.AppVersion
 import dev.itayp.tasker.config.SecurityConfiguration
 import dev.itayp.tasker.planning.BacklogTaskChangeService
 import dev.itayp.tasker.planning.BacklogTaskWatermarkEntity
@@ -28,7 +29,7 @@ import java.time.Instant
 import java.util.UUID
 
 @WebMvcTest(SyncController::class)
-@Import(SecurityConfiguration::class)
+@Import(SecurityConfiguration::class, AppVersion::class)
 class SyncControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @MockitoBean lateinit var backlogTaskChangeService: BacklogTaskChangeService
