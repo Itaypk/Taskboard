@@ -264,6 +264,8 @@ class UserAuthServiceTest {
     @Test
     fun `closed registration still logs in an existing identity`() {
         val ownerId = UUID.randomUUID()
+        // Pre-existing users already have a DEK; the Telegram profile update encrypts under it.
+        crypto.ensureUserKey(ownerId)
         val identity = AuthIdentityEntity().apply {
             id = UUID.randomUUID()
             userId = ownerId
