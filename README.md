@@ -140,20 +140,15 @@ Required environment variables:
 
 | Variable | Purpose |
 |---|---|
+| `TASKER_APP_BASE_URL` | Public URL of the instance, e.g. `https://tasks.example.com` (no trailing slash) |
 | `TASKER_DB_URL` | JDBC URL, e.g. `jdbc:postgresql://localhost:5432/taskboard` |
 | `TASKER_DB_USERNAME` | Postgres user |
 | `TASKER_DB_PASSWORD` | Postgres password |
 | `TASKER_DATA_KEK` | base64-encoded 32-byte key wrapping per-user DEKs for at-rest encryption. **Losing it loses all encrypted data.** Generate with `openssl rand -base64 32` |
-| `TASKER_TELEGRAM_CLIENT_ID` | OIDC client id (bot id) for Telegram login; expected id_token `aud` |
-| `TASKER_TELEGRAM_CLIENT_SECRET` | OIDC client secret for the Telegram token exchange |
-| `TASKER_TELEGRAM_BOT_TOKEN` | Bot messaging token (planning conversation) |
-| `TASKER_TELEGRAM_BOT_USERNAME` | Bot username (cosmetic) |
-| `TASKER_PROMETHEUS_USERNAME` | Basic Auth username for `/actuator/prometheus` |
-| `TASKER_PROMETHEUS_PASSWORD` | Basic Auth password for `/actuator/prometheus` |
 
-Startup fails fast if any of the database, data-encryption, or Prometheus credentials are absent (no fallback defaults in the prod profile).
+Startup fails fast if the base URL, database or data-encryption key is missing. Everything else is optional and degrades instead: Telegram (login needs `TASKER_TELEGRAM_CLIENT_ID`/`_SECRET`, the bot needs `TASKER_TELEGRAM_BOT_TOKEN`), AI (`TASKER_AI_API_KEY`), metrics (`TASKER_PROMETHEUS_USERNAME`/`_PASSWORD`; the endpoint is closed without them) and email (below). To sign in without SMTP or Telegram, list users in `TASKER_LOCAL_USERS`; `TASKER_REGISTRATION=closed` and `TASKER_DEMO_ENABLED=false` keep strangers out. The startup log summarizes what's on. Full list in [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md).
 
-**Email** (optional, for login magic links and calendar invites) is split into two independent SMTP senders — `auth` (login/register/verification) and `scheduling` (calendar invites). Enable with `TASKER_EMAIL_ENABLED=true` and set the `TASKER_EMAIL_AUTH_*` / `TASKER_EMAIL_SCHEDULING_*` variables (from address + SMTP host/port/username/password per sender). Full list in [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md). When disabled, both senders log instead of sending (the magic link is printed to the log).
+**Email** (optional, for login magic links and calendar invites) is split into two independent SMTP senders — `auth` (login/register/verification) and `scheduling` (calendar invites). Enable with `TASKER_EMAIL_ENABLED=true` and set the `TASKER_EMAIL_AUTH_*` / `TASKER_EMAIL_SCHEDULING_*` variables (from address + SMTP host/port/username/password per sender). Full list in [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md). When disabled, both senders drop messages (logging only that they did) and the login page hides email sign-in.
 
 ### Observability endpoints
 

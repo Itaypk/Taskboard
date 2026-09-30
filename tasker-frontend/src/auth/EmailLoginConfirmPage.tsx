@@ -43,6 +43,8 @@ export function EmailLoginConfirmPage() {
             const { outcome } = await completeEmailLogin(token);
             if (outcome === 'success') {
                 window.location.replace(localRedirect(next));
+            } else if (outcome === 'closed') {
+                setState({ phase: 'error', message: t('emailLoginConfirm.errors.registrationClosed') });
             } else if (outcome === 'unverified') {
                 setState({
                     phase: 'error',

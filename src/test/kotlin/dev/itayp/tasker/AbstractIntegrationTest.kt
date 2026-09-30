@@ -23,6 +23,8 @@ class AbstractIntegrationTest {
                 "spring.datasource.driverClassName=org.postgresql.Driver",
                 "spring.datasource.url=$jdbcUrl",
                 "tasker.telegram.enabled=false",
+                // Required under the prod profile (ProductionConfigValidator).
+                "tasker.app.base-url=https://test.invalid",
                 // Prod profile fails fast if TASKER_DATA_KEK is unset; inject a
                 // deterministic test key so encryption-aware code paths exercise
                 // real crypto without leaking the prod KEK into test fixtures.

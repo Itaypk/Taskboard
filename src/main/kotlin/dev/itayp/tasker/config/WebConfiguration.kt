@@ -78,6 +78,12 @@ class WebConfiguration(
         windowMillis = rateLimitProperties.feedback.windowSeconds * 1_000,
     )
 
+    @Bean
+    fun passwordLoginRateLimiter(): RateLimiter = InMemoryRateLimiter(
+        limit = rateLimitProperties.passwordLogin.limit,
+        windowMillis = rateLimitProperties.passwordLogin.windowSeconds * 1_000,
+    )
+
     // Quick-add runs off the Telegram path, which never passes through RateLimitInterceptor, so
     // this is the only budget bounding what captures can cost a single user.
     @Bean

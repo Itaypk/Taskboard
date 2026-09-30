@@ -2,6 +2,7 @@ package dev.itayp.tasker.service
 
 import dev.itayp.nescioquid.telegram.TelegramAuthData
 import dev.itayp.tasker.config.AppProperties
+import dev.itayp.tasker.config.AuthProperties
 import dev.itayp.tasker.crypto.newTestUserCryptoService
 import dev.itayp.tasker.jpa.AuthIdentityEntity
 import dev.itayp.tasker.jpa.AuthProvider
@@ -32,10 +33,13 @@ class UserAuthServiceTest {
     private val clock = Clock.fixed(fixedNow, ZoneOffset.UTC)
     private val crypto = newTestUserCryptoService()
     private val appProperties = AppProperties()
+    private val openRegistration = RegistrationPolicy(AuthProperties())
+    private val closedRegistration = RegistrationPolicy(AuthProperties(registration = AuthProperties.RegistrationMode.CLOSED))
 
-    private val service: UserAuthService by lazy {
-        UserAuthService(userRepository, authIdentityRepository, userService, tutorialSeeder, crypto, appProperties, clock)
-    }
+    private val service: UserAuthService by lazy { serviceWith(openRegistration) }
+
+    private fun serviceWith(policy: RegistrationPolicy, app: AppProperties = appProperties) =
+        UserAuthService(userRepository, authIdentityRepository, userService, tutorialSeeder, crypto, app, policy, clock)
 
     private fun authData(telegramId: Long = 42L) = TelegramAuthData(
         telegramId = telegramId,
@@ -238,15 +242,62 @@ class UserAuthServiceTest {
 
     @Test
     fun `createUnclaimedUser refuses once the unclaimed-account cap is reached`() {
-        val cappedService = UserAuthService(
-            userRepository, authIdentityRepository, userService, tutorialSeeder, crypto,
-            appProperties.copy(unclaimedAccountCap = 5), clock,
-        )
+        val cappedService = serviceWith(openRegistration, appProperties.copy(unclaimedAccountCap = 5))
         whenever(userRepository.countByClaimed(false)).thenReturn(5L)
 
         assertThatThrownBy { cappedService.createUnclaimedUser() }
             .isInstanceOf(UnclaimedAccountCapExceededException::class.java)
         verify(userRepository, never()).save(any<UserEntity>())
         verify(tutorialSeeder, never()).seed(any(), anyOrNull())
+    }
+
+    @Test
+    fun `closed registration refuses a new telegram identity without creating anything`() {
+        whenever(authIdentityRepository.findByProviderAndProviderUserId(AuthProvider.TELEGRAM, "42")).thenReturn(null)
+
+        assertThatThrownBy { serviceWith(closedRegistration).loginOrRegisterByTelegram(authData()) }
+            .isInstanceOf(RegistrationClosedException::class.java)
+        verify(userRepository, never()).save(any<UserEntity>())
+        verify(authIdentityRepository, never()).save(any<AuthIdentityEntity>())
+    }
+
+    @Test
+    fun `closed registration still logs in an existing identity`() {
+        val ownerId = UUID.randomUUID()
+        val identity = AuthIdentityEntity().apply {
+            id = UUID.randomUUID()
+            userId = ownerId
+            provider = AuthProvider.TELEGRAM
+            providerUserId = "42"
+        }
+        whenever(authIdentityRepository.findByProviderAndProviderUserId(AuthProvider.TELEGRAM, "42")).thenReturn(identity)
+        whenever(userRepository.findById(ownerId)).thenReturn(Optional.of(UserEntity().apply { id = ownerId }))
+        whenever(userRepository.save(any<UserEntity>())).thenAnswer { it.arguments[0] as UserEntity }
+
+        val user = serviceWith(closedRegistration).loginOrRegisterByTelegram(authData())
+
+        assertThat(user.id).isEqualTo(ownerId)
+    }
+
+    @Test
+    fun `closed registration still provisions an operator-listed local user`() {
+        whenever(authIdentityRepository.findByProviderAndProviderUserId(AuthProvider.LOCAL, "alice")).thenReturn(null)
+        whenever(userRepository.save(any<UserEntity>())).thenAnswer { it.arguments[0] as UserEntity }
+
+        val user = serviceWith(closedRegistration).loginOrRegister(AuthProvider.LOCAL, "alice", true, {}, {})
+
+        assertThat(user.claimed).isTrue()
+        verify(userService).initializeNewUser(eq(user.id!!), anyOrNull(), eq(true))
+    }
+
+    @Test
+    fun `createUnclaimedUser refuses when the demo is unavailable`() {
+        val demoOff = RegistrationPolicy(AuthProperties(demoEnabled = false))
+
+        assertThatThrownBy { serviceWith(demoOff).createUnclaimedUser() }
+            .isInstanceOf(RegistrationClosedException::class.java)
+        assertThatThrownBy { serviceWith(closedRegistration).createUnclaimedUser() }
+            .isInstanceOf(RegistrationClosedException::class.java)
+        verify(userRepository, never()).save(any<UserEntity>())
     }
 }

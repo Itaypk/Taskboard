@@ -4,7 +4,12 @@ import dev.itayp.tasker.channel.OutboundChannel
 import dev.itayp.tasker.channel.OutboundMessage
 import org.slf4j.LoggerFactory
 
-/** No-op email channel used when email is disabled (dev/test): logs instead of sending. */
+/**
+ * No-op email channel used when email is disabled: logs that a message was dropped instead of
+ * sending it. Deliberately leaves out the addresses, subject and body — this also runs in
+ * production when an instance has no SMTP configured, a calendar invite's subject is the task's
+ * title, and the body of a login email is a live credential.
+ */
 class LoggingEmailChannel(private val purpose: String = "email") : OutboundChannel {
 
     private val log = LoggerFactory.getLogger(LoggingEmailChannel::class.java)
@@ -12,11 +17,9 @@ class LoggingEmailChannel(private val purpose: String = "email") : OutboundChann
     override fun send(message: OutboundMessage) {
         require(message is EmailMessage) { "LoggingEmailChannel only handles EmailMessage" }
         log.info(
-            "[EMAIL DISABLED purpose={}] to={} replyTo={} subject='{}' hasIcal={}",
+            "[EMAIL DISABLED purpose={}] dropped a message to {} recipient(s), hasIcal={}",
             purpose,
-            message.to,
-            message.replyTo,
-            message.subject,
+            message.to.size,
             message.iCalAttachment != null,
         )
     }

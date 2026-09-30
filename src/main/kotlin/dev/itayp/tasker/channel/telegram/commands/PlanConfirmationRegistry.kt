@@ -1,13 +1,13 @@
 package dev.itayp.tasker.channel.telegram.commands
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import dev.itayp.tasker.channel.telegram.ConditionalOnTelegramBot
 import org.springframework.stereotype.Component
 import java.time.LocalDate
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 @Component
-@ConditionalOnProperty(prefix = "tasker.telegram", name = ["enabled"], havingValue = "true")
+@ConditionalOnTelegramBot
 class PlanConfirmationRegistry {
 
     private val pending = ConcurrentHashMap<Long, PendingConfirmation>()

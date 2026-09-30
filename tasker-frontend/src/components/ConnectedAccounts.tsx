@@ -15,7 +15,12 @@ const PROVIDER_LABEL_KEYS: Record<string, string> = {
     telegram: 'connectedAccounts.providers.telegram',
     email: 'connectedAccounts.providers.email',
     google: 'connectedAccounts.providers.google',
+    local: 'connectedAccounts.providers.local',
 };
+
+// Operator-configured logins: the server refuses to unlink them (the next password login would
+// just provision a fresh account), so the button stays disabled with an explanation.
+const OPERATOR_MANAGED = new Set(['local']);
 
 // Surfaced after the Telegram link redirect lands back on /settings?telegramLink=<code>.
 // `success` is absent deliberately — it gets the "open the chat" panel below, not an error line.
@@ -136,7 +141,9 @@ export function ConnectedAccounts() {
             <p className="settings-hint">{t('connectedAccounts.hint')}</p>
 
             <ul className="connected-accounts">
-                {identities?.map(identity => (
+                {identities?.map(identity => {
+                    const managed = OPERATOR_MANAGED.has(identity.provider);
+                    return (
                     <li key={identity.provider} className="connected-account">
                         <span className="connected-account__name">
                             {PROVIDER_LABEL_KEYS[identity.provider] ? t(PROVIDER_LABEL_KEYS[identity.provider]) : identity.provider}
@@ -145,13 +152,16 @@ export function ConnectedAccounts() {
                             type="button"
                             className="btn btn--ghost connected-account__action"
                             onClick={() => handleUnlink(identity.provider)}
-                            disabled={busy || !canUnlink}
-                            title={canUnlink ? undefined : t('connectedAccounts.linkAnotherFirst')}
+                            disabled={busy || !canUnlink || managed}
+                            title={managed
+                                ? t('connectedAccounts.managedByOperator')
+                                : canUnlink ? undefined : t('connectedAccounts.linkAnotherFirst')}
                         >
                             {t('connectedAccounts.unlink')}
                         </button>
                     </li>
-                ))}
+                    );
+                })}
                 {identities?.length === 0 && (
                     <li className="settings-hint">{t('connectedAccounts.none')}</li>
                 )}

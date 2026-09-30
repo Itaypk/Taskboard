@@ -41,6 +41,7 @@ class EmailLoginService(
     private val appProperties: AppProperties,
     private val emailDomainBlocklistService: EmailDomainBlocklistService,
     private val localeNegotiationService: LocaleNegotiationService,
+    private val registrationPolicy: RegistrationPolicy,
     private val clock: Clock,
 ) {
 
@@ -66,6 +67,14 @@ class EmailLoginService(
         emailDomainBlocklistService.requireAllowed(normalised)
         val emailHash = EmailHasher.hash(normalised)
         val now = clock.instant()
+
+        // A closed instance only mails addresses that already have an account: a link for anyone
+        // else could only fail at the callback. Silent, like the rate limit — whether an address
+        // has an account here is exactly what the endpoint must not reveal.
+        if (!registrationPolicy.open && !userAuthService.hasAccountForEmail(emailHash)) {
+            log.info("Email login skipped for emailHash={}: registration is closed", emailHash)
+            return
+        }
 
         val recent = tokenRepository.countByEmailHashAndCreatedAtAfter(emailHash, now.minus(RATE_WINDOW))
         if (recent >= RATE_LIMIT) {

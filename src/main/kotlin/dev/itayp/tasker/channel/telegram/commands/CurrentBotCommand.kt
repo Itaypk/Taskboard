@@ -1,12 +1,12 @@
 package dev.itayp.tasker.channel.telegram.commands
 
 import dev.itayp.tasker.channel.ChannelMessage
+import dev.itayp.tasker.channel.telegram.ConditionalOnTelegramBot
 import dev.itayp.tasker.model.TaskStatus
 import dev.itayp.tasker.planning.PlanningSessionService
 import dev.itayp.tasker.planning.PlanningSessionStatus
 import dev.itayp.tasker.service.BacklogTaskService
 import dev.itayp.tasker.service.UserSettingsService
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.MessageSource
 import org.springframework.stereotype.Component
 import org.springframework.web.util.HtmlUtils
@@ -23,7 +23,7 @@ import java.time.format.FormatStyle
  * a schema change. We surface the same flat list the web UI does.
  */
 @Component
-@ConditionalOnProperty(prefix = "tasker.telegram", name = ["enabled"], havingValue = "true")
+@ConditionalOnTelegramBot
 class CurrentBotCommand(
     private val planningSessionService: PlanningSessionService,
     private val backlogTaskService: BacklogTaskService,

@@ -21,4 +21,7 @@ data class TelegramAuthProperties(
     val tokenUri: String = "https://oauth.telegram.org/token",
     val jwkSetUri: String = "https://oauth.telegram.org/.well-known/jwks.json",
     val issuer: String = "https://oauth.telegram.org",
-)
+) {
+    /** Telegram login needs the OIDC client credentials; the bot token alone isn't enough. */
+    val loginConfigured: Boolean get() = clientId.isNotBlank() && clientSecret.isNotBlank()
+}

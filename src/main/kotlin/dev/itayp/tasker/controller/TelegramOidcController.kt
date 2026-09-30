@@ -9,6 +9,7 @@ import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.AccountLinkService
 import dev.itayp.tasker.service.LinkResult
 import dev.itayp.tasker.service.LocaleNegotiationService
+import dev.itayp.tasker.service.RegistrationClosedException
 import dev.itayp.tasker.service.UserAuthService
 import dev.itayp.tasker.util.localRedirect
 import jakarta.servlet.http.HttpServletRequest
@@ -135,7 +136,12 @@ class TelegramOidcController(
         // Registration seeds preferred_language from the browser that ran the OAuth round-trip;
         // an existing user's stored preference is untouched (the hint is ignored on login).
         val localeHint = localeNegotiationService.resolveSupportedTag(request.getHeader("Accept-Language"))
-        val user = userAuthService.loginOrRegisterByTelegram(data, localeHint)
+        val user = try {
+            userAuthService.loginOrRegisterByTelegram(data, localeHint)
+        } catch (_: RegistrationClosedException) {
+            logger.info("Telegram login refused: unknown identity and registration is closed")
+            return redirect("/?telegramLogin=closed")
+        }
         sessionAuthenticator.authenticate(TaskerPrincipal(user.id!!), request, response)
         return redirect(localRedirect(next))
     }

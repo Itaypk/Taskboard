@@ -12,12 +12,20 @@ spring:
     driver-class-name: org.postgresql.Driver
 
 tasker:
+  app:
+    # Required: magic links, invitations, the Telegram redirect URI and CORS are all built from it.
+    # No default here, so a self-hosted instance can't silently send its users to backlog.fyi —
+    # ProductionConfigValidator refuses to start while it's blank.
+    base-url: ${TASKER_APP_BASE_URL:}
   telegram:
-    enabled: true
-    bot-token: ${TASKER_TELEGRAM_BOT_TOKEN}
+    # On by default, but the bot only starts when a token is set too (@ConditionalOnTelegramBot),
+    # so an instance without Telegram still boots.
+    enabled: ${TASKER_TELEGRAM_ENABLED:true}
+    bot-token: ${TASKER_TELEGRAM_BOT_TOKEN:}
   prometheus:
-    username: ${TASKER_PROMETHEUS_USERNAME}
-    password: ${TASKER_PROMETHEUS_PASSWORD}
+    # Both blank = /actuator/prometheus is closed (every request is refused).
+    username: ${TASKER_PROMETHEUS_USERNAME:}
+    password: ${TASKER_PROMETHEUS_PASSWORD:}
   encryption:
     # KEK loss = permanent data loss. Back this up offline (e.g. password manager).
     # Do not store this in the same archive as DB dumps.

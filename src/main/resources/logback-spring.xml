@@ -6,7 +6,8 @@
               value="%clr(%d{${LOG_DATEFORMAT_PATTERN:-yyyy-MM-dd HH:mm:ss.SSS}}){faint} %clr(${LOG_LEVEL_PATTERN:-%5p}) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(user=%X{user:-anonymous}){cyan} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}"/>
     <include resource="org/springframework/boot/logging/logback/console-appender.xml" />
 
-    <springProfile name="prod">
+    <!-- Bare-metal prod: full JSON log to a rolling file, only warnings on the console. -->
+    <springProfile name="prod &amp; !container">
         <appender name="CONSOLE_WARN" class="ch.qos.logback.core.ConsoleAppender">
             <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
                 <level>WARN</level>
@@ -38,7 +39,10 @@
         </root>
     </springProfile>
 
-    <springProfile name="!prod">
+    <!-- Everything else, including prod in a container (SPRING_PROFILES_ACTIVE=prod,container): the
+         full log on stdout, where `docker logs` and log shippers expect it, and no file inside the
+         container's writable layer. -->
+    <springProfile name="!prod | container">
         <root level="INFO">
             <appender-ref ref="CONSOLE" />
         </root>

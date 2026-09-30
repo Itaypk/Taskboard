@@ -79,6 +79,9 @@ class AccountLinkService(
     fun unlink(userId: UUID, provider: String): UnlinkResult {
         val identities = authIdentityRepository.findAllByUserId(userId)
         val target = identities.firstOrNull { it.provider == provider } ?: return UnlinkResult.NotLinked
+        // The operator owns local logins. Removing the identity wouldn't stop the password working —
+        // the next login would just provision a fresh, empty account under the same username.
+        if (provider == AuthProvider.LOCAL) return UnlinkResult.NotUnlinkable
         // Never strand a user without a way back in.
         if (identities.size <= 1) return UnlinkResult.WouldRemoveLastMethod
 
@@ -122,4 +125,5 @@ sealed interface UnlinkResult {
     data object Success : UnlinkResult
     data object NotLinked : UnlinkResult
     data object WouldRemoveLastMethod : UnlinkResult
+    data object NotUnlinkable : UnlinkResult
 }

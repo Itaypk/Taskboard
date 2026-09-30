@@ -25,7 +25,6 @@ import dev.itayp.tasker.repository.UserRepository
 import dev.itayp.tasker.service.UserSettingsService
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.MessageSource
 import org.springframework.stereotype.Component
 import org.telegram.telegrambots.longpolling.BotSession
@@ -49,7 +48,7 @@ import java.time.ZoneId
 import java.util.*
 
 @Component
-@ConditionalOnProperty(prefix = "tasker.telegram", name = ["enabled"], havingValue = "true")
+@ConditionalOnTelegramBot
 class TelegramChannel(
     @Value("\${tasker.telegram.bot-username}") private val botUsername: String,
     @Value("\${tasker.telegram.bot-token}") private val botToken: String,

@@ -86,6 +86,16 @@ tasker:
     # OIDC login (BotFather → Bot Settings → Web Login). Required for Telegram login in prod.
     client-id: ${TASKER_TELEGRAM_CLIENT_ID:}
     client-secret: ${TASKER_TELEGRAM_CLIENT_SECRET:}
+  auth:
+    # open: anyone may create an account. closed: only existing accounts and the local users below.
+    registration: ${TASKER_REGISTRATION:open}
+    # The zero-registration sandbox; only offered while registration is open.
+    demo-enabled: ${TASKER_DEMO_ENABLED:true}
+    # Username/password logins, `username:bcrypt-hash` (see `htpasswd -nbB`). Inline and comma-separated,
+    # and/or a file with one entry per line.
+    local:
+      users: ${TASKER_LOCAL_USERS:}
+      users-file: ${TASKER_LOCAL_USERS_FILE:}
   prometheus:
     username: ${TASKER_PROMETHEUS_USERNAME:prometheus}
     password: ${TASKER_PROMETHEUS_PASSWORD:prometheus-dev}
@@ -135,6 +145,10 @@ tasker:
     external-api:
       limit: 120
       window-seconds: 60
+    # Password attempts (local users), counted per client IP and, separately, per username.
+    password-login:
+      limit: 10
+      window-seconds: 900
   feedback:
     # Mailbox that in-app feedback is forwarded to (via the auth email sender). When blank,
     # falls back to the auth sender's own `from` address.
