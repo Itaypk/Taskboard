@@ -35,7 +35,7 @@ class ApiCatalogController(private val appProperties: AppProperties) {
                     "item" to listOf(
                         mapOf(
                             "href" to apiUrl,
-                            "title" to "Backlog.fyi External API v1",
+                            "title" to "${appProperties.name} External API v1",
                         ),
                     ),
                 ),

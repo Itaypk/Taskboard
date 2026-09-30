@@ -70,7 +70,7 @@
   "notFound": {
     "heading": "Page not found",
     "body": "This page doesn't exist. It may have been moved or the URL is incorrect.",
-    "homeLink": "Go to Backlog.fyi"
+    "homeLink": "Go to {{appName}}"
   },
   "confirmDialog": {
     "cancel": "Cancel",
@@ -167,7 +167,7 @@
       "local": "Username and password"
     },
     "linkNotices": {
-      "conflict": "That Telegram account is already linked to a different Backlog.fyi account.",
+      "conflict": "That Telegram account is already linked to a different {{appName}} account.",
       "exists": "You already have a Telegram account linked.",
       "failed": "Could not link Telegram. Please try again.",
       "unavailable": "Telegram linking is temporarily unavailable."
@@ -218,7 +218,7 @@
       "body": "Click the button below to complete sign-in. This confirms that you opened this link from your inbox."
     },
     "signingIn": "Signing in…",
-    "signIn": "Sign in to Backlog.fyi",
+    "signIn": "Sign in to {{appName}}",
     "backToSignIn": "Back to sign in",
     "errors": {
       "unverified": "That email is already linked to an unverified account. Sign in with Telegram and verify your email under Settings.",
@@ -271,7 +271,7 @@
       "tag": "Invitation",
       "title": "Invitation not found",
       "body": "This invitation is invalid, has expired, or was revoked. Ask the board owner to send you a new one.",
-      "backHome": "Go to Backlog.fyi"
+      "backHome": "Go to {{appName}}"
     },
     "ready": {
       "tag": "Board invitation",
@@ -404,7 +404,7 @@
   "policyPage": {
     "termsTitle": "Terms of Service",
     "privacyTitle": "Privacy Policy",
-    "backHome": "Back to Backlog.fyi",
+    "backHome": "Back to {{appName}}",
     "aboutTitle": "About",
     "faqTitle": "Frequently asked questions"
   },
@@ -478,7 +478,7 @@
     "deleteTitle": "Delete"
   },
   "updateBanner": {
-    "message": "A new version of Backlog.fyi is available.",
+    "message": "A new version of {{appName}} is available.",
     "refresh": "Refresh"
   },
   "viewToggle": {

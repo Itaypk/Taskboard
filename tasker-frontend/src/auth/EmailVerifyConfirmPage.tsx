@@ -5,6 +5,7 @@ import { confirmEmailVerification } from './authApi';
 import layout from './LoginPage.module.css';
 import styles from './EmailLoginConfirmPage.module.css';
 import { Arrow } from '../components/Arrow';
+import { useBranding } from '../publicConfig';
 
 type PageState =
     | { phase: 'ready' }
@@ -14,6 +15,7 @@ type PageState =
 
 export function EmailVerifyConfirmPage() {
     const { t } = useTranslation();
+    const { name: appName } = useBranding();
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
 
@@ -41,7 +43,7 @@ export function EmailVerifyConfirmPage() {
             <header className={layout.nav}>
                 <div className={layout.brand}>
                     <span className={layout.logoWrap}>
-                        <span className="logo-tape">Backlog.fyi</span>
+                        <span className="logo-tape">{appName}</span>
                         <span className={layout.beta}>beta</span>
                     </span>
                     <span className={layout.copyright}>© 2026</span>

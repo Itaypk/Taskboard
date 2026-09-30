@@ -12,6 +12,31 @@ name/default/provenance reference.
   are all built from it. Defaults to `https://backlog.fyi` outside `prod`; **required under `prod`**,
   where `ProductionConfigValidator` refuses to start without a valid value.
 
+## Branding (`AppProperties`)
+
+- `TASKER_APP_NAME` — the product name users see (default `Backlog.fyi`): emails, Telegram messages,
+  the web UI and the planning assistant's introduction. 1–64 characters, none of `<>&"'{}` (it's
+  inserted into HTML emails and `MessageFormat` patterns). Also the default sender name of both email
+  senders.
+- `TASKER_SUPPORT_EMAIL` — public contact address shown in the web UI (default `hello@backlog.fyi`).
+- `TASKER_ABUSE_EMAIL` — abuse-report address referenced from the policy pages (default
+  `abuse@backlog.fyi`).
+
+All three reach the SPA at runtime through `GET /api/public/config`, so no rebuild is needed. The
+message bundles and prompt templates say `@APP_NAME@` / `@APP_URL@` instead of the name and URL;
+`BrandedMessageSource` and `PromptTemplateLoader` substitute the configured values.
+
+**Icons and logos.** A public self-hosted instance needs its own icons (see `TRADEMARKS.md`). Put
+replacement files — `favicon.ico`, `favicon-*.png`, `apple-touch-icon.png`, `og-image.png`, … under
+the same names — in a directory and list it ahead of the bundled files:
+`SPRING_WEB_RESOURCES_STATIC_LOCATIONS=file:/branding/,classpath:/static/` (note the trailing `/`).
+Files not in the directory keep coming from the bundle.
+
+Not yet covered: `manifest.json` (the installed-app name), the `<noscript>`/meta tags in
+`index.html` (the page title is replaced at runtime), and the static discovery files
+(`llms.txt`, `robots.txt`, `sitemap.xml`, the external API's `SKILL.md`/`openapi.yaml`), which still
+describe the hosted instance.
+
 ## Sign-in and registration (`AuthProperties`)
 
 - `TASKER_REGISTRATION` — `open` (default) or `closed`. Closed means no new accounts: existing ones
@@ -118,16 +143,9 @@ the full log to stdout instead and write no file — what `docker logs` and log 
   `from` address. Per-user rate-limited (`tasker.rate-limit.feedback`); the admin-facing email is
   English-only (not user-localised).
 
-## Frontend (`VITE_*`, baked into the bundle at build time by the Gradle `buildFrontend` task)
+## Frontend
 
-No frontend env var is required for auth — Telegram login is a backend-driven OAuth redirect, so the
-SPA just links to `/api/auth/telegram/start`. (`VITE_TELEGRAM_BOT_USERNAME` is no longer used now
-that the iframe widget is gone.)
-
-- `VITE_SUPPORT_EMAIL` — public support/contact address, read once in `src/config.ts` (defaults to
-  `hello@backlog.fyi` when unset). Used for the import-error "Contact support" link and the contact
-  lines in the static content pages, whose markdown carries a `{{SUPPORT_EMAIL}}` placeholder that
-  `PolicyPage` substitutes.
-- `VITE_ABUSE_EMAIL` — dedicated abuse-report address, same mechanism (defaults to
-  `abuse@backlog.fyi`). Referenced via a `{{ABUSE_EMAIL}}` placeholder in the ToS, Privacy Policy,
-  and FAQ markdown.
+The SPA reads no `VITE_*` variables: everything instance-specific (login methods, name, contact
+addresses) comes from `GET /api/public/config` at runtime, so one build — or one container image —
+serves every instance. `VITE_SUPPORT_EMAIL` / `VITE_ABUSE_EMAIL` were replaced by
+`TASKER_SUPPORT_EMAIL` / `TASKER_ABUSE_EMAIL` above.

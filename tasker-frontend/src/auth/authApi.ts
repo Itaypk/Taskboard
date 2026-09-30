@@ -57,6 +57,12 @@ export interface PublicConfig {
     };
     /** False when only existing accounts and operator-listed users can sign in. */
     registrationOpen: boolean;
+    /** What the instance calls itself, and where users can reach whoever runs it. */
+    branding: {
+        name: string;
+        supportEmail: string;
+        abuseEmail: string;
+    };
 }
 
 export const fetchPublicConfig = (): Promise<PublicConfig> =>

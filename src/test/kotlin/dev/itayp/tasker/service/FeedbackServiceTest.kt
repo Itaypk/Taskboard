@@ -4,6 +4,7 @@ import dev.itayp.tasker.channel.OutboundChannel
 import dev.itayp.tasker.channel.email.EmailMessage
 import dev.itayp.tasker.channel.email.EmailProperties
 import dev.itayp.tasker.channel.email.EmailTemplateEngine
+import dev.itayp.tasker.config.AppProperties
 import dev.itayp.tasker.config.FeedbackProperties
 import dev.itayp.tasker.ratelimit.RateLimiter
 import org.assertj.core.api.Assertions.assertThat
@@ -41,7 +42,7 @@ class FeedbackServiceTest {
     private fun service(
         feedbackProps: FeedbackProperties = FeedbackProperties(recipient = "owner@example.com"),
         emailProps: EmailProperties = EmailProperties(),
-    ) = FeedbackService(outboundChannel, templateEngine, feedbackProps, emailProps, rateLimiter, clock)
+    ) = FeedbackService(outboundChannel, templateEngine, feedbackProps, emailProps, AppProperties(), rateLimiter, clock)
 
     @Test
     fun `sends feedback email to configured recipient`() {

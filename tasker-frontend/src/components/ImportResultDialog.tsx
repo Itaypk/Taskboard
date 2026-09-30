@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import styles from './ImportResultDialog.module.css';
-import { SUPPORT_EMAIL } from '../config';
+import { useBranding } from '../publicConfig';
 import type { ImportErrorCategory, ImportResult } from './importResult';
 
 interface ImportResultDialogProps {
@@ -41,6 +41,7 @@ const ERROR_COPY_KEYS: Record<ImportErrorCategory, { title: string; body: string
 
 export function ImportResultDialog({ result, onClose }: ImportResultDialogProps) {
   const { t } = useTranslation();
+  const { supportEmail } = useBranding();
   const buttonRef = useRef<HTMLButtonElement>(null);
   const open = result !== null;
 
@@ -98,7 +99,7 @@ export function ImportResultDialog({ result, onClose }: ImportResultDialogProps)
                 <p className={styles.note}>
                   {t('importResultDialog.stillStuck')}{' '}
                   {/* Support inbox reads this subject line — kept English per the admin-facing-output convention (docs/I18N.md). */}
-                  <a className="link-btn" href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('Backlog import problem')}`}>
+                  <a className="link-btn" href={`mailto:${supportEmail}?subject=${encodeURIComponent('Backlog import problem')}`}>
                     {t('importResultDialog.contactSupport')}
                   </a>
                 </p>

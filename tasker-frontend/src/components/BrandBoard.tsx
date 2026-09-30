@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Board } from '../api';
 import styles from './BrandBoard.module.css';
+import { useBranding } from '../publicConfig';
 
 interface BrandBoardProps {
   boards: Board[];
@@ -66,9 +67,11 @@ export function BrandBoard({
   onCreate,
   onOpenSettings,
   onDuplicate,
-  brandName = 'Backlog.fyi',
+  brandName,
 }: BrandBoardProps) {
   const { t } = useTranslation();
+  const branding = useBranding();
+  const tapeName = brandName ?? branding.name;
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -91,7 +94,7 @@ export function BrandBoard({
 
   return (
     <div className={styles.brand} ref={wrapRef}>
-      <span className={`logo-tape ${styles.tape}`}>{brandName}</span>
+      <span className={`logo-tape ${styles.tape}`}>{tapeName}</span>
 
       <div className={styles.switcher}>
         <button

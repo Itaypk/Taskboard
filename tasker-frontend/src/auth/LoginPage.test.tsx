@@ -19,11 +19,13 @@ vi.mock('./AuthContext', () => ({
 }));
 
 import { ApiError } from '../api';
+import { resetPublicConfigForTests } from '../publicConfig';
 import { LoginPage } from './LoginPage';
 
 const selfHosted: PublicConfig = {
     login: { telegram: false, email: false, password: true, demo: false },
     registrationOpen: false,
+    branding: { name: 'Acme Tasks', supportEmail: 'help@acme.test', abuseEmail: 'abuse@acme.test' },
 };
 
 function renderPage() {
@@ -36,6 +38,7 @@ function renderPage() {
 
 beforeEach(() => {
     vi.clearAllMocks();
+    resetPublicConfigForTests();
     window.history.replaceState(null, '', '/');
 });
 afterEach(() => {
@@ -59,6 +62,15 @@ describe('LoginPage', () => {
         expect(screen.queryByRole('link', { name: /Telegram/ })).not.toBeInTheDocument();
         expect(screen.queryByRole('button', { name: /Continue with email/ })).not.toBeInTheDocument();
         expect(screen.getByText('Sign in with an existing account.')).toBeInTheDocument();
+    });
+
+    it('shows the instance name and uses it as the page title', async () => {
+        fetchPublicConfig.mockResolvedValue(selfHosted);
+        renderPage();
+
+        expect(await screen.findByText('Acme Tasks')).toBeInTheDocument();
+        expect(screen.queryByText('Backlog.fyi')).not.toBeInTheDocument();
+        expect(document.title).toBe('Acme Tasks');
     });
 
     it('signs in with a username and password', async () => {

@@ -4,6 +4,7 @@ import dev.itayp.tasker.channel.OutboundChannel
 import dev.itayp.tasker.channel.email.EmailMessage
 import dev.itayp.tasker.channel.email.EmailProperties
 import dev.itayp.tasker.channel.email.EmailTemplateEngine
+import dev.itayp.tasker.config.AppProperties
 import dev.itayp.tasker.config.FeedbackProperties
 import dev.itayp.tasker.ratelimit.RateLimiter
 import org.slf4j.LoggerFactory
@@ -34,6 +35,7 @@ class FeedbackService(
     private val emailTemplateEngine: EmailTemplateEngine,
     private val feedbackProperties: FeedbackProperties,
     private val emailProperties: EmailProperties,
+    private val appProperties: AppProperties,
     @Qualifier("feedbackRateLimiter") private val rateLimiter: RateLimiter,
     private val clock: Clock,
 ) {
@@ -78,7 +80,7 @@ class FeedbackService(
         outboundChannel.send(
             EmailMessage(
                 to = listOf(recipient),
-                subject = "New Backlog.fyi feedback",
+                subject = "New ${appProperties.name} feedback",
                 htmlBody = htmlBody,
                 // Direct replies straight to the submitter (when they gave an address); the mail is
                 // still sent from the auth sender's own mailbox, so SMTP auth is unaffected.

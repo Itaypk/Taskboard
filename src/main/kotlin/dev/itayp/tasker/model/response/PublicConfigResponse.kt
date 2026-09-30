@@ -5,6 +5,14 @@ data class PublicConfigResponse(
     val login: LoginMethodsResponse,
     /** False when only existing accounts and operator-listed local users can sign in. */
     val registrationOpen: Boolean,
+    val branding: BrandingResponse,
+)
+
+/** What the instance calls itself, and where users can reach whoever runs it. */
+data class BrandingResponse(
+    val name: String,
+    val supportEmail: String,
+    val abuseEmail: String,
 )
 
 data class LoginMethodsResponse(

@@ -14,6 +14,7 @@ import AppFooter from './components/AppFooter';
 import { lazyComponent, useLazyComponent } from './lazyComponent';
 import { notifyToast } from './toast';
 import './App.css';
+import { useBranding } from './publicConfig';
 
 // Not `lazy`: the board is the one chunk that races the signed-in first paint, and a Suspense
 // fallback commit there costs a flat 300 ms of React's anti-flicker throttle. See `lazyComponent`.
@@ -86,6 +87,7 @@ function AuthShell() {
  */
 function BoardRoute({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const { t } = useTranslation();
+  const { name: appName } = useBranding();
   const { component: Board, failed } = useLazyComponent(boardChunk);
 
   // A chunk that won't load is nearly always a tab holding an `index.html` from before a redeploy,
@@ -95,11 +97,11 @@ function BoardRoute({ onSignOut }: { onSignOut: () => Promise<void> }) {
     if (!failed) return;
     notifyToast({
       key: 'app-update',
-      message: t('updateBanner.message'),
+      message: t('updateBanner.message', { appName }),
       durationMs: 0,
       action: { label: t('updateBanner.refresh'), onClick: () => window.location.reload() },
     });
-  }, [failed, t]);
+  }, [failed, t, appName]);
 
   if (!Board) {
     return <RouteFallback />;
