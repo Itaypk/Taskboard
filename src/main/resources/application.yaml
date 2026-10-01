@@ -1,9 +1,6 @@
 spring:
   application:
     name: taskboard
-  messages:
-    basename: messages
-    encoding: UTF-8
   jpa:
     hibernate:
       ddl-auto: validate
@@ -54,6 +51,11 @@ management:
 tasker:
   app:
     base-url: ${TASKER_APP_BASE_URL:https://backlog.fyi}
+    # Product name and public contact addresses, shown in emails, Telegram and the web UI.
+    # (Message bundles are read by BrandedMessageSource, which substitutes the name and base URL.)
+    name: ${TASKER_APP_NAME:Backlog.fyi}
+    support-email: ${TASKER_SUPPORT_EMAIL:hello@backlog.fyi}
+    abuse-email: ${TASKER_ABUSE_EMAIL:abuse@backlog.fyi}
     # Hard cap on simultaneously unclaimed accounts — a surge safety valve, separate from the
     # inactivity-based cleanup sweep. Deliberately generous.
     unclaimed-account-cap: ${TASKER_UNCLAIMED_ACCOUNT_CAP:1000}
@@ -165,7 +167,7 @@ tasker:
     # Critical path: login / register / verification magic links.
     auth:
       from: ${TASKER_EMAIL_AUTH_FROM:}
-      from-name: ${TASKER_EMAIL_AUTH_FROM_NAME:Backlog.fyi}
+      from-name: ${TASKER_EMAIL_AUTH_FROM_NAME:${TASKER_APP_NAME:Backlog.fyi}}
       smtp:
         host: ${TASKER_EMAIL_AUTH_SMTP_HOST:smtp.protonmail.ch}
         port: ${TASKER_EMAIL_AUTH_SMTP_PORT:587}
@@ -174,7 +176,7 @@ tasker:
     # Scheduling: calendar invitations for planned time blocks.
     scheduling:
       from: ${TASKER_EMAIL_SCHEDULING_FROM:}
-      from-name: ${TASKER_EMAIL_SCHEDULING_FROM_NAME:Backlog.fyi}
+      from-name: ${TASKER_EMAIL_SCHEDULING_FROM_NAME:${TASKER_APP_NAME:Backlog.fyi}}
       smtp:
         host: ${TASKER_EMAIL_SCHEDULING_SMTP_HOST:smtp.protonmail.ch}
         port: ${TASKER_EMAIL_SCHEDULING_SMTP_PORT:587}

@@ -203,7 +203,10 @@ class TelegramChannel(
         }
 
         if (user == null) {
-            channel.send(ChannelMessage.Text("Please sign up at backlog.fyi to use the planner."))
+            // Same pointer as /start: an unlinked chat can't do anything until the account exists
+            // and Telegram is connected to it. English, as for /start — there's no account to
+            // carry a language yet.
+            channel.send(ChannelMessage.Text(messageSource.getMessage("command.start", null, Locale.ENGLISH)))
             return
         }
         val userId = user.id!!

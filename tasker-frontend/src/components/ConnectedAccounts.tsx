@@ -10,6 +10,7 @@ import {
     type LinkedIdentity,
 } from '../auth/authApi';
 import { ApiError } from '../api';
+import { useBranding } from '../publicConfig';
 
 const PROVIDER_LABEL_KEYS: Record<string, string> = {
     telegram: 'connectedAccounts.providers.telegram',
@@ -50,6 +51,7 @@ function readLinkCode(): string | null {
  */
 export function ConnectedAccounts() {
     const { t } = useTranslation();
+    const { name: appName } = useBranding();
     const { state: authState, setUser, refresh: refreshUser } = useAuth();
     const chatReady = authState.status === 'authenticated' && authState.user.telegramChatReady;
     const [identities, setIdentities] = useState<LinkedIdentity[] | null>(null);
@@ -60,7 +62,7 @@ export function ConnectedAccounts() {
     const [linkCode] = useState(readLinkCode);
     const justLinked = linkCode === 'success';
     const initialErrorKey = linkCode && !justLinked ? LINK_ERROR_KEYS[linkCode] ?? LINK_ERROR_KEYS.failed : null;
-    const [error, setError] = useState<string | null>(initialErrorKey ? t(initialErrorKey) : null);
+    const [error, setError] = useState<string | null>(initialErrorKey ? t(initialErrorKey, { appName }) : null);
 
     const refresh = useCallback(async () => {
         try {

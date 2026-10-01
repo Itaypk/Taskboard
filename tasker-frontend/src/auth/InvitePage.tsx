@@ -7,6 +7,7 @@ import { acceptInvitation, fetchInvitationPreview, type InvitationPreview } from
 import layout from './LoginPage.module.css';
 import styles from './EmailLoginConfirmPage.module.css';
 import { Arrow } from '../components/Arrow';
+import { useBranding } from '../publicConfig';
 
 const ACTIVE_BOARD_KEY = 'backlog.activeBoardId';
 
@@ -23,6 +24,7 @@ type PreviewState =
  */
 export function InvitePage() {
     const { t } = useTranslation();
+    const { name: appName } = useBranding();
     const { state: auth } = useAuth();
     const token = new URLSearchParams(window.location.search).get('token');
 
@@ -67,7 +69,7 @@ export function InvitePage() {
             <header className={layout.nav}>
                 <div className={layout.brand}>
                     <span className={layout.logoWrap}>
-                        <span className="logo-tape">Backlog.fyi</span>
+                        <span className="logo-tape">{appName}</span>
                         <span className={layout.beta}>beta</span>
                     </span>
                     <span className={layout.copyright}>© 2026</span>
@@ -88,7 +90,7 @@ export function InvitePage() {
                         <p className={styles.cardBody}>
                             {t('invitePage.invalid.body')}
                         </p>
-                        <Link to="/" className={styles.backLink}><Arrow direction="back" /> {t('invitePage.invalid.backHome')}</Link>
+                        <Link to="/" className={styles.backLink}><Arrow direction="back" /> {t('invitePage.invalid.backHome', { appName })}</Link>
                     </div>
                 )}
 

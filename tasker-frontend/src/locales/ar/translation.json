@@ -70,7 +70,7 @@
   "notFound": {
     "heading": "الصفحة غير موجودة",
     "body": "هذه الصفحة غير موجودة. ربما تم نقلها أو أن الرابط غير صحيح.",
-    "homeLink": "الانتقال إلى Backlog.fyi"
+    "homeLink": "الانتقال إلى {{appName}}"
   },
   "confirmDialog": {
     "cancel": "إلغاء",
@@ -187,7 +187,7 @@
       "local": "اسم المستخدم وكلمة المرور"
     },
     "linkNotices": {
-      "conflict": "حساب Telegram هذا مرتبط بالفعل بحساب Backlog.fyi آخر.",
+      "conflict": "حساب Telegram هذا مرتبط بالفعل بحساب {{appName}} آخر.",
       "exists": "يوجد بالفعل حساب Telegram مرتبط.",
       "failed": "تعذّر ربط Telegram. يُرجى المحاولة مجددًا.",
       "unavailable": "ربط Telegram غير متاح مؤقتًا."
@@ -238,7 +238,7 @@
       "body": "الضغط على الزر أدناه لإتمام الدخول. هذا يؤكد أن الرابط فُتح من البريد الإلكتروني."
     },
     "signingIn": "جارٍ تسجيل الدخول…",
-    "signIn": "الدخول إلى Backlog.fyi",
+    "signIn": "الدخول إلى {{appName}}",
     "backToSignIn": "العودة إلى صفحة الدخول",
     "errors": {
       "unverified": "هذا البريد مرتبط بالفعل بحساب غير مؤكَّد. الدخول عبر Telegram وتأكيد البريد من الإعدادات.",
@@ -291,7 +291,7 @@
       "tag": "دعوة",
       "title": "الدعوة غير موجودة",
       "body": "هذه الدعوة غير صالحة، أو منتهية الصلاحية، أو تم إبطالها. طلب دعوة جديدة من صاحب اللوحة.",
-      "backHome": "الانتقال إلى Backlog.fyi"
+      "backHome": "الانتقال إلى {{appName}}"
     },
     "ready": {
       "tag": "دعوة إلى لوحة",
@@ -444,7 +444,7 @@
   "policyPage": {
     "termsTitle": "شروط الاستخدام",
     "privacyTitle": "سياسة الخصوصية",
-    "backHome": "العودة إلى Backlog.fyi",
+    "backHome": "العودة إلى {{appName}}",
     "aboutTitle": "عن المشروع",
     "faqTitle": "الأسئلة الشائعة"
   },
@@ -534,7 +534,7 @@
     "deleteTitle": "حذف"
   },
   "updateBanner": {
-    "message": "يتوفر إصدار جديد من Backlog.fyi.",
+    "message": "يتوفر إصدار جديد من {{appName}}.",
     "refresh": "تحديث"
   },
   "viewToggle": {

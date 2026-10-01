@@ -44,24 +44,6 @@ export interface TelegramBotInfo {
 export const fetchTelegramBot = (): Promise<TelegramBotInfo> =>
     request<TelegramBotInfo>('/api/auth/telegram/bot');
 
-/**
- * Which sign-in options this instance offers. Runtime configuration rather than `VITE_*` values, so
- * one build (or container image) serves any instance.
- */
-export interface PublicConfig {
-    login: {
-        telegram: boolean;
-        email: boolean;
-        password: boolean;
-        demo: boolean;
-    };
-    /** False when only existing accounts and operator-listed users can sign in. */
-    registrationOpen: boolean;
-}
-
-export const fetchPublicConfig = (): Promise<PublicConfig> =>
-    request<PublicConfig>('/api/public/config', undefined, { emitErrors: false });
-
 export const devLogin = (): Promise<AuthUser> =>
     request<AuthUser>('/api/auth/dev-login', { method: 'POST' });
 

@@ -3,10 +3,8 @@ import { Trans, useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { ApiError } from '../api';
 import { useAuth } from './AuthContext';
-import {
-    demoLogin, devLogin, fetchPublicConfig, passwordLogin, requestEmailLogin, telegramLoginUrl,
-    type PublicConfig,
-} from './authApi';
+import { demoLogin, devLogin, passwordLogin, requestEmailLogin, telegramLoginUrl } from './authApi';
+import { usePublicConfig, type PublicConfig } from '../publicConfig';
 // Imported directly rather than via mascots.ts: Board.tsx and this page are different chunks
 // (one eager, one lazy), and any import from that shared module — even a single unrelated
 // constant — forces the bundler to hoist the whole file (all three mascots' assets) into this
@@ -32,24 +30,6 @@ function readTelegramNoticeKey(): string | null {
     return 'login.notices.telegramFailed';
 }
 
-// Until /api/public/config answers, render the hosted instance's options: that's what nearly every
-// visitor sees, so the landing page's first paint doesn't change for them.
-const DEFAULT_CONFIG: PublicConfig = {
-    login: { telegram: true, email: true, password: false, demo: true },
-    registrationOpen: true,
-};
-
-function usePublicConfig(): PublicConfig {
-    const [config, setConfig] = useState<PublicConfig>(DEFAULT_CONFIG);
-    useEffect(() => {
-        let cancelled = false;
-        fetchPublicConfig()
-            .then(c => { if (!cancelled) setConfig(c); })
-            .catch(e => console.error('Could not load instance config; showing defaults', e));
-        return () => { cancelled = true; };
-    }, []);
-    return config;
-}
 
 // The sandbox is the primary call-to-action, so its two expected failures deserve to say what
 // actually happened: 429 is the per-IP throttle (everyone behind one office/carrier gateway shares
@@ -117,7 +97,7 @@ export function LoginPage({ next }: { next?: string } = {}) {
             <header className={styles.nav}>
                 <div className={styles.brand}>
                     <span className={styles.logoWrap}>
-                        <span className="logo-tape">Backlog.fyi</span>
+                        <span className="logo-tape">{config.branding.name}</span>
                         <span className={styles.beta}>beta</span>
                     </span>
                     <span className={styles.copyright}>© 2026</span>

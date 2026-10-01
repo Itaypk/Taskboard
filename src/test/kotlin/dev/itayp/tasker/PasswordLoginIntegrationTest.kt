@@ -80,6 +80,7 @@ class PasswordLoginIntegrationTest(@Autowired val rest: TestRestTemplate) {
         val response = rest.getForEntity("/api/public/config", String::class.java)
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(response.body).contains("\"password\":true", "\"demo\":false", "\"registrationOpen\":false")
+        assertThat(response.body).contains("\"name\":\"Backlog.fyi\"", "\"supportEmail\":\"hello@backlog.fyi\"")
     }
 
     @Test

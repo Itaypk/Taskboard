@@ -70,7 +70,7 @@
   "notFound": {
     "heading": "הדף לא נמצא",
     "body": "הדף הזה לא קיים. ייתכן שהוא הועבר, או שהכתובת שגויה.",
-    "homeLink": "מעבר ל‑Backlog.fyi"
+    "homeLink": "מעבר ל‑{{appName}}"
   },
   "confirmDialog": {
     "cancel": "ביטול",
@@ -172,7 +172,7 @@
       "local": "שם משתמש וסיסמה"
     },
     "linkNotices": {
-      "conflict": "חשבון ה‑Telegram הזה כבר מקושר לחשבון Backlog.fyi אחר.",
+      "conflict": "חשבון ה‑Telegram הזה כבר מקושר לחשבון {{appName}} אחר.",
       "exists": "כבר קיים חשבון Telegram מקושר.",
       "failed": "לא הצלחנו לקשר את Telegram. אפשר לנסות שוב.",
       "unavailable": "קישור Telegram אינו זמין כרגע."
@@ -223,7 +223,7 @@
       "body": "לחיצה על הכפתור למטה תשלים את הכניסה. כך אנחנו מוודאים שהקישור נפתח מתוך תיבת הדואר."
     },
     "signingIn": "נכנס…",
-    "signIn": "כניסה ל‑Backlog.fyi",
+    "signIn": "כניסה ל‑{{appName}}",
     "backToSignIn": "חזרה למסך הכניסה",
     "errors": {
       "unverified": "האימייל הזה כבר מקושר לחשבון לא מאומת. אפשר להיכנס עם Telegram ולאמת את האימייל בהגדרות.",
@@ -276,7 +276,7 @@
       "tag": "הזמנה",
       "title": "ההזמנה לא נמצאה",
       "body": "ההזמנה אינה תקפה, פג תוקפה או שהיא בוטלה. כדאי לבקש הזמנה חדשה מבעלי הלוח.",
-      "backHome": "מעבר ל‑Backlog.fyi"
+      "backHome": "מעבר ל‑{{appName}}"
     },
     "ready": {
       "tag": "הזמנה ללוח",
@@ -414,7 +414,7 @@
   "policyPage": {
     "termsTitle": "תנאי שימוש",
     "privacyTitle": "מדיניות פרטיות",
-    "backHome": "חזרה ל‑Backlog.fyi",
+    "backHome": "חזרה ל‑{{appName}}",
     "aboutTitle": "אודות",
     "faqTitle": "שאלות נפוצות"
   },
@@ -492,7 +492,7 @@
     "deleteAndRemove_two": "מחיקה והסרה משתי משימות"
   },
   "updateBanner": {
-    "message": "גרסה חדשה של Backlog.fyi זמינה.",
+    "message": "גרסה חדשה של {{appName}} זמינה.",
     "refresh": "רענון"
   },
   "viewToggle": {
