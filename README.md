@@ -195,7 +195,7 @@ Every pull request to `main` runs [`.github/workflows/gradle.yml`](.github/workf
 
 ## Self-hosting
 
-Possible, but not turnkey yet: you need Postgres, a Telegram bot (optional for web-only use), an OpenRouter key for the AI features, and SMTP accounts for email. See "Production deployment" above and [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md). Easier self-hosting (a Docker Compose setup, a self-hosting guide) is tracked in [issue #271](https://github.com/Itaypk/Taskboard/issues/271).
+Run your own instance with Docker Compose: the app, PostgreSQL and, optionally, Caddy for automatic HTTPS. Every build of `main` is published as a container image (`ghcr.io/itaypk/taskboard`, amd64 and arm64). Telegram, email and the AI assistant are optional; a private instance can sign in with a username and password. See [`docs/SELF-HOSTING.md`](docs/SELF-HOSTING.md).
 
 ## License
 

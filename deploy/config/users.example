@@ -1,0 +1,5 @@
+# Local users: one `username:bcrypt-hash` per line. Copy to `users` (same directory) and replace the
+# example. Generate a line with:
+#   docker run --rm httpd:2-alpine htpasswd -nbBC 12 alice 'a long password'
+# Restart the app after editing. Lines starting with # are ignored.
+#alice:$2y$12$replace-this-with-a-real-hash

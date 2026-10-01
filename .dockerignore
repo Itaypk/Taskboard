@@ -1,0 +1,4 @@
+# The image only needs the built JAR (see Dockerfile); keep the build context to exactly that.
+*
+!build/libs/Taskboard-*-SNAPSHOT.jar
+!jar/Taskboard-*-SNAPSHOT.jar
