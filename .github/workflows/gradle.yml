@@ -185,7 +185,7 @@ jobs:
     # The Dockerfile; the JAR itself comes from the build job's artifact.
     - uses: actions/checkout@v7
 
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with:
         name: jar
         path: jar
