@@ -1,14 +1,30 @@
-import { useEffect, useSyncExternalStore } from 'react';
-import { fetchPublicConfig, type PublicConfig } from './auth/authApi';
-
 /**
  * Instance settings the SPA needs before (and after) sign-in: which login methods to offer and what
- * the instance calls itself. Served at runtime by `GET /api/public/config`, so one build — or one
- * container image — works for every instance.
+ * the instance calls itself. The server inlines them into `index.html` as
+ * `<script id="app-config" type="application/json">` (`IndexHtmlController`), so they're read
+ * synchronously at boot — no request on the critical path, and nothing changes after first paint.
+ * The same object is also served at `GET /api/public/config` for scripts.
  *
- * Until the request answers, everything reads the hosted instance's values, so the anonymous first
- * paint doesn't change for the visitors almost all traffic comes from. Fetched once per page load.
+ * Falls back to the hosted instance's values when the block is missing or unparseable: the Vite dev
+ * server and unit tests have no server to fill it in.
  */
+export interface PublicConfig {
+    login: {
+        telegram: boolean;
+        email: boolean;
+        password: boolean;
+        demo: boolean;
+    };
+    /** False when only existing accounts and operator-listed users can sign in. */
+    registrationOpen: boolean;
+    /** What the instance calls itself, and where users can reach whoever runs it. */
+    branding: {
+        name: string;
+        supportEmail: string;
+        abuseEmail: string;
+    };
+}
+
 export const DEFAULT_PUBLIC_CONFIG: PublicConfig = {
     login: { telegram: true, email: true, password: false, demo: true },
     registrationOpen: true,
@@ -19,45 +35,39 @@ export const DEFAULT_PUBLIC_CONFIG: PublicConfig = {
     },
 };
 
-let current: PublicConfig = DEFAULT_PUBLIC_CONFIG;
-let loading: Promise<PublicConfig> | null = null;
-const listeners = new Set<() => void>();
+let cached: PublicConfig | null = null;
 
-export function loadPublicConfig(): Promise<PublicConfig> {
-    loading ??= fetchPublicConfig()
-        .then(config => {
-            current = config;
-            // index.html's <title> carries the hosted name; a renamed instance replaces it.
-            if (config.branding.name !== DEFAULT_PUBLIC_CONFIG.branding.name) {
-                document.title = config.branding.name;
-            }
-            listeners.forEach(notify => notify());
-            return config;
-        })
-        .catch(e => {
-            console.error('Could not load instance config; showing defaults', e);
-            return current;
-        });
-    return loading;
+function readInlineConfig(): PublicConfig {
+    const text = document.getElementById('app-config')?.textContent;
+    if (!text) return DEFAULT_PUBLIC_CONFIG;
+    try {
+        const parsed = JSON.parse(text) as PublicConfig | null;
+        return parsed ?? DEFAULT_PUBLIC_CONFIG;
+    } catch (e) {
+        console.error('Unreadable instance config in index.html; showing defaults', e);
+        return DEFAULT_PUBLIC_CONFIG;
+    }
 }
 
-function subscribe(listener: () => void): () => void {
-    listeners.add(listener);
-    return () => listeners.delete(listener);
+export function getPublicConfig(): PublicConfig {
+    cached ??= readInlineConfig();
+    return cached;
 }
 
+/**
+ * Hook form of [getPublicConfig]. The value is fixed for the page's lifetime, so this never
+ * re-renders anything; it exists so components read config the same way they read other context.
+ */
 export function usePublicConfig(): PublicConfig {
-    useEffect(() => { void loadPublicConfig(); }, []);
-    return useSyncExternalStore(subscribe, () => current);
+    return getPublicConfig();
 }
 
 /** The instance's name and contact addresses. */
 export function useBranding(): PublicConfig['branding'] {
-    return usePublicConfig().branding;
+    return getPublicConfig().branding;
 }
 
-/** Tests only: forget the fetched config so each test starts from the defaults. */
+/** Tests only: forget the parsed config so the next read sees the current DOM. */
 export function resetPublicConfigForTests(): void {
-    current = DEFAULT_PUBLIC_CONFIG;
-    loading = null;
+    cached = null;
 }

@@ -1,17 +1,16 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PublicConfig } from './authApi';
+import type { PublicConfig } from '../publicConfig';
 
-const { fetchPublicConfig, passwordLogin, setUser } = vi.hoisted(() => ({
-    fetchPublicConfig: vi.fn(),
+const { passwordLogin, setUser } = vi.hoisted(() => ({
     passwordLogin: vi.fn(),
     setUser: vi.fn(),
 }));
 
 vi.mock('./authApi', async () => {
     const actual = await vi.importActual<typeof import('./authApi')>('./authApi');
-    return { ...actual, fetchPublicConfig, passwordLogin };
+    return { ...actual, passwordLogin };
 });
 
 vi.mock('./AuthContext', () => ({
@@ -28,6 +27,15 @@ const selfHosted: PublicConfig = {
     branding: { name: 'Acme Tasks', supportEmail: 'help@acme.test', abuseEmail: 'abuse@acme.test' },
 };
 
+/** What IndexHtmlController inlines into the served page. */
+function withInlineConfig(config: PublicConfig | string) {
+    const script = document.createElement('script');
+    script.id = 'app-config';
+    script.type = 'application/json';
+    script.textContent = typeof config === 'string' ? config : JSON.stringify(config);
+    document.head.appendChild(script);
+}
+
 function renderPage() {
     render(
         <MemoryRouter>
@@ -43,12 +51,13 @@ beforeEach(() => {
 });
 afterEach(() => {
     cleanup();
+    document.getElementById('app-config')?.remove();
     vi.restoreAllMocks();
 });
 
 describe('LoginPage', () => {
     it('shows only the methods the instance offers', async () => {
-        fetchPublicConfig.mockResolvedValue(selfHosted);
+        withInlineConfig(selfHosted);
         renderPage();
 
         // Without the sandbox, sign-in becomes the primary call-to-action.
@@ -64,17 +73,16 @@ describe('LoginPage', () => {
         expect(screen.getByText('Sign in with an existing account.')).toBeInTheDocument();
     });
 
-    it('shows the instance name and uses it as the page title', async () => {
-        fetchPublicConfig.mockResolvedValue(selfHosted);
+    it('shows the instance name from the first render', () => {
+        withInlineConfig(selfHosted);
         renderPage();
 
-        expect(await screen.findByText('Acme Tasks')).toBeInTheDocument();
+        expect(screen.getByText('Acme Tasks')).toBeInTheDocument();
         expect(screen.queryByText('Backlog.fyi')).not.toBeInTheDocument();
-        expect(document.title).toBe('Acme Tasks');
     });
 
     it('signs in with a username and password', async () => {
-        fetchPublicConfig.mockResolvedValue(selfHosted);
+        withInlineConfig(selfHosted);
         const user = { id: 'u1' };
         passwordLogin.mockResolvedValue(user);
         renderPage();
@@ -89,7 +97,7 @@ describe('LoginPage', () => {
     });
 
     it('names a wrong password', async () => {
-        fetchPublicConfig.mockResolvedValue(selfHosted);
+        withInlineConfig(selfHosted);
         passwordLogin.mockRejectedValue(new ApiError({
             status: 400, statusText: 'Bad Request', path: '/api/auth/password', userMessage: 'x', code: 'INVALID_CREDENTIALS',
         }));
@@ -104,12 +112,12 @@ describe('LoginPage', () => {
         expect(setUser).not.toHaveBeenCalled();
     });
 
-    it('keeps the hosted landing page when the config cannot be loaded', async () => {
-        fetchPublicConfig.mockRejectedValue(new Error('offline'));
+    it('keeps the hosted landing page when there is no usable inline config', () => {
         vi.spyOn(console, 'error').mockImplementation(() => {});
+        withInlineConfig('{{json config}}');
         renderPage();
 
-        await waitFor(() => expect(fetchPublicConfig).toHaveBeenCalled());
         expect(screen.getByRole('button', { name: /no sign-up/ })).toBeInTheDocument();
+        expect(screen.getByText('Backlog.fyi')).toBeInTheDocument();
     });
 });

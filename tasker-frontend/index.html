@@ -9,9 +9,9 @@
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#F0E7D2" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Backlog.fyi - your personal tasks planner</title>
-    <meta name="description" content="Backlog.fyi is a personal tasks planner. Capture tasks as they come up, then commit to a week in a short planning session with your AI assistant." />
-    <link rel="canonical" href="https://backlog.fyi/" />
+    <title>{{appName}} - your personal tasks planner</title>
+    <meta name="description" content="{{appName}} is a personal tasks planner. Capture tasks as they come up, then commit to a week in a short planning session with your AI assistant." />
+    <link rel="canonical" href="{{homeUrl}}" />
 
     <!-- RFC 8631 service links: the external API's machine-readable contract and its usage guide.
          The one discovery pointer a consumer finds without knowing to look for a well-known URI. -->
@@ -20,27 +20,27 @@
 
     <!-- Open Graph -->
     <meta property="og:type"        content="website" />
-    <meta property="og:url"         content="https://backlog.fyi/" />
-    <meta property="og:site_name"   content="Backlog.fyi" />
-    <meta property="og:title"       content="Backlog.fyi - your personal tasks planner" />
+    <meta property="og:url"         content="{{homeUrl}}" />
+    <meta property="og:site_name"   content="{{appName}}" />
+    <meta property="og:title"       content="{{appName}} - your personal tasks planner" />
     <meta property="og:description" content="Capture tasks as they come up, then commit to a week in a short planning session with your AI assistant." />
-    <meta property="og:image"       content="https://backlog.fyi/og-image.png" />
+    <meta property="og:image"       content="{{homeUrl}}og-image.png" />
     <meta property="og:image:width"  content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt"   content="Backlog.fyi board with sticky notes reading Catch It Now, Never Forget Again" />
+    <meta property="og:image:alt"   content="{{appName}} board with sticky notes reading Catch It Now, Never Forget Again" />
 
     <!-- Twitter / X card -->
     <meta name="twitter:card"        content="summary_large_image" />
-    <meta name="twitter:title"       content="Backlog.fyi - your personal tasks planner" />
+    <meta name="twitter:title"       content="{{appName}} - your personal tasks planner" />
     <meta name="twitter:description" content="Capture tasks as they come up, then commit to a week in a short planning session with your AI assistant." />
-    <meta name="twitter:image"       content="https://backlog.fyi/og-image.png" />
+    <meta name="twitter:image"       content="{{homeUrl}}og-image.png" />
 
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
-      "name": "Backlog.fyi",
-      "url": "https://backlog.fyi/",
+      "name": {{json appName}},
+      "url": {{json homeUrl}},
       "description": "A personal weekly task planner: a task backlog plus an AI-driven weekly planning conversation in which you schedule agreed tasks as time blocks.",
       "applicationCategory": "ProductivityApplication",
       "operatingSystem": "Web",
@@ -66,13 +66,13 @@
     -->
     <div id="prerendered-landing" hidden>
       <header>
-        <h1>Backlog.fyi</h1>
+        <h1>{{appName}}</h1>
         <p>A personal AI weekly planner. Capture tasks. Commit to a week. Let the assistant schedule it.</p>
       </header>
       <section>
         <h2>What it does</h2>
         <p>
-          Backlog.fyi is a personal planner that turns your task backlog into a realistic weekly plan – using tried-and-true methods.
+          {{appName}} is a personal planner that turns your task backlog into a realistic weekly plan – using tried-and-true methods.
           Once a week you have a short planning conversation with an AI assistant on Telegram. The assistant reads your Google
           Calendar, asks what you want to get done, and writes the agreed tasks back into
           your calendar as time blocks.
@@ -90,17 +90,23 @@
       <section>
         <h2>Status</h2>
         <p>
-          The Backlog.fyi application is a work in progress.
+          The {{appName}} application is a work in progress.
           Some features are incomplete, and some aspects might change through the development process.
         </p>
       </section>
       <nav>
-        <a href="https://backlog.fyi/">Home</a>
-        <a href="https://backlog.fyi/terms">Terms of Service</a>
-        <a href="https://backlog.fyi/privacy">Privacy Policy</a>
+        <a href="{{homeUrl}}">Home</a>
+        <a href="{{homeUrl}}terms">Terms of Service</a>
+        <a href="{{homeUrl}}privacy">Privacy Policy</a>
       </nav>
     </div>
 
+    <!--
+      This instance's configuration (login methods, name, contact addresses), filled in by the server
+      (IndexHtmlController) so the SPA reads it synchronously instead of fetching it. A JSON data block,
+      not a script: it never executes, so it needs no CSP allowance.
+    -->
+    <script id="app-config" type="application/json">{{json config}}</script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -3,8 +3,8 @@ import { Trans, useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { ApiError } from '../api';
 import { useAuth } from './AuthContext';
-import { demoLogin, devLogin, passwordLogin, requestEmailLogin, telegramLoginUrl, type PublicConfig } from './authApi';
-import { usePublicConfig } from '../publicConfig';
+import { demoLogin, devLogin, passwordLogin, requestEmailLogin, telegramLoginUrl } from './authApi';
+import { usePublicConfig, type PublicConfig } from '../publicConfig';
 // Imported directly rather than via mascots.ts: Board.tsx and this page are different chunks
 // (one eager, one lazy), and any import from that shared module — even a single unrelated
 // constant — forces the bundler to hoist the whole file (all three mascots' assets) into this
