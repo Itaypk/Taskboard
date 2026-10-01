@@ -48,4 +48,7 @@ object AuthProvider {
     const val TELEGRAM = "telegram"
     const val EMAIL = "email"
     const val GOOGLE = "google"
+
+    /** Operator-configured username/password login (`tasker.auth.local`); keyed by lowercase username. */
+    const val LOCAL = "local"
 }

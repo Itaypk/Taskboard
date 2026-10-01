@@ -5,6 +5,7 @@ import dev.itayp.tasker.channel.email.EmailMessage
 import dev.itayp.tasker.channel.email.EmailProperties
 import dev.itayp.tasker.channel.email.EmailTemplateEngine
 import dev.itayp.tasker.config.AppProperties
+import dev.itayp.tasker.config.AuthProperties
 import dev.itayp.tasker.crypto.newTestUserCryptoService
 import dev.itayp.tasker.jpa.EmailLoginTokenEntity
 import dev.itayp.tasker.jpa.UserEntity
@@ -37,9 +38,11 @@ class EmailLoginServiceTest {
 
     private val localeNegotiationService = LocaleNegotiationService()
 
-    private val service = EmailLoginService(
+    private val service = serviceWith(RegistrationPolicy(AuthProperties()))
+
+    private fun serviceWith(registrationPolicy: RegistrationPolicy) = EmailLoginService(
         tokenRepository, userAuthService, outboundChannel, templateEngine,
-        messageSource, crypto, appProperties, blocklist, localeNegotiationService, clock,
+        messageSource, crypto, appProperties, blocklist, localeNegotiationService, registrationPolicy, clock,
     )
 
     @Test
@@ -213,5 +216,16 @@ class EmailLoginServiceTest {
         whenever(userAuthService.loginByEmail("user@example.com")).thenReturn(EmailLoginOutcome.UnverifiedConflict)
 
         assertThat(service.completeLogin("tok")).isEqualTo(EmailLoginResult.UnverifiedConflict)
+    }
+
+    @Test
+    fun `closed registration mails only addresses that already have an account`() {
+        val closed = serviceWith(RegistrationPolicy(AuthProperties(registration = AuthProperties.RegistrationMode.CLOSED)))
+        whenever(userAuthService.hasAccountForEmail(EmailHasher.hash("stranger@example.com"))).thenReturn(false)
+
+        closed.requestLogin("stranger@example.com")
+
+        verify(tokenRepository, never()).save(any<EmailLoginTokenEntity>())
+        verify(outboundChannel, never()).send(any())
     }
 }

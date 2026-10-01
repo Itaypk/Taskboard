@@ -4,6 +4,7 @@ import dev.itayp.tasker.planning.NoPlannableTasksException
 import dev.itayp.tasker.service.BlockedEmailDomainException
 import dev.itayp.tasker.service.InvalidRecurrenceException
 import dev.itayp.tasker.service.InvalidTaskUrlException
+import dev.itayp.tasker.service.RegistrationClosedException
 import dev.itayp.tasker.service.UnclaimedAccountCapExceededException
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
@@ -61,6 +62,13 @@ class ApiExceptionHandler {
      * Same reasoning as [handleBlockedEmailDomain]. The SPA greys out its start buttons off
      * `plannableTaskCount`, so a user should rarely see this; it catches a stale client.
      */
+    @ExceptionHandler(RegistrationClosedException::class)
+    fun handleRegistrationClosed(ex: RegistrationClosedException): ProblemDetail =
+        ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.message!!).apply {
+            title = "Registration closed"
+            setProperty("code", "REGISTRATION_CLOSED")
+        }
+
     @ExceptionHandler(NoPlannableTasksException::class)
     fun handleNoPlannableTasks(ex: NoPlannableTasksException): ProblemDetail =
         ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.message!!).apply {

@@ -4,7 +4,6 @@ import dev.itayp.tasker.channel.AttachmentKind
 import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.InboundAttachment
 import org.slf4j.LoggerFactory
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.stereotype.Component
 import org.telegram.telegrambots.meta.api.methods.GetFile
 import org.telegram.telegrambots.meta.api.objects.message.Message
@@ -23,7 +22,7 @@ import org.telegram.telegrambots.meta.generics.TelegramClient
  * appear in logs.
  */
 @Component
-@ConditionalOnProperty(prefix = "tasker.telegram", name = ["enabled"], havingValue = "true")
+@ConditionalOnTelegramBot
 class TelegramMediaExtractor(
     private val telegramClient: TelegramClient,
 ) {

@@ -5,8 +5,41 @@ matters while writing code (the KEK warning, the multimodal gate, the tier-cap f
 two-sender email split, the blocklist's loud rejection) stays in `CLAUDE.md` — this file is the
 name/default/provenance reference.
 
+## Instance (`AppProperties`)
+
+- `TASKER_APP_BASE_URL` — the public URL users reach the instance at, e.g. `https://tasks.example.com`
+  (no trailing slash). Magic links, invitations, the Telegram redirect URI, the API catalog and CORS
+  are all built from it. Defaults to `https://backlog.fyi` outside `prod`; **required under `prod`**,
+  where `ProductionConfigValidator` refuses to start without a valid value.
+
+## Sign-in and registration (`AuthProperties`)
+
+- `TASKER_REGISTRATION` — `open` (default) or `closed`. Closed means no new accounts: existing ones
+  keep signing in and linking methods, local users (below) are still provisioned on first login, and
+  an unknown Telegram or email login is refused (a magic link is only mailed to an address that
+  already has an account; the endpoint still answers the same either way).
+- `TASKER_DEMO_ENABLED` — the zero-registration sandbox (default `true`). Only offered while
+  registration is open, since every visit creates an account.
+- `TASKER_LOCAL_USERS` — operator-managed username/password logins, comma-separated
+  `username:bcrypt-hash` entries (the format `htpasswd -nbBC 12 alice 'password'` prints). Usernames are
+  case-insensitive (`a-z`, `0-9`, `.`, `_`, `@`, `-`). There is no sign-up, password change or reset:
+  edit the list and restart. A changed password doesn't end sessions already signed in — use
+  Settings → "Sign out other sessions". Invalid entries fail startup.
+- `TASKER_LOCAL_USERS_FILE` — the same entries, one per line (`#` comments allowed), read from a file.
+  Easier than the variable in Docker Compose, which would otherwise need every `$` in a hash
+  doubled. Both sources may be combined; a username may appear only once.
+
+The login page reads which methods are on from `GET /api/public/config` at runtime, so none of this
+needs a frontend rebuild. The startup log prints a one-line summary of the enabled sign-in methods
+and integrations, and warns when no sign-in method is available at all.
+
 ## Telegram (`TelegramAuthProperties`)
 
+Both halves are optional; an instance without Telegram runs web-only.
+
+- `TASKER_TELEGRAM_ENABLED` — whether to run the bot (default `false`, but `true` under `prod`). The
+  bot only starts when `TASKER_TELEGRAM_BOT_TOKEN` is also set (`@ConditionalOnTelegramBot`), so
+  leaving the token unset is enough to run without it.
 - `TASKER_TELEGRAM_CLIENT_ID` — OIDC client id (bot id) for login; also the expected `aud` of the
   id_token. From BotFather → Bot Settings → Web Login.
 - `TASKER_TELEGRAM_CLIENT_SECRET` — OIDC client secret (HTTP Basic credential for the token
@@ -14,8 +47,12 @@ name/default/provenance reference.
 - `TASKER_TELEGRAM_BOT_TOKEN` — bot messaging token (planning conversation); not used by login.
 - `TASKER_TELEGRAM_BOT_USERNAME` — cosmetic / future use.
 
+Telegram *login* is offered only when both the client id and secret are set.
+
 ## AI
 
+- `TASKER_AI_API_KEY` — OpenRouter API key. Without it the app runs, but the weekly planning
+  assistant and AI capture are unavailable (a warning is logged at startup).
 - `TASKER_AI_MULTIMODAL_MODEL` — model slug used for Telegram quick-add captures that carry an
   attachment (photos, voice notes); defaults to the task-assistant model. See
   `docs/MULTIMODAL-CAPTURE.md`.
@@ -37,16 +74,26 @@ name/default/provenance reference.
   placeholder key — never reuse that for prod. **Losing this key permanently loses all encrypted
   data** (see `CLAUDE.md`).
 
-## Metrics (`PrometheusAuthProperties`) — required in prod, dev defaults apply otherwise
+## Metrics (`PrometheusAuthProperties`)
 
-- `TASKER_PROMETHEUS_USERNAME` — Basic Auth username for `/actuator/prometheus` (default:
-  `prometheus`).
-- `TASKER_PROMETHEUS_PASSWORD` — Basic Auth password (default: `prometheus-dev`).
+- `TASKER_PROMETHEUS_USERNAME` — Basic Auth username for `/actuator/prometheus` (default outside
+  `prod`: `prometheus`).
+- `TASKER_PROMETHEUS_PASSWORD` — Basic Auth password (default outside `prod`: `prometheus-dev`).
+
+`prod` has no defaults: leaving either blank closes the endpoint (every request is refused) instead
+of failing startup.
+
+## Logging
+
+Under `prod` the full log is JSON in a rolling `taskboard.log` in the working directory, with only
+warnings on the console. Add the `container` profile (`SPRING_PROFILES_ACTIVE=prod,container`) to send
+the full log to stdout instead and write no file — what `docker logs` and log shippers expect.
 
 ## Email
 
 - `TASKER_EMAIL_ENABLED` — toggle the email integration (default: `false`). When false, both senders
-  log instead of sending, and the magic link is printed to the log.
+  drop messages and log only that they did (no addresses, subjects or bodies — so no magic link
+  either), and the login page hides email sign-in.
 - `TASKER_EMAIL_BLOCKED_DOMAINS` — comma-separated **additions** to the application-wide blocklist
   (`EmailDomainBlocklistService`). The bulk of the list is a vendored ~75k-domain snapshot of
   [disposable/disposable-email-domains](https://github.com/disposable/disposable-email-domains)

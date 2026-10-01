@@ -2,8 +2,8 @@ package dev.itayp.tasker.channel.telegram.commands
 
 import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.channel.ChannelMessage
+import dev.itayp.tasker.channel.telegram.ConditionalOnTelegramBot
 import dev.itayp.tasker.service.UserSettingsService
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.MessageSource
 import org.springframework.context.annotation.Lazy
 import org.springframework.stereotype.Component
@@ -15,7 +15,7 @@ import org.springframework.web.util.HtmlUtils
  * so the help text stays in sync as new commands are added.
  */
 @Component
-@ConditionalOnProperty(prefix = "tasker.telegram", name = ["enabled"], havingValue = "true")
+@ConditionalOnTelegramBot
 class HelpBotCommand(
     @Lazy private val allCommands: List<BotCommandHandler>,
     private val userSettingsService: UserSettingsService,

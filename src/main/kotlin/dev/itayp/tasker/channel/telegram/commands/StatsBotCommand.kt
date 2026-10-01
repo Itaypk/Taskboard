@@ -1,10 +1,10 @@
 package dev.itayp.tasker.channel.telegram.commands
 
 import dev.itayp.tasker.channel.ChannelMessage
+import dev.itayp.tasker.channel.telegram.ConditionalOnTelegramBot
 import dev.itayp.tasker.service.StatsFormatter
 import dev.itayp.tasker.service.StatsService
 import dev.itayp.tasker.service.UserSettingsService
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.stereotype.Component
 import java.time.ZoneId
 
@@ -14,7 +14,7 @@ import java.time.ZoneId
  * resolves the user's locale/time zone and applies Telegram presentation — bolding the header line.
  */
 @Component
-@ConditionalOnProperty(prefix = "tasker.telegram", name = ["enabled"], havingValue = "true")
+@ConditionalOnTelegramBot
 class StatsBotCommand(
     private val statsService: StatsService,
     private val statsFormatter: StatsFormatter,
