@@ -50,3 +50,4 @@ out/
 /.claude/settings.local.json
 /.env.perftest
 /.env.grafana
+/.env.integration

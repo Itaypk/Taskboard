@@ -1,12 +1,9 @@
 # Backlog.fyi
-
-A weekly planner for the tasks that never seem urgent until it's too late. Capture anything into a
-backlog the moment you think of it; once a week, an AI assistant helps you agree on what actually
-fits in the week ahead, and the tasks you commit to land on your calendar as time blocks.
+A personal tasks manager that helps you stay on top of things: save your tasks right when you 
+think of them, big or small. Run a weekly planning session, and commit to your week. 
 
 Hosted at **[backlog.fyi](https://backlog.fyi)** (free, in beta; there's a demo that needs no
-sign-up). The source is open so you can read it, audit how it handles your data, and run your own
-instance.
+sign-up). 
 
 ![A Backlog.fyi board: sticky-note tasks grouped by category](tasker-frontend/public/og-image.png)
 
@@ -17,15 +14,12 @@ Two principles:
 - **Capture is cheap.** A task should go into the backlog the moment you think of it, from the web
   app, a Telegram message, or a script, with no decisions attached.
 - **Committing is the hard part.** Once a week you sit down with an assistant that sees the whole
-  backlog and your week, and you negotiate a plan that fits. Whatever you agree to goes out as
+  backlog and your week, and you negotiate a plan that fits. Whatever you agree to, goes out as
   calendar invitations, so it becomes real time in your week rather than another list.
-
-It isn't a project tracker: no sprints, no workflows, no story points. It's for running your own
-life, and the small work items that fall through the cracks of a real tracker.
 
 ## Features
 
-- **Backlog board.** Tasks as sticky notes, with categories, tags, priority, deadline, estimated
+- **Task board.** Tasks as sticky notes, with categories, tags, priority, deadline, estimated
   duration and recurrence ("every 6 months" brings the task back after it's done).
 - **Weekly planning conversation**, on Telegram or in the web app. The assistant proposes a plan
   from your priorities, deadlines and stated preferences, you push back in plain language, and the
@@ -34,7 +28,7 @@ life, and the small work items that fall through the cracks of a real tracker.
   notice or a voice note, and it comes back as a task draft you confirm with one tap. Fixed
   appointments become calendar events instead.
 - **Reminders** on Telegram when a planned slot starts, with snooze and mark-done buttons.
-- **Shared boards.** Invite someone by email to share a board (groceries, school runs) while
+- **Shared boards.** Share a board (groceries, school runs) and assign responsibilities while
   keeping your own boards private.
 - **External API** with scoped tokens, for scripts, automations and AI assistants. It ships with an
   [OpenAPI description](https://backlog.fyi/external-api/openapi.yaml) and an
@@ -46,7 +40,7 @@ life, and the small work items that fall through the cracks of a real tracker.
   can export your data or delete your account from the settings at any time.
 - **Localized** web app, emails and bot: English, Hebrew, Russian and Arabic.
 
-The AI features are optional, both per user and per instance; without them it's a plain backlog
+The AI features are optional, both per user and per instance; without them, it's a plain task
 board. Reading your Google Calendar directly isn't built yet: the assistant plans from your
 backlog and what you tell it, and the result reaches your calendar by email invitation.
 
@@ -85,7 +79,7 @@ Design notes live in [`docs/`](docs): start with [`SPEC.md`](docs/SPEC.md) (prod
 
 ## License
 
-Copyright (C) 2026 Itay Polack-Gadassi.
+Copyright © 2026 Itay Polack-Gadassi.
 
 Code: [GNU Affero General Public License v3.0 only](LICENSE) (`AGPL-3.0-only`). If you run a
 modified version as a network service, the AGPL requires you to offer its users the corresponding
