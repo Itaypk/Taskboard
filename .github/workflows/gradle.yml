@@ -18,6 +18,8 @@ on:
       - "gradlew"
       - "gradlew.bat"
       - "tasker-frontend/**"
+      - "Dockerfile"
+      - ".dockerignore"
       - ".github/workflows/gradle.yml"
   push:
     branches: [ "main" ]
@@ -55,6 +57,8 @@ jobs:
               - 'gradle/**'
               - 'gradlew'
               - 'gradlew.bat'
+              - 'Dockerfile'
+              - '.dockerignore'
               - '.github/workflows/gradle.yml'
             frontend:
               - 'tasker-frontend/**'
@@ -147,6 +151,11 @@ jobs:
           build/reports/kover/html
         retention-days: 3
 
+    # The image is only published from main (release job), so a broken Dockerfile would otherwise
+    # surface after merge. Building it here is cheap: it only copies the JAR into a JRE base.
+    - name: Verify the container image builds
+      run: docker build --tag taskboard:ci .
+
     # Only needed to publish the release; skipped entirely on PR builds.
     - name: Upload JAR for release
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -166,11 +175,16 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     permissions:
       contents: write
+      # Push the container image to GHCR (ghcr.io/<owner>/<repo>) for self-hosters.
+      packages: write
 
     steps:
+    # The Dockerfile; the JAR itself comes from the build job's artifact.
+    - uses: actions/checkout@v7
+
     - uses: actions/download-artifact@v8
       with:
         name: jar
@@ -195,6 +209,35 @@ jobs:
           --target "$GITHUB_SHA" \
           --title "$TAG (${GITHUB_SHA::7})" \
           --generate-notes
+
+    # The same JAR as the release, as a container image for self-hosting (docs/SELF-HOSTING.md).
+    # Tagged with the release tag and `latest`; image names must be lowercase.
+    - name: Image name
+      run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+    - uses: docker/setup-buildx-action@v3
+
+    - uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
+
+    - name: Build and push image
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        build-args: JAR_FILE=jar/Taskboard-*-SNAPSHOT.jar
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: |
+          ${{ env.IMAGE }}:build-${{ github.run_number }}
+          ${{ env.IMAGE }}:latest
+        labels: |
+          org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          org.opencontainers.image.revision=${{ github.sha }}
+          org.opencontainers.image.version=build-${{ github.run_number }}
+          org.opencontainers.image.licenses=AGPL-3.0-only
 
   dependency-submission:
     needs: changes

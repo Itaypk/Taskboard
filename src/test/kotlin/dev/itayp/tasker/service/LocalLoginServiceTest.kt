@@ -78,6 +78,14 @@ class LocalLoginServiceTest {
     }
 
     @Test
+    fun `a users file that doesn't exist fails with the setting's name`(@TempDir dir: Path) {
+        val missing = dir.resolve("users").toString()
+
+        assertThatThrownBy { LocalLoginService.loadUsers(AuthProperties.LocalUsers(usersFile = missing)) }
+            .hasMessageContaining("TASKER_LOCAL_USERS_FILE").hasMessageContaining(missing)
+    }
+
+    @Test
     fun `rejects malformed entries without echoing the hash`() {
         fun load(vararg entries: String) = LocalLoginService.loadUsers(AuthProperties.LocalUsers(users = entries.toList()))
 

@@ -19,14 +19,14 @@ A few things to consider while working on the project:
 - The number of active users is still very low, and they are all aware of the beta status. When absolutely necessary, breaking changes are not out of the question.
 - On production, the app runs as a single instance on an Ubuntu VPS. Short downtime is acceptable.
 - **The backlog lives in GitHub issues**, not in a markdown file. Labels: a type (`enhancement`, `tech-debt`, `security`, `epic`), one or more `area/*`, and `needs-discussion` for ideas that need a design conversation before anyone builds them. When a doc says something is deferred, link an issue rather than starting a new ideas/TODO file (`docs/IDEAS.md` was retired on purpose). Don't file security weaknesses as public issues.
-- Deployment: **a push to `main` publishes a release; it does not deploy.** The `release` job in `.github/workflows/gradle.yml` publishes the built JAR as a GitHub Release (tag `build-<run number>`). Production is deployed from the separate ops repo (`Itaypk/itayp-dev`, Ansible), which is also where Nginx is configured, by manually running its "Deploy release" workflow, which pulls that JAR. Don't merge or push to `main` unless asked to, and never deploy by other means.
+- Deployment: **a push to `main` publishes a release; it does not deploy.** The `release` job in `.github/workflows/gradle.yml` publishes the built JAR as a GitHub Release (tag `build-<run number>`) and the same JAR as a container image, `ghcr.io/itaypk/taskboard:build-<run number>` and `:latest`, for self-hosters (the `build` job checks on every PR that the image still builds). Production is deployed from the separate ops repo (`Itaypk/itayp-dev`, Ansible), which is also where Nginx is configured, by manually running its "Deploy release" workflow, which pulls that JAR. Don't merge or push to `main` unless asked to, and never deploy by other means.
 - When something stands out, consider the product perspective: flag cases where added complexity may not be justified or where user value is unclear—suggesting alternatives where it makes sense.
 
 ## Repo layout
 
 - `src/` — Kotlin/Spring Boot backend (package `dev.itayp.tasker`). Entry point: `src/main/kotlin/dev/itayp/tasker/TaskBoardApplication.kt`.
 - `tasker-frontend/` — React + TypeScript + Vite app. **Bundled into the backend** at build time: the Gradle `buildFrontend` task runs `npm run build`, and `processResources` copies `tasker-frontend/dist/` into `src/main/resources/static/`. At runtime everything is served same-origin.
-- `compose.yaml` — Postgres service for local dev. `spring-boot-docker-compose` starts it automatically on `bootRun`.
+- `Dockerfile` + `deploy/` — the self-hosting setup: a runtime image that wraps the CI-built JAR (no build steps inside), and a Compose file (app + Postgres + optional Caddy), `Caddyfile`, `.env.example`. Guide: `docs/SELF-HOSTING.md`. The `deploy/Caddyfile` is a reference for self-hosters, **not** a mirror of the hosted instance's Nginx config.
 - `docs/SPEC.md` — product spec (source of truth for intent).
 - `docs/MULTIMODAL-CAPTURE.md` — how Telegram quick-add captures from photos and voice notes.
 - `tools/` — ad-hoc asset-prep scripts (background removal, bottom-gap leveling, WebP conversion). See `tools/README.md` for the "add a new board mascot" workflow.
@@ -34,12 +34,12 @@ A few things to consider while working on the project:
 
 ## Web environment note
 
-When running via **claude.ai/code** (the web environment), the sandbox does not have the project's JVM 25 toolchain installed. Do not attempt to compile, run tests, or start the server — those commands will fail. Instead, write the code, commit, and push; then wait for CI results to confirm correctness.
+When running via **claude.ai/code** (the web environment), the sandbox does not have the project's JVM 25 toolchain installed, so `./gradlew` fails out of the box; CI results are the fallback for confirming correctness. A full local build does work with some setup, and is worth it for larger changes: download a JDK 25 tarball (`https://api.adoptium.net/v3/binary/latest/25/ga/linux/x64/jdk/hotspot/normal/eclipse`) into the scratchpad and point `JAVA_HOME` at it; retry Gradle if Maven Central answers 429 (resolved artifacts are cached between attempts). For the Testcontainers-based tests and for trying the Docker image, start `dockerd` in the background and set `TESTCONTAINERS_HUB_IMAGE_NAME_PREFIX=mirror.gcr.io/` (Docker Hub rate-limits the sandbox; pull other images as `mirror.gcr.io/library/<image>`).
 
 ## Common commands
 
 Backend (run from repo root):
-- `./gradlew bootRun` — run the Spring Boot app with `--spring.profiles.active=dev` (set in the Gradle task); auto-starts Postgres via compose and bundles the frontend as a side effect of `processResources`.
+- `./gradlew bootRun` — run the Spring Boot app with `--spring.profiles.active=dev` (set in the Gradle task); uses in-memory H2, so no database setup is needed, and bundles the frontend as a side effect of `processResources`.
 
 Frontend (run from `tasker-frontend/`, only needed for fast iteration with HMR):
 - `npm run dev` — Vite dev server on `:5173`. You'll need a reverse proxy or CORS for it to talk to the backend on `:8080`; in most workflows it's simpler to just `./gradlew bootRun` and edit through the bundled build.

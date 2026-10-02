@@ -1,0 +1,67 @@
+# Self-hosting Backlog.fyi: the app, PostgreSQL and (optionally) Caddy for automatic HTTPS.
+# Full guide: docs/SELF-HOSTING.md. Quick start, from this directory:
+#
+#   cp .env.example .env            # then fill it in
+#   docker compose --profile proxy up -d     # with Caddy on ports 80/443
+#   docker compose up -d                     # or without it, behind your own reverse proxy
+#
+# This file is not the development setup — that's ../compose.yaml, started by `./gradlew bootRun`.
+name: backlog
+
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: taskboard
+      POSTGRES_USER: taskboard
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taskboard -d taskboard"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    # Pin a release (e.g. TASKBOARD_VERSION=build-123) to control upgrades; see "Upgrading" in the guide.
+    image: ghcr.io/itaypk/taskboard:${TASKBOARD_VERSION:-latest}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      TASKER_DB_URL: jdbc:postgresql://db:5432/taskboard
+      TASKER_DB_USERNAME: taskboard
+      TASKER_DB_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      # Optional files the app reads, e.g. the local users list (TASKER_LOCAL_USERS_FILE=/config/users).
+      - ./config:/config:ro
+    ports:
+      # Loopback only. The app expects a reverse proxy in front of it: it trusts X-Forwarded-For for
+      # rate limiting, and its session cookie is HTTPS-only. Reach it through Caddy (below) or your own
+      # proxy; don't publish this port to the network.
+      - "127.0.0.1:${APP_PORT:-8080}:8080"
+
+  caddy:
+    profiles: [proxy]
+    image: caddy:2
+    restart: unless-stopped
+    depends_on: [app]
+    environment:
+      TASKBOARD_DOMAIN: ${TASKBOARD_DOMAIN:?set TASKBOARD_DOMAIN in .env to use the proxy profile}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  db-data:
+  caddy-data:
+  caddy-config:

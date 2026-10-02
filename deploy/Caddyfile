@@ -1,0 +1,31 @@
+# Reverse proxy for a self-hosted Backlog.fyi, with automatic HTTPS (Let's Encrypt) for
+# $TASKBOARD_DOMAIN. Used by the `proxy` profile in compose.yaml; see docs/SELF-HOSTING.md.
+#
+# The app deliberately sets no security headers and no Cache-Control of its own: whatever sits in
+# front of it owns both. This file is a reference for self-hosters, not a mirror of the hosted
+# instance's Nginx configuration — adjust the policy below to your needs.
+{$TASKBOARD_DOMAIN} {
+	encode zstd gzip
+
+	# `defer` applies these after the upstream response, so they replace whatever the app sent.
+	header {
+		defer
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+	}
+
+	# Vite content-hashes everything under /assets/, so it can be cached forever. The entry points
+	# are not hashed and must always be revalidated, or a browser keeps old asset names after an upgrade.
+	@hashed path /assets/*
+	header @hashed Cache-Control "public, max-age=31536000, immutable"
+	@entry path / /index.html
+	header @entry Cache-Control "no-cache"
+
+	# Caddy replaces any client-supplied X-Forwarded-For with the real client address, which is
+	# what the app's per-IP rate limits key on.
+	reverse_proxy app:8080
+}

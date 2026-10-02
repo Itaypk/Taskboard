@@ -81,8 +81,14 @@ class LocalLoginService(
         fun normalise(username: String): String = username.trim().lowercase()
 
         internal fun loadUsers(config: AuthProperties.LocalUsers): Map<String, String> {
-            val fromFile = config.usersFile.takeIf { it.isNotBlank() }?.let { path ->
-                Files.readAllLines(Path.of(path)).map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("#") }
+            val fromFile = config.usersFile.takeIf { it.isNotBlank() }?.let { location ->
+                val path = Path.of(location)
+                // A missing file is a configuration mistake (often a mount that didn't happen), so say
+                // which setting points where instead of surfacing a bare NoSuchFileException.
+                require(Files.isRegularFile(path)) {
+                    "TASKER_LOCAL_USERS_FILE points to $location, which isn't a readable file"
+                }
+                Files.readAllLines(path).map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("#") }
             }.orEmpty()
             val entries = config.users.map { it.trim() }.filter { it.isNotEmpty() } + fromFile
             val users = LinkedHashMap<String, String>()

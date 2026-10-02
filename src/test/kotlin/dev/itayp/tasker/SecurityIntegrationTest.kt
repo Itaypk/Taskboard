@@ -245,4 +245,17 @@ class SecurityIntegrationProdProfileTest(@Autowired val rest: TestRestTemplate) 
         val response = rest.postForEntity("/api/auth/dev-login", null, String::class.java)
         assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
     }
+
+    /**
+     * In production the app sits behind a TLS-terminating proxy and is reached over plain HTTP, so
+     * the flag can't come from `request.isSecure()`: the `prod` profile has to force it.
+     */
+    @Test
+    fun `the session cookie is Secure even when the app itself is reached over plain HTTP`() {
+        val response = rest.postForEntity("/api/auth/demo-login", null, String::class.java)
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+
+        val sessionCookie = response.headers[HttpHeaders.SET_COOKIE].orEmpty().first { it.startsWith("SESSION=") }
+        assertThat(sessionCookie.split(";").map { it.trim() }).contains("Secure", "HttpOnly", "SameSite=Lax")
+    }
 }
