@@ -5,7 +5,7 @@ think of them, big or small. Run a weekly planning session, and commit to your w
 Hosted at **[backlog.fyi](https://backlog.fyi)** (free, in beta; there's a demo that needs no
 sign-up). 
 
-![A Backlog.fyi board: sticky-note tasks grouped by category](tasker-frontend/public/og-image.png)
+![A Backlog.fyi board: sticky-note tasks with categories, deadlines, estimates and tags](docs/images/board.webp)
 
 ## Why
 
