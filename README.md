@@ -32,7 +32,7 @@ Incomplete, but functional:
 
 - JDK 25
 - Node 20+ and npm (for the frontend build)
-- Docker (for the Postgres container, started automatically via `spring-boot-docker-compose`)
+- Docker, only for running the full test suite (the Postgres integration tests use Testcontainers)
 
 ### Run it
 
@@ -50,7 +50,7 @@ That's the whole flow in dev:
 
 1. Gradle runs `npm ci` and `npm run build` for the frontend.
 2. The built frontend is copied into `src/main/resources/static/`.
-3. The `bootRun` Gradle task passes `--spring.profiles.active=dev`, so the app uses the H2 in-memory database. `spring-boot-docker-compose` also starts Postgres from `compose.yaml`, but the dev profile does not use it.
+3. The `bootRun` Gradle task passes `--spring.profiles.active=dev`, so the app uses the H2 in-memory database. There's no database to set up.
 4. Spring Boot serves the SPA and the API on `http://localhost:8080`.
 
 Open `http://localhost:8080`. Click **Dev login (skip Telegram)** to sign in as the deterministic dev user — this works under the `dev` profile without any BotFather setup.
@@ -105,7 +105,6 @@ tasker-frontend/src/
   components/    PostItNote, TaskDrawer, SettingsModal
   App.tsx, api.ts, types.ts, …
 docs/SPEC.md     Product spec
-compose.yaml     Postgres for local dev (started automatically, not used by dev profile)
 ```
 
 ## Common commands

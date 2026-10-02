@@ -26,7 +26,6 @@ A few things to consider while working on the project:
 
 - `src/` — Kotlin/Spring Boot backend (package `dev.itayp.tasker`). Entry point: `src/main/kotlin/dev/itayp/tasker/TaskBoardApplication.kt`.
 - `tasker-frontend/` — React + TypeScript + Vite app. **Bundled into the backend** at build time: the Gradle `buildFrontend` task runs `npm run build`, and `processResources` copies `tasker-frontend/dist/` into `src/main/resources/static/`. At runtime everything is served same-origin.
-- `compose.yaml` — Postgres service for local dev. `spring-boot-docker-compose` starts it automatically on `bootRun`.
 - `Dockerfile` + `deploy/` — the self-hosting setup: a runtime image that wraps the CI-built JAR (no build steps inside), and a Compose file (app + Postgres + optional Caddy), `Caddyfile`, `.env.example`. Guide: `docs/SELF-HOSTING.md`. The `deploy/Caddyfile` is a reference for self-hosters, **not** a mirror of the hosted instance's Nginx config.
 - `docs/SPEC.md` — product spec (source of truth for intent).
 - `docs/MULTIMODAL-CAPTURE.md` — how Telegram quick-add captures from photos and voice notes.
@@ -40,7 +39,7 @@ When running via **claude.ai/code** (the web environment), the sandbox does not 
 ## Common commands
 
 Backend (run from repo root):
-- `./gradlew bootRun` — run the Spring Boot app with `--spring.profiles.active=dev` (set in the Gradle task); auto-starts Postgres via compose and bundles the frontend as a side effect of `processResources`.
+- `./gradlew bootRun` — run the Spring Boot app with `--spring.profiles.active=dev` (set in the Gradle task); uses in-memory H2, so no database setup is needed, and bundles the frontend as a side effect of `processResources`.
 
 Frontend (run from `tasker-frontend/`, only needed for fast iteration with HMR):
 - `npm run dev` — Vite dev server on `:5173`. You'll need a reverse proxy or CORS for it to talk to the backend on `:8080`; in most workflows it's simpler to just `./gradlew bootRun` and edit through the bundled build.
