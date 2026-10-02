@@ -1,9 +1,10 @@
 # Backlog.fyi
-A personal tasks manager that helps you stay on top of things: save your tasks right when you 
-think of them, big or small. Run a weekly planning session, and commit to your week. 
+
+A personal task manager that helps you stay on top of things: save tasks the moment you think of
+them, big or small, then run a weekly planning session and commit to your week.
 
 Hosted at **[backlog.fyi](https://backlog.fyi)** (free, in beta; there's a demo that needs no
-sign-up). 
+sign-up).
 
 ![A Backlog.fyi board: sticky-note tasks with categories, deadlines, estimates and tags](docs/images/board.webp)
 
@@ -14,7 +15,7 @@ Two principles:
 - **Capture is cheap.** A task should go into the backlog the moment you think of it, from the web
   app, a Telegram message, or a script, with no decisions attached.
 - **Committing is the hard part.** Once a week you sit down with an assistant that sees the whole
-  backlog and your week, and you negotiate a plan that fits. Whatever you agree to, goes out as
+  backlog and your week, and you negotiate a plan that fits. Whatever you agree to goes out as
   calendar invitations, so it becomes real time in your week rather than another list.
 
 ## Features
@@ -28,8 +29,8 @@ Two principles:
   notice or a voice note, and it comes back as a task draft you confirm with one tap. Fixed
   appointments become calendar events instead.
 - **Reminders** on Telegram when a planned slot starts, with snooze and mark-done buttons.
-- **Shared boards.** Share a board (groceries, school runs) and assign responsibilities while
-  keeping your own boards private.
+- **Shared boards.** Share a board (groceries, school runs) and assign tasks, while keeping your
+  own boards private.
 - **External API** with scoped tokens, for scripts, automations and AI assistants. It ships with an
   [OpenAPI description](https://backlog.fyi/external-api/openapi.yaml) and an
   [agent skill](https://backlog.fyi/external-api/SKILL.md). See
