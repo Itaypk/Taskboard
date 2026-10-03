@@ -4,7 +4,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 
 /**
  * Who may get an account, and the operator-managed password logins. The defaults (open
- * registration, demo on, no local users) are the hosted instance's behaviour; a self-hosted instance
+ * registration, demo on, no local users) are the hosted instance's behavior; a self-hosted instance
  * typically closes registration, turns the demo off and lists its users here instead.
  */
 @ConfigurationProperties("tasker.auth")
