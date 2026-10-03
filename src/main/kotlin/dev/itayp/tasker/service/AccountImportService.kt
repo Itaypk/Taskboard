@@ -98,6 +98,7 @@ class AccountImportService(
                 gender = s.gender,
                 planningCron = s.planningCron,
                 weekStartDay = s.weekStartDay,
+                dailyDigestCron = s.dailyDigestCron,
             )
             val settings = userSettingsRepository.findById(userId)
                 .orElseGet { UserSettingsEntity().apply { this.userId = userId } }
@@ -118,6 +119,9 @@ class AccountImportService(
             // re-clamped against it too, the same guard UserSettingsService.update() applies.
             settings.aiEnabled = s.aiEnabled && AiTier.fromName(settings.aiTier).grantsAccess
             settings.aiEnhancedReminders = s.aiEnhancedReminders
+            settings.dailyDigestEnabled = s.dailyDigestEnabled
+            settings.dailyDigestDueTasks = s.dailyDigestDueTasks
+            settings.dailyDigestCron = s.dailyDigestCron
             userSettingsRepository.save(settings)
         }
 

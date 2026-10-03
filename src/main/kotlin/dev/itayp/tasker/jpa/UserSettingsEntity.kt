@@ -4,6 +4,8 @@ import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Id
 import jakarta.persistence.Table
+import dev.itayp.tasker.model.UserSettings
+import java.time.Instant
 import java.util.UUID
 
 @Entity
@@ -57,4 +59,18 @@ class UserSettingsEntity {
 
     @Column(name = "ai_tier", nullable = false)
     var aiTier: String = "none"
+
+    @Column(name = "daily_digest_enabled", nullable = false)
+    var dailyDigestEnabled: Boolean = true
+
+    @Column(name = "daily_digest_due_tasks", nullable = false)
+    var dailyDigestDueTasks: Boolean = true
+
+    /** Spring 6-field cron in the user's zone, restricted to at most once a day (see docs/DAILY-DIGEST.md). */
+    @Column(name = "daily_digest_cron", nullable = false)
+    var dailyDigestCron: String = UserSettings.DEFAULT_DAILY_DIGEST_CRON
+
+    /** The digest scheduler's watermark: when the digest was last evaluated (sent, empty or skipped). */
+    @Column(name = "daily_digest_last_run_at")
+    var dailyDigestLastRunAt: Instant? = null
 }

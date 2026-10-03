@@ -16,6 +16,7 @@ import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Compa
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_REVISE
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_THIS_WEEK
 import dev.itayp.tasker.notification.ReminderActionHandler
+import dev.itayp.tasker.notification.digest.DailyDigestActionHandler
 import dev.itayp.tasker.planning.CaptureIntent
 import dev.itayp.tasker.planning.WeekOffset
 import dev.itayp.tasker.planning.WeekResolver
@@ -62,6 +63,7 @@ class TelegramChannel(
     private val quickAddFlow: QuickAddFlow,
     private val mediaExtractor: TelegramMediaExtractor,
     private val reminderActionHandler: ReminderActionHandler,
+    private val digestActionHandler: DailyDigestActionHandler,
     private val aiAccessService: AiAccessService,
     private val userSettingsService: UserSettingsService,
     private val reachability: TelegramReachabilityService,
@@ -234,6 +236,20 @@ class TelegramChannel(
             reminderActionHandler.processReminderResponse(userId, channel, inbound.optionId)
         ) {
             return
+        }
+
+        // Daily digest buttons are self-describing the same way. "Revisit the plan" is the `/plan`
+        // command, so it goes through the dispatcher (AI gate included), exactly as if typed.
+        if (inbound is ChannelInbound.Selection) {
+            when (digestActionHandler.handle(userId, channel, inbound.optionId)) {
+                DailyDigestActionHandler.Result.NotOurs -> Unit
+                DailyDigestActionHandler.Result.Handled -> return
+                DailyDigestActionHandler.Result.StartPlanning -> {
+                    quickAddRegistry.remove(chatId)
+                    commandDispatcher.dispatch("/plan", BotCommandContext(userId, chatId, "", channel, sessionRegistry))
+                    return
+                }
+            }
         }
 
         // Intercept replies to the plan confirmation / week-picker choice

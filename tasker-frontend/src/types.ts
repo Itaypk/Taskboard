@@ -164,6 +164,12 @@ export interface UserSettings {
   aiTier: string;
   /** Whether aiTier currently grants access; drives whether the aiEnabled toggle can be turned on. */
   aiTierGrantsAccess: boolean;
+  /** Daily Telegram digest: today's planned blocks + due tasks outside the plan. On by default. */
+  dailyDigestEnabled: boolean;
+  /** Include the "due, not in your plan" section. */
+  dailyDigestDueTasks: boolean;
+  /** Spring cron, at most once a day: "0 <minute> <hour> * * <days>". See components/digestCron.ts. */
+  dailyDigestCron: string;
   email: string;
   emailVerified: boolean;
   categories: Category[];

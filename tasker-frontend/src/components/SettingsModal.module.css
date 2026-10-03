@@ -30,3 +30,36 @@
 .planningRow input {
   width: auto;
 }
+
+/* Daily-digest day picker: one pressable chip per weekday. */
+.dayChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.dayChip {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  min-inline-size: 40px;
+  padding-block: 5px;
+  padding-inline: 8px;
+  border: 1px solid var(--paper-border);
+  border-radius: var(--r-sm);
+  background: var(--paper-surface);
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background var(--t), border-color var(--t), color var(--t);
+}
+
+.dayChipSelected {
+  background: var(--accent-paper);
+  border-color: var(--accent-edge);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+/* The last selected day can't be cleared; keep it looking selected rather than greyed out. */
+.dayChip:disabled {
+  cursor: default;
+}

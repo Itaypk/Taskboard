@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Daily digest (docs/DAILY-DIGEST.md). Per-user settings:
+          - daily_digest_enabled     : on by default; only users with a deliverable push channel are
+                                       actually reached (same channel gate as slot reminders).
+          - daily_digest_due_tasks   : include the "due tasks outside the plan" section.
+          - daily_digest_cron        : Spring 6-field cron in the user's zone, restricted to
+                                       "0 m h * * days" (at most once a day). Default 08:00 daily.
+          - daily_digest_last_run_at : the scheduler's watermark — when the digest was last
+                                       *evaluated* (sent, empty or skipped). Null = never seen; the
+                                       first tick only sets it, so nothing fires on deploy.
+    -->
+    <changeSet id="016-1-daily-digest-settings" author="tasker">
+        <addColumn tableName="user_settings">
+            <column name="daily_digest_enabled" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="daily_digest_due_tasks" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="daily_digest_cron" type="VARCHAR(64)" defaultValue="0 0 8 * * *">
+                <constraints nullable="false"/>
+            </column>
+            <column name="daily_digest_last_run_at" type="TIMESTAMP"/>
+        </addColumn>
+    </changeSet>
+
+    <!--
+        One row per digest actually sent, plus the due tasks it listed (with the deadline shown).
+        Digest buttons ("dig:<code>:<digestId>") reload this row, so a mute applies to exactly the
+        tasks the user saw. Identifiers and dates only — no titles — so nothing needs encryption.
+        No FK to backlog_task (same as scheduled_notification): a deleted task leaves an inert row.
+    -->
+    <changeSet id="016-2-daily-digest-log" author="tasker">
+        <createTable tableName="daily_digest">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="digest_date" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="sent_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <!-- Backstop against a double send; also serves account-deletion cleanup by user_id. -->
+        <addUniqueConstraint tableName="daily_digest" columnNames="user_id, digest_date"
+                             constraintName="uq_daily_digest_user_date"/>
+
+        <createTable tableName="daily_digest_due_task">
+            <column name="digest_id" type="UUID">
+                <constraints nullable="false"
+                             foreignKeyName="fk_daily_digest_due_task_digest"
+                             references="daily_digest(id)"
+                             deleteCascade="true"/>
+            </column>
+            <column name="backlog_task_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="deadline" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="daily_digest_due_task" indexName="idx_daily_digest_due_task_digest">
+            <column name="digest_id"/>
+        </createIndex>
+    </changeSet>
+
+    <!--
+        Per-user mutes for the digest's "due tasks" section. Per user (not a backlog_task column)
+        because a task on a shared board belongs to the board: one member muting it must not
+        silence it for the others. A mute applies only while the task's deadline still equals
+        `deadline`, so moving the deadline (or a recurrence roll) lifts it automatically.
+        `muted_until` is exclusive.
+    -->
+    <changeSet id="016-3-deadline-reminder-mute" author="tasker">
+        <createTable tableName="deadline_reminder_mute">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="backlog_task_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="deadline" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="muted_until" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addUniqueConstraint tableName="deadline_reminder_mute" columnNames="user_id, backlog_task_id"
+                             constraintName="uq_deadline_reminder_mute_user_task"/>
+    </changeSet>
+
+</databaseChangeLog>

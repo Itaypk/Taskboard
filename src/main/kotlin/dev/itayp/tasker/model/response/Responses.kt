@@ -34,6 +34,9 @@ data class UserSettingsResponse(
     val aiEnhancedReminders: Boolean,
     val aiTier: String,
     val aiTierGrantsAccess: Boolean,
+    val dailyDigestEnabled: Boolean,
+    val dailyDigestDueTasks: Boolean,
+    val dailyDigestCron: String,
     val email: String?,
     val emailVerified: Boolean,
 )
@@ -54,6 +57,9 @@ fun UserSettings.toResponse(email: String?, emailVerified: Boolean) = UserSettin
     aiEnhancedReminders = aiEnhancedReminders,
     aiTier = aiTier,
     aiTierGrantsAccess = AiTier.fromName(aiTier).grantsAccess,
+    dailyDigestEnabled = dailyDigestEnabled,
+    dailyDigestDueTasks = dailyDigestDueTasks,
+    dailyDigestCron = dailyDigestCron,
     email = email,
     emailVerified = emailVerified,
 )

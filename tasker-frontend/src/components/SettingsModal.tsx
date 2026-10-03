@@ -12,7 +12,8 @@ import { HelpTip } from './HelpTip';
 import { ApiTokens } from './ApiTokens';
 import { Tabs } from './Tabs';
 import { Toggle } from './Toggle';
-import { updateUserSettings, fetchSettingsOptions, deleteAccount, exportAccount, importAccount, requestEmailVerification } from '../api';
+import { updateUserSettings, fetchSettingsOptions, deleteAccount, exportAccount, importAccount, requestEmailVerification, clearDeadlineMutes } from '../api';
+import { DIGEST_DAYS, composeDigestCron, parseDigestCron, type DigestDay } from './digestCron';
 import type { ImportSummary } from '../api';
 import { applyLocale } from '../i18n';
 import type { SettingsTab } from '../taskLink';
@@ -52,6 +53,19 @@ function composeCron(day: string, time: string): string | null {
   return `0 ${Number(mm)} ${Number(hh)} * * ${day}`;
 }
 
+/** Digest day chips in the user's week order, starting from their configured week-start day. */
+function digestDaysInWeekOrder(weekStartDay: string | null | undefined): DigestDay[] {
+  const start = DAY_VALUES.findIndex(d => d.value === weekStartDay);
+  if (start <= 0) return [...DIGEST_DAYS];
+  return [...DIGEST_DAYS.slice(start), ...DIGEST_DAYS.slice(0, start)];
+}
+
+/** Short localized weekday name ("Mon", "ב׳", …). 2024-01-01 was a Monday. */
+function shortDayName(day: DigestDay, language: string): string {
+  const date = new Date(Date.UTC(2024, 0, 1 + DIGEST_DAYS.indexOf(day)));
+  return new Intl.DateTimeFormat(language, { weekday: 'short', timeZone: 'UTC' }).format(date);
+}
+
 function parseCron(cron: string | null | undefined): { day: string; time: string } {
   if (!cron) return { day: '', time: '09:00' };
   const parts = cron.trim().split(/\s+/);
@@ -65,7 +79,7 @@ function parseCron(cron: string | null | undefined): { day: string; time: string
 }
 
 export function SettingsModal({ settings, open, initialTab, onClose, onSave, onAccountDeleted }: SettingsModalProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const settingsTabs = SETTINGS_TAB_IDS.map(id => ({ id, label: t(SETTINGS_TAB_LABEL_KEYS[id]) }));
   const daysOfWeek = DAY_VALUES.map(d => ({ value: d.value, cron: d.cron, label: t(d.labelKey) }));
   const [form, setForm] = useState<UserSettings>(settings);
@@ -86,6 +100,8 @@ export function SettingsModal({ settings, open, initialTab, onClose, onSave, onA
   const [emailInput, setEmailInput] = useState(settings.email ?? '');
   const [verificationSent, setVerificationSent] = useState(false);
   const [sendingVerification, setSendingVerification] = useState(false);
+  const [clearingMutes, setClearingMutes] = useState(false);
+  const [mutesCleared, setMutesCleared] = useState(false);
 
   if (open && !wasOpen) {
     setWasOpen(true);
@@ -93,6 +109,7 @@ export function SettingsModal({ settings, open, initialTab, onClose, onSave, onA
     setEmailInput(settings.email ?? '');
     setDeleteConfirm(false);
     setVerificationSent(false);
+    setMutesCleared(false);
     setActiveTab(initialTab ?? 'general');
     setLastInitialTab(initialTab);
   } else if (!open && wasOpen) {
@@ -123,6 +140,28 @@ export function SettingsModal({ settings, open, initialTab, onClose, onSave, onA
 
   const planningParts = useMemo(() => parseCron(form.planningCron), [form.planningCron]);
   const planningEnabled = planningParts.day !== '';
+  const digestSchedule = useMemo(() => parseDigestCron(form.dailyDigestCron), [form.dailyDigestCron]);
+
+  const toggleDigestDay = (day: DigestDay) => {
+    const days = digestSchedule.days.includes(day)
+      ? digestSchedule.days.filter(d => d !== day)
+      : [...digestSchedule.days, day];
+    // The last selected day can't be cleared (its chip is disabled); turning the digest off is the toggle's job.
+    if (days.length === 0) return;
+    setForm(f => ({ ...f, dailyDigestCron: composeDigestCron({ ...digestSchedule, days }) }));
+  };
+
+  const handleClearMutes = async () => {
+    setClearingMutes(true);
+    try {
+      await clearDeadlineMutes();
+      setMutesCleared(true);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setClearingMutes(false);
+    }
+  };
 
   const handleSaveClick = async () => {
     setSaving(true);
@@ -141,6 +180,9 @@ export function SettingsModal({ settings, open, initialTab, onClose, onSave, onA
         autoArchiveDays: form.autoArchiveDays ?? null,
         aiEnabled: form.aiEnabled,
         aiEnhancedReminders: form.aiEnhancedReminders,
+        dailyDigestEnabled: form.dailyDigestEnabled,
+        dailyDigestDueTasks: form.dailyDigestDueTasks,
+        dailyDigestCron: form.dailyDigestCron,
       });
 
       onSave(form);
@@ -350,6 +392,76 @@ export function SettingsModal({ settings, open, initialTab, onClose, onSave, onA
                     <span className="settings-hint"> {t('settingsModal.general.sentOverTelegram')}</span>
                   </span>
                 </label>
+              </div>
+
+              <div className="field">
+                <label className="field__label">
+                  {t('settingsModal.general.dailyDigest')}
+                  <HelpTip text={t('settingsModal.general.dailyDigestHelp')} />
+                </label>
+                <Toggle
+                  checked={form.dailyDigestEnabled}
+                  onChange={next => setForm(f => ({ ...f, dailyDigestEnabled: next }))}
+                  label={t('settingsModal.general.dailyDigestToggle')}
+                />
+                {form.dailyDigestEnabled && (
+                  <>
+                    <div className={styles.planningRow}>
+                      <div className={styles.dayChips} role="group" aria-label={t('settingsModal.general.dailyDigestDays')}>
+                        {digestDaysInWeekOrder(form.weekStartDay).map(day => {
+                          const selected = digestSchedule.days.includes(day);
+                          return (
+                            <button
+                              key={day}
+                              type="button"
+                              className={`${styles.dayChip} ${selected ? styles.dayChipSelected : ''}`}
+                              aria-pressed={selected}
+                              disabled={selected && digestSchedule.days.length === 1}
+                              onClick={() => toggleDigestDay(day)}
+                            >
+                              {shortDayName(day, i18n.language)}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <input
+                        aria-label={t('settingsModal.general.dailyDigestTime')}
+                        type="time"
+                        className="field__input"
+                        value={digestSchedule.time}
+                        onChange={e => e.target.value && setForm(f => ({
+                          ...f,
+                          dailyDigestCron: composeDigestCron({ ...digestSchedule, time: e.target.value }),
+                        }))}
+                      />
+                    </div>
+                    <label className="settings-toggle">
+                      <input
+                        type="checkbox"
+                        checked={form.dailyDigestDueTasks}
+                        onChange={e => setForm(f => ({ ...f, dailyDigestDueTasks: e.target.checked }))}
+                      />
+                      <span>{t('settingsModal.general.dailyDigestDueTasks')}</span>
+                    </label>
+                    {!telegramChatReady && (
+                      <p className="settings-hint">{t('settingsModal.general.dailyDigestUnreachable')}</p>
+                    )}
+                  </>
+                )}
+                <div className={styles.planningRow}>
+                  <button
+                    type="button"
+                    className="btn btn--ghost"
+                    onClick={handleClearMutes}
+                    disabled={clearingMutes || mutesCleared}
+                  >
+                    {t('settingsModal.general.clearDeadlineMutes')}
+                  </button>
+                  <HelpTip text={t('settingsModal.general.clearDeadlineMutesHelp')} />
+                  {mutesCleared && (
+                    <span className="settings-hint" role="status">{t('settingsModal.general.deadlineMutesCleared')}</span>
+                  )}
+                </div>
               </div>
 
               <div className="field">
