@@ -352,6 +352,11 @@ covers most of the reschedule motivation at near-zero cost and reuses 2b's state
 
 ## Beyond slot reminders
 
+Deadlines took a different route: rather than a per-task `NotificationType`, they're covered by the
+**daily digest** ([`docs/DAILY-DIGEST.md`](DAILY-DIGEST.md)), which is computed at send time and so
+needs no queue rows to keep in sync with deadline edits. It reuses this feature's channel gate,
+`tasker.notification.*` metrics and self-describing button routing (`dig:<code>:<digestId>`).
+
 `NotificationType` is an enum on purpose. Other kinds — e.g. a deadline approaching, a weekly plan
 ready to review, a stale-task nudge — can ride the same queue + poller + event seam. Each new type
 adds a materializer (the equivalent of `SlotReminderService`) and a branch in the dispatcher; the

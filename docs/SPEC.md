@@ -31,6 +31,11 @@ An AI-powered weekly planner that helps you actually get tasks done - not just w
 - Full conversation history is sent with each turn (conversations are short enough for this to be practical)
 - Creates Google Calendar events for the agreed plan
 
+#### Daily Digest
+- An optional daily Telegram message (on by default) at a time and on days the user picks: today's planned time blocks, plus tasks that aren't in the plan and are due today or overdue
+- Due tasks can be muted from the digest ("next week" / "don't remind me again"); a mute lifts when the deadline changes
+- Design in `docs/DAILY-DIGEST.md`
+
 #### Integrations
 - **Google Calendar** (OAuth): read availability, write time blocks. "Test" app — no verification needed for personal use
 - **Telegram Bot**: planning conversations
@@ -43,7 +48,6 @@ An AI-powered weekly planner that helps you actually get tasks done - not just w
 - Available for edit through the web UI settings
 
 ### Non-Goals (for v1)
-- Daily digest — might add noise; circle back if it proves useful
 - File attachments on tasks — URLs are sufficient for now
 - Offline support / PWA — a responsive web app is sufficient
 - Real-time calendar sync — one-directional: read availability, write events at planning time
