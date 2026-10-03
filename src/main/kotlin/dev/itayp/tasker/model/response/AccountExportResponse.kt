@@ -1,5 +1,6 @@
 package dev.itayp.tasker.model.response
 
+import dev.itayp.tasker.model.UserSettings
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Pattern
@@ -72,6 +73,11 @@ data class SettingsExport(
     val aiEnhancedReminders: Boolean = true,
     @field:Size(max = 32)
     val aiTier: String? = null,
+    // Defaulted so exports from before the daily digest still import.
+    val dailyDigestEnabled: Boolean = true,
+    val dailyDigestDueTasks: Boolean = true,
+    @field:Size(max = 64)
+    val dailyDigestCron: String = UserSettings.DEFAULT_DAILY_DIGEST_CRON,
 )
 
 data class CategoryExport(

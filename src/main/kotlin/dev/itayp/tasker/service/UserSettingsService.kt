@@ -13,6 +13,7 @@ import org.springframework.context.ApplicationEventPublisher
 import org.springframework.scheduling.support.CronExpression
 import org.springframework.stereotype.Service
 import java.time.DayOfWeek
+import java.time.Instant
 import java.time.ZoneId
 import java.util.Locale
 import java.util.UUID
@@ -68,6 +69,7 @@ class UserSettingsService(
             gender = request.gender,
             planningCron = request.planningCron,
             weekStartDay = request.weekStartDay,
+            dailyDigestCron = request.dailyDigestCron,
         )
         val entity = fetchOrCreate(userId)
         val scheduleChanged = entity.planningCron != request.planningCron ||
@@ -87,6 +89,9 @@ class UserSettingsService(
         // access — otherwise a plain settings save would silently self-grant AI past the cap.
         entity.aiEnabled = request.aiEnabled && AiTier.fromName(entity.aiTier).grantsAccess
         entity.aiEnhancedReminders = request.aiEnhancedReminders
+        entity.dailyDigestEnabled = request.dailyDigestEnabled
+        entity.dailyDigestDueTasks = request.dailyDigestDueTasks
+        entity.dailyDigestCron = request.dailyDigestCron
         val saved = settingsRepository.save(entity)
         if (scheduleChanged) {
             eventPublisher.publishEvent(UserPlanningScheduleChangedEvent(userId))
@@ -105,6 +110,21 @@ class UserSettingsService(
 
     fun findAllWithAutoArchive(): List<UserSettingsEntity> =
         settingsRepository.findAllByAutoArchiveDaysIsNotNull()
+
+    /**
+     * Raw entities for the daily-digest scheduler, which reads only the non-sensitive scheduling
+     * fields (`dailyDigestCron`, `dailyDigestLastRunAt`, `timeZone`, `userId`) — same caveat as
+     * [findAllWithPlanningCron].
+     */
+    fun findAllWithDailyDigest(): List<UserSettingsEntity> =
+        settingsRepository.findAllByDailyDigestEnabledTrue()
+
+    /** Advances the daily-digest scheduler's watermark. */
+    fun markDailyDigestRun(userId: UUID, at: Instant) {
+        val entity = fetchOrCreate(userId)
+        entity.dailyDigestLastRunAt = at
+        settingsRepository.save(entity)
+    }
 
     fun getLocale(userId: UUID): Locale = toLocale(fetchOrCreate(userId).preferredLanguage)
 
@@ -192,6 +212,7 @@ class UserSettingsService(
         gender: String?,
         planningCron: String?,
         weekStartDay: String?,
+        dailyDigestCron: String,
     ) {
         require(timeZone in SUPPORTED_TIME_ZONES) { "Unsupported time zone: $timeZone" }
         require(SUPPORTED_LANGUAGES.any { it.code == preferredLanguage }) {
@@ -205,6 +226,11 @@ class UserSettingsService(
         }
         weekStartDay?.let {
             require(runCatching { DayOfWeek.valueOf(it) }.isSuccess) { "Unsupported week start day: $it" }
+        }
+        // Stricter than planningCron: the digest must fire at most once a day, so a hand-written or
+        // imported expression can't turn it into a spam loop. The settings UI only produces this shape.
+        require(DAILY_DIGEST_CRON_SHAPE.matches(dailyDigestCron) && CronExpression.isValidExpression(dailyDigestCron)) {
+            "Invalid daily digest schedule: $dailyDigestCron"
         }
     }
 
@@ -225,9 +251,19 @@ class UserSettingsService(
             aiEnabled = entity.aiEnabled,
             aiEnhancedReminders = entity.aiEnhancedReminders,
             aiTier = entity.aiTier,
+            dailyDigestEnabled = entity.dailyDigestEnabled,
+            dailyDigestDueTasks = entity.dailyDigestDueTasks,
+            dailyDigestCron = entity.dailyDigestCron,
         )
 
     companion object {
+        /**
+         * `0 <minute> <hour> * * <days>` — at most one firing a day. Days are `*` or a comma-separated
+         * list of three-letter day names and ranges (`MON-FRI,SUN`).
+         */
+        private val DAILY_DIGEST_CRON_SHAPE =
+            Regex("""0 \d{1,2} \d{1,2} \* \* (\*|[A-Z]{3}(-[A-Z]{3})?(,[A-Z]{3}(-[A-Z]{3})?)*)""", RegexOption.IGNORE_CASE)
+
         /** Soft cap on the user context block, mirroring the settings form's `@Size(max)` on `contextBlock`. */
         const val CONTEXT_BLOCK_MAX_CHARS = 4000
 

@@ -1,5 +1,6 @@
 package dev.itayp.tasker.model.request
 
+import dev.itayp.tasker.model.UserSettings
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
@@ -18,4 +19,7 @@ data class UpdateUserSettingsRequest(
     @field:Min(1) val autoArchiveDays: Int? = null,
     val aiEnabled: Boolean = true,
     val aiEnhancedReminders: Boolean = true,
+    val dailyDigestEnabled: Boolean = true,
+    val dailyDigestDueTasks: Boolean = true,
+    @field:Size(max = 64) val dailyDigestCron: String = UserSettings.DEFAULT_DAILY_DIGEST_CRON,
 )

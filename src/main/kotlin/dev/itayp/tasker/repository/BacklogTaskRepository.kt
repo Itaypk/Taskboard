@@ -59,6 +59,12 @@ interface BacklogTaskRepository : JpaRepository<BacklogTaskEntity, UUID> {
         status: TaskStatus,
     ): List<BacklogTaskEntity>
 
+    fun findAllByBoardIdInAndStatusAndDeadlineLessThanEqual(
+        boardIds: Collection<UUID>,
+        status: TaskStatus,
+        deadline: LocalDate,
+    ): List<BacklogTaskEntity>
+
     fun findAllByBoardIdInAndLastScheduledInSessionIdOrderBySortKeyAsc(
         boardIds: Collection<UUID>,
         lastScheduledInSessionId: UUID,
