@@ -2,7 +2,6 @@ package dev.itayp.tasker.channel.telegram
 
 import dev.itayp.tasker.capture.QuickAddState
 import io.micrometer.core.instrument.MeterRegistry
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.stereotype.Component
 import java.time.Clock
 import java.time.Duration
@@ -19,7 +18,7 @@ import java.util.concurrent.ConcurrentHashMap
  * (Expiry is observed lazily, on the next access for that chat, so the counter is a lower bound.)
  */
 @Component
-@ConditionalOnProperty(prefix = "tasker.telegram", name = ["enabled"], havingValue = "true")
+@ConditionalOnTelegramBot
 class QuickAddRegistry(
     private val meterRegistry: MeterRegistry,
     private val clock: Clock,

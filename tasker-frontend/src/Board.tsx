@@ -60,6 +60,7 @@ import { useAuth } from './auth/AuthContext';
 import { mascotFor } from './mascots';
 import BalloonCelebration from './components/BalloonCelebration';
 import i18n from './i18n';
+import { useBranding } from './publicConfig';
 
 
 /** Up to two initials from a display name (e.g. "Dana Scully" → "DS", "it***@gmail.com" → "IT"). */
@@ -92,6 +93,7 @@ function PlanIcon() {
 
 export default function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const { t } = useTranslation();
+  const { name: appName } = useBranding();
   const { state: authState } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -184,11 +186,11 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
     if (!updateAvailable) return;
     notifyToast({
       key: 'app-update',
-      message: t('updateBanner.message'),
+      message: t('updateBanner.message', { appName }),
       durationMs: 0,
       action: { label: t('updateBanner.refresh'), onClick: () => window.location.reload() },
     });
-  }, [updateAvailable, t]);
+  }, [updateAvailable, t, appName]);
 
   // Mouse: start drag after 5px to keep clicks alive.
   // Touch: long-press (~200ms) so tap-to-open and finger-scroll still work.

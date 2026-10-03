@@ -2,10 +2,10 @@ package dev.itayp.tasker.channel.telegram.commands
 
 import dev.itayp.tasker.capture.QuickAddFlow
 import dev.itayp.tasker.channel.ChannelMessage
+import dev.itayp.tasker.channel.telegram.ConditionalOnTelegramBot
 import dev.itayp.tasker.channel.telegram.QuickAddRegistry
 import dev.itayp.tasker.planning.WeeklyPlanningOrchestrator
 import dev.itayp.tasker.service.UserSettingsService
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.MessageSource
 import org.springframework.stereotype.Component
 
@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component
  * concurrent flows for the same chat.
  */
 @Component
-@ConditionalOnProperty(prefix = "tasker.telegram", name = ["enabled"], havingValue = "true")
+@ConditionalOnTelegramBot
 class AddBotCommand(
     private val quickAddFlow: QuickAddFlow,
     private val quickAddRegistry: QuickAddRegistry,

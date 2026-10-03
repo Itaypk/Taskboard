@@ -25,6 +25,7 @@ class UserAuthService(
     private val tutorialSeeder: TutorialSeeder,
     private val userCrypto: UserCryptoService,
     private val appProperties: AppProperties,
+    private val registrationPolicy: RegistrationPolicy,
     private val clock: Clock,
 ) {
 
@@ -59,6 +60,8 @@ class UserAuthService(
             logger.debug("Logged in existing user {} via {}", user.id, provider)
             return userRepository.save(user)
         }
+
+        registrationPolicy.requireNewAccountAllowed(provider)
 
         // New identity -> new user. Persist the user row first so the user_data_key FK (and the
         // auth_identities FK) is satisfied when ensureUserKey / attachIdentity write their rows.
@@ -142,6 +145,9 @@ class UserAuthService(
         return EmailLoginOutcome.Success(user)
     }
 
+    /** Whether an account already holds [emailHash] — lets a closed instance skip mailing strangers. */
+    fun hasAccountForEmail(emailHash: String): Boolean = userRepository.findByEmailHash(emailHash) != null
+
     private fun attachIdentityIfMissing(userId: UUID, provider: String, providerUserId: String, verified: Boolean, now: Instant) {
         if (authIdentityRepository.findByProviderAndProviderUserId(provider, providerUserId) == null) {
             attachIdentity(userId, provider, providerUserId, verified, now)
@@ -182,6 +188,7 @@ class UserAuthService(
      */
     @Transactional
     fun createUnclaimedUser(localeHint: String? = null): UserEntity {
+        registrationPolicy.requireDemoAvailable()
         val unclaimedCount = userRepository.countByClaimed(false)
         if (unclaimedCount >= appProperties.unclaimedAccountCap) {
             logger.warn("Unclaimed account cap reached ({}); refusing new unclaimed signup", unclaimedCount)

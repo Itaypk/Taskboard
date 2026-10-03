@@ -2,6 +2,7 @@ package dev.itayp.tasker.channel.telegram.commands
 
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ChoiceOption
+import dev.itayp.tasker.channel.telegram.ConditionalOnTelegramBot
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_DISMISS
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_KEEP
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_NEXT_WEEK
@@ -14,7 +15,6 @@ import dev.itayp.tasker.planning.WeekOffset
 import dev.itayp.tasker.planning.WeekResolver
 import dev.itayp.tasker.planning.WeeklyPlanningOrchestrator
 import dev.itayp.tasker.service.UserSettingsService
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.MessageSource
 import org.springframework.stereotype.Component
 import java.time.Clock
@@ -25,7 +25,7 @@ import java.time.format.FormatStyle
 import java.util.Locale
 
 @Component
-@ConditionalOnProperty(prefix = "tasker.telegram", name = ["enabled"], havingValue = "true")
+@ConditionalOnTelegramBot
 class PlanBotCommand(
     private val orchestrator: WeeklyPlanningOrchestrator,
     private val planningSessionService: PlanningSessionService,

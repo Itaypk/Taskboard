@@ -7,6 +7,7 @@ import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.EmailLoginResult
 import dev.itayp.tasker.service.EmailLoginService
 import dev.itayp.tasker.service.LocaleNegotiationService
+import dev.itayp.tasker.service.RegistrationClosedException
 import dev.itayp.tasker.util.localRedirect
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -71,7 +72,14 @@ class EmailAuthController(
         // to reach it too — this page is anonymous and carries the same language switcher.
         val header = request.getHeader("Accept-Language")
         val languageTag = localeNegotiationService.resolveSupportedTag(lang, header) ?: header
-        val outcome = when (val result = emailLoginService.completeLogin(body.token, languageTag)) {
+        // Registration closing between the link being sent and clicked is the only way to get here
+        // with a closed instance: requestLogin doesn't mail addresses without an account.
+        val result = try {
+            emailLoginService.completeLogin(body.token, languageTag)
+        } catch (_: RegistrationClosedException) {
+            return ResponseEntity.ok(mapOf("outcome" to "closed"))
+        }
+        val outcome = when (result) {
             is EmailLoginResult.Success -> {
                 sessionAuthenticator.authenticate(TaskerPrincipal(result.user.id!!), request, response)
                 "success"

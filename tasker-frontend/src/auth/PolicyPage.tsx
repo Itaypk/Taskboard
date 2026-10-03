@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import MarkdownRenderer from '../components/MarkdownRenderer';
-import { ABUSE_EMAIL, SUPPORT_EMAIL } from '../config';
+import { useBranding } from '../publicConfig';
 import tosContent from './tos.md?raw';
 import ppContent from './privacy-policy.md?raw';
 import aboutContent from './about.md?raw';
@@ -10,9 +10,9 @@ import faqContent from './faq.md?raw';
 import styles from './PolicyPage.module.css';
 import { Arrow } from '../components/Arrow';
 
-/** Fill build-time placeholders (e.g. the support/abuse emails) into the raw policy markdown. */
-function fillPlaceholders(md: string): string {
-    return md.replaceAll('{{SUPPORT_EMAIL}}', SUPPORT_EMAIL).replaceAll('{{ABUSE_EMAIL}}', ABUSE_EMAIL);
+/** Fill the instance's contact addresses (from `/api/public/config`) into the raw policy markdown. */
+function fillPlaceholders(md: string, branding: { supportEmail: string; abuseEmail: string }): string {
+    return md.replaceAll('{{SUPPORT_EMAIL}}', branding.supportEmail).replaceAll('{{ABUSE_EMAIL}}', branding.abuseEmail);
 }
 
 interface PolicyPageProps {
@@ -22,20 +22,21 @@ interface PolicyPageProps {
 
 function PolicyPage({ title, body }: PolicyPageProps) {
     const { t } = useTranslation();
+    const branding = useBranding();
     useEffect(() => {
         const previous = document.title;
-        document.title = `${title} — Backlog.fyi`;
+        document.title = `${title} — ${branding.name}`;
         return () => { document.title = previous; };
-    }, [title]);
+    }, [title, branding.name]);
 
     return (
         <main className="board-wrap">
             <article className={styles.page}>
                 <header className={styles.header}>
                     <h1>{title}</h1>
-                    <Link to="/" className="link-btn"><Arrow direction="back" /> {t('policyPage.backHome')}</Link>
+                    <Link to="/" className="link-btn"><Arrow direction="back" /> {t('policyPage.backHome', { appName: branding.name })}</Link>
                 </header>
-                <MarkdownRenderer content={body} showExpandButton={false} />
+                <MarkdownRenderer content={fillPlaceholders(body, branding)} showExpandButton={false} />
             </article>
         </main>
     );
@@ -43,20 +44,20 @@ function PolicyPage({ title, body }: PolicyPageProps) {
 
 export function TermsPage() {
     const { t } = useTranslation();
-    return <PolicyPage title={t('policyPage.termsTitle')} body={fillPlaceholders(tosContent)} />;
+    return <PolicyPage title={t('policyPage.termsTitle')} body={tosContent} />;
 }
 
 export function PrivacyPage() {
     const { t } = useTranslation();
-    return <PolicyPage title={t('policyPage.privacyTitle')} body={fillPlaceholders(ppContent)} />;
+    return <PolicyPage title={t('policyPage.privacyTitle')} body={ppContent} />;
 }
 
 export function AboutPage() {
     const { t } = useTranslation();
-    return <PolicyPage title={t('policyPage.aboutTitle')} body={fillPlaceholders(aboutContent)} />;
+    return <PolicyPage title={t('policyPage.aboutTitle')} body={aboutContent} />;
 }
 
 export function FaqPage() {
     const { t } = useTranslation();
-    return <PolicyPage title={t('policyPage.faqTitle')} body={fillPlaceholders(faqContent)} />;
+    return <PolicyPage title={t('policyPage.faqTitle')} body={faqContent} />;
 }

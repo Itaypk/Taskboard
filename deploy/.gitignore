@@ -1,0 +1,3 @@
+# Instance secrets and data stay local.
+.env
+config/users

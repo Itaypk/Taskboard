@@ -3,7 +3,8 @@ import { Trans, useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { ApiError } from '../api';
 import { useAuth } from './AuthContext';
-import { demoLogin, devLogin, requestEmailLogin, telegramLoginUrl } from './authApi';
+import { demoLogin, devLogin, passwordLogin, requestEmailLogin, telegramLoginUrl } from './authApi';
+import { usePublicConfig, type PublicConfig } from '../publicConfig';
 // Imported directly rather than via mascots.ts: Board.tsx and this page are different chunks
 // (one eager, one lazy), and any import from that shared module — even a single unrelated
 // constant — forces the bundler to hoist the whole file (all three mascots' assets) into this
@@ -19,12 +20,16 @@ import { Arrow } from '../components/Arrow';
 const PINEAPPLE_SIZES = '(max-width: 600px) 103px, (max-width: 820px) 150px, 196px';
 
 // The Telegram OIDC callback redirects back here with a notice code if login didn't complete;
-// `unavailable` maps to its own copy, every other value degrades to the generic "failed" message.
+// `unavailable` and `closed` map to their own copy, every other value degrades to the generic
+// "failed" message.
 function readTelegramNoticeKey(): string | null {
     const code = new URLSearchParams(window.location.search).get('telegramLogin');
     if (!code) return null;
-    return code === 'unavailable' ? 'login.notices.telegramUnavailable' : 'login.notices.telegramFailed';
+    if (code === 'unavailable') return 'login.notices.telegramUnavailable';
+    if (code === 'closed') return 'login.notices.registrationClosed';
+    return 'login.notices.telegramFailed';
 }
+
 
 // The sandbox is the primary call-to-action, so its two expected failures deserve to say what
 // actually happened: 429 is the per-IP throttle (everyone behind one office/carrier gateway shares
@@ -38,6 +43,7 @@ function demoErrorKey(e: unknown): string {
 export function LoginPage({ next }: { next?: string } = {}) {
     const { t } = useTranslation();
     const { setUser } = useAuth();
+    const config = usePublicConfig();
     // A failed Telegram redirect lands on "/" with the modal closed — auto-open it to show the error.
     const initialNoticeKey = readTelegramNoticeKey();
     const initialNotice = initialNoticeKey ? t(initialNoticeKey) : null;
@@ -91,7 +97,7 @@ export function LoginPage({ next }: { next?: string } = {}) {
             <header className={styles.nav}>
                 <div className={styles.brand}>
                     <span className={styles.logoWrap}>
-                        <span className="logo-tape">Backlog.fyi</span>
+                        <span className="logo-tape">{config.branding.name}</span>
                         <span className={styles.beta}>beta</span>
                     </span>
                     <span className={styles.copyright}>© 2026</span>
@@ -119,24 +125,38 @@ export function LoginPage({ next }: { next?: string } = {}) {
                         </p>
 
                         {/* The sandbox leads: nobody signs in to a product they haven't seen, and an
-                            unclaimed account becomes a full one just by linking email or Telegram. */}
+                            unclaimed account becomes a full one just by linking email or Telegram.
+                            An instance without the sandbox leads with sign-in instead. */}
                         <div className={styles.ctaRow}>
-                            <button
-                                type="button"
-                                className={styles.getStarted}
-                                onClick={handleDemoLogin}
-                                disabled={busy}
-                            >
-                                {t('login.hero.startNow')} <Arrow direction="forward" />
-                            </button>
-                            <button
-                                type="button"
-                                className={styles.sandboxLink}
-                                onClick={() => setModalOpen(true)}
-                                disabled={busy}
-                            >
-                                {t('login.hero.signIn')}
-                            </button>
+                            {config.login.demo ? (
+                                <>
+                                    <button
+                                        type="button"
+                                        className={styles.getStarted}
+                                        onClick={handleDemoLogin}
+                                        disabled={busy}
+                                    >
+                                        {t('login.hero.startNow')} <Arrow direction="forward" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={styles.sandboxLink}
+                                        onClick={() => setModalOpen(true)}
+                                        disabled={busy}
+                                    >
+                                        {t('login.hero.signIn')}
+                                    </button>
+                                </>
+                            ) : (
+                                <button
+                                    type="button"
+                                    className={styles.getStarted}
+                                    onClick={() => setModalOpen(true)}
+                                    disabled={busy}
+                                >
+                                    {t('login.hero.signInPrimary')} <Arrow direction="forward" />
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -184,6 +204,7 @@ export function LoginPage({ next }: { next?: string } = {}) {
 
             {modalOpen && (
                 <LoginModal
+                    config={config}
                     busy={busy}
                     error={error}
                     next={next}
@@ -197,6 +218,7 @@ export function LoginPage({ next }: { next?: string } = {}) {
 }
 
 function LoginModal({
+    config,
     busy,
     error,
     next,
@@ -204,6 +226,7 @@ function LoginModal({
     onDevLogin,
     onClose,
 }: {
+    config: PublicConfig;
     busy: boolean;
     error: string | null;
     next?: string;
@@ -244,15 +267,21 @@ function LoginModal({
 
                 <div className={styles.modalTag}>{t('login.modal.tag')}</div>
                 <h2 className={styles.modalH}>{t('login.modal.title')}</h2>
-                <p className={styles.modalSub}>{t('login.modal.sub')}</p>
+                <p className={styles.modalSub}>
+                    {t(config.registrationOpen ? 'login.modal.sub' : 'login.modal.subClosed')}
+                </p>
 
                 <div className={styles.channels}>
-                    <a
-                        href={telegramLoginUrl(next)}
-                        className={`${styles.channelBtn} ${styles.chTelegram}`}
-                    >
-                        <TelegramIcon /> {t('login.modal.telegram')}
-                    </a>
+                    {config.login.password && <PasswordForm />}
+
+                    {config.login.telegram && (
+                        <a
+                            href={telegramLoginUrl(next)}
+                            className={`${styles.channelBtn} ${styles.chTelegram}`}
+                        >
+                            <TelegramIcon /> {t('login.modal.telegram')}
+                        </a>
+                    )}
 
                     {/* Google login isn't built yet — hide the disabled entry until it is. */}
                     {/* <button type="button" className={`${styles.channelBtn} ${styles.chGoogle}`} disabled>
@@ -260,7 +289,7 @@ function LoginModal({
                         <span className={styles.soonBadge}>{t('login.modal.soon')}</span>
                     </button> */}
 
-                    {emailSent ? (
+                    {!config.login.email ? null : emailSent ? (
                         <p className={styles.emailSent}>
                             <Trans
                                 i18nKey="login.modal.emailSent"
@@ -299,18 +328,26 @@ function LoginModal({
                     )}
                 </div>
 
+                {!config.login.password && !config.login.telegram && !config.login.email && !config.login.demo && (
+                    <p className={styles.error}>{t('login.modal.noMethods')}</p>
+                )}
+
                 {/* <p className={styles.moreNote}>{t('login.modal.moreWays')}</p> */}
 
-                <div className={styles.divider}>
-                    <span className={styles.divLine} />
-                    <span className={styles.divText}>{t('login.modal.justLooking')}</span>
-                    <span className={styles.divLine} />
-                </div>
+                {config.login.demo && (
+                    <>
+                        <div className={styles.divider}>
+                            <span className={styles.divLine} />
+                            <span className={styles.divText}>{t('login.modal.justLooking')}</span>
+                            <span className={styles.divLine} />
+                        </div>
 
-                <button type="button" className={styles.sandboxCard} onClick={onSandbox} disabled={busy}>
-                    {t('login.modal.sandbox')} <Arrow direction="forward" />
-                    <span className={styles.sandboxSub}>{t('login.modal.sandboxSub')}</span>
-                </button>
+                        <button type="button" className={styles.sandboxCard} onClick={onSandbox} disabled={busy}>
+                            {t('login.modal.sandbox')} <Arrow direction="forward" />
+                            <span className={styles.sandboxSub}>{t('login.modal.sandboxSub')}</span>
+                        </button>
+                    </>
+                )}
 
                 <p className={styles.fine}>
                     <Trans
@@ -328,6 +365,66 @@ function LoginModal({
                 {error && <p className={styles.error}>{error}</p>}
             </div>
         </div>
+    );
+}
+
+// Operator-listed users (TASKER_LOCAL_USERS). The autocomplete attributes let password managers
+// offer to save and fill the credentials.
+function PasswordForm() {
+    const { t } = useTranslation();
+    const { setUser } = useAuth();
+    const [username, setUsername] = useState('');
+    const [password, setPassword] = useState('');
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const submit = async (e: FormEvent) => {
+        e.preventDefault();
+        setBusy(true);
+        setError(null);
+        try {
+            setUser(await passwordLogin(username.trim(), password));
+        } catch (err) {
+            console.error('Password login failed', err);
+            if (err instanceof ApiError && err.code === 'INVALID_CREDENTIALS') setError(t('login.errors.invalidCredentials'));
+            else if (err instanceof ApiError && err.status === 429) setError(t('login.errors.passwordRateLimited'));
+            else setError(t('login.errors.passwordFailed'));
+            setBusy(false);
+        }
+    };
+
+    return (
+        <form className={styles.emailForm} onSubmit={submit}>
+            <input
+                type="text"
+                name="username"
+                className={styles.emailInput}
+                placeholder={t('login.modal.username')}
+                aria-label={t('login.modal.username')}
+                autoComplete="username"
+                autoCapitalize="none"
+                spellCheck={false}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoFocus
+                required
+            />
+            <input
+                type="password"
+                name="password"
+                className={styles.emailInput}
+                placeholder={t('login.modal.password')}
+                aria-label={t('login.modal.password')}
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+            />
+            <button type="submit" className={`${styles.channelBtn} ${styles.chEmail}`} disabled={busy}>
+                {busy ? t('login.modal.signingIn') : t('login.modal.passwordSubmit')}
+            </button>
+            {error && <p className={styles.error}>{error}</p>}
+        </form>
     );
 }
 

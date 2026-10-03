@@ -48,7 +48,7 @@ export const devLogin = (): Promise<AuthUser> =>
     request<AuthUser>('/api/auth/dev-login', { method: 'POST' });
 
 /**
- * The three endpoints below can *create* an account, and the account's stored language drives the
+ * The endpoints below can *create* an account, and the account's stored language drives the
  * seeded backlog, the emails and the Telegram replies. The server otherwise reads `Accept-Language`,
  * which is the browser's opinion, not the visitor's — so anyone who used the anonymous language
  * switcher would get an account in the wrong language and watch the UI snap back on the next `/me`.
@@ -76,12 +76,21 @@ export const requestEmailLogin = (email: string, next?: string): Promise<void> =
         body: JSON.stringify({ email, next }),
     });
 
+// Username/password login for operator-listed users. emitErrors: false — the form shows its own
+// message per failure (wrong credentials vs. rate limited).
+export const passwordLogin = (username: string, password: string): Promise<AuthUser> =>
+    request<AuthUser>(withLang('/api/auth/password'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+    }, { emitErrors: false });
+
 // Side-effect-free check: returns true if the token is still valid (not consumed, not expired).
 export const precheckEmailLogin = (token: string): Promise<{ valid: boolean }> =>
     request<{ valid: boolean }>(`/api/auth/email/precheck?token=${encodeURIComponent(token)}`);
 
 // Consume a magic-link token and establish a session.
-export type EmailCallbackOutcome = 'success' | 'invalid' | 'unverified';
+export type EmailCallbackOutcome = 'success' | 'invalid' | 'unverified' | 'closed';
 export const completeEmailLogin = (token: string): Promise<{ outcome: EmailCallbackOutcome }> =>
     request<{ outcome: EmailCallbackOutcome }>(withLang('/api/auth/email/callback'), {
         method: 'POST',

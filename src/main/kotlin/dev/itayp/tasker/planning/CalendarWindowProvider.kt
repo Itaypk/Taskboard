@@ -54,7 +54,7 @@ class OneOffEventCalendarWindowProvider(
             "User has not connected their calendar; assume no fixed commitments are known."
         const val PARTIAL_NOTICE =
             "Known events on the user's calendar (partial — only events captured through " +
-                "Backlog.fyi; the user's other calendar entries are not visible, so don't assume " +
+                "this app; the user's other calendar entries are not visible, so don't assume " +
                 "the rest of the week is free):"
     }
 }

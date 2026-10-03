@@ -23,6 +23,12 @@ data class RateLimitProperties(
      */
     val quickAdd: Policy = Policy(limit = 60, windowSeconds = 3600),
     val externalApi: Policy = Policy(limit = 120, windowSeconds = 60),
+    /**
+     * Password attempts, counted separately per client IP and per username by
+     * [dev.itayp.tasker.service.LocalLoginService]. The per-username budget lets anyone lock a known
+     * username out for one window — an accepted trade on the small instances local users are for.
+     */
+    val passwordLogin: Policy = Policy(limit = 10, windowSeconds = 900),
 ) {
     data class Policy(val limit: Int, val windowSeconds: Long)
 }

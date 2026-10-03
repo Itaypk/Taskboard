@@ -2,13 +2,13 @@ package dev.itayp.tasker.channel.telegram.commands
 
 import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.channel.ChannelMessage
+import dev.itayp.tasker.channel.telegram.ConditionalOnTelegramBot
 import dev.itayp.tasker.service.UserSettingsService
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.MessageSource
 import org.springframework.stereotype.Component
 
 @Component
-@ConditionalOnProperty(prefix = "tasker.telegram", name = ["enabled"], havingValue = "true")
+@ConditionalOnTelegramBot
 class BotCommandDispatcher(
     handlers: List<BotCommandHandler>,
     private val aiAccessService: AiAccessService,

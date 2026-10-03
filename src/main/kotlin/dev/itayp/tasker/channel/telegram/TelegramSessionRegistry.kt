@@ -1,12 +1,11 @@
 package dev.itayp.tasker.channel.telegram
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.stereotype.Component
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 @Component
-@ConditionalOnProperty(prefix = "tasker.telegram", name = ["enabled"], havingValue = "true")
+@ConditionalOnTelegramBot
 class TelegramSessionRegistry {
     private val sessions = ConcurrentHashMap<Long, UUID>()
 

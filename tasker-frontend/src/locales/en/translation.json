@@ -9,7 +9,8 @@
       "titleLine2": "actually doing.",
       "sub": "Capture what's on your plate. Talk through a realistic week with the assistant. Agreed tasks land on your calendar as time blocks.",
       "startNow": "Start now — no sign-up",
-      "signIn": "or sign in"
+      "signIn": "or sign in",
+      "signInPrimary": "Sign in"
     },
     "satellites": {
       "problemTag": "The problem",
@@ -41,11 +42,18 @@
       "sandbox": "Start now — no sign-up",
       "sandboxSub": "Get a real board instantly. Add an email or Telegram later to keep it.",
       "fine": "By continuing you agree to our <terms>Terms</terms> and <privacy>Privacy Policy</privacy>. No ads, no trackers — ever.",
-      "devLogin": "Dev login (skip Telegram)"
+      "devLogin": "Dev login (skip Telegram)",
+      "subClosed": "Sign in with an existing account.",
+      "username": "Username",
+      "password": "Password",
+      "passwordSubmit": "Sign in",
+      "signingIn": "Signing in…",
+      "noMethods": "No sign-in method is set up on this instance yet. Ask whoever runs it to configure one."
     },
     "notices": {
       "telegramFailed": "Telegram sign-in didn’t complete. Please try again.",
-      "telegramUnavailable": "Telegram sign-in is temporarily unavailable. Try another method."
+      "telegramUnavailable": "Telegram sign-in is temporarily unavailable. Try another method.",
+      "registrationClosed": "This instance isn’t accepting new accounts. Sign in with an existing one."
     },
     "errors": {
       "demoFailed": "Couldn't start a new account. Please try again.",
@@ -53,13 +61,16 @@
       "emailSendFailed": "Could not send the sign-in link. Please try again.",
       "demoRateLimited": "Too many sandbox boards from your network just now. Please wait a few minutes, or sign in instead.",
       "demoAtCapacity": "Sandbox boards are at capacity right now. Please try again shortly, or sign in to create an account.",
-      "blockedEmailDomain": "That email provider isn't supported. Please use a different address."
+      "blockedEmailDomain": "That email provider isn't supported. Please use a different address.",
+      "invalidCredentials": "Wrong username or password.",
+      "passwordRateLimited": "Too many sign-in attempts. Please wait a few minutes and try again.",
+      "passwordFailed": "Couldn’t sign in. Please try again."
     }
   },
   "notFound": {
     "heading": "Page not found",
     "body": "This page doesn't exist. It may have been moved or the URL is incorrect.",
-    "homeLink": "Go to Backlog.fyi"
+    "homeLink": "Go to {{appName}}"
   },
   "confirmDialog": {
     "cancel": "Cancel",
@@ -152,10 +163,11 @@
     "providers": {
       "telegram": "Telegram",
       "email": "Email",
-      "google": "Google"
+      "google": "Google",
+      "local": "Username and password"
     },
     "linkNotices": {
-      "conflict": "That Telegram account is already linked to a different Backlog.fyi account.",
+      "conflict": "That Telegram account is already linked to a different {{appName}} account.",
       "exists": "You already have a Telegram account linked.",
       "failed": "Could not link Telegram. Please try again.",
       "unavailable": "Telegram linking is temporarily unavailable."
@@ -163,7 +175,8 @@
     "errors": {
       "lastMethod": "You can’t remove your only sign-in method. Link another first.",
       "unlinkFailed": "Could not unlink. Please try again."
-    }
+    },
+    "managedByOperator": "This login is managed by whoever runs this instance."
   },
   "apiTokens": {
     "label": "API tokens",
@@ -205,12 +218,13 @@
       "body": "Click the button below to complete sign-in. This confirms that you opened this link from your inbox."
     },
     "signingIn": "Signing in…",
-    "signIn": "Sign in to Backlog.fyi",
+    "signIn": "Sign in to {{appName}}",
     "backToSignIn": "Back to sign in",
     "errors": {
       "unverified": "That email is already linked to an unverified account. Sign in with Telegram and verify your email under Settings.",
       "expired": "This sign-in link is invalid or has expired.",
-      "generic": "Something went wrong. Please try again."
+      "generic": "Something went wrong. Please try again.",
+      "registrationClosed": "This instance isn’t accepting new accounts, so this link can’t create one."
     }
   },
   "emailVerifyConfirm": {
@@ -257,7 +271,7 @@
       "tag": "Invitation",
       "title": "Invitation not found",
       "body": "This invitation is invalid, has expired, or was revoked. Ask the board owner to send you a new one.",
-      "backHome": "Go to Backlog.fyi"
+      "backHome": "Go to {{appName}}"
     },
     "ready": {
       "tag": "Board invitation",
@@ -390,7 +404,7 @@
   "policyPage": {
     "termsTitle": "Terms of Service",
     "privacyTitle": "Privacy Policy",
-    "backHome": "Back to Backlog.fyi",
+    "backHome": "Back to {{appName}}",
     "aboutTitle": "About",
     "faqTitle": "Frequently asked questions"
   },
@@ -464,7 +478,7 @@
     "deleteTitle": "Delete"
   },
   "updateBanner": {
-    "message": "A new version of Backlog.fyi is available.",
+    "message": "A new version of {{appName}} is available.",
     "refresh": "Refresh"
   },
   "viewToggle": {

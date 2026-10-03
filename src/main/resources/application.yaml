@@ -1,9 +1,6 @@
 spring:
   application:
     name: taskboard
-  messages:
-    basename: messages
-    encoding: UTF-8
   jpa:
     hibernate:
       ddl-auto: validate
@@ -54,6 +51,11 @@ management:
 tasker:
   app:
     base-url: ${TASKER_APP_BASE_URL:https://backlog.fyi}
+    # Product name and public contact addresses, shown in emails, Telegram and the web UI.
+    # (Message bundles are read by BrandedMessageSource, which substitutes the name and base URL.)
+    name: ${TASKER_APP_NAME:Backlog.fyi}
+    support-email: ${TASKER_SUPPORT_EMAIL:hello@backlog.fyi}
+    abuse-email: ${TASKER_ABUSE_EMAIL:abuse@backlog.fyi}
     # Hard cap on simultaneously unclaimed accounts — a surge safety valve, separate from the
     # inactivity-based cleanup sweep. Deliberately generous.
     unclaimed-account-cap: ${TASKER_UNCLAIMED_ACCOUNT_CAP:1000}
@@ -86,6 +88,16 @@ tasker:
     # OIDC login (BotFather → Bot Settings → Web Login). Required for Telegram login in prod.
     client-id: ${TASKER_TELEGRAM_CLIENT_ID:}
     client-secret: ${TASKER_TELEGRAM_CLIENT_SECRET:}
+  auth:
+    # open: anyone may create an account. closed: only existing accounts and the local users below.
+    registration: ${TASKER_REGISTRATION:open}
+    # The zero-registration sandbox; only offered while registration is open.
+    demo-enabled: ${TASKER_DEMO_ENABLED:true}
+    # Username/password logins, `username:bcrypt-hash` (see `htpasswd -nbB`). Inline and comma-separated,
+    # and/or a file with one entry per line.
+    local:
+      users: ${TASKER_LOCAL_USERS:}
+      users-file: ${TASKER_LOCAL_USERS_FILE:}
   prometheus:
     username: ${TASKER_PROMETHEUS_USERNAME:prometheus}
     password: ${TASKER_PROMETHEUS_PASSWORD:prometheus-dev}
@@ -135,6 +147,10 @@ tasker:
     external-api:
       limit: 120
       window-seconds: 60
+    # Password attempts (local users), counted per client IP and, separately, per username.
+    password-login:
+      limit: 10
+      window-seconds: 900
   feedback:
     # Mailbox that in-app feedback is forwarded to (via the auth email sender). When blank,
     # falls back to the auth sender's own `from` address.
@@ -151,7 +167,7 @@ tasker:
     # Critical path: login / register / verification magic links.
     auth:
       from: ${TASKER_EMAIL_AUTH_FROM:}
-      from-name: ${TASKER_EMAIL_AUTH_FROM_NAME:Backlog.fyi}
+      from-name: ${TASKER_EMAIL_AUTH_FROM_NAME:${TASKER_APP_NAME:Backlog.fyi}}
       smtp:
         host: ${TASKER_EMAIL_AUTH_SMTP_HOST:smtp.protonmail.ch}
         port: ${TASKER_EMAIL_AUTH_SMTP_PORT:587}
@@ -160,7 +176,7 @@ tasker:
     # Scheduling: calendar invitations for planned time blocks.
     scheduling:
       from: ${TASKER_EMAIL_SCHEDULING_FROM:}
-      from-name: ${TASKER_EMAIL_SCHEDULING_FROM_NAME:Backlog.fyi}
+      from-name: ${TASKER_EMAIL_SCHEDULING_FROM_NAME:${TASKER_APP_NAME:Backlog.fyi}}
       smtp:
         host: ${TASKER_EMAIL_SCHEDULING_SMTP_HOST:smtp.protonmail.ch}
         port: ${TASKER_EMAIL_SCHEDULING_SMTP_PORT:587}

@@ -1,5 +1,7 @@
 package dev.itayp.tasker.ai.prompt
 
+import dev.itayp.tasker.config.AppProperties
+import dev.itayp.tasker.config.BrandedMessageSource
 import org.springframework.core.io.ClassPathResource
 import org.springframework.stereotype.Component
 import java.nio.charset.StandardCharsets
@@ -11,9 +13,14 @@ import java.util.concurrent.ConcurrentHashMap
  *
  * [load] is a convenience wrapper that resolves relative to `classpath:prompts/`.
  * [loadFromClasspath] accepts a full classpath path for templates outside that root.
+ *
+ * `@APP_NAME@` in a template becomes the configured product name, as in the message bundles
+ * ([BrandedMessageSource]), so the assistant introduces itself by the instance's name.
  */
 @Component
-class PromptTemplateLoader {
+class PromptTemplateLoader(appProperties: AppProperties = AppProperties()) {
+
+    private val appName = appProperties.name
 
     private val cache = ConcurrentHashMap<String, PromptTemplate>()
 
@@ -23,6 +30,6 @@ class PromptTemplateLoader {
         val resource = ClassPathResource(path)
         require(resource.exists()) { "Template not found: $path" }
         val source = resource.inputStream.use { it.readBytes().toString(StandardCharsets.UTF_8) }
-        PromptTemplate.compile(source)
+        PromptTemplate.compile(source.replace(BrandedMessageSource.APP_NAME_TOKEN, appName))
     }
 }

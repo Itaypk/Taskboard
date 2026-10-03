@@ -141,6 +141,17 @@ class AccountLinkServiceTest {
     }
 
     @Test
+    fun `unlink refuses to remove an operator-managed local login`() {
+        whenever(authIdentityRepository.findAllByUserId(userId))
+            .thenReturn(listOf(identity(AuthProvider.LOCAL), identity(AuthProvider.EMAIL)))
+
+        val result = service.unlink(userId, AuthProvider.LOCAL)
+
+        assertThat(result).isEqualTo(UnlinkResult.NotUnlinkable)
+        verify(authIdentityRepository, never()).delete(any<AuthIdentityEntity>())
+    }
+
+    @Test
     fun `unlink refuses to remove the last login method`() {
         whenever(authIdentityRepository.findAllByUserId(userId)).thenReturn(listOf(identity(AuthProvider.TELEGRAM)))
 

@@ -5,8 +5,69 @@ matters while writing code (the KEK warning, the multimodal gate, the tier-cap f
 two-sender email split, the blocklist's loud rejection) stays in `CLAUDE.md` — this file is the
 name/default/provenance reference.
 
+## Instance (`AppProperties`)
+
+- `TASKER_APP_BASE_URL` — the public URL users reach the instance at, e.g. `https://tasks.example.com`
+  (no trailing slash). Magic links, invitations, the Telegram redirect URI, the API catalog and CORS
+  are all built from it. Defaults to `https://backlog.fyi` outside `prod`; **required under `prod`**,
+  where `ProductionConfigValidator` refuses to start without a valid value.
+
+## Branding (`AppProperties`)
+
+- `TASKER_APP_NAME` — the product name users see (default `Backlog.fyi`): emails, Telegram messages,
+  the web UI and the planning assistant's introduction. 1–64 characters, none of `<>&"'{}` (it's
+  inserted into HTML emails and `MessageFormat` patterns). Also the default sender name of both email
+  senders.
+- `TASKER_SUPPORT_EMAIL` — public contact address shown in the web UI (default `hello@backlog.fyi`).
+- `TASKER_ABUSE_EMAIL` — abuse-report address referenced from the policy pages (default
+  `abuse@backlog.fyi`).
+
+No rebuild is needed for any of them. The server renders the built `index.html` (a Handlebars
+template) and `manifest.json` with the name and base URL — title, description, canonical/OG/Twitter
+tags, JSON-LD, the no-JS fallback and the installed-app name — and inlines the SPA's config (these
+values plus the login methods) as a JSON block, so nothing is fetched at boot (`IndexHtmlController`).
+The message bundles and prompt templates say `@APP_NAME@` / `@APP_URL@` instead of the name and URL;
+`BrandedMessageSource` and `PromptTemplateLoader` substitute the configured values.
+
+**Icons and logos.** A public self-hosted instance needs its own icons (see `TRADEMARKS.md`). Put
+replacement files — `favicon.ico`, `favicon-*.png`, `apple-touch-icon.png`, `og-image.png`, … under
+the same names — in a directory and list it ahead of the bundled files:
+`SPRING_WEB_RESOURCES_STATIC_LOCATIONS=file:/branding/,classpath:/static/` (note the trailing `/`).
+Files not in the directory keep coming from the bundle. `index.html` and `manifest.json` are the
+exception: they're rendered from the bundled copies, so an override directory can't replace them.
+
+Not yet covered: the static discovery files (`llms.txt`, `robots.txt`, `sitemap.xml`, the external
+API's `SKILL.md`/`openapi.yaml`) and the static 5xx page (`error.html`), which still name the hosted
+instance.
+
+## Sign-in and registration (`AuthProperties`)
+
+- `TASKER_REGISTRATION` — `open` (default) or `closed`. Closed means no new accounts: existing ones
+  keep signing in and linking methods, local users (below) are still provisioned on first login, and
+  an unknown Telegram or email login is refused (a magic link is only mailed to an address that
+  already has an account; the endpoint still answers the same either way).
+- `TASKER_DEMO_ENABLED` — the zero-registration sandbox (default `true`). Only offered while
+  registration is open, since every visit creates an account.
+- `TASKER_LOCAL_USERS` — operator-managed username/password logins, comma-separated
+  `username:bcrypt-hash` entries (the format `htpasswd -nbBC 12 alice 'password'` prints). Usernames are
+  case-insensitive (`a-z`, `0-9`, `.`, `_`, `@`, `-`). There is no sign-up, password change or reset:
+  edit the list and restart. A changed password doesn't end sessions already signed in — use
+  Settings → "Sign out other sessions". Invalid entries fail startup.
+- `TASKER_LOCAL_USERS_FILE` — the same entries, one per line (`#` comments allowed), read from a file.
+  Easier than the variable in Docker Compose, which would otherwise need every `$` in a hash
+  doubled. Both sources may be combined; a username may appear only once.
+
+The login page reads which methods are on from the config inlined into `index.html` (also served
+as JSON at `GET /api/public/config`), so none of this needs a frontend rebuild. The startup log prints a one-line summary of the enabled sign-in methods
+and integrations, and warns when no sign-in method is available at all.
+
 ## Telegram (`TelegramAuthProperties`)
 
+Both halves are optional; an instance without Telegram runs web-only.
+
+- `TASKER_TELEGRAM_ENABLED` — whether to run the bot (default `false`, but `true` under `prod`). The
+  bot only starts when `TASKER_TELEGRAM_BOT_TOKEN` is also set (`@ConditionalOnTelegramBot`), so
+  leaving the token unset is enough to run without it.
 - `TASKER_TELEGRAM_CLIENT_ID` — OIDC client id (bot id) for login; also the expected `aud` of the
   id_token. From BotFather → Bot Settings → Web Login.
 - `TASKER_TELEGRAM_CLIENT_SECRET` — OIDC client secret (HTTP Basic credential for the token
@@ -14,8 +75,12 @@ name/default/provenance reference.
 - `TASKER_TELEGRAM_BOT_TOKEN` — bot messaging token (planning conversation); not used by login.
 - `TASKER_TELEGRAM_BOT_USERNAME` — cosmetic / future use.
 
+Telegram *login* is offered only when both the client id and secret are set.
+
 ## AI
 
+- `TASKER_AI_API_KEY` — OpenRouter API key. Without it the app runs, but the weekly planning
+  assistant and AI capture are unavailable (a warning is logged at startup).
 - `TASKER_AI_MULTIMODAL_MODEL` — model slug used for Telegram quick-add captures that carry an
   attachment (photos, voice notes); defaults to the task-assistant model. See
   `docs/MULTIMODAL-CAPTURE.md`.
@@ -37,16 +102,26 @@ name/default/provenance reference.
   placeholder key — never reuse that for prod. **Losing this key permanently loses all encrypted
   data** (see `CLAUDE.md`).
 
-## Metrics (`PrometheusAuthProperties`) — required in prod, dev defaults apply otherwise
+## Metrics (`PrometheusAuthProperties`)
 
-- `TASKER_PROMETHEUS_USERNAME` — Basic Auth username for `/actuator/prometheus` (default:
-  `prometheus`).
-- `TASKER_PROMETHEUS_PASSWORD` — Basic Auth password (default: `prometheus-dev`).
+- `TASKER_PROMETHEUS_USERNAME` — Basic Auth username for `/actuator/prometheus` (default outside
+  `prod`: `prometheus`).
+- `TASKER_PROMETHEUS_PASSWORD` — Basic Auth password (default outside `prod`: `prometheus-dev`).
+
+`prod` has no defaults: leaving either blank closes the endpoint (every request is refused) instead
+of failing startup.
+
+## Logging
+
+Under `prod` the full log is JSON in a rolling `taskboard.log` in the working directory, with only
+warnings on the console. Add the `container` profile (`SPRING_PROFILES_ACTIVE=prod,container`) to send
+the full log to stdout instead and write no file — what `docker logs` and log shippers expect.
 
 ## Email
 
 - `TASKER_EMAIL_ENABLED` — toggle the email integration (default: `false`). When false, both senders
-  log instead of sending, and the magic link is printed to the log.
+  drop messages and log only that they did (no addresses, subjects or bodies — so no magic link
+  either), and the login page hides email sign-in.
 - `TASKER_EMAIL_BLOCKED_DOMAINS` — comma-separated **additions** to the application-wide blocklist
   (`EmailDomainBlocklistService`). The bulk of the list is a vendored ~75k-domain snapshot of
   [disposable/disposable-email-domains](https://github.com/disposable/disposable-email-domains)
@@ -71,16 +146,9 @@ name/default/provenance reference.
   `from` address. Per-user rate-limited (`tasker.rate-limit.feedback`); the admin-facing email is
   English-only (not user-localised).
 
-## Frontend (`VITE_*`, baked into the bundle at build time by the Gradle `buildFrontend` task)
+## Frontend
 
-No frontend env var is required for auth — Telegram login is a backend-driven OAuth redirect, so the
-SPA just links to `/api/auth/telegram/start`. (`VITE_TELEGRAM_BOT_USERNAME` is no longer used now
-that the iframe widget is gone.)
-
-- `VITE_SUPPORT_EMAIL` — public support/contact address, read once in `src/config.ts` (defaults to
-  `hello@backlog.fyi` when unset). Used for the import-error "Contact support" link and the contact
-  lines in the static content pages, whose markdown carries a `{{SUPPORT_EMAIL}}` placeholder that
-  `PolicyPage` substitutes.
-- `VITE_ABUSE_EMAIL` — dedicated abuse-report address, same mechanism (defaults to
-  `abuse@backlog.fyi`). Referenced via a `{{ABUSE_EMAIL}}` placeholder in the ToS, Privacy Policy,
-  and FAQ markdown.
+The SPA reads no `VITE_*` variables: everything instance-specific (login methods, name, contact
+addresses) is inlined into `index.html` by the server at runtime, so one build — or one container
+image — serves every instance. `VITE_SUPPORT_EMAIL` / `VITE_ABUSE_EMAIL` were replaced by
+`TASKER_SUPPORT_EMAIL` / `TASKER_ABUSE_EMAIL` above.

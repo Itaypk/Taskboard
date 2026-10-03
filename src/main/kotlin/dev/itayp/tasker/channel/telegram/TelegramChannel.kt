@@ -26,7 +26,6 @@ import dev.itayp.tasker.repository.UserRepository
 import dev.itayp.tasker.service.UserSettingsService
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.MessageSource
 import org.springframework.stereotype.Component
 import org.telegram.telegrambots.longpolling.BotSession
@@ -50,7 +49,7 @@ import java.time.ZoneId
 import java.util.*
 
 @Component
-@ConditionalOnProperty(prefix = "tasker.telegram", name = ["enabled"], havingValue = "true")
+@ConditionalOnTelegramBot
 class TelegramChannel(
     @Value("\${tasker.telegram.bot-username}") private val botUsername: String,
     @Value("\${tasker.telegram.bot-token}") private val botToken: String,
@@ -206,7 +205,10 @@ class TelegramChannel(
         }
 
         if (user == null) {
-            channel.send(ChannelMessage.Text("Please sign up at backlog.fyi to use the planner."))
+            // Same pointer as /start: an unlinked chat can't do anything until the account exists
+            // and Telegram is connected to it. English, as for /start — there's no account to
+            // carry a language yet.
+            channel.send(ChannelMessage.Text(messageSource.getMessage("command.start", null, Locale.ENGLISH)))
             return
         }
         val userId = user.id!!

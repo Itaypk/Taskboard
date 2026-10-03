@@ -46,6 +46,7 @@ class AccountLinkController(
             UnlinkResult.NotLinked -> ResponseEntity.status(404).body<Any>(mapOf("error" to "not_linked"))
             UnlinkResult.WouldRemoveLastMethod ->
                 ResponseEntity.status(409).body<Any>(mapOf("error" to "last_login_method"))
+            UnlinkResult.NotUnlinkable -> ResponseEntity.status(409).body<Any>(mapOf("error" to "not_unlinkable"))
         }
     }
 }

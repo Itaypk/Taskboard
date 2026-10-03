@@ -66,7 +66,12 @@ class SecurityConfiguration(
         http {
             securityMatcher("/actuator/prometheus")
             authorizeHttpRequests {
-                authorize(anyRequest, hasRole("PROMETHEUS"))
+                if (prometheusAuthProperties.configured) {
+                    authorize(anyRequest, hasRole("PROMETHEUS"))
+                } else {
+                    // No credentials configured: nobody can scrape, not even with a guessed login.
+                    authorize(anyRequest, denyAll)
+                }
             }
             httpBasic {}
             sessionManagement {
@@ -160,6 +165,7 @@ class SecurityConfiguration(
                 authorize("/api/auth/email", permitAll)
                 authorize("/api/auth/email/precheck", permitAll)
                 authorize("/api/auth/email/callback", permitAll)
+                authorize("/api/auth/password", permitAll)
                 authorize("/api/auth/logout", permitAll)
                 authorize("/api/v1/settings/email/verify", permitAll)
                 // Invitation preview is the side-effect-free accept-screen read; the token is the
@@ -168,6 +174,8 @@ class SecurityConfiguration(
                 authorize(HttpMethod.GET, "/api/v1/invitations/*", permitAll)
                 // Running commit, probed by the deploy right after a restart (see VersionController).
                 authorize(HttpMethod.GET, "/api/version", permitAll)
+                // Login options for the anonymous login page (see PublicConfigController).
+                authorize(HttpMethod.GET, "/api/public/config", permitAll)
                 authorize("/api/**", authenticated)
                 authorize("/actuator/health", permitAll)
                 authorize("/actuator/health/**", permitAll)
@@ -230,7 +238,7 @@ class SecurityConfiguration(
                 // cookie), so CSRF protection adds nothing and would break cross-device flows.
                 ignoringRequestMatchers(
                     "/api/auth/dev-login", "/api/auth/demo-login",
-                    "/api/auth/email", "/api/auth/email/callback",
+                    "/api/auth/email", "/api/auth/email/callback", "/api/auth/password",
                     "/api/v1/settings/email/verify",
                     "/api/dev/**",
                 )
@@ -254,6 +262,7 @@ class SecurityConfiguration(
 
     @Bean
     fun prometheusUserDetailsService(): UserDetailsService {
+        if (!prometheusAuthProperties.configured) return InMemoryUserDetailsManager()
         val scraper = User.withUsername(prometheusAuthProperties.username)
             .password("{noop}${prometheusAuthProperties.password}")
             .roles("PROMETHEUS")
