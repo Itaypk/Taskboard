@@ -7,6 +7,7 @@ import dev.itayp.tasker.channel.BufferedConversationChannel
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.service.BacklogTaskService
 import dev.itayp.tasker.service.UserSettingsService
+import dev.itayp.tasker.channel.ChannelType
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
@@ -89,7 +90,7 @@ class WeeklyPlanningEmptyTurnTest {
     fun `an empty turn is retried once and the retry's reply is rendered`() {
         whenever(aiConversationManager.continueConversation(conversationId))
             .thenReturn(TurnOutcome.TextReply("here we go"))
-        val channel = BufferedConversationChannel()
+        val channel = BufferedConversationChannel(ChannelType.DEV)
 
         orchestrator.startRevision(userId, sessionId, channel)
 
@@ -101,7 +102,7 @@ class WeeklyPlanningEmptyTurnTest {
     @Test
     fun `an empty turn that survives the retry still says something`() {
         whenever(aiConversationManager.continueConversation(conversationId)).thenReturn(TurnOutcome.Empty)
-        val channel = BufferedConversationChannel()
+        val channel = BufferedConversationChannel(ChannelType.DEV)
 
         orchestrator.startRevision(userId, sessionId, channel)
 

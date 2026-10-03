@@ -32,6 +32,7 @@ import dev.itayp.tasker.service.BacklogTaskCategoryService
 import dev.itayp.tasker.service.BacklogTaskService
 import dev.itayp.tasker.service.BoardMembershipService
 import dev.itayp.tasker.service.UserSettingsService
+import dev.itayp.tasker.channel.ChannelType
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -117,7 +118,7 @@ class QuickAddFlowTest {
         autoArchiveDays = null,
     )
 
-    private fun channel() = BufferedConversationChannel()
+    private fun channel() = BufferedConversationChannel(ChannelType.DEV)
 
     private fun taskDraft(title: String = "Buy milk") =
         TaskDraft(title = title, categoryId = categoryId.toString(), priority = "medium")

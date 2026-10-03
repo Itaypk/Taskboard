@@ -119,6 +119,10 @@ class UserSettingsService(
     fun findAllWithDailyDigest(): List<UserSettingsEntity> =
         settingsRepository.findAllByDailyDigestEnabledTrue()
 
+    /** One user's raw settings row for the digest scheduler (same caveat), or null if they have none. */
+    fun findDailyDigestSchedule(userId: UUID): UserSettingsEntity? =
+        settingsRepository.findById(userId).orElse(null)
+
     /** Advances the daily-digest scheduler's watermark. */
     fun markDailyDigestRun(userId: UUID, at: Instant) {
         val entity = fetchOrCreate(userId)

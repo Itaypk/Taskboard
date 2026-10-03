@@ -3,6 +3,7 @@ package dev.itayp.tasker.controller
 import dev.itayp.tasker.capture.QuickAddFlow
 import dev.itayp.tasker.capture.QuickAddState
 import dev.itayp.tasker.channel.BufferedConversationChannel
+import dev.itayp.tasker.channel.ChannelType
 import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.security.TaskerPrincipal
@@ -38,7 +39,7 @@ class DevQuickAddController(
         @AuthenticationPrincipal principal: TaskerPrincipal,
         @RequestBody request: DevQuickAddStartRequest,
     ): ResponseEntity<DevQuickAddResponse> {
-        val channel = BufferedConversationChannel()
+        val channel = BufferedConversationChannel(ChannelType.DEV)
         val nextState = quickAddFlow.begin(principal.userId, channel, request.text)
         val drained = channel.drain()
         if (nextState != null) {

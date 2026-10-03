@@ -3,6 +3,7 @@ package dev.itayp.tasker.notification.digest
 import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ChoiceOption
+import dev.itayp.tasker.channel.ConversationChannel
 import dev.itayp.tasker.channel.MessageFormatter
 import dev.itayp.tasker.planning.ScheduledConversationChannelResolver
 import dev.itayp.tasker.service.UserSettingsService
@@ -45,14 +46,14 @@ class DailyDigestService(
     fun send(userId: UUID, now: Instant): Outcome {
         val settings = userSettingsService.getOrCreate(userId)
         val resolved = channelResolver.resolve(userId)
-            ?: return skipped(userId, Outcome.NO_CHANNEL)
+            ?: return skipped(userId, Outcome.NO_CHANNEL, channel = null)
         val zone = runCatching { ZoneId.of(settings.timeZone) }.getOrDefault(ZoneId.of("UTC"))
         val today = LocalDate.ofInstant(now, zone)
         // Backstop for the scheduler's watermark; the unique (user_id, digest_date) key is the last line.
-        if (repository.existsByUserIdAndDigestDate(userId, today)) return skipped(userId, Outcome.ALREADY_SENT)
+        if (repository.existsByUserIdAndDigestDate(userId, today)) return skipped(userId, Outcome.ALREADY_SENT, resolved.channel)
 
         val content = composer.compose(userId, today, zone, includeDue = settings.dailyDigestDueTasks)
-        if (content.isEmpty) return skipped(userId, Outcome.EMPTY)
+        if (content.isEmpty) return skipped(userId, Outcome.EMPTY, resolved.channel)
 
         val digest = repository.save(DailyDigestEntity().apply {
             this.userId = userId
@@ -68,12 +69,12 @@ class DailyDigestService(
                 options = buttons(digest.id!!, userId, hasDue = content.due.isNotEmpty(), locale),
             ))
         } catch (e: Exception) {
-            count("failure")
+            count("failure", channel)
             // Rethrown so the digest row rolls back; the scheduler logs it. Not retried — the
             // watermark already moved, and the next digest is a day away.
             throw e
         }
-        count("success")
+        count("success", channel)
         log.info(
             "Sent daily digest {} to user {} (today={}, due={}, dueOverflow={})",
             digest.id, userId, content.today.size, content.due.size, content.dueOverflow,
@@ -124,8 +125,8 @@ class DailyDigestService(
     private fun option(action: DailyDigestAction, digestId: UUID, key: String, locale: Locale) =
         ChoiceOption(action.callbackData(digestId), msg(key, locale))
 
-    private fun skipped(userId: UUID, outcome: Outcome): Outcome {
-        count("skipped")
+    private fun skipped(userId: UUID, outcome: Outcome, channel: ConversationChannel?): Outcome {
+        count("skipped", channel)
         log.debug("No daily digest for user {}: {}", userId, outcome)
         return outcome
     }
@@ -133,11 +134,12 @@ class DailyDigestService(
     private fun msg(key: String, locale: Locale, vararg args: Any): String =
         messageSource.getMessage(key, args.takeIf { it.isNotEmpty() }, locale)
 
-    private fun count(outcome: String) {
+    /** [channel] is null when the user has none to deliver to; the tag then reads `none`. */
+    private fun count(outcome: String, channel: ConversationChannel?) {
         meterRegistry.counter(
             "tasker.notification.sent",
             "type", "daily_digest",
-            "channel", "telegram",
+            "channel", channel?.type?.metricTag ?: "none",
             "outcome", outcome,
             "content", if (outcome == "skipped") "none" else "static",
         ).increment()

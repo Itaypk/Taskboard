@@ -9,11 +9,13 @@ import dev.itayp.tasker.model.CategoryColor
 import dev.itayp.tasker.model.TaskStatus
 import dev.itayp.tasker.service.BacklogTaskService
 import dev.itayp.tasker.service.UserSettingsService
+import dev.itayp.tasker.channel.ChannelType
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
+import org.mockito.Mockito
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.argumentCaptor
@@ -62,7 +64,10 @@ class ReminderActionHandlerTest {
         createdAt = Instant.parse("2026-05-13T08:00:00Z")
     }
 
-    private fun channel(): ConversationChannel = mock()
+    private fun channel(): ConversationChannel = mock<ConversationChannel>().also {
+        // Lenient: paths that end before any metric is counted never read it.
+        Mockito.lenient().`when`(it.type).thenReturn(ChannelType.TELEGRAM)
+    }
 
     private fun task(): BacklogTask {
         val boardId = UUID.randomUUID()

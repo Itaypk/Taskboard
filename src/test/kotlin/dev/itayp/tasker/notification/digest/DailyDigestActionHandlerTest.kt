@@ -5,6 +5,7 @@ import dev.itayp.tasker.channel.ConversationChannel
 import dev.itayp.tasker.model.UserSettings
 import dev.itayp.tasker.planning.PlanningSessionService
 import dev.itayp.tasker.service.UserSettingsService
+import dev.itayp.tasker.channel.ChannelType
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
@@ -14,6 +15,7 @@ import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.verifyNoInteractions
 import org.mockito.kotlin.whenever
+import org.mockito.kotlin.doReturn
 import org.springframework.context.support.ResourceBundleMessageSource
 import java.time.Clock
 import java.time.Instant
@@ -43,7 +45,7 @@ class DailyDigestActionHandlerTest {
 
     private val userId = UUID.randomUUID()
     private val digestId = UUID.randomUUID()
-    private val channel: ConversationChannel = mock()
+    private val channel: ConversationChannel = mock { on { type } doReturn ChannelType.TELEGRAM }
     private val listed = mutableListOf(DigestDueTask(UUID.randomUUID(), LocalDate.parse("2026-10-01")))
 
     private fun givenDigest(owner: UUID = userId) {

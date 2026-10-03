@@ -7,6 +7,7 @@ import dev.itayp.tasker.channel.HtmlMessageFormatter
 import dev.itayp.tasker.model.UserSettings
 import dev.itayp.tasker.planning.ScheduledConversationChannelResolver
 import dev.itayp.tasker.service.UserSettingsService
+import dev.itayp.tasker.channel.ChannelType
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -53,6 +54,7 @@ class DailyDigestServiceTest {
     private val today = LocalDate.parse("2026-10-05")
     private val channel: ConversationChannel = mock {
         on { formatter } doAnswer { HtmlMessageFormatter }
+        on { type } doAnswer { ChannelType.TELEGRAM }
     }
 
     private fun givenUser(dueTasks: Boolean = true, language: String = "en-US", channelAvailable: Boolean = true) {
@@ -160,6 +162,7 @@ class DailyDigestServiceTest {
 
         assertEquals(DailyDigestService.Outcome.NO_CHANNEL, service.send(userId, now))
         verify(composer, never()).compose(any(), any(), any(), any())
+        assertEquals(1.0, counter("skipped", content = "none", channel = "none"))
     }
 
     @Test
@@ -193,8 +196,8 @@ class DailyDigestServiceTest {
         assert(prompt.contains("הגיע המועד, לא בתוכנית")) { prompt }
     }
 
-    private fun counter(outcome: String, content: String = "static") = meterRegistry.counter(
+    private fun counter(outcome: String, content: String = "static", channel: String = "telegram") = meterRegistry.counter(
         "tasker.notification.sent",
-        "type", "daily_digest", "channel", "telegram", "outcome", outcome, "content", content,
+        "type", "daily_digest", "channel", channel, "outcome", outcome, "content", content,
     ).count()
 }

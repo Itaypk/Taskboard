@@ -3,6 +3,7 @@ package dev.itayp.tasker.notification
 import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ChoiceOption
+import dev.itayp.tasker.channel.ConversationChannel
 import dev.itayp.tasker.notification.ReminderDeliveryResolver.ReminderContext
 import dev.itayp.tasker.service.BacklogTaskService
 import io.micrometer.core.instrument.MeterRegistry
@@ -61,9 +62,9 @@ class SlotReminderDispatcher(
         }
 
         val ctx = deliveryResolver.resolve(event.userId)
-            ?: return skip(notification, "not eligible")
+            ?: return skip(notification, "not eligible", channel = null)
         val task = backlogTaskService.findTask(event.userId, event.backlogTaskId)
-            ?: return skip(notification, "task no longer exists")
+            ?: return skip(notification, "task no longer exists", ctx.channel)
 
         // AI copy only when the user is opted in AND the task's board permits AI (a shared-board
         // co-member opt-out vetoes it). Any failure falls through to the static template below.
@@ -82,7 +83,7 @@ class SlotReminderDispatcher(
             notification.status = NotificationStatus.SENT
             notification.sentAt = now
             repository.save(notification)
-            count("success", content)
+            count("success", content, ctx.channel)
             log.info("Delivered slot reminder {} to user {} (content={})", notification.id, event.userId, content)
         } catch (e: Exception) {
             notification.attempts += 1
@@ -99,7 +100,7 @@ class SlotReminderDispatcher(
                 )
             }
             repository.save(notification)
-            count("failure", content)
+            count("failure", content, ctx.channel)
         }
     }
 
@@ -128,9 +129,9 @@ class SlotReminderDispatcher(
 
     private fun msg(key: String, locale: Locale): String = messageSource.getMessage(key, null, locale)
 
-    private fun skip(notification: ScheduledNotificationEntity, reason: String) {
+    private fun skip(notification: ScheduledNotificationEntity, reason: String, channel: ConversationChannel?) {
         finish(notification, NotificationStatus.SKIPPED)
-        count("skipped", "none")
+        count("skipped", "none", channel)
         log.debug("Skipped slot reminder {}: {}", notification.id, reason)
     }
 
@@ -139,11 +140,12 @@ class SlotReminderDispatcher(
         repository.save(notification)
     }
 
-    private fun count(outcome: String, content: String) {
+    /** [channel] is null when the user has none to deliver to; the tag then reads `none`. */
+    private fun count(outcome: String, content: String, channel: ConversationChannel?) {
         meterRegistry.counter(
             "tasker.notification.sent",
             "type", "slot_reminder",
-            "channel", "telegram",
+            "channel", channel?.type?.metricTag ?: "none",
             "outcome", outcome,
             "content", content,
         ).increment()

@@ -6,6 +6,7 @@ import dev.itayp.nescioquid.openrouter.tool.ToolRegistry
 import dev.itayp.tasker.channel.BufferedConversationChannel
 import dev.itayp.tasker.service.BacklogTaskService
 import dev.itayp.tasker.service.UserSettingsService
+import dev.itayp.tasker.channel.ChannelType
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
@@ -79,7 +80,7 @@ class WeeklyPlanningRevisionSeedTest {
 
     @Test
     fun `an instruction is appended to the revise kickoff`() {
-        orchestrator.startRevision(userId, sessionId, BufferedConversationChannel(), "move my gym session to Thursday")
+        orchestrator.startRevision(userId, sessionId, BufferedConversationChannel(ChannelType.DEV), "move my gym session to Thursday")
 
         verify(aiConversationManager).sendMessage(eq(conversationId), org.mockito.kotlin.check {
             assertTrue(it.startsWith("I'd like to revise my current plan."))
@@ -89,14 +90,14 @@ class WeeklyPlanningRevisionSeedTest {
 
     @Test
     fun `a typed revise sends the kickoff unchanged`() {
-        orchestrator.startRevision(userId, sessionId, BufferedConversationChannel())
+        orchestrator.startRevision(userId, sessionId, BufferedConversationChannel(ChannelType.DEV))
 
         verify(aiConversationManager).sendMessage(eq(conversationId), eq("I'd like to revise my current plan."))
     }
 
     @Test
     fun `a blank instruction is ignored`() {
-        orchestrator.startRevision(userId, sessionId, BufferedConversationChannel(), "   ")
+        orchestrator.startRevision(userId, sessionId, BufferedConversationChannel(ChannelType.DEV), "   ")
 
         verify(aiConversationManager).sendMessage(eq(conversationId), eq("I'd like to revise my current plan."))
     }

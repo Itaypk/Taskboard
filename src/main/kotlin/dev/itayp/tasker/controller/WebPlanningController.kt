@@ -2,6 +2,7 @@ package dev.itayp.tasker.controller
 
 import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.channel.BufferedConversationChannel
+import dev.itayp.tasker.channel.ChannelType
 import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.MarkdownMessageFormatter
 import dev.itayp.tasker.planning.PlannerTaskSelector
@@ -51,7 +52,7 @@ class WebPlanningController(
     private val plannerTaskSelector: PlannerTaskSelector,
     private val clock: Clock,
 ) {
-    private fun newChannel() = BufferedConversationChannel(formatter = MarkdownMessageFormatter)
+    private fun newChannel() = BufferedConversationChannel(ChannelType.WEB, formatter = MarkdownMessageFormatter)
 
     /**
      * Restores a session's full transcript so a reloaded browser can continue where it left off.

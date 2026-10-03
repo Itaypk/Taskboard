@@ -42,7 +42,7 @@ class ReminderActionHandler(
             ParsedReminder.NotAReminder -> false
             is ParsedReminder.Stale -> {
                 channel.send(ChannelMessage.Text(msg("notification.action.expired", parsed.locale)))
-                count(parsed.action, "stale")
+                count(parsed.action, "stale", channel)
                 true
             }
             is ParsedReminder.Ready -> {
@@ -82,27 +82,27 @@ class ReminderActionHandler(
         when (action) {
             ReminderAction.ACK -> {
                 channel.send(ChannelMessage.Text(msg("notification.ack.confirmed", locale)))
-                count(action, "ok")
+                count(action, "ok", channel)
             }
             ReminderAction.SNOOZE_HOUR -> {
                 slotReminderService.snooze(notification, Duration.ofHours(1))
                 channel.send(ChannelMessage.Text(msg("notification.snooze.hour.confirmed", locale)))
-                count(action, "ok")
+                count(action, "ok", channel)
             }
             ReminderAction.SNOOZE_DAY -> {
                 slotReminderService.snooze(notification, Duration.ofDays(1))
                 channel.send(ChannelMessage.Text(msg("notification.snooze.day.confirmed", locale)))
-                count(action, "ok")
+                count(action, "ok", channel)
             }
             ReminderAction.MARK_DONE -> {
                 val task = backlogTaskService.markDone(userId, notification.backlogTaskId!!)
                 if (task == null) {
                     channel.send(ChannelMessage.Text(msg("notification.done.task_gone", locale)))
-                    count(action, "task_gone")
+                    count(action, "task_gone", channel)
                 } else {
                     val title = channel.formatter.escape(task.title)
                     channel.send(ChannelMessage.Text(messageSource.getMessage("notification.done.confirmed", arrayOf(title), locale)))
-                    count(action, "ok")
+                    count(action, "ok", channel)
                 }
             }
         }
@@ -111,11 +111,11 @@ class ReminderActionHandler(
 
     private fun msg(key: String, locale: Locale): String = messageSource.getMessage(key, null, locale)
 
-    private fun count(action: ReminderAction, outcome: String) {
+    private fun count(action: ReminderAction, outcome: String, channel: ConversationChannel) {
         meterRegistry.counter(
             "tasker.notification.action",
             "type", "slot_reminder",
-            "channel", "telegram",
+            "channel", channel.type.metricTag,
             "action", action.code,
             "outcome", outcome,
         ).increment()

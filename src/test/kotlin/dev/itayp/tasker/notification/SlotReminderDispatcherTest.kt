@@ -10,11 +10,13 @@ import dev.itayp.tasker.model.CategoryColor
 import dev.itayp.tasker.model.TaskStatus
 import dev.itayp.tasker.notification.ReminderDeliveryResolver.ReminderContext
 import dev.itayp.tasker.service.BacklogTaskService
+import dev.itayp.tasker.channel.ChannelType
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
+import org.mockito.Mockito
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.argumentCaptor
@@ -105,16 +107,18 @@ class SlotReminderDispatcherTest {
         )
     }
 
-    private fun counter(outcome: String, content: String) = meterRegistry
+    private fun counter(outcome: String, content: String, channel: String = "telegram") = meterRegistry
         .counter(
             "tasker.notification.sent",
-            "type", "slot_reminder", "channel", "telegram", "outcome", outcome, "content", content,
+            "type", "slot_reminder", "channel", channel, "outcome", outcome, "content", content,
         )
         .count()
 
     private fun mockChannel(): ConversationChannel {
         val channel = mock<ConversationChannel>()
         whenever(channel.formatter).thenReturn(HtmlMessageFormatter)
+        // Lenient: paths that end before any metric is counted never read it.
+        Mockito.lenient().`when`(channel.type).thenReturn(ChannelType.TELEGRAM)
         return channel
     }
 
@@ -233,14 +237,17 @@ class SlotReminderDispatcherTest {
         dispatcher.on(event())
 
         assertEquals(NotificationStatus.SKIPPED, row.status)
-        assertEquals(1.0, counter("skipped", "none"))
+        // No channel resolved, so there's no transport to attribute the skip to.
+        assertEquals(1.0, counter("skipped", "none", channel = "none"))
         verify(backlogTaskService, never()).findTask(any(), any())
     }
 
     @Test
     fun `missing task is skipped without sending`() {
         val row = pendingRow()
+        // Nothing is rendered on this path, so only the type (for the skip metric) is needed.
         val channel = mock<ConversationChannel>()
+        whenever(channel.type).thenReturn(ChannelType.TELEGRAM)
         whenever(repository.findById(notificationId)).thenReturn(Optional.of(row))
         whenever(deliveryResolver.resolve(userId)).thenReturn(context(channel))
         whenever(backlogTaskService.findTask(userId, taskId)).thenReturn(null)
@@ -248,6 +255,7 @@ class SlotReminderDispatcherTest {
         dispatcher.on(event())
 
         assertEquals(NotificationStatus.SKIPPED, row.status)
+        assertEquals(1.0, counter("skipped", "none"))
         verify(channel, never()).send(any())
     }
 

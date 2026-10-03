@@ -63,7 +63,7 @@ class DailyDigestActionHandler(
         // A stale button (account reset) or a payload not owned by this user.
         if (digest == null || digest.userId != userId) {
             channel.send(ChannelMessage.Text(msg("digest.action.expired", locale)))
-            count(parsed.action, "stale")
+            count(parsed.action, "stale", channel)
             return Result.Handled
         }
 
@@ -87,7 +87,7 @@ class DailyDigestActionHandler(
                 Result.Handled
             }
         }
-        count(parsed.action, "ok")
+        count(parsed.action, "ok", channel)
         log.debug("Handled digest action {} for digest {}", parsed.action, digest.id)
         return result
     }
@@ -101,11 +101,11 @@ class DailyDigestActionHandler(
     private fun msg(key: String, locale: Locale, vararg args: Any): String =
         messageSource.getMessage(key, args.takeIf { it.isNotEmpty() }, locale)
 
-    private fun count(action: DailyDigestAction, outcome: String) {
+    private fun count(action: DailyDigestAction, outcome: String, channel: ConversationChannel) {
         meterRegistry.counter(
             "tasker.notification.action",
             "type", "daily_digest",
-            "channel", "telegram",
+            "channel", channel.type.metricTag,
             "action", action.code,
             "outcome", outcome,
         ).increment()

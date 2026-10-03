@@ -205,7 +205,8 @@ PENDING ─ plan slot removed (SlotReminderService, at materialization) ─► C
 
 ### Metrics
 
-A `tasker.notification.sent` counter tagged `type` (`slot_reminder`), `channel` (`telegram`), and
+A `tasker.notification.sent` counter tagged `type` (`slot_reminder`), `channel` (from
+`ConversationChannel.type`: `telegram` today, `none` when a reminder is skipped for lack of a channel), and
 `outcome` (`success` / `failure` / `skipped`), mirroring the email senders' `tasker.email.sent`
 (`EmailMetricsOutboundChannel`). Hook `outcome=failure` to a Grafana alert.
 

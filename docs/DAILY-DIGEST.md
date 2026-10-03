@@ -65,10 +65,17 @@ a spam loop.
 
 ### Delivery: polling with a per-user watermark, not a per-user `CronTrigger`
 
-`DailyDigestScheduler` runs every five minutes. For each user with the digest enabled it computes
+`DailyDigestScheduler` ticks every five minutes. For each user with the digest enabled it computes
 the next fire time after `user_settings.daily_digest_last_run_at`. If that time has passed, it
 advances the watermark and then composes and sends the digest. This mirrors why slot reminders poll
 (see `docs/NOTIFICATIONS.md`, "Why polling"):
+
+- **Off the shared scheduler.** The tick only dispatches. Each user's run happens on a two-thread
+  pool owned by the scheduler, so a slow batch (Telegram latency) never holds one of the two
+  threads every `@Scheduled` job shares. A user whose run is still in flight is skipped by the next
+  tick, and each run re-reads the user's row first, so a stale read can't trigger a second run. The
+  pool is deliberately not a Spring `Executor` bean: one could make Boot's auto-configured
+  `applicationTaskExecutor` back off and move every `@Async` method onto it.
 
 - **Restart-safe for free.** No in-memory future to rebuild; time-zone and cron edits take effect
   on the next tick without re-registration.
@@ -186,9 +193,12 @@ state and aren't exported.
 
 ## Metrics
 
-- `tasker.notification.sent{type=daily_digest, channel=telegram, outcome=success|failure|skipped, content=static|none}`,
+- `tasker.notification.sent{type=daily_digest, channel, outcome=success|failure|skipped, content=static|none}`,
   the same counter slot reminders use.
-- `tasker.notification.action{type=daily_digest, action, outcome}` for button taps.
+- `tasker.notification.action{type=daily_digest, channel, action, outcome}` for button taps.
+
+`channel` comes from `ConversationChannel.type` (`telegram` today), or `none` for a digest skipped
+because the user has no channel at all.
 
 ## Not in v1
 
