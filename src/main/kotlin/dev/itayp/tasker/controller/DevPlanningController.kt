@@ -1,6 +1,7 @@
 package dev.itayp.tasker.controller
 
 import dev.itayp.tasker.channel.BufferedConversationChannel
+import dev.itayp.tasker.channel.ChannelType
 import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ToolCallEvent
@@ -60,7 +61,7 @@ class DevPlanningController(
 
     @PostMapping("/start")
     fun start(@AuthenticationPrincipal principal: TaskerPrincipal): ResponseEntity<DevPlanningResponse> {
-        val channel = BufferedConversationChannel()
+        val channel = BufferedConversationChannel(ChannelType.DEV)
         val settings = userSettingsService.getOrCreate(principal.userId)
         val zone = runCatching { ZoneId.of(settings.timeZone) }.getOrDefault(ZoneId.of("UTC"))
         val today = LocalDate.now(clock.withZone(zone))
@@ -101,7 +102,7 @@ class DevPlanningController(
         @AuthenticationPrincipal principal: TaskerPrincipal,
         @PathVariable sessionId: UUID,
     ): ResponseEntity<DevPlanningResponse> {
-        val channel = BufferedConversationChannel()
+        val channel = BufferedConversationChannel(ChannelType.DEV)
         orchestrator.startRevision(principal.userId, sessionId, channel)
         channels[sessionId] = channel
         return ResponseEntity.ok(DevPlanningResponse.from(sessionId, orchestrator.phase(sessionId), channel.drain(), channel.drainToolCallEvents()))

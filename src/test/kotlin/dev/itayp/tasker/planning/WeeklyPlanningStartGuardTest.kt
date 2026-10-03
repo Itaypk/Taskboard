@@ -11,6 +11,7 @@ import dev.itayp.tasker.channel.PlainTextMessageFormatter
 import dev.itayp.tasker.model.UserSettings
 import dev.itayp.tasker.service.BacklogTaskService
 import dev.itayp.tasker.service.UserSettingsService
+import dev.itayp.tasker.channel.ChannelType
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.kotlin.any
@@ -102,7 +103,7 @@ class WeeklyPlanningStartGuardTest {
     fun `start refuses when nothing in the backlog is plannable`() {
         stubSettings()
         whenever(plannerTaskSelector.countCandidates(userId, today)).thenReturn(0)
-        val channel = BufferedConversationChannel()
+        val channel = BufferedConversationChannel(ChannelType.DEV)
 
         assertThrows<NoPlannableTasksException> { orchestrator.start(userId, channel, weekStart) }
 
@@ -167,6 +168,7 @@ class WeeklyPlanningStartGuardTest {
 
     /** A channel whose first [send] fails the way Telegram does for a never-opened chat. */
     private class UndeliverableChannel(private val failure: RuntimeException) : ConversationChannel {
+        override val type = ChannelType.TELEGRAM
         override val capabilities = ChannelCapabilities(
             supportsAutocompletions = true,
             supportsInlineButtons = true,

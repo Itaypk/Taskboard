@@ -2,6 +2,7 @@ package dev.itayp.tasker.channel.telegram
 
 import dev.itayp.tasker.channel.ChannelCapabilities
 import dev.itayp.tasker.channel.ChannelMessage
+import dev.itayp.tasker.channel.ChannelType
 import dev.itayp.tasker.channel.ChannelUnreachableException
 import dev.itayp.tasker.channel.ConversationChannel
 import dev.itayp.tasker.channel.HtmlMessageFormatter
@@ -32,6 +33,8 @@ class TelegramConversationChannel(
      */
     private val onUnreachable: (() -> Unit)? = null,
 ) : ConversationChannel {
+
+    override val type = ChannelType.TELEGRAM
 
     override val capabilities = ChannelCapabilities(
         supportsAutocompletions = true,

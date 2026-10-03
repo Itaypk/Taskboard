@@ -15,6 +15,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
  * via `textContent`), Markdown for the web channel (which renders via its MarkdownRenderer).
  */
 class BufferedConversationChannel(
+    override val type: ChannelType,
     override val formatter: MessageFormatter = PlainTextMessageFormatter,
     override val capabilities: ChannelCapabilities = ChannelCapabilities(
         supportsAutocompletions = true,

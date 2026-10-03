@@ -92,6 +92,29 @@ class BacklogTaskService(
         return if (status == TaskStatus.TODO) filterOutFutureDated(userId, tasks) else tasks
     }
 
+    /**
+     * Open (`TODO`) tasks with a deadline on or before [onOrBefore], across every board the user
+     * belongs to — the daily digest's "due" section. Not an AI read path, so tasks hidden from the
+     * assistant are kept: hiding a task from the AI shouldn't hide its deadline from its owner.
+     */
+    @Transactional(readOnly = true)
+    fun findDueTasksAcrossBoards(userId: UUID, onOrBefore: LocalDate): List<BacklogTask> {
+        val boardIds = boardMembershipService.listBoardIds(userId)
+        if (boardIds.isEmpty()) return emptyList()
+        return backlogTaskRepository
+            .findAllByBoardIdInAndStatusAndDeadlineLessThanEqual(boardIds, TaskStatus.TODO, onOrBefore)
+            .map { it.toDomain(boardCrypto) }
+    }
+
+    /** The given tasks, limited to the boards the user belongs to; missing ids are simply absent. */
+    @Transactional(readOnly = true)
+    fun findTasksAcrossBoards(userId: UUID, ids: Collection<UUID>): List<BacklogTask> {
+        if (ids.isEmpty()) return emptyList()
+        val boardIds = boardMembershipService.listBoardIds(userId)
+        if (boardIds.isEmpty()) return emptyList()
+        return backlogTaskRepository.findAllByBoardIdInAndIdIn(boardIds, ids).map { it.toDomain(boardCrypto) }
+    }
+
     @Transactional(readOnly = true)
     fun getTaskById(userId: UUID, boardId: UUID, id: UUID): BacklogTask? {
         boardMembershipService.requireMember(userId, boardId)

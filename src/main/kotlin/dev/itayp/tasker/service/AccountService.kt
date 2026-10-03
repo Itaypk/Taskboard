@@ -89,6 +89,9 @@ class AccountService(
         jdbcTemplate.update("DELETE FROM planning_session WHERE user_id = ?", userId)
         // Queued app notifications are keyed by user_id (no cascade); clear before the user row.
         jdbcTemplate.update("DELETE FROM scheduled_notification WHERE user_id = ?", userId)
+        // Daily digest log (daily_digest_due_task cascades from it) and due-task mutes, keyed by user_id.
+        jdbcTemplate.update("DELETE FROM daily_digest WHERE user_id = ?", userId)
+        jdbcTemplate.update("DELETE FROM deadline_reminder_mute WHERE user_id = ?", userId)
         // ai_message cascades automatically from ai_conversation (ON DELETE CASCADE in schema)
         jdbcTemplate.update("DELETE FROM ai_conversation WHERE user_id = ?", userId)
 
@@ -270,6 +273,9 @@ class AccountService(
                     aiEnabled = it.aiEnabled,
                     aiEnhancedReminders = it.aiEnhancedReminders,
                     aiTier = it.aiTier,
+                    dailyDigestEnabled = it.dailyDigestEnabled,
+                    dailyDigestDueTasks = it.dailyDigestDueTasks,
+                    dailyDigestCron = it.dailyDigestCron,
                 )
             },
             boards = boards,

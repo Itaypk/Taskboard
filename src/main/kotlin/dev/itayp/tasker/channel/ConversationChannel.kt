@@ -7,6 +7,9 @@ package dev.itayp.tasker.channel
  * supports and degrade gracefully when it doesn't.
  */
 interface ConversationChannel {
+    /** Which transport this is; tags per-channel metrics so they don't assume Telegram. */
+    val type: ChannelType
+
     val capabilities: ChannelCapabilities
 
     /** Renders static text and tells the model which markup this channel supports. */
@@ -30,6 +33,19 @@ interface ConversationChannel {
  * it, or deleted their account. Retrying is pointless until the user acts, so callers stop trying.
  */
 class ChannelUnreachableException(message: String, cause: Throwable) : RuntimeException(message, cause)
+
+enum class ChannelType(
+    /** The value used as the `channel` tag on metrics. */
+    val metricTag: String,
+) {
+    TELEGRAM("telegram"),
+
+    /** The web planning drawer ([BufferedConversationChannel] behind `WebPlanningController`). */
+    WEB("web"),
+
+    /** The dev-profile consoles (`DevPlanningController`, `DevQuickAddController`). */
+    DEV("dev"),
+}
 
 data class ChannelCapabilities(
     val supportsAutocompletions: Boolean,

@@ -419,7 +419,7 @@ export const deleteTag = (boardId: string, id: string): Promise<void> =>
 
 // --- User Settings ---
 
-type UserSettingsPayload = Pick<UserSettings, 'displayName' | 'contextBlock' | 'timeZone' | 'preferredLanguage' | 'calendarInviteEmail' | 'appReminders' | 'gender' | 'agentDescription' | 'planningCron' | 'weekStartDay' | 'autoArchiveDays' | 'aiEnabled' | 'aiEnhancedReminders'>;
+type UserSettingsPayload = Pick<UserSettings, 'displayName' | 'contextBlock' | 'timeZone' | 'preferredLanguage' | 'calendarInviteEmail' | 'appReminders' | 'gender' | 'agentDescription' | 'planningCron' | 'weekStartDay' | 'autoArchiveDays' | 'aiEnabled' | 'aiEnhancedReminders' | 'dailyDigestEnabled' | 'dailyDigestDueTasks' | 'dailyDigestCron'>;
 
 export const fetchUserSettings = (): Promise<UserSettingsPayload> =>
     apiRequest('/settings');
@@ -432,6 +432,10 @@ export const fetchSettingsOptions = (): Promise<SettingsOptions> =>
 
 export const fetchAiUsage = (): Promise<AiUsage> =>
     apiRequest('/settings/ai-usage');
+
+/** Turns daily-digest reminders back on for every due task the user muted. */
+export const clearDeadlineMutes = (): Promise<{ cleared: number }> =>
+    apiRequest('/settings/deadline-mutes', { method: 'DELETE' });
 
 export const requestEmailVerification = (email: string): Promise<void> =>
     apiRequest('/settings/email', { method: 'POST', ...jsonBody({ email }) });

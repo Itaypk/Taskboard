@@ -44,7 +44,10 @@ anything that isn't `3` (HTTP 400).
 }
 ```
 
-`settings` is unchanged from v2. `user` loses only its `id`.
+`settings` is unchanged from v2, apart from three optional daily-digest fields added later
+(`dailyDigestEnabled`, `dailyDigestDueTasks`, `dailyDigestCron`; see `docs/DAILY-DIGEST.md`). They
+default to on, on and `0 0 8 * * *` when absent, so earlier v3 files import unchanged. `user` loses
+only its `id`.
 
 ## Index references
 

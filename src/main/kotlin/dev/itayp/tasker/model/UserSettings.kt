@@ -22,4 +22,12 @@ data class UserSettings(
     val aiEnabled: Boolean = false,
     val aiEnhancedReminders: Boolean = true,
     val aiTier: String = "none",
-)
+    val dailyDigestEnabled: Boolean = true,
+    val dailyDigestDueTasks: Boolean = true,
+    val dailyDigestCron: String = DEFAULT_DAILY_DIGEST_CRON,
+) {
+    companion object {
+        /** 08:00 every day, in the user's time zone. */
+        const val DEFAULT_DAILY_DIGEST_CRON = "0 0 8 * * *"
+    }
+}

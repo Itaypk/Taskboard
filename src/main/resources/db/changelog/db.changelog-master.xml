@@ -19,5 +19,6 @@
     <include file="db/changelog/changesets/013-recurring-tasks.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changesets/014-telegram-chat-ready.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changesets/015-hash-capability-tokens.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changesets/016-daily-digest.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

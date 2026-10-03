@@ -72,6 +72,22 @@ class UserSettingsServiceTest {
     }
 
     @Test
+    fun `accepts daily digest schedules that fire at most once a day`() {
+        listOf("0 0 8 * * *", "0 30 7 * * MON-FRI", "0 15 21 * * sun,TUE,THU-SAT").forEach { cron ->
+            service.validateSettingsInput("UTC", "en-US", null, null, null, dailyDigestCron = cron)
+        }
+    }
+
+    @Test
+    fun `rejects daily digest schedules that could fire more than once a day`() {
+        listOf("* * * * * *", "0 */5 * * * *", "0 0 8,20 * * *", "0 0 8 1 * *", "0 0 8 * * FUNDAY", "nope").forEach { cron ->
+            assertFailsWith<IllegalArgumentException>(cron) {
+                service.validateSettingsInput("UTC", "en-US", null, null, null, dailyDigestCron = cron)
+            }
+        }
+    }
+
+    @Test
     fun `rejects invalid week start day`() {
         assertFailsWith<IllegalArgumentException> {
             service.update(userId, baseRequest(weekStart = "FUNDAY"))

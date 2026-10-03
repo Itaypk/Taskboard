@@ -10,6 +10,7 @@ import dev.itayp.tasker.channel.telegram.commands.BotCommandDispatcher
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry
 import dev.itayp.tasker.jpa.UserEntity
 import dev.itayp.tasker.notification.ReminderActionHandler
+import dev.itayp.tasker.notification.digest.DailyDigestActionHandler
 import dev.itayp.tasker.planning.CaptureIntent
 import dev.itayp.tasker.planning.WeeklyPlanningOrchestrator
 import dev.itayp.tasker.repository.UserRepository
@@ -17,6 +18,7 @@ import dev.itayp.tasker.service.UserSettingsService
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
@@ -44,6 +46,7 @@ import java.time.ZoneOffset
 import java.util.Locale
 import java.util.UUID
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -62,6 +65,9 @@ class TelegramChannelRoutingTest {
     private val quickAddFlow: QuickAddFlow = mock()
     private val mediaExtractor: TelegramMediaExtractor = mock()
     private val reminderActionHandler: ReminderActionHandler = mock()
+    private val digestActionHandler: DailyDigestActionHandler = mock {
+        on { handle(any(), any(), any()) } doReturn DailyDigestActionHandler.Result.NotOurs
+    }
     private val aiAccessService: AiAccessService = mock()
     private val userSettingsService: UserSettingsService = mock()
     private val reachability: TelegramReachabilityService = mock()
@@ -87,6 +93,7 @@ class TelegramChannelRoutingTest {
         quickAddFlow = quickAddFlow,
         mediaExtractor = mediaExtractor,
         reminderActionHandler = reminderActionHandler,
+        digestActionHandler = digestActionHandler,
         aiAccessService = aiAccessService,
         userSettingsService = userSettingsService,
         reachability = reachability,
@@ -269,6 +276,32 @@ class TelegramChannelRoutingTest {
         verify(quickAddFlow, never()).beginUnprompted(any(), any(), any())
     }
 
+
+    @Test
+    fun `revisiting the plan from a daily digest runs the plan command as if typed`() {
+        val data = "dig:plan:${UUID.randomUUID()}"
+        whenever(digestActionHandler.handle(eq(userId), any(), eq(data)))
+            .thenReturn(DailyDigestActionHandler.Result.StartPlanning)
+        whenever(commandDispatcher.dispatch(any(), any())).thenReturn(true)
+
+        channel.consume(callbackUpdate(data))
+
+        val context = argumentCaptor<BotCommandContext>()
+        verify(commandDispatcher).dispatch(eq("/plan"), context.capture())
+        assertFalse(context.firstValue.inferred)
+    }
+
+    @Test
+    fun `a handled digest tap goes no further`() {
+        val data = "dig:ack:${UUID.randomUUID()}"
+        whenever(digestActionHandler.handle(eq(userId), any(), eq(data)))
+            .thenReturn(DailyDigestActionHandler.Result.Handled)
+
+        channel.consume(callbackUpdate(data))
+
+        verify(commandDispatcher, never()).dispatch(any(), any())
+        verify(planConfirmationRegistry, never()).get(any())
+    }
 
     @Test
     fun `choosing to revise hands the triggering message to the revision conversation`() {
