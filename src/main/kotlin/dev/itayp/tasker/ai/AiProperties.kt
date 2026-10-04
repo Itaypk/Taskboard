@@ -16,11 +16,23 @@ data class AiProperties(
      * capture is declined (with a message to the user) when the resolved model doesn't.
      */
     val multimodalModel: String = "",
+    /**
+     * Route every LLM call only to provider endpoints with a zero-data-retention policy (OpenRouter's
+     * `provider.zdr`). On by default, like the client library's own default: the privacy policy and
+     * landing page promise it. A model with no
+     * ZDR endpoint then fails every call ("no endpoints found") rather than quietly falling back to one
+     * that keeps prompts — check https://openrouter.ai/api/v1/endpoints/zdr when picking models.
+     */
+    val zeroDataRetention: Boolean = true,
     /** Per-functionality reasoning/effort configuration. */
     val reasoning: AiReasoningProperties = AiReasoningProperties(),
     /** Hard cap on how many accounts may hold a granted AI tier at once. */
     val tierCap: AiTierCapProperties = AiTierCapProperties(),
 ) {
+    /** Whether user-facing copy may promise zero data retention: AI is on, and restricted to ZDR endpoints. */
+    val zeroDataRetentionInEffect: Boolean
+        get() = apiKey.isNotBlank() && zeroDataRetention
+
     /** Distinct set of configured model slugs, for the startup capability prefetch. */
     val configuredModels: Set<String>
         get() = setOf(weeklyPlanningModel, taskAssistantModel, multimodalModel)

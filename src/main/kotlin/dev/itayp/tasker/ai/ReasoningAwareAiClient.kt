@@ -4,6 +4,7 @@ import dev.itayp.nescioquid.openrouter.AiCallContext
 import dev.itayp.nescioquid.openrouter.AiClient
 import dev.itayp.nescioquid.openrouter.ChatRequest
 import dev.itayp.nescioquid.openrouter.ChatResponse
+import dev.itayp.nescioquid.openrouter.ProviderPreferences
 import org.springframework.stereotype.Component
 
 /**
@@ -13,6 +14,9 @@ import org.springframework.stereotype.Component
  * sent. The library itself applies no reasoning — `ChatRequest` is the source of truth — so this is
  * where that decision lives now.
  *
+ * It also applies [AiProperties.zeroDataRetention] to every request, overriding whatever the caller
+ * set: on restricts it to ZDR provider endpoints, off lifts that restriction.
+ *
  * All planning/agent call sites inject this rather than [AiClient] directly, so the policy applies
  * uniformly and new call sites get it for free.
  */
@@ -20,14 +24,20 @@ import org.springframework.stereotype.Component
 class ReasoningAwareAiClient(
     private val aiClient: AiClient,
     private val reasoningResolver: ReasoningResolver,
+    private val aiProperties: AiProperties,
 ) {
     fun chat(request: ChatRequest, context: AiCallContext): ChatResponse {
-        val effectiveRequest =
+        val withReasoning =
             if (request.reasoning == null) {
                 request.copy(reasoning = reasoningResolver.resolve(context.conversationType, request.model))
             } else {
                 request
             }
-        return aiClient.chat(effectiveRequest, context)
+        return aiClient.chat(withDataPolicy(withReasoning), context)
     }
+
+    // Set explicitly either way: the library's own default (`ProviderPreferences().zdr`) is true, so
+    // leaving it alone would make "off" a no-op.
+    private fun withDataPolicy(request: ChatRequest): ChatRequest =
+        request.copy(provider = (request.provider ?: ProviderPreferences()).copy(zdr = aiProperties.zeroDataRetention))
 }
