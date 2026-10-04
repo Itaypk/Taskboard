@@ -4,12 +4,14 @@ import react from '@vitejs/plugin-react'
 
 // index.html is a Handlebars template the backend renders (IndexHtmlController): the instance's name,
 // URL and inline config. The dev server has no backend in front of it, so fill in the hosted
-// defaults here; `null` config makes the SPA fall back to its built-in defaults.
+// defaults here; `null` config makes the SPA fall back to its built-in defaults. The server-rendered
+// content-page variant (`{{#if page}}`) never applies here: keep the `{{else}}` branch.
 function devIndexPlaceholders(): Plugin {
   return {
     name: 'dev-index-placeholders',
     apply: 'serve',
     transformIndexHtml: html => html
+      .replace(/\{\{#if page\}\}[\s\S]*?\{\{else\}\}([\s\S]*?)\{\{\/if\}\}/g, '$1')
       .replaceAll('{{json appName}}', JSON.stringify('Backlog.fyi'))
       .replaceAll('{{json homeUrl}}', JSON.stringify('/'))
       .replaceAll('{{json config}}', 'null')

@@ -13,7 +13,7 @@ Last updated: August 29, 2026
 
 ## 1. Overview
 
-Backlog.fyi is a personal task management tool with optional AI assistance. It may connect to services like Telegram, email, and your personal calendar.
+{{APP_NAME}} is a personal task management tool with optional AI assistance. It may connect to services like Telegram, email, and your personal calendar.
 
 This is a hobby, non-commercial project provided "as is" with no guarantees.
 

@@ -7,7 +7,7 @@
  */
 import { lazy, useEffect, Suspense, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
 import { LoginPage } from './auth/LoginPage';
 import AppFooter from './components/AppFooter';
@@ -15,6 +15,7 @@ import { lazyComponent, useLazyComponent } from './lazyComponent';
 import { notifyToast } from './toast';
 import './App.css';
 import { useBranding } from './publicConfig';
+import { prerenderedHtml } from './prerendered';
 
 // Not `lazy`: the board is the one chunk that races the signed-in first paint, and a Suspense
 // fallback commit there costs a flat 300 ms of React's anti-flicker throttle. See `lazyComponent`.
@@ -42,6 +43,21 @@ function Lazy({ children }: { children: ReactNode }) {
   return <Suspense fallback={<RouteFallback />}>{children}</Suspense>;
 }
 
+/**
+ * `Lazy` for the content pages: on a direct visit the server already rendered the page's text into
+ * the document, so keep showing that while the chunk loads. Navigating in from elsewhere has nothing
+ * captured for the path and falls back to the usual placeholder.
+ */
+function LazyContentPage({ children }: { children: ReactNode }) {
+  return <Suspense fallback={<PrerenderedFallback />}>{children}</Suspense>;
+}
+
+function PrerenderedFallback() {
+  const html = prerenderedHtml(useLocation().pathname);
+  // Markup the server rendered from our own markdown, taken verbatim from this document.
+  return html === null ? <RouteFallback /> : <div dangerouslySetInnerHTML={{ __html: html }} />;
+}
+
 export default function App() {
   // Only anonymous visitors get the footer language switcher — see AppFooter.
   const { state } = useAuth();
@@ -49,10 +65,10 @@ export default function App() {
   return (
     <>
       <Routes>
-        <Route path="/terms" element={<Lazy><TermsPage /></Lazy>} />
-        <Route path="/privacy" element={<Lazy><PrivacyPage /></Lazy>} />
-        <Route path="/about" element={<Lazy><AboutPage /></Lazy>} />
-        <Route path="/faq" element={<Lazy><FaqPage /></Lazy>} />
+        <Route path="/terms" element={<LazyContentPage><TermsPage /></LazyContentPage>} />
+        <Route path="/privacy" element={<LazyContentPage><PrivacyPage /></LazyContentPage>} />
+        <Route path="/about" element={<LazyContentPage><AboutPage /></LazyContentPage>} />
+        <Route path="/faq" element={<LazyContentPage><FaqPage /></LazyContentPage>} />
         <Route path="/email-login" element={<Lazy><EmailLoginConfirmPage /></Lazy>} />
         <Route path="/email-verify" element={<Lazy><EmailVerifyConfirmPage /></Lazy>} />
         <Route path="/invite" element={<Lazy><InvitePage /></Lazy>} />

@@ -9,9 +9,29 @@
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#F0E7D2" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Per-page head: a content page (/terms, /privacy, /about, /faq) gets its own title, description and
+      canonical URL from the server (IndexHtmlController); every other route gets the home page's.
+    -->
+    {{#if page}}
+    <title>{{page.title}} — {{appName}}</title>
+    <meta name="description" content="{{page.description}}" />
+    <link rel="canonical" href="{{page.url}}" />
+    <meta property="og:url"         content="{{page.url}}" />
+    <meta property="og:title"       content="{{page.title}} — {{appName}}" />
+    <meta property="og:description" content="{{page.description}}" />
+    <meta name="twitter:title"       content="{{page.title}} — {{appName}}" />
+    <meta name="twitter:description" content="{{page.description}}" />
+    {{else}}
     <title>{{appName}} - your personal tasks planner</title>
     <meta name="description" content="{{appName}} is a personal tasks planner. Capture tasks as they come up, then commit to a week in a short planning session with your AI assistant." />
     <link rel="canonical" href="{{homeUrl}}" />
+    <meta property="og:url"         content="{{homeUrl}}" />
+    <meta property="og:title"       content="{{appName}} - your personal tasks planner" />
+    <meta property="og:description" content="Capture tasks as they come up, then commit to a week in a short planning session with your AI assistant." />
+    <meta name="twitter:title"       content="{{appName}} - your personal tasks planner" />
+    <meta name="twitter:description" content="Capture tasks as they come up, then commit to a week in a short planning session with your AI assistant." />
+    {{/if}}
 
     <!-- RFC 8631 service links: the external API's machine-readable contract and its usage guide.
          The one discovery pointer a consumer finds without knowing to look for a well-known URI. -->
@@ -20,10 +40,7 @@
 
     <!-- Open Graph -->
     <meta property="og:type"        content="website" />
-    <meta property="og:url"         content="{{homeUrl}}" />
     <meta property="og:site_name"   content="{{appName}}" />
-    <meta property="og:title"       content="{{appName}} - your personal tasks planner" />
-    <meta property="og:description" content="Capture tasks as they come up, then commit to a week in a short planning session with your AI assistant." />
     <meta property="og:image"       content="{{homeUrl}}og-image.png" />
     <meta property="og:image:width"  content="1200" />
     <meta property="og:image:height" content="630" />
@@ -31,8 +48,6 @@
 
     <!-- Twitter / X card -->
     <meta name="twitter:card"        content="summary_large_image" />
-    <meta name="twitter:title"       content="{{appName}} - your personal tasks planner" />
-    <meta name="twitter:description" content="Capture tasks as they come up, then commit to a week in a short planning session with your AI assistant." />
     <meta name="twitter:image"       content="{{homeUrl}}og-image.png" />
 
     <script type="application/ld+json">
@@ -56,6 +71,14 @@
     -->
   </head>
   <body>
+    {{#if page}}
+    <!--
+      A content page's text, rendered by the server for crawlers, link-preview bots, LLM agents and
+      anyone without JavaScript. Visible until the SPA mounts, which then keeps showing this markup
+      while the page's chunk loads (src/prerendered.ts) and replaces it with the real page.
+    -->
+    <div id="root"><main class="board-wrap"><article class="content-page"><header><h1>{{page.title}}</h1><a href="/" class="link-btn">← Back to {{appName}}</a></header><div class="markdown-content">{{{page.body}}}</div></article></main></div>
+    {{else}}
     <div id="root"></div>
 
     <!--
@@ -73,9 +96,9 @@
         <h2>What it does</h2>
         <p>
           {{appName}} is a personal planner that turns your task backlog into a realistic weekly plan – using tried-and-true methods.
-          Once a week you have a short planning conversation with an AI assistant on Telegram. The assistant reads your Google
-          Calendar, asks what you want to get done, and writes the agreed tasks back into
-          your calendar as time blocks.
+          Once a week you have a short planning conversation with an AI assistant, on Telegram or on the web. The assistant
+          asks what you want to get done, proposes a plan that fits your week, and sends the agreed tasks to your
+          calendar as time-block invitations.
         </p>
       </section>
       <section>
@@ -98,8 +121,11 @@
         <a href="{{homeUrl}}">Home</a>
         <a href="{{homeUrl}}terms">Terms of Service</a>
         <a href="{{homeUrl}}privacy">Privacy Policy</a>
+        <a href="{{homeUrl}}about">About</a>
+        <a href="{{homeUrl}}faq">FAQ</a>
       </nav>
     </div>
+    {{/if}}
 
     <!--
       This instance's configuration (login methods, name, contact addresses), filled in by the server

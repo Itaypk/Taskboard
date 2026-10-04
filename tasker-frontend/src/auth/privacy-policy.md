@@ -13,7 +13,7 @@ Last updated: August 29, 2026
 
 ## 1. Overview
 
-This Privacy Policy explains how Backlog.fyi collects, uses, and handles your data.
+This Privacy Policy explains how {{APP_NAME}} collects, uses, and handles your data.
 
 This is a small, non-commercial project. The goal is to collect as little data as possible and use it only to provide the service.
 

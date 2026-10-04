@@ -15,34 +15,6 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 class SpaForwardControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @Test
-    fun `terms route is forwarded to index html`() {
-        mockMvc.perform(get("/terms"))
-            .andExpect(status().isOk)
-            .andExpect(forwardedUrl("/index.html"))
-    }
-
-    @Test
-    fun `privacy route is forwarded to index html`() {
-        mockMvc.perform(get("/privacy"))
-            .andExpect(status().isOk)
-            .andExpect(forwardedUrl("/index.html"))
-    }
-
-    @Test
-    fun `about route is forwarded to index html`() {
-        mockMvc.perform(get("/about"))
-            .andExpect(status().isOk)
-            .andExpect(forwardedUrl("/index.html"))
-    }
-
-    @Test
-    fun `faq route is forwarded to index html`() {
-        mockMvc.perform(get("/faq"))
-            .andExpect(status().isOk)
-            .andExpect(forwardedUrl("/index.html"))
-    }
-
-    @Test
     fun `email-login route is forwarded to index html`() {
         mockMvc.perform(get("/email-login"))
             .andExpect(status().isOk)

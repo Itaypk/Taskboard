@@ -1,10 +1,10 @@
 ## What and why
 
-I built Backlog.fyi to help myself deal with the seemingly endless stream of new tasks,
+I built {{APP_NAME}} to help myself deal with the seemingly endless stream of new tasks,
 appointments, and reminders that life keeps throwing at us. The hardest ones are the tasks that
 don't need immediate attention — those I would simply forget about, until it was too late.
 
-Backlog.fyi is built to fix that, and it follows two basic principles:
+{{APP_NAME}} is built to fix that, and it follows two basic principles:
 
 * **Capture is cheap.** Tasks should land in a backlog the moment you think of them — from the web
   app, from a Telegram message, from a script or an AI assistant through the API.
@@ -24,7 +24,7 @@ paragraph above.
 
 ## Status
 
-Backlog.fyi is in **beta**. Things may break, features may change, and occasional short downtime is
+{{APP_NAME}} is in **beta**. Things may break, features may change, and occasional short downtime is
 part of the deal. Keeping your data safe and secure, though, is always the top priority.
 
 Sensitive data — your email address, your task titles and descriptions — is encrypted at rest. See
@@ -32,7 +32,7 @@ the [Privacy Policy](/privacy) for the details and the [Terms of Service](/terms
 
 ## About me
 
-Backlog.fyi is built and run by **Itay Polack-Gadassi**.
+{{APP_NAME}} is built and run by **Itay Polack-Gadassi**.
 
 You can find me on GitHub: [github.com/Itaypk](https://github.com/Itaypk), or on
 [LinkedIn](https://www.linkedin.com/in/itay-polack-gadassi/).
