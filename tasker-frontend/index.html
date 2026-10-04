@@ -113,8 +113,13 @@
       <section>
         <h2>Status</h2>
         <p>
-          The {{appName}} application is a work in progress.
-          Some features are incomplete, and some aspects might change through the development process.
+          {{appName}} is in {{#if config.registrationOpen}}open {{/if}}beta: it's in daily use and actively developed,
+          and new features keep arriving. Your data is encrypted at rest, and keeping the service safe and
+          running is the top priority.{{#if config.aiZeroDataRetention}} AI requests only go to providers that
+          keep no copy of your data (zero data retention).{{/if}}
+        </p>
+        <p>
+          The source code is public on <a href="https://github.com/Itaypk/Taskboard">GitHub</a>, under the AGPL-3.0 license.
         </p>
       </section>
       <nav>
@@ -123,6 +128,7 @@
         <a href="{{homeUrl}}privacy">Privacy Policy</a>
         <a href="{{homeUrl}}about">About</a>
         <a href="{{homeUrl}}faq">FAQ</a>
+        <a href="https://github.com/Itaypk/Taskboard">GitHub</a>
       </nav>
     </div>
     {{/if}}

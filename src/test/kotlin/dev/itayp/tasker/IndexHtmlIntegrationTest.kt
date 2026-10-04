@@ -47,7 +47,12 @@ class IndexHtmlIntegrationTest(@Autowired val rest: TestRestTemplate) {
             """<link rel="canonical" href="https://tasks.acme.test/" />""",
             """<div id="root"></div>""",
             """<div id="prerendered-landing" hidden>""",
+            // Registration is open by default; the fallback reads the inline config to say so.
+            "Acme Tasks is in open beta:",
+            """<a href="https://github.com/Itaypk/Taskboard">GitHub</a>""",
         )
+        // No AI key in this test instance, so no zero-data-retention promise either.
+        assertThat(body).doesNotContain("zero data retention")
     }
 
     /** What every variant of the document carries, content pages included. */

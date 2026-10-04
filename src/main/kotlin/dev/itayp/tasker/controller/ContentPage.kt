@@ -1,5 +1,6 @@
 package dev.itayp.tasker.controller
 
+import dev.itayp.tasker.ai.AiProperties
 import dev.itayp.tasker.config.AppProperties
 import org.commonmark.parser.Parser
 import org.commonmark.renderer.html.HtmlRenderer
@@ -39,9 +40,20 @@ enum class ContentPage(val path: String, val file: String, val title: String, va
     }
 }
 
-/** Renders a [ContentPage]'s markdown to HTML, with this instance's name and contact addresses filled in. */
+/**
+ * The privacy policy's sentence about AI data retention, present only while it's true. Mirrored in the
+ * SPA's `PolicyPage.tsx`.
+ */
+const val AI_RETENTION_NOTE =
+    "Requests to AI providers are only routed to endpoints with a zero-data-retention policy: the " +
+        "provider doesn't store your input or its response once the request completes."
+
+/** Renders a [ContentPage]'s markdown to HTML, with this instance's name, contact addresses and settings filled in. */
 @Component
-class ContentPageRenderer(private val appProperties: AppProperties) {
+class ContentPageRenderer(
+    private val appProperties: AppProperties,
+    private val aiProperties: AiProperties,
+) {
 
     private val parser = Parser.builder().build()
 
@@ -58,6 +70,7 @@ class ContentPageRenderer(private val appProperties: AppProperties) {
             .replace("{{APP_URL}}", appProperties.baseUrl)
             .replace("{{SUPPORT_EMAIL}}", appProperties.supportEmail)
             .replace("{{ABUSE_EMAIL}}", appProperties.abuseEmail)
+            .replace("{{AI_RETENTION_NOTE}}", if (aiProperties.zeroDataRetentionInEffect) AI_RETENTION_NOTE else "")
 
     private fun readMarkdown(page: ContentPage): String? =
         ClassPathResource("content/${page.file}").takeIf { it.exists() }

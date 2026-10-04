@@ -11,6 +11,8 @@ function devIndexPlaceholders(): Plugin {
     name: 'dev-index-placeholders',
     apply: 'serve',
     transformIndexHtml: html => html
+      // Config flags take the hosted defaults (all on). Resolved first: they nest inside the page block's `{{else}}`.
+      .replace(/\{\{#if config\.\w+\}\}([\s\S]*?)\{\{\/if\}\}/g, '$1')
       .replace(/\{\{#if page\}\}[\s\S]*?\{\{else\}\}([\s\S]*?)\{\{\/if\}\}/g, '$1')
       .replaceAll('{{json appName}}', JSON.stringify('Backlog.fyi'))
       .replaceAll('{{json homeUrl}}', JSON.stringify('/'))

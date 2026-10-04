@@ -25,6 +25,7 @@ const selfHosted: PublicConfig = {
     login: { telegram: false, email: false, password: true, demo: false },
     registrationOpen: false,
     branding: { name: 'Acme Tasks', supportEmail: 'help@acme.test', abuseEmail: 'abuse@acme.test' },
+    aiZeroDataRetention: false,
 };
 
 /** What IndexHtmlController inlines into the served page. */
@@ -79,6 +80,19 @@ describe('LoginPage', () => {
 
         expect(screen.getByText('Acme Tasks')).toBeInTheDocument();
         expect(screen.queryByText('Backlog.fyi')).not.toBeInTheDocument();
+    });
+
+    it('claims zero-data-retention AI only when the instance enforces it', () => {
+        withInlineConfig(selfHosted);
+        renderPage();
+        expect(screen.getByText('No ads. No trackers. Encrypted at rest.')).toBeInTheDocument();
+        cleanup();
+        document.getElementById('app-config')?.remove();
+        resetPublicConfigForTests();
+
+        withInlineConfig({ ...selfHosted, aiZeroDataRetention: true });
+        renderPage();
+        expect(screen.getByText('No ads. No trackers. Encrypted at rest. ZDR AI.')).toBeInTheDocument();
     });
 
     it('signs in with a username and password', async () => {

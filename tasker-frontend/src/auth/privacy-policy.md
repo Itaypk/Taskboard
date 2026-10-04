@@ -78,6 +78,8 @@ When you use AI features:
 * Your input may be sent to third-party AI providers
 * Responses are generated based on that input
 
+{{AI_RETENTION_NOTE}}
+
 AI systems may produce incorrect or unexpected outputs.
 
 ## 8. Logs and Monitoring
