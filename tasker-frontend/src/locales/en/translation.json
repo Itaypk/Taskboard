@@ -407,7 +407,8 @@
     "privacyTitle": "Privacy Policy",
     "backHome": "Back to {{appName}}",
     "aboutTitle": "About",
-    "faqTitle": "Frequently asked questions"
+    "faqTitle": "Frequently asked questions",
+    "englishOnly": "This page is available in English only."
   },
   "boardFilter": {
     "todo": "To do",
@@ -701,6 +702,7 @@
   },
   "app": {
     "loading": "Loading…",
+    "documentTitle": "{{appName}} - your personal tasks planner",
     "loadError": "Failed to load data. Is the backend running?",
     "emptyTodo": "Nothing pinned up. Add your first task.",
     "emptyPlan": "Nothing in this week's plan yet.",

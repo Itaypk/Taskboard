@@ -15,6 +15,7 @@ import { lazyComponent, useLazyComponent } from './lazyComponent';
 import { notifyToast } from './toast';
 import './App.css';
 import { useBranding } from './publicConfig';
+import { useDocumentTitle } from './documentTitle';
 import { prerenderedHtml } from './prerendered';
 
 // Not `lazy`: the board is the one chunk that races the signed-in first paint, and a Suspense
@@ -61,6 +62,7 @@ function PrerenderedFallback() {
 export default function App() {
   // Only anonymous visitors get the footer language switcher — see AppFooter.
   const { state } = useAuth();
+  useDocumentTitle();
 
   return (
     <>
