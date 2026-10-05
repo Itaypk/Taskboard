@@ -25,5 +25,8 @@ class AiClientConfiguration {
             apiKey = properties.apiKey,
             baseUrl = properties.baseUrl,
             configuredModels = properties.configuredModels,
+            // Only drives the library's startup check that every configured model has a ZDR endpoint;
+            // ReasoningAwareAiClient is what applies the setting to each request.
+            zeroDataRetention = properties.zeroDataRetention,
         )
 }

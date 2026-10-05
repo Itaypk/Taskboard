@@ -74,7 +74,7 @@ tasker:
     multimodal-model: ${TASKER_AI_MULTIMODAL_MODEL:}
     # Send every call only to provider endpoints that retain no prompt data (OpenRouter `provider.zdr`).
     # Every configured model needs a ZDR endpoint (https://openrouter.ai/api/v1/endpoints/zdr), or its
-    # calls fail; ZeroDataRetentionCheck warns about that at startup.
+    # calls fail; the client library warns about that at startup.
     zero-data-retention: ${TASKER_AI_ZERO_DATA_RETENTION:true}
     # Reasoning/effort level per functionality. Value: minimal|low|medium|high, or blank (default)
     # for no reasoning override. Only sent to models whose capabilities (fetched at startup) report

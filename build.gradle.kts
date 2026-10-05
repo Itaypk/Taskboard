@@ -41,9 +41,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-h2console")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     // Extracted libraries (JitPack). Multi-module repo github.com/Itaypk/Nescioquid; JVM 25.
-    implementation("com.github.Itaypk.Nescioquid:envelope-crypto:0.14.1")
-    implementation("com.github.Itaypk.Nescioquid:openrouter-client:0.14.1")
-    implementation("com.github.Itaypk.Nescioquid:telegram-oidc-login:0.14.1")
+    implementation("com.github.Itaypk.Nescioquid:envelope-crypto:0.15.0")
+    implementation("com.github.Itaypk.Nescioquid:openrouter-client:0.15.0")
+    implementation("com.github.Itaypk.Nescioquid:telegram-oidc-login:0.15.0")
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.springframework.boot:spring-boot-starter-validation")

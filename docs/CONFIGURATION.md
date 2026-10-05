@@ -92,7 +92,7 @@ Telegram *login* is offered only when both the client id and secret are set.
   `provider.zdr`, so it is only routed to endpoints that retain no prompt data (set on every request
   by `ReasoningAwareAiClient`; `false` explicitly lifts it, since the client library defaults to on). Every configured model needs a ZDR endpoint — check
   `https://openrouter.ai/api/v1/endpoints/zdr`; `:free` variants generally have none — or its calls
-  fail. `ZeroDataRetentionCheck` looks the configured models up there at startup and logs a warning
+  fail. The client library's `ModelCapabilityService` looks the configured models up there at startup and logs a warning
   naming any that have none. The login page, the landing fallback and the privacy policy only promise zero data retention
   while it is on (and AI is configured), via `aiZeroDataRetention` in the inline public config.
 - `TASKER_AI_TIER_CAP_MAX_GRANTED_USERS` — hard cap (default `50`) on claimed accounts holding the
