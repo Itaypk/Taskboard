@@ -213,6 +213,16 @@
     "dismiss": "تم",
     "lastUsed": "آخر استخدام {{date}}",
     "neverUsed": "لم يُستخدم من قبل",
+    "expiryLabel": "مدة الصلاحية",
+    "expiresOn": "صالح حتى {{date}}",
+    "expiredOn": "انتهت صلاحيته في {{date}}",
+    "neverExpires": "بلا انتهاء صلاحية",
+    "expiry": {
+      "days30": "30 يومًا",
+      "days90": "90 يومًا",
+      "days365": "سنة واحدة",
+      "never": "بلا انتهاء صلاحية"
+    },
     "confirmRevoke": "إبطال «{{name}}»؟ كل ما يستخدم هذا الرمز سيتوقف عن العمل فورًا.",
     "docsHint": "توجيه المساعد إلى /external-api/SKILL.md لتعليمه كيفية استخدام هذه الرموز.",
     "scopes": {

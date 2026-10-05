@@ -12,6 +12,20 @@ import styles from './ApiTokens.module.css';
 
 const MAX_TOKENS = 5;
 
+/** Lifetime choices, in days; null is "no expiration". 90 days is the default. */
+const EXPIRY_OPTIONS = [
+    { value: '30', days: 30, labelKey: 'apiTokens.expiry.days30' },
+    { value: '90', days: 90, labelKey: 'apiTokens.expiry.days90' },
+    { value: '365', days: 365, labelKey: 'apiTokens.expiry.days365' },
+    { value: 'never', days: null, labelKey: 'apiTokens.expiry.never' },
+] as const;
+type ExpiryChoice = (typeof EXPIRY_OPTIONS)[number]['value'];
+const DEFAULT_EXPIRY: ExpiryChoice = '90';
+
+function isExpired(token: ApiToken, now: number = Date.now()): boolean {
+    return token.expiresAt !== null && new Date(token.expiresAt).getTime() <= now;
+}
+
 function formatDate(iso: string | null): string | null {
     if (!iso) return null;
     const parsed = new Date(iso);
@@ -30,6 +44,7 @@ export function ApiTokens() {
     const [tokens, setTokens] = useState<ApiToken[] | null>(null);
     const [name, setName] = useState('');
     const [scope, setScope] = useState<ApiTokenScope>('write');
+    const [expiry, setExpiry] = useState<ExpiryChoice>(DEFAULT_EXPIRY);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [freshSecret, setFreshSecret] = useState<string | null>(null);
@@ -43,7 +58,9 @@ export function ApiTokens() {
         return () => { cancelled = true; };
     }, []);
 
-    const atLimit = (tokens?.length ?? 0) >= MAX_TOKENS;
+    // Expired tokens stay listed (so the user can see why an automation stopped) but don't count
+    // toward the cap — the server counts the same way.
+    const atLimit = (tokens?.filter(token => !isExpired(token)).length ?? 0) >= MAX_TOKENS;
 
     const handleCreate = async () => {
         if (!name.trim() || busy) return;
@@ -51,7 +68,8 @@ export function ApiTokens() {
         setError(null);
         setCopied(false);
         try {
-            const created = await createApiToken(name.trim(), scope);
+            const expiresInDays = EXPIRY_OPTIONS.find(option => option.value === expiry)?.days ?? null;
+            const created = await createApiToken(name.trim(), scope, expiresInDays);
             setFreshSecret(created.token);
             setTokens(current => [created.apiToken, ...(current ?? [])]);
             setName('');
@@ -80,6 +98,12 @@ export function ApiTokens() {
         } finally {
             setBusy(false);
         }
+    };
+
+    const expiryText = (token: ApiToken): string => {
+        const date = formatDate(token.expiresAt);
+        if (!date) return t('apiTokens.neverExpires');
+        return isExpired(token) ? t('apiTokens.expiredOn', { date }) : t('apiTokens.expiresOn', { date });
     };
 
     const handleCopy = async () => {
@@ -119,7 +143,7 @@ export function ApiTokens() {
 
             <ul className={styles.list}>
                 {tokens?.map(token => (
-                    <li key={token.id} className={styles.token}>
+                    <li key={token.id} className={isExpired(token) ? `${styles.token} ${styles.expired}` : styles.token}>
                         <div className={styles.tokenMeta}>
                             <span className={styles.tokenName}>{token.name}</span>
                             <span className={styles.tokenDetail}>
@@ -130,6 +154,8 @@ export function ApiTokens() {
                                 {formatDate(token.lastUsedAt)
                                     ? t('apiTokens.lastUsed', { date: formatDate(token.lastUsedAt) })
                                     : t('apiTokens.neverUsed')}
+                                {' · '}
+                                {expiryText(token)}
                             </span>
                         </div>
                         <button
@@ -164,6 +190,17 @@ export function ApiTokens() {
                 >
                     <option value="write">{t('apiTokens.scopes.write')}</option>
                     <option value="read">{t('apiTokens.scopes.read')}</option>
+                </select>
+                <select
+                    className={`field__select ${styles.scopeSelect}`}
+                    value={expiry}
+                    onChange={event => setExpiry(event.target.value as ExpiryChoice)}
+                    disabled={busy || atLimit}
+                    aria-label={t('apiTokens.expiryLabel')}
+                >
+                    {EXPIRY_OPTIONS.map(option => (
+                        <option key={option.value} value={option.value}>{t(option.labelKey)}</option>
+                    ))}
                 </select>
                 <button
                     type="button"

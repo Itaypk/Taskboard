@@ -5,6 +5,8 @@ import dev.itayp.tasker.jpa.ApiTokenScope
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.ApiTokenService
 import jakarta.validation.Valid
+import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
 import org.springframework.http.HttpStatus
@@ -18,13 +20,19 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import java.time.Duration
 import java.util.UUID
 
 data class CreateApiTokenRequest(
     @field:NotBlank @field:Size(max = 100) val name: String,
     /** `read` or `write`. Defaults to read — the safer choice if a caller omits it. */
     val scope: String = ApiTokenScope.READ,
+    /** Lifetime in days; null means the token never expires. The SPA defaults to 90. */
+    @field:Min(1) @field:Max(MAX_TOKEN_LIFETIME_DAYS) val expiresInDays: Long? = null,
 )
+
+/** A year: long enough for any automation, short enough that a forgotten token dies on its own. */
+const val MAX_TOKEN_LIFETIME_DAYS = 365L
 
 data class ApiTokenResponse(
     val id: String,
@@ -75,7 +83,9 @@ class ApiTokenController(
                 )
             )
         }
-        val created = apiTokenService.createToken(principal.userId, request.name, scope)
+        val created = apiTokenService.createToken(
+            principal.userId, request.name, scope, request.expiresInDays?.let { Duration.ofDays(it) },
+        )
         return ResponseEntity.status(HttpStatus.CREATED).body(
             CreatedApiTokenResponse(token = created.plaintext, apiToken = created.token.toResponse())
         )

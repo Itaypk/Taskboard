@@ -55,7 +55,7 @@ class ApiTokenServiceTest {
 
     @Test
     fun `created token is prefixed, high-entropy, and stored only as a hash`() {
-        whenever(repository.countByUserIdAndRevokedAtIsNull(userId)).thenReturn(0L)
+        whenever(repository.countUsable(userId, fixedNow)).thenReturn(0L)
         whenever(repository.save(any<ApiTokenEntity>())).thenAnswer { it.arguments[0] }
 
         val created = service.createToken(userId, "Claude Code", ApiTokenScope.WRITE)
@@ -74,8 +74,34 @@ class ApiTokenServiceTest {
     }
 
     @Test
+    fun `a token minted without a lifetime never expires`() {
+        whenever(repository.countUsable(userId, fixedNow)).thenReturn(0L)
+        whenever(repository.save(any<ApiTokenEntity>())).thenAnswer { it.arguments[0] }
+
+        val created = service.createToken(userId, "forever", ApiTokenScope.READ)
+
+        assertThat(created.token.expiresAt).isNull()
+    }
+
+    @Test
+    fun `a token minted with a lifetime expires that long after creation`() {
+        whenever(repository.countUsable(userId, fixedNow)).thenReturn(0L)
+        whenever(repository.save(any<ApiTokenEntity>())).thenAnswer { it.arguments[0] }
+
+        val created = service.createToken(userId, "quarterly", ApiTokenScope.READ, Duration.ofDays(90))
+
+        assertThat(created.token.expiresAt).isEqualTo(fixedNow.plus(Duration.ofDays(90)))
+    }
+
+    @Test
+    fun `a non-positive lifetime is rejected`() {
+        assertThatThrownBy { service.createToken(userId, "bad", ApiTokenScope.READ, Duration.ZERO) }
+            .isInstanceOf(IllegalArgumentException::class.java)
+    }
+
+    @Test
     fun `two tokens never collide`() {
-        whenever(repository.countByUserIdAndRevokedAtIsNull(userId)).thenReturn(0L)
+        whenever(repository.countUsable(userId, fixedNow)).thenReturn(0L)
         whenever(repository.save(any<ApiTokenEntity>())).thenAnswer { it.arguments[0] }
 
         val first = service.createToken(userId, "one", ApiTokenScope.READ).plaintext
@@ -86,7 +112,7 @@ class ApiTokenServiceTest {
 
     @Test
     fun `creating beyond the per-user cap is refused`() {
-        whenever(repository.countByUserIdAndRevokedAtIsNull(userId))
+        whenever(repository.countUsable(userId, fixedNow))
             .thenReturn(ApiTokenService.MAX_LIVE_TOKENS_PER_USER.toLong())
 
         assertThatThrownBy { service.createToken(userId, "one too many", ApiTokenScope.READ) }
@@ -202,5 +228,13 @@ class ApiTokenServiceTest {
         whenever(repository.findAllByUserIdOrderByCreatedAtDesc(userId)).thenReturn(listOf(live, revoked))
 
         assertThat(service.listTokens(userId)).containsExactly(live)
+    }
+
+    @Test
+    fun `listing keeps expired tokens so the user can see why an automation stopped`() {
+        val expired = storedToken("blf_old", expiresAt = fixedNow.minusSeconds(1))
+        whenever(repository.findAllByUserIdOrderByCreatedAtDesc(userId)).thenReturn(listOf(expired))
+
+        assertThat(service.listTokens(userId)).containsExactly(expired)
     }
 }

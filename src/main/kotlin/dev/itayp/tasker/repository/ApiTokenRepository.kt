@@ -15,7 +15,12 @@ interface ApiTokenRepository : JpaRepository<ApiTokenEntity, UUID> {
 
     fun findAllByUserIdOrderByCreatedAtDesc(userId: UUID): List<ApiTokenEntity>
 
-    fun countByUserIdAndRevokedAtIsNull(userId: UUID): Long
+    /** Tokens that still authenticate: not revoked and not past their expiry. */
+    @Query(
+        "SELECT COUNT(t) FROM ApiTokenEntity t WHERE t.userId = :userId AND t.revokedAt IS NULL " +
+            "AND (t.expiresAt IS NULL OR t.expiresAt > :now)"
+    )
+    fun countUsable(@Param("userId") userId: UUID, @Param("now") now: Instant): Long
 
     fun findByIdAndUserId(id: UUID, userId: UUID): ApiTokenEntity?
 

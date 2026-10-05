@@ -25,6 +25,9 @@ Every request sends `Authorization: Bearer $BACKLOG_TOKEN`. A **read**-scoped to
 endpoints only; writes need a **write**-scoped token. If a write returns 403, say so — the fix is
 a new token, and you cannot widen an existing one.
 
+A 401 means the token is missing, revoked or expired — the three are not distinguished. Don't
+retry; tell the user their token stopped working and ask them to create a new one.
+
 The full contract is at `/external-api/openapi.yaml` if you need exact schemas.
 
 ## The six things worth knowing

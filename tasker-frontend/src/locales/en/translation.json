@@ -193,6 +193,16 @@
     "dismiss": "Done",
     "lastUsed": "last used {{date}}",
     "neverUsed": "never used",
+    "expiryLabel": "Expiry",
+    "expiresOn": "expires {{date}}",
+    "expiredOn": "expired {{date}}",
+    "neverExpires": "never expires",
+    "expiry": {
+      "days30": "30 days",
+      "days90": "90 days",
+      "days365": "1 year",
+      "never": "No expiration"
+    },
     "confirmRevoke": "Revoke “{{name}}”? Anything using this token will stop working immediately.",
     "docsHint": "Point your assistant at /external-api/SKILL.md to teach it how to use these.",
     "scopes": {

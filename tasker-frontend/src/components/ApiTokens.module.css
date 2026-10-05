@@ -18,6 +18,12 @@
   background: var(--paper-surface);
 }
 
+/* An expired token no longer authenticates; it stays listed only so the user can see why. */
+.expired .tokenName {
+  color: var(--ink-soft);
+  text-decoration: line-through;
+}
+
 .tokenMeta {
   display: flex;
   flex-direction: column;

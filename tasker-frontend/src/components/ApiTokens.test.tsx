@@ -57,7 +57,44 @@ describe('ApiTokens', () => {
 
     expect(await screen.findByText('blf_supersecretvalue')).toBeInTheDocument();
     expect(screen.getByText(/won't be shown again/)).toBeInTheDocument();
-    expect(createApiToken).toHaveBeenCalledWith('Scripts', 'write');
+    // 90 days is the default lifetime.
+    expect(createApiToken).toHaveBeenCalledWith('Scripts', 'write', 90);
+  });
+
+  it('mints a non-expiring token when the user picks no expiration', async () => {
+    fetchApiTokens.mockResolvedValue([]);
+    createApiToken.mockResolvedValue({ token: 'blf_x', apiToken: { ...existingToken, name: 'Cron' } });
+    render(<ApiTokens />);
+
+    fireEvent.change(await screen.findByRole('combobox', { name: 'Expiry' }), { target: { value: 'never' } });
+    await createToken('Cron');
+
+    await waitFor(() => expect(createApiToken).toHaveBeenCalledWith('Cron', 'write', null));
+  });
+
+  it('shows when each token expires, and which already have', async () => {
+    fetchApiTokens.mockResolvedValue([
+      existingToken,
+      { ...existingToken, id: 'tok-2', name: 'Soon', expiresAt: '2999-01-01T00:00:00Z' },
+      { ...existingToken, id: 'tok-3', name: 'Old', expiresAt: '2000-01-01T00:00:00Z' },
+    ]);
+    render(<ApiTokens />);
+
+    expect(await screen.findByText(/never expires/)).toBeInTheDocument();
+    expect(screen.getByText(/expires \S/)).toBeInTheDocument();
+    expect(screen.getByText(/expired \S/)).toBeInTheDocument();
+  });
+
+  it('does not count expired tokens toward the limit', async () => {
+    const expired = Array.from({ length: 5 }, (_, i) => ({
+      ...existingToken, id: `old-${i}`, name: `Old ${i}`, expiresAt: '2000-01-01T00:00:00Z',
+    }));
+    fetchApiTokens.mockResolvedValue(expired);
+    render(<ApiTokens />);
+
+    fireEvent.change(await screen.findByPlaceholderText(/What is this for/), { target: { value: 'New' } });
+
+    expect(screen.getByRole('button', { name: 'Create token' })).toBeEnabled();
   });
 
   it('hides the secret again once dismissed, since it cannot be re-fetched', async () => {
