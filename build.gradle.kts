@@ -57,6 +57,7 @@ dependencies {
     implementation("io.micrometer:micrometer-registry-prometheus:1.17.1")
     implementation("net.logstash.logback:logstash-logback-encoder:9.0")
     implementation("com.github.jknack:handlebars:4.5.5")
+    implementation("org.commonmark:commonmark:0.30.0")
     implementation("org.telegram:telegrambots-springboot-longpolling-starter:10.3.0")
     implementation("org.telegram:telegrambots-client:10.3.0")
     runtimeOnly("com.h2database:h2")
@@ -155,6 +156,13 @@ val buildFrontend = tasks.register<Exec>("buildFrontend") {
 tasks.named<ProcessResources>("processResources") {
     mustRunAfter(buildFrontend)
     from(frontendDist) { into("static") }
+    // The static content pages' markdown, which IndexHtmlController renders into the document for
+    // clients that don't run JavaScript. Copied straight from the sources (not from dist/), so it is
+    // on the classpath without an npm build.
+    from(frontendDir.dir("src/auth")) {
+        include("*.md")
+        into("content")
+    }
 }
 
 // Full production build: npm install → frontend bundle → backend JAR with frontend embedded.

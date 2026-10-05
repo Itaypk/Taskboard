@@ -1,10 +1,10 @@
 ## What and why
 
-I built Backlog.fyi to help myself deal with the seemingly endless stream of new tasks,
-appointments, and reminders that life keeps throwing at us. The hardest ones are the tasks that
-don't need immediate attention — those I would simply forget about, until it was too late.
+{{APP_NAME}} was created to deal with the seemingly endless stream of new tasks, appointments, and
+reminders that life keeps throwing at us. The hardest ones are the tasks that don't need immediate
+attention — the ones that are easy to forget about, until it's too late.
 
-Backlog.fyi is built to fix that, and it follows two basic principles:
+{{APP_NAME}} is built to fix that, and it follows two basic principles:
 
 * **Capture is cheap.** Tasks should land in a backlog the moment you think of them — from the web
   app, from a Telegram message, from a script or an AI assistant through the API.
@@ -19,23 +19,23 @@ It's a solo, non-commercial side project — no team, no investors, no ads, and 
 funded by selling your data or training models on it.
 
 It's also free to use. The AI features do cost real money to run, so they come with usage limits;
-if that bill ever outgrows a hobby budget, I'd sooner ask heavy users to chip in than change the
-paragraph above.
+if that bill ever outgrows a hobby budget, the plan is to ask heavy users to chip in rather than
+change the paragraph above.
 
 ## Status
 
-Backlog.fyi is in **beta**. Things may break, features may change, and occasional short downtime is
-part of the deal. Keeping your data safe and secure, though, is always the top priority.
+{{APP_NAME}} is in **open beta**: it's in daily use, actively developed, and new features keep
+arriving. Keeping your data safe and the service running is the top priority.
 
 Sensitive data — your email address, your task titles and descriptions — is encrypted at rest. See
 the [Privacy Policy](/privacy) for the details and the [Terms of Service](/terms) for the rest.
 
-## About me
+## Who's behind it
 
-Backlog.fyi is built and run by **Itay Polack-Gadassi**.
-
-You can find me on GitHub: [github.com/Itaypk](https://github.com/Itaypk), or on
-[LinkedIn](https://www.linkedin.com/in/itay-polack-gadassi/).
+The software behind {{APP_NAME}} is built by **Itay Polack-Gadassi**
+([GitHub](https://github.com/Itaypk), [LinkedIn](https://www.linkedin.com/in/itay-polack-gadassi/)).
+Its source code is public on [GitHub](https://github.com/Itaypk/Taskboard) under the AGPL-3.0
+license, so anyone can run their own instance.
 
 ## Get in touch
 

@@ -23,6 +23,8 @@ export interface PublicConfig {
         supportEmail: string;
         abuseEmail: string;
     };
+    /** AI is on and every AI call goes only to zero-data-retention endpoints (`TASKER_AI_ZERO_DATA_RETENTION`). */
+    aiZeroDataRetention: boolean;
 }
 
 export const DEFAULT_PUBLIC_CONFIG: PublicConfig = {
@@ -33,6 +35,7 @@ export const DEFAULT_PUBLIC_CONFIG: PublicConfig = {
         supportEmail: 'hello@backlog.fyi',
         abuseEmail: 'abuse@backlog.fyi',
     },
+    aiZeroDataRetention: true,
 };
 
 let cached: PublicConfig | null = null;

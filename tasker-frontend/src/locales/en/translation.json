@@ -22,7 +22,8 @@
       "methodTitle": "Time-blocking — but you don't do the planning.",
       "methodMeta": "The assistant proposes; you push back.",
       "privacyTag": "Yours alone",
-      "privacyTitle": "No ads. No trackers. Encrypted at rest. ZDR AI."
+      "privacyTitle": "No ads. No trackers. Encrypted at rest. ZDR AI.",
+      "privacyTitleNoZdr": "No ads. No trackers. Encrypted at rest."
     },
     "modal": {
       "close": "Close",

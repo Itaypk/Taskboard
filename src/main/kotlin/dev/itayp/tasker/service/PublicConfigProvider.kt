@@ -1,5 +1,6 @@
 package dev.itayp.tasker.service
 
+import dev.itayp.tasker.ai.AiProperties
 import dev.itayp.tasker.config.AppProperties
 import dev.itayp.tasker.model.response.BrandingResponse
 import dev.itayp.tasker.model.response.LoginMethodsResponse
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Component
 class PublicConfigProvider(
     private val loginMethods: LoginMethods,
     private val appProperties: AppProperties,
+    private val aiProperties: AiProperties,
 ) {
     fun config(): PublicConfigResponse = PublicConfigResponse(
         login = LoginMethodsResponse(
@@ -30,5 +32,6 @@ class PublicConfigProvider(
             supportEmail = appProperties.supportEmail,
             abuseEmail = appProperties.abuseEmail,
         ),
+        aiZeroDataRetention = aiProperties.zeroDataRetentionInEffect,
     )
 }

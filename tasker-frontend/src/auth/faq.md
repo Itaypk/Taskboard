@@ -1,19 +1,19 @@
-## What is Backlog.fyi?
+## What is {{APP_NAME}}?
 
 A weekly planner. You keep a backlog of everything you've committed to or want to get to, and once
 a week an AI assistant helps you turn part of it into an actual plan for the week ahead.
 
 ## How is that different from a to-do list?
 
-A to-do list grows forever and never tells you what fits. Backlog.fyi separates the two halves:
+A to-do list grows forever and never tells you what fits. {{APP_NAME}} separates the two halves:
 capture whenever, without deciding anything, and decide once a week with something that can see the
 whole list and push back on an over-full week.
 
 ## Who is it for?
 
-People running their own life. Backlog.fyi isn't trying to replace Trello, Jira or Monday — there 
-are no sprints, no workflows, no story points. I use it for personal things, and for the small work 
-items that fall through the cracks of a real project tracker: return a call, review a document, 
+People running their own life. {{APP_NAME}} isn't trying to replace Trello, Jira or Monday — there 
+are no sprints, no workflows, no story points. It's built for personal things, and for the small
+work items that fall through the cracks of a real project tracker: return a call, review a document,
 renew the thing before it expires.
 
 ## What's the fastest way to add something?
@@ -49,14 +49,15 @@ private; that's the whole difference.
 ## Can I use it from scripts or an AI assistant?
 
 Yes. There's a token-authenticated HTTP API for reading and editing tasks. Create a token in the app
-under Settings → Integrations; the [usage guide](https://backlog.fyi/external-api/SKILL.md) and
-[OpenAPI description](https://backlog.fyi/external-api/openapi.yaml) describe the rest.
+under Settings → Integrations; the [usage guide]({{APP_URL}}/external-api/SKILL.md) and
+[OpenAPI description]({{APP_URL}}/external-api/openapi.yaml) describe the rest.
 
 ## What does it cost?
 
-Nothing. It's a solo, non-commercial side project in beta — no ads, and your data is never sold
+Nothing. It's a solo, non-commercial side project in open beta — no ads, and your data is never sold
 or used to train models. The AI features do cost real money to run, so they come with usage limits;
-if that bill ever outgrows a hobby budget, I'd sooner ask heavy users to chip in than change that.
+if that bill ever outgrows a hobby budget, the plan is to ask heavy users to chip in rather than
+change that.
 
 ## Is my data private?
 

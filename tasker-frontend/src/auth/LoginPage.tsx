@@ -183,7 +183,7 @@ export function LoginPage({ next }: { next?: string } = {}) {
                     <div className={`${styles.sat} ${styles.satMint}`}>
                         <span className={styles.tape} style={{ top: -9, right: 30, transform: 'rotate(5deg)' }} />
                         <div className={styles.satTag}>{t('login.satellites.privacyTag')}</div>
-                        <h3 className={styles.satH}>{t('login.satellites.privacyTitle')}</h3>
+                        <h3 className={styles.satH}>{t(config.aiZeroDataRetention ? 'login.satellites.privacyTitle' : 'login.satellites.privacyTitleNoZdr')}</h3>
                     </div>
                 </div>
             </div>
