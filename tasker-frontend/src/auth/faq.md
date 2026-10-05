@@ -12,8 +12,8 @@ whole list and push back on an over-full week.
 ## Who is it for?
 
 People running their own life. {{APP_NAME}} isn't trying to replace Trello, Jira or Monday — there 
-are no sprints, no workflows, no story points. I use it for personal things, and for the small work 
-items that fall through the cracks of a real project tracker: return a call, review a document, 
+are no sprints, no workflows, no story points. It's built for personal things, and for the small
+work items that fall through the cracks of a real project tracker: return a call, review a document,
 renew the thing before it expires.
 
 ## What's the fastest way to add something?
@@ -54,9 +54,10 @@ under Settings → Integrations; the [usage guide]({{APP_URL}}/external-api/SKIL
 
 ## What does it cost?
 
-Nothing. It's a solo, non-commercial side project in beta — no ads, and your data is never sold
+Nothing. It's a solo, non-commercial side project in open beta — no ads, and your data is never sold
 or used to train models. The AI features do cost real money to run, so they come with usage limits;
-if that bill ever outgrows a hobby budget, I'd sooner ask heavy users to chip in than change that.
+if that bill ever outgrows a hobby budget, the plan is to ask heavy users to chip in rather than
+change that.
 
 ## Is my data private?
 
