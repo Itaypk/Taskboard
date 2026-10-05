@@ -417,7 +417,8 @@
     "privacyTitle": "מדיניות פרטיות",
     "backHome": "חזרה ל‑{{appName}}",
     "aboutTitle": "אודות",
-    "faqTitle": "שאלות נפוצות"
+    "faqTitle": "שאלות נפוצות",
+    "englishOnly": "דף זה זמין באנגלית בלבד."
   },
   "boardFilter": {
     "todo": "לביצוע",
@@ -718,6 +719,7 @@
   },
   "app": {
     "loading": "טוען…",
+    "documentTitle": "{{appName}} – מתכנן המשימות האישי שלך",
     "loadError": "טעינת הנתונים נכשלה. האם השרת פועל?",
     "emptyTodo": "אין כלום על הלוח. כדאי להוסיף משימה ראשונה.",
     "emptyPlan": "אין עדיין כלום בתוכנית השבוע.",

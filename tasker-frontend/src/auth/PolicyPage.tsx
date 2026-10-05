@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom';
-import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import { usePublicConfig, type PublicConfig } from '../publicConfig';
@@ -8,6 +7,7 @@ import ppContent from './privacy-policy.md?raw';
 import aboutContent from './about.md?raw';
 import faqContent from './faq.md?raw';
 import { Arrow } from '../components/Arrow';
+import styles from './PolicyPage.module.css';
 
 /** The privacy policy's AI data-retention sentence, present only while it's true. Mirrors `AI_RETENTION_NOTE` in `ContentPage.kt`. */
 const AI_RETENTION_NOTE =
@@ -29,28 +29,20 @@ function fillPlaceholders(md: string, config: PublicConfig): string {
         .replaceAll('{{AI_RETENTION_NOTE}}', config.aiZeroDataRetention ? AI_RETENTION_NOTE : '');
 }
 
-/**
- * The document title of every other route — mirrors the default `<title>` in `index.html`. Restored
- * explicitly rather than captured on mount: on a direct visit the server already titled the document
- * after this page.
- */
-function homeTitle(appName: string): string {
-    return `${appName} - your personal tasks planner`;
-}
-
 interface PolicyPageProps {
     title: string;
     body: string;
 }
 
 function PolicyPage({ title, body }: PolicyPageProps) {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const config = usePublicConfig();
     const { branding } = config;
-    useEffect(() => {
-        document.title = `${title} — ${branding.name}`;
-        return () => { document.title = homeTitle(branding.name); };
-    }, [title, branding.name]);
+    // `document.title` is owned by `useDocumentTitle` in `App`. The page text stays English
+    // (docs/archive/I18N.md), so say so to anyone reading the page in another language, and mark the
+    // text as English so screen readers don't read it with the UI language's voice and an RTL UI
+    // doesn't mirror it.
+    const englishOnly = i18n.resolvedLanguage !== 'en';
 
     return (
         <main className="board-wrap">
@@ -60,7 +52,10 @@ function PolicyPage({ title, body }: PolicyPageProps) {
                     <h1>{title}</h1>
                     <Link to="/" className="link-btn"><Arrow direction="back" /> {t('policyPage.backHome', { appName: branding.name })}</Link>
                 </header>
-                <MarkdownRenderer content={fillPlaceholders(body, config)} showExpandButton={false} />
+                {englishOnly && <p className={styles.notice}>{t('policyPage.englishOnly')}</p>}
+                <div lang="en" dir="ltr">
+                    <MarkdownRenderer content={fillPlaceholders(body, config)} showExpandButton={false} />
+                </div>
             </article>
         </main>
     );
