@@ -20,4 +20,8 @@ describe('notePreview', () => {
   it('drops fenced code blocks entirely', () => {
     expect(notePreview('Before\n\n```\ncode here\n```\n\nAfter')).toBe('Before After');
   });
+
+  it('drops checklist boxes along with their bullets', () => {
+    expect(notePreview('- [ ] milk\n- [x] eggs')).toBe('milk eggs');
+  });
 });

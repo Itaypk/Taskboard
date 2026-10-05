@@ -22,6 +22,8 @@ interface TaskLineProps {
   onClick: () => void;
   onContextMenu?: (e: React.MouseEvent) => void;
   onFollowLink?: () => void;
+  /** Toggles the description's N-th checklist item; omitted, the checkboxes are read-only. */
+  onToggleCheckbox?: (index: number) => void;
 }
 
 const FALLBACK_SWATCH: PaperSwatchId = 'cream';
@@ -36,6 +38,7 @@ export function TaskLine({
   onClick,
   onContextMenu,
   onFollowLink,
+  onToggleCheckbox,
 }: TaskLineProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -163,7 +166,7 @@ export function TaskLine({
           <div className={styles.foldInner}>
             <div className={styles.foldBody}>
               {task.description && (
-                <MarkdownRenderer content={task.description} showExpandButton={false} />
+                <MarkdownRenderer content={task.description} showExpandButton={false} onToggleCheckbox={onToggleCheckbox} />
               )}
               {link && (
                 <button

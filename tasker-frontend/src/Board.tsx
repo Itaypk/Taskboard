@@ -47,6 +47,7 @@ import { notifyToast } from './toast';
 import { formatDate } from './i18n/format';
 import type { Task, UserSettings, Tag, CurrentPlan, TaskFilter, ViewMode } from './types';
 import { sortTasks, isSortMode, type SortMode } from './sort';
+import { toggleChecklistItem } from './checklist';
 import { isFutureDate, todayIso } from './recurrence';
 
 const ACTIVE_BOARD_KEY = 'backlog.activeBoardId';
@@ -563,6 +564,25 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
     });
   }, [tasks, activeBoardId, filter, fetchStatus, announceCompletion]);
 
+  /**
+   * Flips one checklist item in a task's note straight from the board (#237). Optimistic, since a
+   * checkbox that lags the click feels broken; a failed save puts the old note back.
+   */
+  const handleToggleChecklistItem = useCallback((id: string, index: number) => {
+    const task = tasks.find(t => t.id === id);
+    if (!task?.description || !activeBoardId) return;
+    const description = toggleChecklistItem(task.description, index);
+    if (description === task.description) return;
+    const setDescription = (value: string) =>
+      setTasks(prev => prev.map(t => t.id === id ? { ...t, description: value } : t));
+    setDescription(description);
+    const { id: _id, createdAt: _ca, sortKey: _sk, ...payload } = task;
+    updateTask(activeBoardId, id, { ...payload, description }).catch(e => {
+      console.error('Failed to toggle checklist item', e);
+      setDescription(task.description!);
+    });
+  }, [tasks, activeBoardId]);
+
   /** Brings a waiting recurring task back now (e.g. after an accidental "done"). The server re-derives the deadline. */
   const handleDoItNow = useCallback(async (id: string) => {
     const task = tasks.find(t => t.id === id);
@@ -917,6 +937,8 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
                     onClick: () => { setIsCreating(false); setSelectedId(task.id); },
                     onContextMenu: (e: React.MouseEvent) => setContextMenu({ x: e.clientX, y: e.clientY, taskId: task.id, inPlan: isInCurrentPlan(task) }),
                     onFollowLink: () => followTaskLink(task),
+                    // Tutorial tasks are read-only on the client.
+                    onToggleCheckbox: task.tutorial ? undefined : (index: number) => handleToggleChecklistItem(task.id, index),
                   };
                   return viewMode === 'compact'
                     ? <TaskLine key={task.id} {...props} />

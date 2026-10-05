@@ -28,6 +28,8 @@ interface PostItNoteProps {
   onContextMenu?: (e: React.MouseEvent) => void;
   /** Follows the task's link field (external/internal/action); only wired when the task has a link. */
   onFollowLink?: () => void;
+  /** Toggles the description's N-th checklist item; omitted, the checkboxes are read-only. */
+  onToggleCheckbox?: (index: number) => void;
 }
 
 const FALLBACK_SWATCH: PaperSwatchId = 'cream';
@@ -42,6 +44,7 @@ export function PostItNote({
   onClick,
   onContextMenu,
   onFollowLink,
+  onToggleCheckbox,
 }: PostItNoteProps) {
   const { t } = useTranslation();
   const swatchId = category?.swatchId ?? FALLBACK_SWATCH;
@@ -117,7 +120,7 @@ export function PostItNote({
 
       {task.description && (
         <div className="note__desc">
-          <MarkdownRenderer content={task.description} maxLength={120} showExpandButton={false} />
+          <MarkdownRenderer content={task.description} maxLength={120} showExpandButton={false} onToggleCheckbox={onToggleCheckbox} />
         </div>
       )}
 
