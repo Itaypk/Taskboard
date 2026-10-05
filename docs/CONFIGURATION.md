@@ -81,6 +81,10 @@ Telegram *login* is offered only when both the client id and secret are set.
 
 - `TASKER_AI_API_KEY` — OpenRouter API key. Without it the app runs, but the weekly planning
   assistant and AI capture are unavailable (a warning is logged at startup).
+- `TASKER_AI_PLANNING_MODEL` — OpenRouter model slug for the weekly planning conversation; default
+  `google/gemini-3.5-flash-lite` (rationale in `application.yaml`).
+- `TASKER_AI_TASK_ASSISTANT_MODEL` — model for the planner's task search/suggestion sub-agents and
+  reminders; defaults to the planning model.
 - `TASKER_AI_MULTIMODAL_MODEL` — model slug used for Telegram quick-add captures that carry an
   attachment (photos, voice notes); defaults to the task-assistant model. See
   `docs/MULTIMODAL-CAPTURE.md`.
@@ -88,7 +92,8 @@ Telegram *login* is offered only when both the client id and secret are set.
   `provider.zdr`, so it is only routed to endpoints that retain no prompt data (set on every request
   by `ReasoningAwareAiClient`; `false` explicitly lifts it, since the client library defaults to on). Every configured model needs a ZDR endpoint — check
   `https://openrouter.ai/api/v1/endpoints/zdr`; `:free` variants generally have none — or its calls
-  fail. The login page, the landing fallback and the privacy policy only promise zero data retention
+  fail. `ZeroDataRetentionCheck` looks the configured models up there at startup and logs a warning
+  naming any that have none. The login page, the landing fallback and the privacy policy only promise zero data retention
   while it is on (and AI is configured), via `aiZeroDataRetention` in the inline public config.
 - `TASKER_AI_TIER_CAP_MAX_GRANTED_USERS` — hard cap (default `50`) on claimed accounts holding the
   full `standard`/`unlimited` grant at once; a budget safety valve while the app runs on a prepaid,

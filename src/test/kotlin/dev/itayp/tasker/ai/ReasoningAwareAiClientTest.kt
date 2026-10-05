@@ -20,7 +20,7 @@ class ReasoningAwareAiClientTest {
     private val aiClient: AiClient = mock()
     private val reasoningResolver: ReasoningResolver = mock()
     private val context = AiCallContext("user", AiConversationType.WEEKLY_PLANNING)
-    private val request = ChatRequest(model = "google/gemini-3.1-flash-lite", messages = listOf(ChatMessage(role = "user", content = "hi")))
+    private val request = ChatRequest(model = "google/gemini-3.5-flash-lite", messages = listOf(ChatMessage(role = "user", content = "hi")))
 
     private fun sentRequest(zeroDataRetention: Boolean, request: ChatRequest = this.request): ChatRequest {
         whenever(aiClient.chat(any(), any())).thenReturn(ChatResponse(id = "resp-1", choices = emptyList(), usage = null, model = "resolved/model", provider = "Google"))

@@ -62,17 +62,19 @@ tasker:
   ai:
     api-key: ${TASKER_AI_API_KEY:}
     base-url: ${TASKER_AI_BASE_URL:https://openrouter.ai/api/v1}
-    # Not a `:free` variant: those have no zero-data-retention endpoints (see zero-data-retention below).
-    weekly-planning-model: ${TASKER_AI_PLANNING_MODEL:openai/gpt-oss-20b}
+    # Default for every AI feature (the hosted instance runs it for all of them): capable, strong
+    # multilingual support (the app speaks en/he/ru/ar), multimodal input for photo and voice-note
+    # captures, zero-data-retention endpoints (see zero-data-retention below), and very budget-friendly.
+    weekly-planning-model: ${TASKER_AI_PLANNING_MODEL:google/gemini-3.5-flash-lite}
     # Model for the planner's task search/suggestion sub-agents; defaults to the planning model.
-    task-assistant-model: ${TASKER_AI_TASK_ASSISTANT_MODEL:${TASKER_AI_PLANNING_MODEL:openai/gpt-oss-20b}}
+    task-assistant-model: ${TASKER_AI_TASK_ASSISTANT_MODEL:${TASKER_AI_PLANNING_MODEL:google/gemini-3.5-flash-lite}}
     # Model for quick-add captures carrying an image or a voice note; defaults to the task-assistant
     # model. Must advertise the matching input modality (image / audio) in OpenRouter's model
     # capabilities, or media capture is declined with a "describe it in text" reply.
     multimodal-model: ${TASKER_AI_MULTIMODAL_MODEL:}
     # Send every call only to provider endpoints that retain no prompt data (OpenRouter `provider.zdr`).
     # Every configured model needs a ZDR endpoint (https://openrouter.ai/api/v1/endpoints/zdr), or its
-    # calls fail.
+    # calls fail; ZeroDataRetentionCheck warns about that at startup.
     zero-data-retention: ${TASKER_AI_ZERO_DATA_RETENTION:true}
     # Reasoning/effort level per functionality. Value: minimal|low|medium|high, or blank (default)
     # for no reasoning override. Only sent to models whose capabilities (fetched at startup) report
