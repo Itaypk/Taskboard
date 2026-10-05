@@ -198,6 +198,16 @@
     "dismiss": "סיום",
     "lastUsed": "שימוש אחרון {{date}}",
     "neverUsed": "מעולם לא היה בשימוש",
+    "expiryLabel": "תוקף",
+    "expiresOn": "בתוקף עד {{date}}",
+    "expiredOn": "פג תוקף ב‑{{date}}",
+    "neverExpires": "ללא תפוגה",
+    "expiry": {
+      "days30": "30 יום",
+      "days90": "90 יום",
+      "days365": "שנה",
+      "never": "ללא תפוגה"
+    },
     "confirmRevoke": "לבטל את „{{name}}”? כל מה שמשתמש במפתח הזה יפסיק לעבוד מיד.",
     "docsHint": "כדי ללמד את העוזר להשתמש בזה, אפשר להפנות אותו אל /external-api/SKILL.md.",
     "scopes": {

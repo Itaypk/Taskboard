@@ -42,7 +42,15 @@ Scope is `read` or `write`, enforced as Spring authorities (`EXTERNAL_READ` / `E
 on the filter chain rather than in controller code. `last_used_at` is written at most once a
 minute per token, guarded by an in-process map, so reads don't become writes.
 
-Tokens are capped at 5 live per user. Minting lives at `POST /api/v1/api-tokens` — on the
+Tokens can expire. Settings offers 30 days, 90 days (the default), a year, or no expiration;
+the API takes `expiresInDays` (1–365, omitted means never). "No expiration" stays available on
+purpose: an unattended automation that silently dies after 90 days is its own failure mode, and
+the user is the one who knows which they are building. An expired token answers the same
+uniform 401 as a revoked or unknown one — the skill tells an agent that a 401 means "ask the user
+for a new token" — and stays listed in Settings, marked expired, so the user can see why an
+automation stopped.
+
+Tokens are capped at 5 live per user; expired tokens don't count. Minting lives at `POST /api/v1/api-tokens` — on the
 **session** chain — so a leaked token can never mint a successor or widen its own scope.
 
 ## Auth wiring

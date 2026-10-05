@@ -17,6 +17,9 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.test.context.ActiveProfiles
+import java.sql.Timestamp
+import java.time.Duration
+import java.time.Instant
 import java.util.UUID
 
 /**
@@ -105,6 +108,24 @@ class ExternalApiSecurityIntegrationTest(
 
         assertThat(get("/api/external/v1/tasks", bearer(created.plaintext)).statusCode)
             .isEqualTo(HttpStatus.UNAUTHORIZED)
+    }
+
+    @Test
+    fun `an expired token stops working and no longer counts toward the cap`() {
+        val userId = devUserId()
+        val tokens = (1..ApiTokenService.MAX_LIVE_TOKENS_PER_USER).map {
+            apiTokenService.createToken(userId, "expiring-$it", ApiTokenScope.WRITE, Duration.ofDays(30))
+        }
+        // Backdate rather than wait: the expiry check is against the real clock.
+        jdbcTemplate.update(
+            "UPDATE api_token SET expires_at = ? WHERE user_id = ?",
+            Timestamp.from(Instant.now().minusSeconds(60)), userId,
+        )
+
+        assertThat(get("/api/external/v1/tasks", bearer(tokens.first().plaintext)).statusCode)
+            .isEqualTo(HttpStatus.UNAUTHORIZED)
+        // The cap counts usable tokens only, so a full set of expired ones doesn't block a replacement.
+        assertThat(mintToken()).startsWith(ApiTokenService.TOKEN_PREFIX)
     }
 
     @Test

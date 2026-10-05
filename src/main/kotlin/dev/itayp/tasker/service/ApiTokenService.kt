@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.ResponseStatus
 import java.security.SecureRandom
 import java.time.Clock
+import java.time.Duration
 import java.time.Instant
 import java.util.Base64
 import java.util.UUID
@@ -60,9 +61,13 @@ class ApiTokenService(
     private val lastUsedWrites = ConcurrentHashMap<UUID, Long>()
 
     @Transactional
-    fun createToken(userId: UUID, name: String, scope: String, expiresAt: Instant? = null): CreatedApiToken {
+    /** [lifetime] null means the token never expires. */
+    fun createToken(userId: UUID, name: String, scope: String, lifetime: Duration? = null): CreatedApiToken {
         require(scope in ApiTokenScope.allowedValues) { "Unknown token scope: $scope" }
-        val live = apiTokenRepository.countByUserIdAndRevokedAtIsNull(userId)
+        require(lifetime == null || lifetime.isPositive) { "Token lifetime must be positive: $lifetime" }
+        val now = clock.instant()
+        // Expired tokens don't count: they no longer authenticate, so they shouldn't block a replacement.
+        val live = apiTokenRepository.countUsable(userId, now)
         if (live >= MAX_LIVE_TOKENS_PER_USER) {
             throw ApiTokenLimitExceededException(
                 "You already have $MAX_LIVE_TOKENS_PER_USER active API tokens. Revoke one to create another."
@@ -77,11 +82,14 @@ class ApiTokenService(
             this.tokenHash = CapabilityTokens.hash(plaintext)
             this.prefix = plaintext.take(PREFIX_LENGTH)
             this.scope = scope
-            this.createdAt = clock.instant()
-            this.expiresAt = expiresAt
+            this.createdAt = now
+            this.expiresAt = lifetime?.let { now.plus(it) }
         }
         val saved = apiTokenRepository.save(entity)
-        logger.info("Created API token {} (scope {}) for user {}", saved.id, scope, userId)
+        logger.info(
+            "Created API token {} (scope {}, expires {}) for user {}",
+            saved.id, scope, saved.expiresAt ?: "never", userId,
+        )
         return CreatedApiToken(saved, plaintext)
     }
 
@@ -111,6 +119,10 @@ class ApiTokenService(
         return AuthenticatedApiToken(tokenId, userId, entity.scope ?: ApiTokenScope.READ)
     }
 
+    /**
+     * Unrevoked tokens, expired ones included: an automation that just started getting 401s is
+     * exactly when the user opens this list, and "expired on …" is the answer they're after.
+     */
     @Transactional(readOnly = true)
     fun listTokens(userId: UUID): List<ApiTokenEntity> =
         apiTokenRepository.findAllByUserIdOrderByCreatedAtDesc(userId)

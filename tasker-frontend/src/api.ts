@@ -583,8 +583,13 @@ export interface CreatedApiToken {
 export const fetchApiTokens = (): Promise<ApiToken[]> =>
     apiRequest('/api-tokens');
 
-export const createApiToken = (name: string, scope: ApiTokenScope): Promise<CreatedApiToken> =>
-    apiRequest('/api-tokens', { method: 'POST', ...jsonBody({ name, scope }) });
+/** [expiresInDays] null mints a token that never expires. */
+export const createApiToken = (
+    name: string,
+    scope: ApiTokenScope,
+    expiresInDays: number | null,
+): Promise<CreatedApiToken> =>
+    apiRequest('/api-tokens', { method: 'POST', ...jsonBody({ name, scope, expiresInDays }) });
 
 export const revokeApiToken = (id: string): Promise<void> =>
     apiRequest(`/api-tokens/${id}`, { method: 'DELETE' });
