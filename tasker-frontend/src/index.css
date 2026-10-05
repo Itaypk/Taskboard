@@ -1584,6 +1584,21 @@ input[type="number"] { -moz-appearance: textfield; }
 
 .markdown-content li { margin-bottom: 4px; }
 
+/* Checklist items: the checkbox takes the bullet's place in the gutter, so text stays aligned
+   with plain items. Loose lists wrap the item's content in a <p>, hence the second selector. */
+.markdown-content li:has(> input[type="checkbox"]),
+.markdown-content li:has(> p:first-child > input[type="checkbox"]) {
+  list-style: none;
+}
+.markdown-content li > input[type="checkbox"],
+.markdown-content li > p:first-child > input[type="checkbox"] {
+  margin-block: 0;
+  margin-inline: -20px 6px;
+  vertical-align: -1px;
+  accent-color: var(--stamp);
+}
+.markdown-content input[type="checkbox"]:not(:disabled) { cursor: pointer; }
+
 .markdown-content ul ul,
 .markdown-content ol ol,
 .markdown-content ul ol,

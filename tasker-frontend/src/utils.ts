@@ -69,6 +69,7 @@ export function notePreview(markdown: string): string {
     .replace(/^\s*>\s?/gm, '')                  // blockquotes
     .replace(/^\s*[-*+]\s+/gm, '')              // bullet markers
     .replace(/^\s*\d+\.\s+/gm, '')              // ordered markers
+    .replace(/^\[[ xX]\]\s+/gm, '')              // checklist boxes (their bullet is already gone)
     .replace(/[*_~#]/g, '')                     // stray emphasis/heading marks
     .replace(/\s+/g, ' ')
     .trim();
