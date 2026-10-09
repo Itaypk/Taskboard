@@ -30,7 +30,7 @@ class AuthController(
         if (principal == null) return ResponseEntity.noContent().build()
         val user: UserEntity = userRepository.findById(principal.userId).orElse(null)
             ?: return ResponseEntity.noContent().build()
-        val language = userSettingsService.getPreferredLanguage(principal.userId)
-        return ResponseEntity.ok(user.toMeResponse(userCrypto, language))
+        val settings = userSettingsService.getBootstrapSettings(principal.userId)
+        return ResponseEntity.ok(user.toMeResponse(userCrypto, settings))
     }
 }

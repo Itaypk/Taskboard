@@ -58,6 +58,7 @@ const VIEW_MODE_KEY = 'backlog.viewMode:';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { resolveTaskLink, settingsTabFromPath, type BoardSettingsTab } from './taskLink';
 import { useAuth } from './auth/AuthContext';
+import { useTimeZoneDetection } from './auth/useTimeZoneDetection';
 import { mascotFor } from './mascots';
 import BalloonCelebration from './components/BalloonCelebration';
 import i18n from './i18n';
@@ -96,6 +97,7 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
   const { t } = useTranslation();
   const { name: appName } = useBranding();
   const { state: authState } = useAuth();
+  useTimeZoneDetection();
   const location = useLocation();
   const navigate = useNavigate();
   // Settings is a URL-driven modal: `/settings[/<tab>]` opens it on the matching tab, so deep links

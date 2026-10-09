@@ -17,6 +17,8 @@ export interface AuthUser {
     claimed: boolean;
     /** Stored UI-language preference (e.g. `en-US`, `he`); drives the i18n locale on boot (docs/I18N.md). */
     preferredLanguage: string;
+    /** True for a new account until the browser's time zone has been reported (`useTimeZoneDetection`). */
+    timeZoneDetectionPending: boolean;
 }
 
 export const fetchMe = (): Promise<AuthUser | null> =>

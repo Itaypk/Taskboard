@@ -189,6 +189,7 @@ class UserSettingsServiceTest {
         verify(settingsRepository).save(captor.capture())
         assertTrue(captor.firstValue.aiEnabled)
         assertEquals(AiTier.STANDARD.tierName, captor.firstValue.aiTier)
+        assertTrue(captor.firstValue.timeZoneDetectionPending)
     }
 
     @Test
@@ -278,5 +279,60 @@ class UserSettingsServiceTest {
         val result = service.update(userId, baseRequest().copy(aiEnabled = true))
 
         assertTrue(result.aiEnabled)
+    }
+
+    private fun stubPendingDetection(pending: Boolean = true, tz: String = "UTC"): UserSettingsEntity {
+        val entity = UserSettingsEntity().apply {
+            userId = this@UserSettingsServiceTest.userId
+            timeZone = tz
+            timeZoneDetectionPending = pending
+        }
+        whenever(settingsRepository.findById(userId)).thenReturn(Optional.of(entity))
+        return entity
+    }
+
+    @Test
+    fun `applyDetectedTimeZone sets a supported zone once and reschedules`() {
+        val entity = stubPendingDetection()
+        whenever(settingsRepository.save(any<UserSettingsEntity>())).thenAnswer { it.arguments[0] }
+
+        service.applyDetectedTimeZone(userId, "Asia/Jerusalem")
+
+        assertEquals("Asia/Jerusalem", entity.timeZone)
+        assertFalse(entity.timeZoneDetectionPending)
+        verify(eventPublisher).publishEvent(UserPlanningScheduleChangedEvent(userId))
+    }
+
+    @Test
+    fun `applyDetectedTimeZone keeps UTC for an unsupported zone but stops asking`() {
+        val entity = stubPendingDetection()
+        whenever(settingsRepository.save(any<UserSettingsEntity>())).thenAnswer { it.arguments[0] }
+
+        service.applyDetectedTimeZone(userId, "Etc/GMT+3")
+
+        assertEquals("UTC", entity.timeZone)
+        assertFalse(entity.timeZoneDetectionPending)
+        verify(eventPublisher, never()).publishEvent(any<Any>())
+    }
+
+    @Test
+    fun `applyDetectedTimeZone is a no-op once detection is no longer pending`() {
+        val entity = stubPendingDetection(pending = false, tz = "Europe/London")
+
+        service.applyDetectedTimeZone(userId, "Asia/Jerusalem")
+
+        assertEquals("Europe/London", entity.timeZone)
+        verify(settingsRepository, never()).save(any<UserSettingsEntity>())
+        verify(eventPublisher, never()).publishEvent(any<Any>())
+    }
+
+    @Test
+    fun `update clears pending time zone detection`() {
+        val entity = stubPendingDetection()
+        whenever(settingsRepository.save(any<UserSettingsEntity>())).thenAnswer { it.arguments[0] }
+
+        service.update(userId, baseRequest())
+
+        assertFalse(entity.timeZoneDetectionPending)
     }
 }

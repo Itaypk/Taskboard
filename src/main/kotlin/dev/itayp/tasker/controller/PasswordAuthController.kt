@@ -49,7 +49,7 @@ class PasswordAuthController(
         val user = localLoginService.login(body.username, body.password, request.clientIp(), localeHint)
             ?: return invalidCredentials()
         sessionAuthenticator.authenticate(TaskerPrincipal(user.id!!), request, response)
-        return ResponseEntity.ok<Any>(user.toMeResponse(userCrypto, userSettingsService.getPreferredLanguage(user.id!!)))
+        return ResponseEntity.ok<Any>(user.toMeResponse(userCrypto, userSettingsService.getBootstrapSettings(user.id!!)))
     }
 
     // 400 rather than 401: the SPA treats any 401 as "your session expired" and resets auth state,

@@ -24,6 +24,10 @@ class UserSettingsEntity {
     @Column(name = "time_zone", nullable = false)
     var timeZone: String = "UTC"
 
+    /** True from registration until the browser's zone has been reported (see UserSettingsService.applyDetectedTimeZone). */
+    @Column(name = "time_zone_detection_pending", nullable = false)
+    var timeZoneDetectionPending: Boolean = false
+
     @Column(name = "preferred_language", nullable = false)
     var preferredLanguage: String = "en-US"
 

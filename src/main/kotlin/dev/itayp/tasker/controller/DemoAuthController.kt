@@ -46,6 +46,6 @@ class DemoAuthController(
         val localeHint = localeNegotiationService.resolveSupportedTag(lang, request.getHeader("Accept-Language"))
         val user = userAuthService.createUnclaimedUser(localeHint)
         sessionAuthenticator.authenticate(TaskerPrincipal(user.id!!), request, response)
-        return ResponseEntity.ok(user.toMeResponse(userCrypto, userSettingsService.getPreferredLanguage(user.id!!)))
+        return ResponseEntity.ok(user.toMeResponse(userCrypto, userSettingsService.getBootstrapSettings(user.id!!)))
     }
 }

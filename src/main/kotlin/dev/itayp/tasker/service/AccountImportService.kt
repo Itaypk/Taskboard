@@ -105,6 +105,7 @@ class AccountImportService(
             settings.displayName = userCrypto.encrypt(userId, s.displayName)
             settings.contextBlock = userCrypto.encrypt(userId, s.contextBlock)
             settings.timeZone = s.timeZone
+            settings.timeZoneDetectionPending = false
             settings.preferredLanguage = s.preferredLanguage
             settings.calendarInviteEmail = s.calendarInviteEmail
             settings.appReminders = s.appReminders
