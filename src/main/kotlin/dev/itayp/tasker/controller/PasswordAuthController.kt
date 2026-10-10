@@ -6,7 +6,7 @@ import dev.itayp.tasker.model.response.toMeResponse
 import dev.itayp.tasker.security.SessionAuthenticator
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.LocalLoginService
-import dev.itayp.tasker.service.LocaleNegotiationService
+import dev.itayp.tasker.service.RegistrationHintsResolver
 import dev.itayp.tasker.service.UserSettingsService
 import dev.itayp.tasker.util.clientIp
 import jakarta.servlet.http.HttpServletRequest
@@ -33,23 +33,24 @@ class PasswordAuthController(
     private val sessionAuthenticator: SessionAuthenticator,
     private val userCrypto: UserCryptoService,
     private val userSettingsService: UserSettingsService,
-    private val localeNegotiationService: LocaleNegotiationService,
+    private val registrationHintsResolver: RegistrationHintsResolver,
 ) {
 
     @PostMapping("/password")
     fun login(
         @Valid @RequestBody body: PasswordLoginRequest,
         @RequestParam(required = false) lang: String?,
+        @RequestParam(required = false) tz: String?,
         request: HttpServletRequest,
         response: HttpServletResponse,
     ): ResponseEntity<Any> {
         // Same answer whether local login is off, the username is unknown or the password is wrong.
         if (!localLoginService.enabled) return invalidCredentials()
-        val localeHint = localeNegotiationService.resolveSupportedTag(lang, request.getHeader("Accept-Language"))
-        val user = localLoginService.login(body.username, body.password, request.clientIp(), localeHint)
+        val hints = registrationHintsResolver.resolve(lang, request.getHeader("Accept-Language"), tz)
+        val user = localLoginService.login(body.username, body.password, request.clientIp(), hints)
             ?: return invalidCredentials()
         sessionAuthenticator.authenticate(TaskerPrincipal(user.id!!), request, response)
-        return ResponseEntity.ok<Any>(user.toMeResponse(userCrypto, userSettingsService.getBootstrapSettings(user.id!!)))
+        return ResponseEntity.ok<Any>(user.toMeResponse(userCrypto, userSettingsService.getPreferredLanguage(user.id!!)))
     }
 
     // 400 rather than 401: the SPA treats any 401 as "your session expired" and resets auth state,

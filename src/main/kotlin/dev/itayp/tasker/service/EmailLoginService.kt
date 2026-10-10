@@ -133,7 +133,7 @@ class EmailLoginService(
      * marked consumed before the account is resolved, so a replay is rejected.
      */
     @Transactional
-    fun completeLogin(token: String, acceptLanguage: String? = null): EmailLoginResult {
+    fun completeLogin(token: String, hints: RegistrationHints = RegistrationHints.NONE): EmailLoginResult {
         val row = tokenRepository.findById(CapabilityTokens.hash(token)).orElse(null)
             ?: return EmailLoginResult.Invalid
         val expiry = row.expiresAt ?: return EmailLoginResult.Invalid
@@ -146,10 +146,9 @@ class EmailLoginService(
         val email = userCrypto.decryptSystem(row.emailEnc)
             ?: return EmailLoginResult.Invalid
 
-        // On first use this registers the account; seed its language from the (browser) request that
-        // clicked the link. An existing account keeps its stored preference (hint is ignored there).
-        val localeHint = localeNegotiationService.resolveSupportedTag(acceptLanguage)
-        return when (val outcome = userAuthService.loginByEmail(email, localeHint)) {
+        // On first use this registers the account, seeded from the (browser) request that clicked the
+        // link. An existing account keeps its stored settings (the hints are ignored there).
+        return when (val outcome = userAuthService.loginByEmail(email, hints)) {
             is EmailLoginOutcome.Success -> EmailLoginResult.Success(outcome.user)
             EmailLoginOutcome.UnverifiedConflict -> EmailLoginResult.UnverifiedConflict
         }

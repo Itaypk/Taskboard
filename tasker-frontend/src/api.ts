@@ -437,11 +437,6 @@ export const fetchAiUsage = (): Promise<AiUsage> =>
 export const clearDeadlineMutes = (): Promise<{ cleared: number }> =>
     apiRequest('/settings/deadline-mutes', { method: 'DELETE' });
 
-/** Reports the browser's time zone for a new account; the server applies it at most once. Silent on
- * failure (emitErrors: false) — the user didn't ask for it, and Settings is the fallback. */
-export const reportDetectedTimeZone = (timeZone: string): Promise<void> =>
-    apiRequest('/settings/time-zone/detected', { method: 'POST', ...jsonBody({ timeZone }) }, { emitErrors: false });
-
 export const requestEmailVerification = (email: string): Promise<void> =>
     apiRequest('/settings/email', { method: 'POST', ...jsonBody({ email }) });
 

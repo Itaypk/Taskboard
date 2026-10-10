@@ -44,7 +44,7 @@ class UserAuthService(
         verified: Boolean,
         onExisting: (UserEntity) -> Unit,
         onCreate: (UserEntity) -> Unit,
-        localeHint: String? = null,
+        hints: RegistrationHints = RegistrationHints.NONE,
     ): UserEntity {
         val now = clock.instant()
         val identity = authIdentityRepository.findByProviderAndProviderUserId(provider, providerUserId)
@@ -79,20 +79,20 @@ class UserAuthService(
         onCreate(draft)
         val saved = userRepository.save(draft)
         attachIdentity(newId, provider, providerUserId, verified, now)
-        userService.initializeNewUser(saved.id!!, localeHint, claimed = true)
+        userService.initializeNewUser(saved.id!!, hints, claimed = true)
         logger.info("Registered new user {} via {}", saved.id, provider)
         return saved
     }
 
     @Transactional
-    fun loginOrRegisterByTelegram(data: TelegramAuthData, localeHint: String? = null): UserEntity =
+    fun loginOrRegisterByTelegram(data: TelegramAuthData, hints: RegistrationHints = RegistrationHints.NONE): UserEntity =
         loginOrRegister(
             provider = AuthProvider.TELEGRAM,
             providerUserId = data.telegramId.toString(),
             verified = true,
             onExisting = { user -> applyTelegramProfile(user, data) },
             onCreate = { user -> applyTelegramProfile(user, data) },
-            localeHint = localeHint,
+            hints = hints,
         )
 
     private fun applyTelegramProfile(user: UserEntity, data: TelegramAuthData) {
@@ -112,7 +112,7 @@ class UserAuthService(
      * The caller is responsible for having proven ownership of [email] (the magic-link click).
      */
     @Transactional
-    fun loginByEmail(email: String, localeHint: String? = null): EmailLoginOutcome {
+    fun loginByEmail(email: String, hints: RegistrationHints = RegistrationHints.NONE): EmailLoginOutcome {
         val normalised = email.trim().lowercase()
         val emailHash = EmailHasher.hash(normalised)
         val existing = userRepository.findByEmailHash(emailHash)
@@ -140,7 +140,7 @@ class UserAuthService(
                 u.emailHash = emailHash
                 u.emailVerifiedAt = clock.instant()
             },
-            localeHint = localeHint,
+            hints = hints,
         )
         return EmailLoginOutcome.Success(user)
     }
@@ -187,7 +187,7 @@ class UserAuthService(
      * than throwaway sample data. See docs/DEMO-ACCOUNT-UNIFICATION.md.
      */
     @Transactional
-    fun createUnclaimedUser(localeHint: String? = null): UserEntity {
+    fun createUnclaimedUser(hints: RegistrationHints = RegistrationHints.NONE): UserEntity {
         registrationPolicy.requireDemoAvailable()
         val unclaimedCount = userRepository.countByClaimed(false)
         if (unclaimedCount >= appProperties.unclaimedAccountCap) {
@@ -208,8 +208,8 @@ class UserAuthService(
         userCrypto.ensureUserKey(newId)
         // Unclaimed/demo accounts always get AI access (on a bounded AiTier.DEMO budget) — the demo
         // is the marketing funnel and must never hit the granted-tier cap (docs/DEMO-ACCOUNT-UNIFICATION.md).
-        userService.initializeNewUser(newId, localeHint, claimed = false)
-        tutorialSeeder.seed(newId, localeHint)
+        userService.initializeNewUser(newId, hints, claimed = false)
+        tutorialSeeder.seed(newId, hints.language)
         // No auth identity yet: the account is unclaimed until the user links a login method.
         logger.info("Created unclaimed user $newId")
         return draft

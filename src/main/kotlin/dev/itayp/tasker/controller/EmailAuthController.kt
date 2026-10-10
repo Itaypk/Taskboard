@@ -8,6 +8,7 @@ import dev.itayp.tasker.service.EmailLoginResult
 import dev.itayp.tasker.service.EmailLoginService
 import dev.itayp.tasker.service.LocaleNegotiationService
 import dev.itayp.tasker.service.RegistrationClosedException
+import dev.itayp.tasker.service.RegistrationHintsResolver
 import dev.itayp.tasker.util.localRedirect
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -34,6 +35,7 @@ class EmailAuthController(
     private val emailLoginService: EmailLoginService,
     private val sessionAuthenticator: SessionAuthenticator,
     private val localeNegotiationService: LocaleNegotiationService,
+    private val registrationHintsResolver: RegistrationHintsResolver,
 ) {
 
     @PostMapping
@@ -65,17 +67,18 @@ class EmailAuthController(
     fun callback(
         @Valid @RequestBody body: TokenRequest,
         @RequestParam(required = false) lang: String?,
+        @RequestParam(required = false) tz: String?,
         request: HttpServletRequest,
         response: HttpServletResponse,
     ): ResponseEntity<Map<String, String>> {
-        // Registration happens here for a first-time address, so the visitor's explicit choice has
-        // to reach it too — this page is anonymous and carries the same language switcher.
-        val header = request.getHeader("Accept-Language")
-        val languageTag = localeNegotiationService.resolveSupportedTag(lang, header) ?: header
+        // Registration happens here for a first-time address, so the visitor's explicit language
+        // choice has to reach it too (this page is anonymous and carries the same switcher), as does
+        // the zone of the browser that clicked the link.
+        val hints = registrationHintsResolver.resolve(lang, request.getHeader("Accept-Language"), tz)
         // Registration closing between the link being sent and clicked is the only way to get here
         // with a closed instance: requestLogin doesn't mail addresses without an account.
         val result = try {
-            emailLoginService.completeLogin(body.token, languageTag)
+            emailLoginService.completeLogin(body.token, hints)
         } catch (_: RegistrationClosedException) {
             return ResponseEntity.ok(mapOf("outcome" to "closed"))
         }

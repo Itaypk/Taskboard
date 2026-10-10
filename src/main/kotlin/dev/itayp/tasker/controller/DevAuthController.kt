@@ -40,7 +40,7 @@ class DevAuthController(
         val user = userAuthService.ensureDevUser(DEV_USER_ID, DEV_USER_TELEGRAM_ID)
         sessionAuthenticator.authenticate(TaskerPrincipal(user.id!!), request, response)
         logger.debug("Successful dev login for user ID ${user.id}")
-        return ResponseEntity.ok(user.toMeResponse(userCrypto, userSettingsService.getBootstrapSettings(user.id!!)))
+        return ResponseEntity.ok(user.toMeResponse(userCrypto, userSettingsService.getPreferredLanguage(user.id!!)))
     }
 
     companion object {

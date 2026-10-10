@@ -9,7 +9,6 @@ import dev.itayp.tasker.model.request.UpdateUserSettingsRequest
 import dev.itayp.tasker.model.response.GenderOption
 import dev.itayp.tasker.model.response.LanguageOption
 import dev.itayp.tasker.repository.UserSettingsRepository
-import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.scheduling.support.CronExpression
 import org.springframework.stereotype.Service
@@ -20,12 +19,6 @@ import java.util.Locale
 import java.util.UUID
 
 data class UserPlanningScheduleChangedEvent(val userId: UUID)
-
-/** The settings `/me` carries so the SPA can act on them at boot, without a settings fetch. */
-data class AccountBootstrapSettings(
-    val preferredLanguage: String,
-    val timeZoneDetectionPending: Boolean,
-)
 
 /** Outcome of [UserSettingsService.appendToContextBlock]. */
 enum class AppendContextResult {
@@ -84,8 +77,6 @@ class UserSettingsService(
         entity.displayName = userCrypto.encrypt(userId, request.displayName)
         entity.contextBlock = userCrypto.encrypt(userId, request.contextBlock)
         entity.timeZone = request.timeZone
-        // The user has now picked (or kept) a zone themselves; a later detection must not override it.
-        entity.timeZoneDetectionPending = false
         entity.preferredLanguage = request.preferredLanguage
         entity.calendarInviteEmail = request.calendarInviteEmail
         entity.appReminders = request.appReminders
@@ -139,49 +130,20 @@ class UserSettingsService(
         settingsRepository.save(entity)
     }
 
-    /**
-     * Applies the time zone the SPA detected in the browser, once per account. Registration has no
-     * reliable zone signal (no header carries it, and the Telegram/email flows land on the server
-     * from outside the SPA), so a new account starts on UTC with [UserSettingsEntity.timeZoneDetectionPending]
-     * set, and the SPA reports `Intl.DateTimeFormat().resolvedOptions().timeZone` on its first
-     * signed-in load. A no-op once the flag is cleared, so it never overrides a zone the user chose.
-     * An unsupported zone clears the flag and keeps UTC rather than failing: there is nothing the
-     * user could do about their browser's answer, and retrying on every load would change nothing.
-     */
-    fun applyDetectedTimeZone(userId: UUID, detectedTimeZone: String) {
-        val entity = fetchOrCreate(userId)
-        if (!entity.timeZoneDetectionPending) return
-        entity.timeZoneDetectionPending = false
-        val changed = detectedTimeZone in SUPPORTED_TIME_ZONES && detectedTimeZone != entity.timeZone
-        if (changed) entity.timeZone = detectedTimeZone
-        settingsRepository.save(entity)
-        if (changed) {
-            logger.info("Applied detected time zone for user {}", userId)
-            eventPublisher.publishEvent(UserPlanningScheduleChangedEvent(userId))
-        } else {
-            logger.debug("Kept existing time zone for user {}: detected zone unsupported or unchanged", userId)
-        }
-    }
-
     fun getLocale(userId: UUID): Locale = toLocale(fetchOrCreate(userId).preferredLanguage)
 
-    /** The settings the auth bootstrap (`/me`) carries, without decrypting the rest of the row: the
-     * language lets the SPA pick its UI locale before first paint (docs/I18N.md, D3), and the
-     * detection flag tells it to report the browser's time zone ([applyDetectedTimeZone]). */
-    fun getBootstrapSettings(userId: UUID): AccountBootstrapSettings {
-        val entity = fetchOrCreate(userId)
-        return AccountBootstrapSettings(entity.preferredLanguage, entity.timeZoneDetectionPending)
-    }
+    /** The stored language tag only, without decrypting the rest of the settings row. Used by the
+     * auth bootstrap (`/me`) so the SPA can pick its UI locale before first paint (docs/I18N.md, D3). */
+    fun getPreferredLanguage(userId: UUID): String = fetchOrCreate(userId).preferredLanguage
 
     /** Maps a stored `preferredLanguage` tag to a [Locale]. Centralized so callers that already hold
      * a [UserSettings] don't re-fetch (and so the tag→locale rule lives in one place). */
     fun toLocale(preferredLanguage: String): Locale = Locale.forLanguageTag(preferredLanguage)
 
     /**
-     * Creates the settings row for a brand-new user. [preferredLanguage], when non-null, is a
-     * supported language code resolved from the registration request's `Accept-Language` (see
-     * docs/I18N.md, D2); when null the entity's `en-US` default stands. Only ever called once per
-     * user, at registration.
+     * Creates the settings row for a brand-new user, seeded from the registration request's [hints]:
+     * the language (docs/I18N.md, D2) and the time zone the browser reported. A null hint keeps the
+     * entity's default (`en-US`, `UTC`). Only ever called once per user, at registration.
      *
      * [claimed] decides the initial AI grant: an unclaimed (demo) account is always granted
      * [AiTier.DEMO] outright — AI (including the web weekly-planning conversation, which needs no
@@ -196,14 +158,14 @@ class UserSettingsService(
      * registrations — at this app's beta scale a handful of near-simultaneous signups overshooting
      * the cap by one or two is an accepted risk, not engineered around.
      */
-    fun initializeForNewUser(userId: UUID, preferredLanguage: String? = null, claimed: Boolean = true) {
+    fun initializeForNewUser(userId: UUID, hints: RegistrationHints = RegistrationHints.NONE, claimed: Boolean = true) {
         val grantedTier = if (claimed && standardTierCapHasHeadroom()) AiTier.STANDARD else AiTier.DEMO
         settingsRepository.save(UserSettingsEntity().apply {
             this.userId = userId
-            preferredLanguage?.let { this.preferredLanguage = it }
+            hints.language?.let { this.preferredLanguage = it }
+            hints.timeZone?.let { this.timeZone = it }
             this.aiEnabled = true
             this.aiTier = grantedTier.tierName
-            this.timeZoneDetectionPending = true
         })
     }
 
@@ -299,8 +261,6 @@ class UserSettingsService(
         )
 
     companion object {
-        private val logger = LoggerFactory.getLogger(UserSettingsService::class.java)
-
         /**
          * `0 <minute> <hour> * * <days>` — at most one firing a day. Days are `*` or a comma-separated
          * list of three-letter day names and ranges (`MON-FRI,SUN`).

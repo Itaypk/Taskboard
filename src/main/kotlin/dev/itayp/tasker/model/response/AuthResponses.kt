@@ -2,7 +2,6 @@ package dev.itayp.tasker.model.response
 
 import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.jpa.UserEntity
-import dev.itayp.tasker.service.AccountBootstrapSettings
 
 data class MeResponse(
     val id: String,
@@ -21,9 +20,6 @@ data class MeResponse(
     /** Stored UI-language preference tag (e.g. `en-US`, `he`). Lets the SPA set its i18n locale on
      * boot without a second settings fetch (docs/I18N.md, D3). */
     val preferredLanguage: String,
-    /** True until the SPA has reported the browser's time zone for this new account
-     * (`POST /api/v1/settings/time-zone/detected`). */
-    val timeZoneDetectionPending: Boolean,
 )
 
 /** One linked login method for the "connected accounts" settings screen. Provider-agnostic. */
@@ -51,7 +47,7 @@ data class ActiveSessionResponse(
 /** Result of "sign out everywhere else". */
 data class RevokeSessionsResponse(val revoked: Int)
 
-fun UserEntity.toMeResponse(crypto: UserCryptoService, settings: AccountBootstrapSettings): MeResponse {
+fun UserEntity.toMeResponse(crypto: UserCryptoService, preferredLanguage: String): MeResponse {
     val ownerId = id ?: error("UserEntity must have an id")
     return MeResponse(
         id = ownerId.toString(),
@@ -62,8 +58,7 @@ fun UserEntity.toMeResponse(crypto: UserCryptoService, settings: AccountBootstra
         telegramChatReady = telegramId != null && telegramChatReadyAt != null,
         email = crypto.decrypt(ownerId, email),
         claimed = claimed,
-        preferredLanguage = settings.preferredLanguage,
-        timeZoneDetectionPending = settings.timeZoneDetectionPending,
+        preferredLanguage = preferredLanguage,
     )
 }
 

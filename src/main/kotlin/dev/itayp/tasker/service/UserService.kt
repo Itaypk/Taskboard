@@ -11,16 +11,15 @@ class UserService(
 ) {
 
     /**
-     * [localeHint], when non-null, is a supported language code resolved from the registration
-     * request's `Accept-Language`; it seeds the new user's `preferred_language` (docs/I18N.md, D2).
+     * [hints] seed the new user's settings from the registration request (language, time zone).
      * [claimed] distinguishes a real registration from an unclaimed/demo account — see
      * [UserSettingsService.initializeForNewUser] for how it decides the initial AI grant.
      */
-    fun initializeNewUser(userId: UUID, localeHint: String? = null, claimed: Boolean = true) {
+    fun initializeNewUser(userId: UUID, hints: RegistrationHints = RegistrationHints.NONE, claimed: Boolean = true) {
         // Every account gets a personal board, which owns the default category set and the
         // account's tasks/tags. A board is "private" until other members are invited.
         boardService.createBoardForOwner(userId, BoardService.DEFAULT_BOARD_NAME)
-        userSettingsService.initializeForNewUser(userId, localeHint, claimed)
+        userSettingsService.initializeForNewUser(userId, hints, claimed)
     }
 
     companion object {

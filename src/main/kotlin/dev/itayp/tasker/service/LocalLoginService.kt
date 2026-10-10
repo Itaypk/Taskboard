@@ -52,7 +52,7 @@ class LocalLoginService(
      * Throttled per client IP and per username; either budget running out throws
      * [TooManyLoginAttemptsException] without checking the password at all.
      */
-    fun login(username: String, password: String, clientIp: String, localeHint: String? = null): UserEntity? {
+    fun login(username: String, password: String, clientIp: String, hints: RegistrationHints = RegistrationHints.NONE): UserEntity? {
         val key = normalise(username)
         if (!rateLimiter.tryConsume("ip:$clientIp") || !rateLimiter.tryConsume("user:$key")) {
             log.info("Password login rate-limited")
@@ -70,7 +70,7 @@ class LocalLoginService(
             verified = true,
             onExisting = {},
             onCreate = {},
-            localeHint = localeHint,
+            hints = hints,
         )
     }
 

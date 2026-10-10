@@ -5,7 +5,6 @@ import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.jpa.UserEntity
 import dev.itayp.tasker.repository.UserRepository
 import dev.itayp.tasker.security.TaskerPrincipal
-import dev.itayp.tasker.service.AccountBootstrapSettings
 import dev.itayp.tasker.service.UserSettingsService
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.whenever
@@ -55,14 +54,12 @@ class AuthControllerTest(@Autowired val mockMvc: MockMvc) {
     @Test
     fun `GET me with auth returns current user JSON`() {
         whenever(userRepository.findById(userId)).thenReturn(Optional.of(userEntity()))
-        whenever(userSettingsService.getBootstrapSettings(userId))
-            .thenReturn(AccountBootstrapSettings(preferredLanguage = "he", timeZoneDetectionPending = true))
+        whenever(userSettingsService.getPreferredLanguage(userId)).thenReturn("he")
 
         mockMvc.perform(get("/api/auth/me").with(authentication(auth)))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.id").value(userId.toString()))
             .andExpect(jsonPath("$.telegramUsername").value("alice"))
             .andExpect(jsonPath("$.preferredLanguage").value("he"))
-            .andExpect(jsonPath("$.timeZoneDetectionPending").value(true))
     }
 }

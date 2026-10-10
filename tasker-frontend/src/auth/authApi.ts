@@ -17,8 +17,6 @@ export interface AuthUser {
     claimed: boolean;
     /** Stored UI-language preference (e.g. `en-US`, `he`); drives the i18n locale on boot (docs/I18N.md). */
     preferredLanguage: string;
-    /** True for a new account until the browser's time zone has been reported (`useTimeZoneDetection`). */
-    timeZoneDetectionPending: boolean;
 }
 
 export const fetchMe = (): Promise<AuthUser | null> =>
@@ -26,10 +24,15 @@ export const fetchMe = (): Promise<AuthUser | null> =>
 
 // Telegram login/link use the OIDC redirect flow: navigate the browser to these backend
 // endpoints, which 302 to Telegram and (on the callback) back to the SPA. No fetch/JSON.
-export const telegramLoginUrl = (next?: string): string =>
-    next && next !== '/'
-        ? `/api/auth/telegram/start?next=${encodeURIComponent(next)}`
-        : '/api/auth/telegram/start';
+// Login can register an account, so it carries the time zone too (see withRegistrationHints).
+export const telegramLoginUrl = (next?: string): string => {
+    const params = new URLSearchParams();
+    if (next && next !== '/') params.set('next', next);
+    const timeZone = browserTimeZone();
+    if (timeZone) params.set('tz', timeZone);
+    const query = params.toString();
+    return query ? `/api/auth/telegram/start?${query}` : '/api/auth/telegram/start';
+};
 
 export const TELEGRAM_LINK_URL = '/api/auth/telegram/link/start';
 
@@ -62,11 +65,30 @@ function withLang(path: string): string {
     return `${path}${sep}lang=${encodeURIComponent(getActiveLocale())}`;
 }
 
+/** The browser's IANA time zone, or undefined when the runtime doesn't report one. */
+function browserTimeZone(): string | undefined {
+    try {
+        return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+/**
+ * [withLang] plus the browser's time zone, for the requests that can actually register an account:
+ * no request carries the zone on its own, and without it a new account starts on UTC, so its digest
+ * and reminders fire at the wrong local time. The server drops a zone it doesn't support.
+ */
+function withRegistrationHints(path: string): string {
+    const timeZone = browserTimeZone();
+    return timeZone ? `${withLang(path)}&tz=${encodeURIComponent(timeZone)}` : withLang(path);
+}
+
 // emitErrors: false — this is the landing page's primary call-to-action, and LoginPage renders
 // its own message per status (rate limited vs. at capacity). Without this the generic toast would
 // fire alongside it.
 export const demoLogin = (): Promise<AuthUser> =>
-    request<AuthUser>(withLang('/api/auth/demo-login'), { method: 'POST' }, { emitErrors: false });
+    request<AuthUser>(withRegistrationHints('/api/auth/demo-login'), { method: 'POST' }, { emitErrors: false });
 
 // Passwordless email login: sends a magic link. Always resolves (the backend never
 // reveals whether the address maps to an account). The link itself logs the user in.
@@ -81,7 +103,7 @@ export const requestEmailLogin = (email: string, next?: string): Promise<void> =
 // Username/password login for operator-listed users. emitErrors: false — the form shows its own
 // message per failure (wrong credentials vs. rate limited).
 export const passwordLogin = (username: string, password: string): Promise<AuthUser> =>
-    request<AuthUser>(withLang('/api/auth/password'), {
+    request<AuthUser>(withRegistrationHints('/api/auth/password'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
@@ -94,7 +116,7 @@ export const precheckEmailLogin = (token: string): Promise<{ valid: boolean }> =
 // Consume a magic-link token and establish a session.
 export type EmailCallbackOutcome = 'success' | 'invalid' | 'unverified' | 'closed';
 export const completeEmailLogin = (token: string): Promise<{ outcome: EmailCallbackOutcome }> =>
-    request<{ outcome: EmailCallbackOutcome }>(withLang('/api/auth/email/callback'), {
+    request<{ outcome: EmailCallbackOutcome }>(withRegistrationHints('/api/auth/email/callback'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token }),

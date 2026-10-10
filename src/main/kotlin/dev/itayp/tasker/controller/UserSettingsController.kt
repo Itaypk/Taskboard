@@ -3,7 +3,6 @@ package dev.itayp.tasker.controller
 import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.ai.access.AiUsageSummary
 import dev.itayp.tasker.crypto.UserCryptoService
-import dev.itayp.tasker.model.request.DetectedTimeZoneRequest
 import dev.itayp.tasker.model.request.TokenRequest
 import dev.itayp.tasker.model.request.UpdateEmailRequest
 import dev.itayp.tasker.model.request.UpdateUserSettingsRequest
@@ -73,20 +72,6 @@ class UserSettingsController(
             log.warn("Invalid settings update from user {}: {}", principal.userId, e.message)
             ResponseEntity.badRequest().build()
         }
-    }
-
-    /**
-     * The browser's time zone, reported once by the SPA for a new account (`timeZoneDetectionPending`
-     * on `/me`). Always 204: the service applies it only while detection is pending and the zone is
-     * supported, and the SPA has nothing to do differently either way.
-     */
-    @PostMapping("/time-zone/detected")
-    fun reportDetectedTimeZone(
-        @AuthenticationPrincipal principal: TaskerPrincipal,
-        @Valid @RequestBody request: DetectedTimeZoneRequest,
-    ): ResponseEntity<Unit> {
-        userSettingsService.applyDetectedTimeZone(principal.userId, request.timeZone)
-        return ResponseEntity.noContent().build()
     }
 
     @PostMapping("/email")

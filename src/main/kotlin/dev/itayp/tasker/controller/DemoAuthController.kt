@@ -5,7 +5,7 @@ import dev.itayp.tasker.model.response.MeResponse
 import dev.itayp.tasker.model.response.toMeResponse
 import dev.itayp.tasker.security.SessionAuthenticator
 import dev.itayp.tasker.security.TaskerPrincipal
-import dev.itayp.tasker.service.LocaleNegotiationService
+import dev.itayp.tasker.service.RegistrationHintsResolver
 import dev.itayp.tasker.service.UserAuthService
 import dev.itayp.tasker.service.UserSettingsService
 import jakarta.servlet.http.HttpServletRequest
@@ -23,7 +23,7 @@ class DemoAuthController(
     private val sessionAuthenticator: SessionAuthenticator,
     private val userCrypto: UserCryptoService,
     private val userSettingsService: UserSettingsService,
-    private val localeNegotiationService: LocaleNegotiationService,
+    private val registrationHintsResolver: RegistrationHintsResolver,
 ) {
 
     /**
@@ -35,6 +35,7 @@ class DemoAuthController(
     @PostMapping("/demo-login")
     fun demoLogin(
         @RequestParam(required = false) lang: String?,
+        @RequestParam(required = false) tz: String?,
         request: HttpServletRequest,
         response: HttpServletResponse,
     ): ResponseEntity<MeResponse> {
@@ -43,9 +44,9 @@ class DemoAuthController(
         // `lang` is what the visitor picked in the anonymous language switcher, and outranks the
         // header — otherwise picking Hebrew on an en-US browser yields a Hebrew page whose account
         // is English, and the UI snaps back to English the moment /me resolves.
-        val localeHint = localeNegotiationService.resolveSupportedTag(lang, request.getHeader("Accept-Language"))
-        val user = userAuthService.createUnclaimedUser(localeHint)
+        val hints = registrationHintsResolver.resolve(lang, request.getHeader("Accept-Language"), tz)
+        val user = userAuthService.createUnclaimedUser(hints)
         sessionAuthenticator.authenticate(TaskerPrincipal(user.id!!), request, response)
-        return ResponseEntity.ok(user.toMeResponse(userCrypto, userSettingsService.getBootstrapSettings(user.id!!)))
+        return ResponseEntity.ok(user.toMeResponse(userCrypto, userSettingsService.getPreferredLanguage(user.id!!)))
     }
 }

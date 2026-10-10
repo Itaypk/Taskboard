@@ -8,8 +8,8 @@ import dev.itayp.tasker.security.SessionAuthenticator
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.AccountLinkService
 import dev.itayp.tasker.service.LinkResult
-import dev.itayp.tasker.service.LocaleNegotiationService
 import dev.itayp.tasker.service.RegistrationClosedException
+import dev.itayp.tasker.service.RegistrationHintsResolver
 import dev.itayp.tasker.service.UserAuthService
 import dev.itayp.tasker.util.localRedirect
 import jakarta.servlet.http.HttpServletRequest
@@ -46,7 +46,7 @@ class TelegramOidcController(
     private val userAuthService: UserAuthService,
     private val accountLinkService: AccountLinkService,
     private val sessionAuthenticator: SessionAuthenticator,
-    private val localeNegotiationService: LocaleNegotiationService,
+    private val registrationHintsResolver: RegistrationHintsResolver,
     private val appProperties: AppProperties,
     @Value("\${tasker.telegram.bot-username}") private val botUsername: String,
 ) {
@@ -64,7 +64,11 @@ class TelegramOidcController(
     fun bot(): TelegramBotResponse = TelegramBotResponse(username = botUsername.ifBlank { null })
 
     @GetMapping("/start")
-    fun startLogin(@RequestParam(required = false) next: String?, request: HttpServletRequest): ResponseEntity<Void> {
+    fun startLogin(
+        @RequestParam(required = false) next: String?,
+        @RequestParam(required = false) tz: String?,
+        request: HttpServletRequest,
+    ): ResponseEntity<Void> {
         if (!telegramOidcService.isConfigured()) return redirect("/?telegramLogin=unavailable")
         val authz = telegramOidcService.buildAuthorizationRequest(redirectUri())
         request.session.apply {
@@ -72,6 +76,9 @@ class TelegramOidcController(
             setAttribute(ATTR_VERIFIER, authz.codeVerifier)
             setAttribute(ATTR_MODE, MODE_LOGIN)
             setAttribute(ATTR_NEXT, localRedirect(next))
+            // The callback is a redirect from Telegram, so the browser's zone can only reach it via
+            // the session. Validated here, not at the callback, so nothing unchecked is stored.
+            setAttribute(ATTR_TIME_ZONE, registrationHintsResolver.resolveTimeZone(tz))
         }
         return redirect(authz.authorizationUrl)
     }
@@ -105,6 +112,7 @@ class TelegramOidcController(
         val expectedState = session.getAttribute(ATTR_STATE) as? String
         val verifier = session.getAttribute(ATTR_VERIFIER) as? String
         val next = session.getAttribute(ATTR_NEXT) as? String ?: "/"
+        val timeZone = session.getAttribute(ATTR_TIME_ZONE) as? String
         clearOauthAttributes(session)
 
         val isLink = mode == MODE_LINK
@@ -133,11 +141,11 @@ class TelegramOidcController(
             }
         }
 
-        // Registration seeds preferred_language from the browser that ran the OAuth round-trip;
-        // an existing user's stored preference is untouched (the hint is ignored on login).
-        val localeHint = localeNegotiationService.resolveSupportedTag(request.getHeader("Accept-Language"))
+        // Registration seeds the language and time zone from the browser that ran the OAuth round-trip;
+        // an existing user's stored settings are untouched (the hints are ignored on login).
+        val hints = registrationHintsResolver.resolve(null, request.getHeader("Accept-Language"), timeZone)
         val user = try {
-            userAuthService.loginOrRegisterByTelegram(data, localeHint)
+            userAuthService.loginOrRegisterByTelegram(data, hints)
         } catch (_: RegistrationClosedException) {
             logger.info("Telegram login refused: unknown identity and registration is closed")
             return redirect("/?telegramLogin=closed")
@@ -158,7 +166,7 @@ class TelegramOidcController(
     }
 
     private fun clearOauthAttributes(session: HttpSession) {
-        listOf(ATTR_STATE, ATTR_VERIFIER, ATTR_MODE, ATTR_NEXT).forEach(session::removeAttribute)
+        listOf(ATTR_STATE, ATTR_VERIFIER, ATTR_MODE, ATTR_NEXT, ATTR_TIME_ZONE).forEach(session::removeAttribute)
     }
 
     companion object {
@@ -167,6 +175,7 @@ class TelegramOidcController(
         private const val ATTR_VERIFIER = "tgOauthVerifier"
         private const val ATTR_MODE = "tgOauthMode"
         private const val ATTR_NEXT = "tgOauthNext"
+        private const val ATTR_TIME_ZONE = "tgOauthTimeZone"
         private const val MODE_LOGIN = "login"
         private const val MODE_LINK = "link"
     }
