@@ -6,6 +6,8 @@ import dev.itayp.tasker.security.SessionAuthenticator
 import dev.itayp.tasker.service.EmailLoginResult
 import dev.itayp.tasker.service.EmailLoginService
 import dev.itayp.tasker.service.LocaleNegotiationService
+import dev.itayp.tasker.service.RegistrationHints
+import dev.itayp.tasker.service.RegistrationHintsResolver
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
@@ -28,7 +30,7 @@ import java.util.UUID
 @WebMvcTest(EmailAuthController::class)
 // LocaleNegotiationService is imported for real, not mocked: it is a stateless lookup over a
 // fixed list, and a mock returning null would quietly hide the `lang`-beats-header precedence.
-@Import(SecurityConfiguration::class, LocaleNegotiationService::class)
+@Import(SecurityConfiguration::class, LocaleNegotiationService::class, RegistrationHintsResolver::class)
 class EmailAuthControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @MockitoBean lateinit var emailLoginService: EmailLoginService
@@ -158,5 +160,37 @@ class EmailAuthControllerTest(@Autowired val mockMvc: MockMvc) {
             .andExpect(status().isNoContent)
 
         verify(emailLoginService).requestLogin("someone@example.com", null, "ru")
+    }
+
+    // ── Registration hints ──────────────────────────────────────────────────
+
+    @Test
+    fun `POST callback passes the visitor's language and browser time zone to registration`() {
+        val hints = RegistrationHints(language = "he", timeZone = "Asia/Jerusalem")
+        whenever(emailLoginService.completeLogin("good-token", hints)).thenReturn(EmailLoginResult.Success(userEntity()))
+
+        mockMvc.perform(
+            post("/api/auth/email/callback?lang=he&tz=Asia/Jerusalem")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"token":"good-token"}""")
+                .header("Accept-Language", "en-US")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.outcome").value("success"))
+    }
+
+    @Test
+    fun `POST callback drops an unsupported time zone instead of failing`() {
+        whenever(emailLoginService.completeLogin("good-token", RegistrationHints(language = "ru")))
+            .thenReturn(EmailLoginResult.Success(userEntity()))
+
+        mockMvc.perform(
+            post("/api/auth/email/callback?tz=Mars/Olympus_Mons")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"token":"good-token"}""")
+                .header("Accept-Language", "ru")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.outcome").value("success"))
     }
 }

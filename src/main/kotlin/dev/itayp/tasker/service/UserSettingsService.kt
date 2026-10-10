@@ -141,10 +141,9 @@ class UserSettingsService(
     fun toLocale(preferredLanguage: String): Locale = Locale.forLanguageTag(preferredLanguage)
 
     /**
-     * Creates the settings row for a brand-new user. [preferredLanguage], when non-null, is a
-     * supported language code resolved from the registration request's `Accept-Language` (see
-     * docs/I18N.md, D2); when null the entity's `en-US` default stands. Only ever called once per
-     * user, at registration.
+     * Creates the settings row for a brand-new user, seeded from the registration request's [hints]:
+     * the language (docs/I18N.md, D2) and the time zone the browser reported. A null hint keeps the
+     * entity's default (`en-US`, `UTC`). Only ever called once per user, at registration.
      *
      * [claimed] decides the initial AI grant: an unclaimed (demo) account is always granted
      * [AiTier.DEMO] outright — AI (including the web weekly-planning conversation, which needs no
@@ -159,11 +158,12 @@ class UserSettingsService(
      * registrations — at this app's beta scale a handful of near-simultaneous signups overshooting
      * the cap by one or two is an accepted risk, not engineered around.
      */
-    fun initializeForNewUser(userId: UUID, preferredLanguage: String? = null, claimed: Boolean = true) {
+    fun initializeForNewUser(userId: UUID, hints: RegistrationHints = RegistrationHints.NONE, claimed: Boolean = true) {
         val grantedTier = if (claimed && standardTierCapHasHeadroom()) AiTier.STANDARD else AiTier.DEMO
         settingsRepository.save(UserSettingsEntity().apply {
             this.userId = userId
-            preferredLanguage?.let { this.preferredLanguage = it }
+            hints.language?.let { this.preferredLanguage = it }
+            hints.timeZone?.let { this.timeZone = it }
             this.aiEnabled = true
             this.aiTier = grantedTier.tierName
         })

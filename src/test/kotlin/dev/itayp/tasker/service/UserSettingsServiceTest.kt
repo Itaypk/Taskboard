@@ -192,6 +192,32 @@ class UserSettingsServiceTest {
     }
 
     @Test
+    fun `initializeForNewUser seeds language and time zone from the registration hints`() {
+        whenever(settingsRepository.countByAiTierIn(UserSettingsService.GRANTED_AI_TIER_NAMES)).thenReturn(0L)
+        whenever(settingsRepository.save(any<UserSettingsEntity>())).thenAnswer { it.arguments[0] }
+
+        service.initializeForNewUser(userId, RegistrationHints(language = "he", timeZone = "Asia/Jerusalem"))
+
+        val captor = argumentCaptor<UserSettingsEntity>()
+        verify(settingsRepository).save(captor.capture())
+        assertEquals("he", captor.firstValue.preferredLanguage)
+        assertEquals("Asia/Jerusalem", captor.firstValue.timeZone)
+    }
+
+    @Test
+    fun `initializeForNewUser keeps the defaults without hints`() {
+        whenever(settingsRepository.countByAiTierIn(UserSettingsService.GRANTED_AI_TIER_NAMES)).thenReturn(0L)
+        whenever(settingsRepository.save(any<UserSettingsEntity>())).thenAnswer { it.arguments[0] }
+
+        service.initializeForNewUser(userId)
+
+        val captor = argumentCaptor<UserSettingsEntity>()
+        verify(settingsRepository).save(captor.capture())
+        assertEquals("en-US", captor.firstValue.preferredLanguage)
+        assertEquals("UTC", captor.firstValue.timeZone)
+    }
+
+    @Test
     fun `initializeForNewUser falls back to the bounded DEMO tier for a claimed user once the cap is reached`() {
         whenever(settingsRepository.countByAiTierIn(UserSettingsService.GRANTED_AI_TIER_NAMES)).thenReturn(2L)
         whenever(settingsRepository.save(any<UserSettingsEntity>())).thenAnswer { it.arguments[0] }

@@ -10,7 +10,10 @@ import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.AccountLinkService
 import dev.itayp.tasker.service.LinkResult
 import dev.itayp.tasker.service.LocaleNegotiationService
+import dev.itayp.tasker.service.RegistrationHints
+import dev.itayp.tasker.service.RegistrationHintsResolver
 import dev.itayp.tasker.service.UserAuthService
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
@@ -32,7 +35,7 @@ import java.time.Instant
 import java.util.UUID
 
 @WebMvcTest(TelegramOidcController::class)
-@Import(SecurityConfiguration::class, LocaleNegotiationService::class)
+@Import(SecurityConfiguration::class, LocaleNegotiationService::class, RegistrationHintsResolver::class)
 @TestPropertySource(properties = ["tasker.telegram.bot-username=BacklogFyiBot"])
 class TelegramOidcControllerTest(@Autowired val mockMvc: MockMvc) {
 
@@ -104,6 +107,37 @@ class TelegramOidcControllerTest(@Autowired val mockMvc: MockMvc) {
         )
             .andExpect(status().isFound)
             .andExpect(redirectedUrl("/"))
+    }
+
+    @Test
+    fun `start keeps a supported browser time zone for the callback and drops anything else`() {
+        configured()
+        val session = MockHttpSession()
+        mockMvc.perform(get("/api/auth/telegram/start").param("tz", "Asia/Jerusalem").session(session))
+            .andExpect(status().isFound)
+        assertThat(session.getAttribute("tgOauthTimeZone")).isEqualTo("Asia/Jerusalem")
+
+        val other = MockHttpSession()
+        mockMvc.perform(get("/api/auth/telegram/start").param("tz", "Mars/Olympus_Mons").session(other))
+            .andExpect(status().isFound)
+        assertThat(other.getAttribute("tgOauthTimeZone")).isNull()
+    }
+
+    @Test
+    fun `callback registers with the language header and the time zone kept at start`() {
+        whenever(telegramOidcService.completeAuthorization(any(), any(), any())).thenReturn(data)
+        whenever(userAuthService.loginOrRegisterByTelegram(data, RegistrationHints(language = "he", timeZone = "Asia/Jerusalem")))
+            .thenReturn(UserEntity().apply { id = userId })
+        val session = oauthSession("login").apply { setAttribute("tgOauthTimeZone", "Asia/Jerusalem") }
+
+        mockMvc.perform(
+            get("/api/auth/telegram/callback").param("code", "CODE").param("state", "ST")
+                .header("Accept-Language", "he-IL")
+                .session(session),
+        )
+            .andExpect(status().isFound)
+            .andExpect(redirectedUrl("/"))
+        assertThat(session.getAttribute("tgOauthTimeZone")).isNull()
     }
 
     @Test
