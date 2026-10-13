@@ -24,14 +24,14 @@ export const fetchMe = (): Promise<AuthUser | null> =>
 
 // Telegram login/link use the OIDC redirect flow: navigate the browser to these backend
 // endpoints, which 302 to Telegram and (on the callback) back to the SPA. No fetch/JSON.
-// Login can register an account, so it carries the time zone too (see withRegistrationHints).
+// Login can register an account, so it carries the same hints as withRegistrationHints.
 export const telegramLoginUrl = (next?: string): string => {
     const params = new URLSearchParams();
     if (next && next !== '/') params.set('next', next);
+    params.set('lang', getActiveLocale());
     const timeZone = browserTimeZone();
     if (timeZone) params.set('tz', timeZone);
-    const query = params.toString();
-    return query ? `/api/auth/telegram/start?${query}` : '/api/auth/telegram/start';
+    return `/api/auth/telegram/start?${params}`;
 };
 
 export const TELEGRAM_LINK_URL = '/api/auth/telegram/link/start';

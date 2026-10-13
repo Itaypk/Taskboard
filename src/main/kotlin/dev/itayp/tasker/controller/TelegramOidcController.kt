@@ -66,19 +66,23 @@ class TelegramOidcController(
     @GetMapping("/start")
     fun startLogin(
         @RequestParam(required = false) next: String?,
+        @RequestParam(required = false) lang: String?,
         @RequestParam(required = false) tz: String?,
         request: HttpServletRequest,
     ): ResponseEntity<Void> {
         if (!telegramOidcService.isConfigured()) return redirect("/?telegramLogin=unavailable")
         val authz = telegramOidcService.buildAuthorizationRequest(redirectUri())
+        // Only the explicit pick and the zone: the header is read at the callback, from the same browser.
+        val hints = registrationHintsResolver.resolve(lang, null, tz)
         request.session.apply {
             setAttribute(ATTR_STATE, authz.state)
             setAttribute(ATTR_VERIFIER, authz.codeVerifier)
             setAttribute(ATTR_MODE, MODE_LOGIN)
             setAttribute(ATTR_NEXT, localRedirect(next))
-            // The callback is a redirect from Telegram, so the browser's zone can only reach it via
-            // the session. Validated here, not at the callback, so nothing unchecked is stored.
-            setAttribute(ATTR_TIME_ZONE, registrationHintsResolver.resolveTimeZone(tz))
+            // The callback is a redirect from Telegram, so the visitor's language pick and browser zone
+            // can only reach it via the session. Validated here, so nothing unchecked is stored.
+            setAttribute(ATTR_LANGUAGE, hints.language)
+            setAttribute(ATTR_TIME_ZONE, hints.timeZone)
         }
         return redirect(authz.authorizationUrl)
     }
@@ -112,6 +116,7 @@ class TelegramOidcController(
         val expectedState = session.getAttribute(ATTR_STATE) as? String
         val verifier = session.getAttribute(ATTR_VERIFIER) as? String
         val next = session.getAttribute(ATTR_NEXT) as? String ?: "/"
+        val language = session.getAttribute(ATTR_LANGUAGE) as? String
         val timeZone = session.getAttribute(ATTR_TIME_ZONE) as? String
         clearOauthAttributes(session)
 
@@ -143,7 +148,7 @@ class TelegramOidcController(
 
         // Registration seeds the language and time zone from the browser that ran the OAuth round-trip;
         // an existing user's stored settings are untouched (the hints are ignored on login).
-        val hints = registrationHintsResolver.resolve(null, request.getHeader("Accept-Language"), timeZone)
+        val hints = registrationHintsResolver.resolve(language, request.getHeader("Accept-Language"), timeZone)
         val user = try {
             userAuthService.loginOrRegisterByTelegram(data, hints)
         } catch (_: RegistrationClosedException) {
@@ -166,7 +171,7 @@ class TelegramOidcController(
     }
 
     private fun clearOauthAttributes(session: HttpSession) {
-        listOf(ATTR_STATE, ATTR_VERIFIER, ATTR_MODE, ATTR_NEXT, ATTR_TIME_ZONE).forEach(session::removeAttribute)
+        listOf(ATTR_STATE, ATTR_VERIFIER, ATTR_MODE, ATTR_NEXT, ATTR_LANGUAGE, ATTR_TIME_ZONE).forEach(session::removeAttribute)
     }
 
     companion object {
@@ -175,6 +180,7 @@ class TelegramOidcController(
         private const val ATTR_VERIFIER = "tgOauthVerifier"
         private const val ATTR_MODE = "tgOauthMode"
         private const val ATTR_NEXT = "tgOauthNext"
+        private const val ATTR_LANGUAGE = "tgOauthLanguage"
         private const val ATTR_TIME_ZONE = "tgOauthTimeZone"
         private const val MODE_LOGIN = "login"
         private const val MODE_LINK = "link"

@@ -110,21 +110,27 @@ class TelegramOidcControllerTest(@Autowired val mockMvc: MockMvc) {
     }
 
     @Test
-    fun `start keeps a supported browser time zone for the callback and drops anything else`() {
+    fun `start keeps a supported language pick and time zone for the callback and drops anything else`() {
         configured()
         val session = MockHttpSession()
-        mockMvc.perform(get("/api/auth/telegram/start").param("tz", "Asia/Jerusalem").session(session))
+        mockMvc.perform(
+            get("/api/auth/telegram/start").param("lang", "he").param("tz", "Asia/Jerusalem").session(session),
+        )
             .andExpect(status().isFound)
+        assertThat(session.getAttribute("tgOauthLanguage")).isEqualTo("he")
         assertThat(session.getAttribute("tgOauthTimeZone")).isEqualTo("Asia/Jerusalem")
 
         val other = MockHttpSession()
-        mockMvc.perform(get("/api/auth/telegram/start").param("tz", "Mars/Olympus_Mons").session(other))
+        mockMvc.perform(
+            get("/api/auth/telegram/start").param("lang", "xx").param("tz", "Mars/Olympus_Mons").session(other),
+        )
             .andExpect(status().isFound)
+        assertThat(other.getAttribute("tgOauthLanguage")).isNull()
         assertThat(other.getAttribute("tgOauthTimeZone")).isNull()
     }
 
     @Test
-    fun `callback registers with the language header and the time zone kept at start`() {
+    fun `callback registers with the language header when no pick was kept, plus the time zone`() {
         whenever(telegramOidcService.completeAuthorization(any(), any(), any())).thenReturn(data)
         whenever(userAuthService.loginOrRegisterByTelegram(data, RegistrationHints(language = "he", timeZone = "Asia/Jerusalem")))
             .thenReturn(UserEntity().apply { id = userId })
@@ -138,6 +144,23 @@ class TelegramOidcControllerTest(@Autowired val mockMvc: MockMvc) {
             .andExpect(status().isFound)
             .andExpect(redirectedUrl("/"))
         assertThat(session.getAttribute("tgOauthTimeZone")).isNull()
+    }
+
+    @Test
+    fun `callback prefers the language picked before the round-trip over the browser header`() {
+        whenever(telegramOidcService.completeAuthorization(any(), any(), any())).thenReturn(data)
+        whenever(userAuthService.loginOrRegisterByTelegram(data, RegistrationHints(language = "ru")))
+            .thenReturn(UserEntity().apply { id = userId })
+        val session = oauthSession("login").apply { setAttribute("tgOauthLanguage", "ru") }
+
+        mockMvc.perform(
+            get("/api/auth/telegram/callback").param("code", "CODE").param("state", "ST")
+                .header("Accept-Language", "he-IL")
+                .session(session),
+        )
+            .andExpect(status().isFound)
+            .andExpect(redirectedUrl("/"))
+        assertThat(session.getAttribute("tgOauthLanguage")).isNull()
     }
 
     @Test

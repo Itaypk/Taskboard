@@ -20,11 +20,12 @@ describe('registration hints', () => {
         expect(url.searchParams.get('lang')).toBeTruthy();
     });
 
-    it('carries the time zone and next path on the Telegram login URL', () => {
+    it('carries the language, time zone and next path on the Telegram login URL', () => {
         const url = new URL(telegramLoginUrl('/settings'), 'https://example.test');
 
         expect(url.pathname).toBe('/api/auth/telegram/start');
         expect(url.searchParams.get('next')).toBe('/settings');
+        expect(url.searchParams.get('lang')).toBeTruthy();
         expect(url.searchParams.get('tz')).toBe(zone);
     });
 
@@ -32,6 +33,8 @@ describe('registration hints', () => {
         vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions')
             .mockReturnValue({ timeZone: '' } as Intl.ResolvedDateTimeFormatOptions);
 
-        expect(telegramLoginUrl()).toBe('/api/auth/telegram/start');
+        const url = new URL(telegramLoginUrl(), 'https://example.test');
+        expect(url.searchParams.has('tz')).toBe(false);
+        expect(url.searchParams.has('next')).toBe(false);
     });
 });
