@@ -12,4 +12,4 @@ It is also a solo project, and it is meant to stay one: **pull requests are not 
 
 ## Security issues
 
-Please do not open a public issue for a security problem. Use GitHub's private vulnerability reporting (the repository's **Security** tab → **Report a vulnerability**).
+Please do not open a public issue for a security problem. Use GitHub's private vulnerability reporting (the repository's **Security** tab → **Report a vulnerability**). See [`SECURITY.md`](SECURITY.md) for details and scope.

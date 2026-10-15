@@ -8,10 +8,12 @@ import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRe
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.HttpStatus
 import org.springframework.test.context.ActiveProfiles
+import java.time.Duration
+import java.time.Instant
 
 /**
  * The discovery surface for the external API: `/llms.txt`, `/.well-known/api-catalog`, the
- * sitemap entries, and the contract/skill files themselves. All must be reachable with **no**
+ * sitemap entries, and the contract/skill files themselves — plus `/.well-known/security.txt`. All must be reachable with **no**
  * credential of any kind — no session cookie, no bearer token.
  *
  * Every assertion checks the *body*, not just the status. `SpaErrorController` forwards unmatched
@@ -60,6 +62,25 @@ class DiscoveryIntegrationTest(
 
         assertThat(body).contains("https://backlog.fyi/external-api/openapi.yaml")
         assertThat(body).doesNotContain("\"href\":\"/")
+    }
+
+    @Test
+    fun `security_txt is served anonymously with the RFC 9116 required fields`() {
+        val response = rest.getForEntity("/.well-known/security.txt", String::class.java)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        // RFC 9116 section 3: text/plain, UTF-8.
+        assertThat(response.headers.contentType.toString()).startsWith("text/plain")
+        val body = response.body ?: ""
+        assertThat(body).doesNotContain("<!doctype html")
+        assertThat(body).contains(
+            "Contact: https://github.com/Itaypk/Taskboard/security/advisories/new",
+            "Contact: mailto:hello@backlog.fyi",
+            "Policy: https://github.com/Itaypk/Taskboard/blob/main/SECURITY.md",
+            "Canonical: https://backlog.fyi/.well-known/security.txt",
+        )
+        val expires = Regex("^Expires: (.+)$", RegexOption.MULTILINE).find(body)?.groupValues?.get(1)
+        assertThat(Instant.parse(expires)).isAfter(Instant.now()).isBefore(Instant.now().plus(Duration.ofDays(366)))
     }
 
     @Test
