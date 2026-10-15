@@ -18,7 +18,8 @@ name/default/provenance reference.
   the web UI and the planning assistant's introduction. 1–64 characters, none of `<>&"'{}` (it's
   inserted into HTML emails and `MessageFormat` patterns). Also the default sender name of both email
   senders.
-- `TASKER_SUPPORT_EMAIL` — public contact address shown in the web UI (default `hello@backlog.fyi`).
+- `TASKER_SUPPORT_EMAIL` — public contact address shown in the web UI and listed as a security
+  contact in `/.well-known/security.txt` (default `hello@backlog.fyi`).
 - `TASKER_ABUSE_EMAIL` — abuse-report address referenced from the policy pages (default
   `abuse@backlog.fyi`).
 
