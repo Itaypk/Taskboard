@@ -35,6 +35,7 @@ class SecurityTxtController(
             |Contact: $GITHUB_ADVISORY_URL
             |Contact: mailto:${appProperties.supportEmail}
             |Expires: $expires
+            |Policy: $POLICY_URL
             |Preferred-Languages: en
             |Canonical: $base/.well-known/security.txt
             |
@@ -43,6 +44,7 @@ class SecurityTxtController(
 
     companion object {
         const val GITHUB_ADVISORY_URL = "https://github.com/Itaypk/Taskboard/security/advisories/new"
+        const val POLICY_URL = "https://github.com/Itaypk/Taskboard/blob/main/SECURITY.md"
 
         /** The RFC recommends an expiry less than a year out (section 2.5.5). */
         private val EXPIRY: Duration = Duration.ofDays(180)

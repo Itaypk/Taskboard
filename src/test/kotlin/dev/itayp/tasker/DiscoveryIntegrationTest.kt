@@ -76,6 +76,7 @@ class DiscoveryIntegrationTest(
         assertThat(body).contains(
             "Contact: https://github.com/Itaypk/Taskboard/security/advisories/new",
             "Contact: mailto:hello@backlog.fyi",
+            "Policy: https://github.com/Itaypk/Taskboard/blob/main/SECURITY.md",
             "Canonical: https://backlog.fyi/.well-known/security.txt",
         )
         val expires = Regex("^Expires: (.+)$", RegexOption.MULTILINE).find(body)?.groupValues?.get(1)
