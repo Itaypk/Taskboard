@@ -1,12 +1,12 @@
 import org.gradle.language.jvm.tasks.ProcessResources
 
 plugins {
-    kotlin("jvm") version "2.4.20"
-    kotlin("plugin.spring") version "2.4.20"
+    kotlin("jvm") version "2.4.21"
+    kotlin("plugin.spring") version "2.4.21"
     id("org.springframework.boot") version "4.1.1"
     id("io.spring.dependency-management") version "1.1.7"
-    kotlin("plugin.jpa") version "2.4.20"
-    kotlin("plugin.lombok") version "2.4.20"
+    kotlin("plugin.jpa") version "2.4.21"
+    kotlin("plugin.lombok") version "2.4.21"
 }
 
 group = "dev.itayp"
@@ -57,7 +57,7 @@ dependencies {
     implementation("io.micrometer:micrometer-registry-prometheus:1.17.1")
     implementation("net.logstash.logback:logstash-logback-encoder:9.0")
     implementation("com.github.jknack:handlebars:4.5.5")
-    implementation("org.commonmark:commonmark:0.30.0")
+    implementation("org.commonmark:commonmark:0.30.1")
     implementation("org.telegram:telegrambots-springboot-longpolling-starter:10.3.0")
     implementation("org.telegram:telegrambots-client:10.3.0")
     runtimeOnly("com.h2database:h2")
