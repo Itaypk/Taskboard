@@ -403,17 +403,18 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
 
   const closeDrawer = () => { setSelectedId(null); setIsCreating(false); };
 
-  const handleSave = async (updated: Omit<Task, 'sortKey'>) => {
+  const handleSave = async (updated: Omit<Task, 'sortKey'>): Promise<Task | undefined> => {
     if (!activeBoardId) return;
     try {
       const { id: _id, createdAt: _ca, ...payload } = updated;
       // The drawer surfaces save failures itself (inline field errors + a form-level banner),
       // so opt out of the global toast to avoid double-reporting.
+      let saved: Task;
       if (isCreating) {
-        const created = await createTask(activeBoardId, payload, { emitErrors: false });
-        setTasks(prev => [...prev, created]);
+        saved = await createTask(activeBoardId, payload, { emitErrors: false });
+        setTasks(prev => [...prev, saved]);
       } else {
-        const saved = await updateTask(activeBoardId, updated.id, payload, { emitErrors: false });
+        saved = await updateTask(activeBoardId, updated.id, payload, { emitErrors: false });
         setTasks(prev => prev.map(t => t.id === saved.id ? saved : t));
       }
 
@@ -421,6 +422,7 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
       fetchTags(activeBoardId).then(setTags).catch(e => console.error('Failed to refetch tags', e));
 
       closeDrawer();
+      return saved;
     } catch (e) {
       console.error('Failed to save task', e);
       // Re-throw so the drawer can surface field-level validation errors inline (and stay open).
@@ -498,15 +500,17 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
     }
   }, [navigate, handleClearTutorial, openPlanDrawer]);
 
-  const handleMarkTodo = useCallback((id: string) => {
-    const task = tasks.find(t => t.id === id) ?? archivedTasks.find(t => t.id === id);
+  // `latest` comes from a drawer that just saved edits: `tasks` in this closure predates that save,
+  // and the PUT is a full replace, so building on the stale copy would undo the edits.
+  const handleMarkTodo = useCallback((id: string, latest?: Task) => {
+    const task = latest ?? tasks.find(t => t.id === id) ?? archivedTasks.find(t => t.id === id);
     if (!task || !activeBoardId) return;
     const { id: _id, createdAt: _ca, sortKey: _sk, ...payload } = task;
     updateTask(activeBoardId, id, { ...payload, status: 'todo' }).then(() => {
       setTasks(prev => {
         const existing = prev.find(t => t.id === id);
         return existing
-          ? prev.map(t => t.id === id ? { ...t, status: 'todo' } : t)
+          ? prev.map(t => t.id === id ? { ...task, status: 'todo' } : t)
           : [...prev, { ...task, status: 'todo' }];
       });
       setArchivedTasks(prev => prev.filter(t => t.id !== id));
@@ -536,8 +540,8 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
     });
   }, [handleMarkTodo, t]);
 
-  const handleMarkDone = useCallback((id: string) => {
-    const task = tasks.find(t => t.id === id);
+  const handleMarkDone = useCallback((id: string, latest?: Task) => {
+    const task = latest ?? tasks.find(t => t.id === id);
     if (!task || !activeBoardId) return;
     // A recurring task only moves to its next date, so it stays put on the Recurring and All views.
     const leaves = !task.recurrence || filter === 'todo' || filter === 'plan';

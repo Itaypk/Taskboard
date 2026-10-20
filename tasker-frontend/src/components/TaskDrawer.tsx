@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense, lazy } from 'react';
+import { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Task, Tag, TagColorId, Category } from '../types';
 import { TAG_PALETTE, PAPER_SWATCHES } from '../types';
@@ -31,10 +31,12 @@ interface TaskDrawerProps {
   /** Whether the user has the AI assistant enabled; the "hide from assistant" control is pointless (and hidden) when off. */
   aiEnabled: boolean;
   onClose: () => void;
-  onSave: (task: Omit<Task, 'sortKey'>) => void | Promise<void>;
+  /** Resolves with the saved task (when the caller has it); rejects to keep the drawer open. */
+  onSave: (task: Omit<Task, 'sortKey'>) => void | Promise<Task | void>;
   onDelete: (id: string) => void;
-  onMarkDone: (id: string) => void;
-  onMarkTodo: (id: string) => void;
+  /** `latest` is the task as just saved from this drawer, so the status flip doesn't replace it with a stale copy. */
+  onMarkDone: (id: string, latest?: Task) => void;
+  onMarkTodo: (id: string, latest?: Task) => void;
   onSetAssignee: (id: string, userId: string | null) => void;
   /** Persists a board-wide tag rename/recolor (from the inline tag-edit modal) and refreshes tags/tasks. */
   onUpdateTag?: (tagId: string, label: string, colorId: TagColorId) => void;
@@ -85,6 +87,43 @@ function serverFieldErrors(e: unknown): FieldErrors | null {
   return Object.keys(mapped).length > 0 ? mapped : null;
 }
 
+function formFromTask(task: Task): FormState {
+  return {
+    title: task.title,
+    description: task.description ?? '',
+    url: task.url ?? '',
+    priority: task.priority,
+    deadline: task.deadline ?? '',
+    relevantFrom: task.relevantFrom ?? '',
+    estimatedMinutes: task.estimatedMinutes,
+    status: task.status,
+    categoryId: task.categoryId,
+    tags: [...task.tags],
+    hiddenFromAssistant: task.hiddenFromAssistant ?? false,
+    // The save is a full replace: leaving this out would silently stop the task recurring.
+    recurrence: task.recurrence ?? null,
+  };
+}
+
+/** The form as it is sent to the server: trimmed, with blanks dropped. */
+function toPayload(form: FormState): FormState {
+  return {
+    ...form,
+    title: form.title.trim(),
+    description: form.description?.trim() || undefined,
+    url: form.url?.trim() || undefined,
+    deadline: form.deadline || undefined,
+    relevantFrom: form.relevantFrom || undefined,
+    estimatedMinutes: form.estimatedMinutes || undefined,
+    recurrence: form.recurrence ? normalizeRule(form.recurrence) : null,
+  };
+}
+
+// Compared as payloads, so whitespace-only edits (which the save would trim away) don't count.
+function isDirty(form: FormState, task: Task): boolean {
+  return JSON.stringify(toPayload(form)) !== JSON.stringify(toPayload(formFromTask(task)));
+}
+
 function makeEmpty(defaultCategoryId: string | null): FormState {
   return {
     title: '',
@@ -117,6 +156,8 @@ export function TaskDrawer({
   const [formKey, setFormKey] = useState<string | null>(null);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
+  // Dismissing and the Save button can race (a double-click on ×); one save at a time.
+  const savingRef = useRef(false);
 
   const targetKey = open ? (task?.id ?? '__new__') : null;
   if (targetKey !== formKey) {
@@ -124,21 +165,7 @@ export function TaskDrawer({
     setErrors({});
     setFormError(null);
     if (targetKey !== null) {
-      setForm(task ? {
-        title: task.title,
-        description: task.description ?? '',
-        url: task.url ?? '',
-        priority: task.priority,
-        deadline: task.deadline ?? '',
-        relevantFrom: task.relevantFrom ?? '',
-        estimatedMinutes: task.estimatedMinutes,
-        status: task.status,
-        categoryId: task.categoryId,
-        tags: [...task.tags],
-        hiddenFromAssistant: task.hiddenFromAssistant ?? false,
-        // The save is a full replace: leaving this out would silently stop the task recurring.
-        recurrence: task.recurrence ?? null,
-      } : makeEmpty(defaultCategoryId));
+      setForm(task ? formFromTask(task) : makeEmpty(defaultCategoryId));
       setShowTagForm(false);
       setTagLabel('');
       setTagId(null);
@@ -168,27 +195,23 @@ export function TaskDrawer({
   const clearError = (field: keyof FieldErrors) =>
     setErrors(e => (e[field] ? { ...e, [field]: undefined } : e));
 
-  const handleSave = async () => {
-    if (!form.categoryId) return;
+  /** Resolves `false` when the save was refused or failed (the drawer then stays open with the reason). */
+  const handleSave = async (): Promise<Task | void | false> => {
+    if (!form.categoryId) return false;
     setFormError(null);
     const found = validate(form, task?.url);
     if (found.title || found.url || found.description || found.recurrence) {
       setErrors(found);
-      return;
+      return false;
     }
+    if (savingRef.current) return false;
+    savingRef.current = true;
     const now = new Date().toISOString();
     try {
-      await onSave({
+      return await onSave({
         id: task?.id ?? generateId(),
         createdAt: task?.createdAt ?? now,
-        ...form,
-        title: form.title.trim(),
-        description: form.description?.trim() || undefined,
-        url: form.url?.trim() || undefined,
-        deadline: form.deadline || undefined,
-        relevantFrom: form.relevantFrom || undefined,
-        estimatedMinutes: form.estimatedMinutes || undefined,
-        recurrence: form.recurrence ? normalizeRule(form.recurrence) : null,
+        ...toPayload(form),
       });
     } catch (e) {
       // The drawer owns error display here (the save call opts out of the global toast). Server-side
@@ -199,7 +222,30 @@ export function TaskDrawer({
       } else {
         setFormError(e instanceof ApiError ? e.userMessage : t('taskDrawer.saveError'));
       }
+      return false;
+    } finally {
+      savingRef.current = false;
     }
+  };
+
+  // Edits to an existing task are kept when the drawer is dismissed (×, overlay click, or a status
+  // action). Escape and Cancel stay explicit discards, and a new task is only created by its button.
+  const pendingEdits = !isNew && !readOnly && !!task && isDirty(form, task);
+
+  const dismiss = async () => {
+    if (!pendingEdits) { onClose(); return; }
+    // Board's onSave closes the drawer on success; on failure it stays open with the reason.
+    await handleSave();
+  };
+
+  // Saves pending edits before the status action, and hands it the saved task so it builds on it.
+  const runStatusAction = async (action: (id: string, latest?: Task) => void) => {
+    if (!task) return;
+    if (!pendingEdits) { action(task.id); onClose(); return; }
+    const saved = await handleSave();
+    if (saved === false) return;
+    action(task.id, saved || undefined);
+    onClose();
   };
 
   const setRepeats = (on: boolean) => {
@@ -280,7 +326,7 @@ export function TaskDrawer({
 
   return (
     <>
-      <div className={`overlay${open ? ' overlay--open' : ''}`} onClick={onClose} />
+      <div className={`overlay${open ? ' overlay--open' : ''}`} onClick={() => void dismiss()} />
       <aside
         className={`drawer${open ? ' drawer--open' : ''}`}
         inert={!open}
@@ -291,7 +337,7 @@ export function TaskDrawer({
       >
         <div className="drawer__header">
           <span className="drawer__label">{isNew ? t('taskDrawer.newTaskLabel') : t('taskDrawer.taskLabel')}</span>
-          <button className="drawer__close" onClick={onClose} aria-label={t('taskDrawer.close')}>×</button>
+          <button className="drawer__close" onClick={() => void dismiss()} aria-label={t('taskDrawer.close')}>×</button>
         </div>
 
         <div className="drawer__body">
@@ -647,7 +693,7 @@ export function TaskDrawer({
                   <button
                     type="button"
                     className="btn btn--ghost btn--sm"
-                    onClick={() => { onMarkTodo(task!.id); onClose(); }}
+                    onClick={() => void runStatusAction(onMarkTodo)}
                   >
                     {t('taskDrawer.unarchive')}
                   </button>
@@ -655,7 +701,7 @@ export function TaskDrawer({
                   <button
                     type="button"
                     className="btn btn--ghost btn--sm"
-                    onClick={() => { onMarkTodo(task!.id); onClose(); }}
+                    onClick={() => void runStatusAction(onMarkTodo)}
                   >
                     {t('taskDrawer.markTodo')}
                   </button>
@@ -663,7 +709,7 @@ export function TaskDrawer({
                   <button
                     type="button"
                     className="btn btn--ghost btn--sm"
-                    onClick={() => { onMarkDone(task!.id); onClose(); }}
+                    onClick={() => void runStatusAction(onMarkDone)}
                   >
                     {t('taskDrawer.markDone')}
                   </button>
