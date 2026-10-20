@@ -381,6 +381,7 @@ class WeeklyPlanningOrchestrator(
         outcome: TurnOutcome,
         channel: ConversationChannel,
         emptyTurnRetried: Boolean = false,
+        malformedCallRetried: Boolean = false,
     ) {
         when (outcome) {
             is TurnOutcome.TextReply -> {
@@ -390,8 +391,8 @@ class WeeklyPlanningOrchestrator(
                 }
                 markConversing(sessionId)
             }
-            is TurnOutcome.ToolCalls -> dispatchToolCalls(sessionId, outcome.calls, channel)
-            is TurnOutcome.Empty -> handleEmptyTurn(sessionId, channel, emptyTurnRetried)
+            is TurnOutcome.ToolCalls -> dispatchToolCalls(sessionId, outcome.calls, channel, malformedCallRetried)
+            is TurnOutcome.Empty -> handleEmptyTurn(sessionId, channel, emptyTurnRetried, malformedCallRetried)
         }
     }
 
@@ -404,13 +405,18 @@ class WeeklyPlanningOrchestrator(
      * the web drawer in particular renders a turn that buffered no messages as pure silence, with
      * no affordance to recover. The session stays open, so any reply resumes it.
      */
-    private fun handleEmptyTurn(sessionId: UUID, channel: ConversationChannel, alreadyRetried: Boolean) {
+    private fun handleEmptyTurn(
+        sessionId: UUID,
+        channel: ConversationChannel,
+        alreadyRetried: Boolean,
+        malformedCallRetried: Boolean,
+    ) {
         val current = state[sessionId]
         val conversationId = current?.conversationId
         if (!alreadyRetried && conversationId != null) {
             log.warn("Empty model turn for session {}; retrying once", sessionId)
             val retry = channel.whileWorking { aiConversationManager.continueConversation(conversationId) }
-            processOutcome(sessionId, retry, channel, emptyTurnRetried = true)
+            processOutcome(sessionId, retry, channel, emptyTurnRetried = true, malformedCallRetried = malformedCallRetried)
             return
         }
         log.warn("Empty model turn for session {} (retried={}); telling the user", sessionId, alreadyRetried)
@@ -421,10 +427,16 @@ class WeeklyPlanningOrchestrator(
         markConversing(sessionId)
     }
 
+    /**
+     * [malformedCallRetried] bounds the self-correction loop for interactive calls whose arguments
+     * don't parse: the first one is answered with an error result and the model is re-invoked to
+     * fix it; a second within the same user turn ends the turn with a fallback message instead.
+     */
     private fun dispatchToolCalls(
         sessionId: UUID,
         calls: List<RequestedToolCall>,
         channel: ConversationChannel,
+        malformedCallRetried: Boolean,
     ) {
         val current = state[sessionId] ?: error("No orchestrator state for session $sessionId")
         val conversationId = current.conversationId
@@ -432,6 +444,7 @@ class WeeklyPlanningOrchestrator(
 
         val pending = mutableListOf<PendingInteractive>()
         var dataLookupRan = false
+        var malformedInteractive = false
         var sayRendered = false
 
         log.debug("Dispatching {} tool call(s) for session {}: {}", calls.size, sessionId, calls.map { it.name })
@@ -455,7 +468,19 @@ class WeeklyPlanningOrchestrator(
                         if (call.name == SAY_TOOL_NAME) sayRendered = true
                         handleOneWay(conversationId, call, tool, channel)
                     }
-                    ToolKind.INTERACTIVE_INPUT -> pending.add(parseInteractive(call))
+                    ToolKind.INTERACTIVE_INPUT -> {
+                        val parsed = parseInteractive(call)
+                        if (parsed != null) {
+                            pending.add(parsed)
+                        } else {
+                            // Every tool call needs a result before the next model call, and an
+                            // explicit error gives the model something to correct against.
+                            aiConversationManager.recordToolResult(
+                                conversationId, call.id, call.name, INVALID_ASK_CHOICE_RESULT,
+                            )
+                            malformedInteractive = true
+                        }
+                    }
                     ToolKind.DATA_LOOKUP -> {
                         val result = runCatching { tool.execute(call.arguments) }
                             .getOrElse { e ->
@@ -492,9 +517,20 @@ class WeeklyPlanningOrchestrator(
             return
         }
 
-        if (dataLookupRan) {
+        if (malformedInteractive && malformedCallRetried) {
+            log.warn("Model repeated malformed interactive call for session {}; telling the user", sessionId)
+            val locale = userSettingsService.getLocale(current.userId)
+            channel.send(ChannelMessage.Text(messageSource.getMessage("planning.empty_turn", null, locale)))
+            markConversing(sessionId)
+            return
+        }
+
+        if (dataLookupRan || malformedInteractive) {
             val nextOutcome = channel.whileWorking { aiConversationManager.continueConversation(conversationId) }
-            processOutcome(sessionId, nextOutcome, channel)
+            processOutcome(
+                sessionId, nextOutcome, channel,
+                malformedCallRetried = malformedCallRetried || malformedInteractive,
+            )
             return
         }
 
@@ -552,8 +588,14 @@ class WeeklyPlanningOrchestrator(
         channel.send(ChannelMessage.Text(parsed.text, completions))
     }
 
-    private fun parseInteractive(call: RequestedToolCall): PendingInteractive {
-        val parsed = objectMapper.readValue(call.arguments, AskChoiceArgs::class.java)
+    /** Null when the arguments don't match [AskChoiceArgs] — the model sent a shape the schema doesn't allow. */
+    private fun parseInteractive(call: RequestedToolCall): PendingInteractive? {
+        val parsed = runCatching { objectMapper.readValue(call.arguments, AskChoiceArgs::class.java) }
+            .getOrElse {
+                // Class name only: Jackson's message can quote argument values, which are user content.
+                log.warn("Malformed {} arguments ({})", call.name, it.javaClass.simpleName)
+                return null
+            }
         val options = parsed.options.map { ChoiceOption(it.id, it.label) }
         return PendingInteractive(
             toolCallId = call.id,
@@ -809,6 +851,12 @@ class WeeklyPlanningOrchestrator(
         const val CONVERSATION_TYPE = "weekly_planning"
         const val SAY_TOOL_NAME = "say"
         const val ESCAPE_OPTION_ID = "discuss"
+
+        // Written for the model to read: it names the expected shape so the retry can fix it.
+        private const val INVALID_ASK_CHOICE_RESULT =
+            """{"error":"invalid arguments; nothing was shown to the user. Expected """ +
+                """{\"prompt\": string, \"options\": [{\"id\": string, \"label\": string}, ...]}, """ +
+                """each option an object. Call ask_choice again with corrected arguments."}"""
 
         // Context-proposal accept/reject option ids (bound in handleContextProposalReply).
         const val CONTEXT_PROPOSAL_ACCEPT = "remember"

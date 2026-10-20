@@ -35,7 +35,7 @@ class AskChoiceTool : AiTool {
     private data class AskChoiceArgs(
         @JsonPropertyDescription("The question shown to the user.")
         val prompt: String,
-        @JsonPropertyDescription("The choices the user can pick from.")
+        @JsonPropertyDescription("The choices the user can pick from, each an object with an id and a label.")
         val options: List<ChoiceOption>,
     )
 

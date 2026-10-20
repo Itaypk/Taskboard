@@ -97,7 +97,7 @@ class ToolParameterSchemaTest {
                 "prompt" to mapOf("type" to "string", "description" to "The question shown to the user."),
                 "options" to mapOf(
                     "type" to "array",
-                    "description" to "The choices the user can pick from.",
+                    "description" to "The choices the user can pick from, each an object with an id and a label.",
                     "items" to mapOf(
                         "type" to "object",
                         "properties" to mapOf(
