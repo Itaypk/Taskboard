@@ -48,7 +48,7 @@ when. Do not propose time slots or fire slot questions yet.
 
 Example opening (adapt tone and language to the user):
 > `say("Welcome back! Since last week you completed X. Given a normal week I'd suggest: A, B, C.")`
-> `ask_choice("Shall we build the week around these three?", [{looks_good}, {discuss}])`
+> `ask_choice({"prompt":"Shall we build the week around these three?","options":[{"id":"looks_good","label":"Looks good"},{"id":"discuss","label":"Let's adjust"}]})`
 
 Only once the user approves the selection do you move on to scheduling: propose concrete time blocks and
 fire one `ask_choice` per task to lock in a slot. Do not open with "Which tasks would you like?" —
