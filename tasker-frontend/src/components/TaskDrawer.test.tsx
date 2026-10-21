@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { ComponentProps } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import i18n from '../i18n';
 import type { Task } from '../types';
@@ -17,7 +18,7 @@ const rent: Task = {
   recurrence: { kind: 'MONTHLY', every: null, day: 25, month: null, dueWithinDays: 7 },
 };
 
-function renderDrawer(task: Task, onSave = vi.fn()) {
+function renderDrawer(task: Task, onSave = vi.fn(), overrides: Partial<ComponentProps<typeof TaskDrawer>> = {}) {
   render(
     <TaskDrawer
       task={task}
@@ -35,6 +36,7 @@ function renderDrawer(task: Task, onSave = vi.fn()) {
       onMarkDone={vi.fn()}
       onMarkTodo={vi.fn()}
       onSetAssignee={vi.fn()}
+      {...overrides}
     />,
   );
   return onSave;
@@ -82,5 +84,82 @@ describe('TaskDrawer recurrence', () => {
 
     expect(screen.getByText(i18n.t('recurrence.invalid'))).toBeInTheDocument();
     expect(onSave).not.toHaveBeenCalled();
+  });
+});
+
+describe('TaskDrawer auto-save on dismiss', () => {
+  afterEach(cleanup);
+
+  const titleInput = () => screen.getByPlaceholderText(i18n.t('taskDrawer.titlePlaceholder'));
+  const closeButton = () => screen.getByRole('button', { name: i18n.t('taskDrawer.close') });
+
+  it('saves edits when closed with ×', async () => {
+    const onClose = vi.fn();
+    const onSave = renderDrawer(rent, vi.fn(), { onClose });
+
+    fireEvent.change(titleInput(), { target: { value: 'Pay the rent' } });
+    fireEvent.click(closeButton());
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect((onSave.mock.calls[0][0] as Task).title).toBe('Pay the rent');
+  });
+
+  it('just closes, without saving, when nothing changed', () => {
+    const onClose = vi.fn();
+    const onSave = renderDrawer(rent, vi.fn(), { onClose });
+
+    // Whitespace the save would trim away isn't an edit.
+    fireEvent.change(titleInput(), { target: { value: 'Pay rent  ' } });
+    fireEvent.click(closeButton());
+
+    expect(onSave).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('discards edits on Escape and Cancel', () => {
+    const onClose = vi.fn();
+    const onSave = renderDrawer(rent, vi.fn(), { onClose });
+
+    fireEvent.change(titleInput(), { target: { value: 'Pay the rent' } });
+    fireEvent.keyDown(window, { key: 'Escape' });
+    fireEvent.click(screen.getByRole('button', { name: i18n.t('taskDrawer.cancel') }));
+
+    expect(onSave).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  it('stays open with the reason when the edits are invalid', () => {
+    const onClose = vi.fn();
+    const onSave = renderDrawer(rent, vi.fn(), { onClose });
+
+    fireEvent.change(titleInput(), { target: { value: '' } });
+    fireEvent.click(closeButton());
+
+    expect(screen.getByText(i18n.t('taskDrawer.validation.titleRequired'))).toBeInTheDocument();
+    expect(onSave).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('does not create a new task on dismiss', () => {
+    const onClose = vi.fn();
+    const onSave = renderDrawer(rent, vi.fn(), { onClose, isNew: true, task: null });
+
+    fireEvent.change(titleInput(), { target: { value: 'Buy milk' } });
+    fireEvent.click(closeButton());
+
+    expect(onSave).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('saves edits before marking done, and hands over the saved task', async () => {
+    const saved = { ...rent, title: 'Pay the rent' };
+    const onMarkDone = vi.fn();
+    const onSave = renderDrawer({ ...rent, recurrence: null }, vi.fn().mockResolvedValue(saved), { onMarkDone });
+
+    fireEvent.change(titleInput(), { target: { value: 'Pay the rent' } });
+    fireEvent.click(screen.getByRole('button', { name: i18n.t('taskDrawer.markDone') }));
+
+    await waitFor(() => expect(onMarkDone).toHaveBeenCalledWith('t1', saved));
+    expect(onSave).toHaveBeenCalledTimes(1);
   });
 });
