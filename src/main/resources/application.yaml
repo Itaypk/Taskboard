@@ -158,6 +158,11 @@ tasker:
     password-login:
       limit: 10
       window-seconds: 900
+  inbound-mail:
+    # Personal inbound addresses (tasks.<token>@<domain>): mail sent there becomes a task. Needs an
+    # MTA that accepts mail for the domain and hands it to the app; off unless both are set.
+    enabled: ${TASKER_INBOUND_MAIL_ENABLED:false}
+    domain: ${TASKER_INBOUND_MAIL_DOMAIN:}
   feedback:
     # Mailbox that in-app feedback is forwarded to (via the auth email sender). When blank,
     # falls back to the auth sender's own `from` address.

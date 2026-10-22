@@ -27,6 +27,7 @@ class StartupSummaryLogger(
     private val emailProperties: EmailProperties,
     private val aiProperties: AiProperties,
     private val prometheusAuthProperties: PrometheusAuthProperties,
+    private val inboundMailProperties: InboundMailProperties,
     private val environment: Environment,
 ) {
     private val log = LoggerFactory.getLogger(StartupSummaryLogger::class.java)
@@ -41,13 +42,14 @@ class StartupSummaryLogger(
             if (loginMethods.demo) add("demo")
         }
         log.info(
-            "Instance ready at {}: sign-in=[{}], registration={}, email={}, telegramBot={}, ai={}, metrics={}",
+            "Instance ready at {}: sign-in=[{}], registration={}, email={}, telegramBot={}, ai={}, inboundMail={}, metrics={}",
             appProperties.baseUrl,
             signIn.joinToString(),
             if (loginMethods.registrationOpen) "open" else "closed",
             onOff(emailProperties.enabled),
             onOff(telegramBot),
             onOff(aiProperties.apiKey.isNotBlank()),
+            onOff(inboundMailProperties.active),
             onOff(prometheusAuthProperties.configured),
         )
 
@@ -56,6 +58,9 @@ class StartupSummaryLogger(
                 "No sign-in method is available, so nobody can log in. Set TASKER_LOCAL_USERS, " +
                     "enable email (TASKER_EMAIL_ENABLED + SMTP settings) or configure Telegram login.",
             )
+        }
+        if (inboundMailProperties.enabled && !inboundMailProperties.active) {
+            log.warn("TASKER_INBOUND_MAIL_ENABLED is set but TASKER_INBOUND_MAIL_DOMAIN is not: inbound email stays off.")
         }
         if (aiProperties.apiKey.isBlank()) {
             log.warn("TASKER_AI_API_KEY is not set: the weekly planning assistant and AI capture are unavailable.")

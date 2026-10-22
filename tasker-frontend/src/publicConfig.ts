@@ -25,6 +25,8 @@ export interface PublicConfig {
     };
     /** AI is on and every AI call goes only to zero-data-retention endpoints (`TASKER_AI_ZERO_DATA_RETENTION`). */
     aiZeroDataRetention: boolean;
+    /** Users can get a personal inbound email address that turns mail into tasks (`TASKER_INBOUND_MAIL_*`). */
+    inboundMail: boolean;
 }
 
 export const DEFAULT_PUBLIC_CONFIG: PublicConfig = {
@@ -36,6 +38,7 @@ export const DEFAULT_PUBLIC_CONFIG: PublicConfig = {
         abuseEmail: 'abuse@backlog.fyi',
     },
     aiZeroDataRetention: true,
+    inboundMail: false,
 };
 
 let cached: PublicConfig | null = null;

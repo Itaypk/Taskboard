@@ -1,0 +1,18 @@
+.address {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+  user-select: all;
+  padding: 6px 8px;
+  border-radius: var(--r-sm);
+  background: var(--paper-surface);
+  border: 1px solid var(--paper-border);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}

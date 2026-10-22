@@ -11,6 +11,8 @@ data class PublicConfigResponse(
      * so the landing copy only makes that promise when it holds.
      */
     val aiZeroDataRetention: Boolean,
+    /** True when users can get a personal inbound email address (`tasker.inbound-mail`). */
+    val inboundMail: Boolean,
 )
 
 /** What the instance calls itself, and where users can reach whoever runs it. */

@@ -26,6 +26,7 @@ const selfHosted: PublicConfig = {
     registrationOpen: false,
     branding: { name: 'Acme Tasks', supportEmail: 'help@acme.test', abuseEmail: 'abuse@acme.test' },
     aiZeroDataRetention: false,
+    inboundMail: false,
 };
 
 /** What IndexHtmlController inlines into the served page. */
