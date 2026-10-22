@@ -160,13 +160,23 @@ the full log to stdout instead and write no file — what `docker logs` and log 
 
 ## Inbound email (`InboundMailProperties`)
 
-Personal inbound addresses, `tasks.<token>@<domain>`: mail sent there becomes a task (GitHub issue
-#288). Users create, change and turn off their address in Settings → Integrations.
+Personal inbound addresses, `tasks.<token>@<domain>`: mail sent there becomes a task. Users create,
+change and turn off their address in Settings → Integrations. Design: `docs/INBOUND-EMAIL.md`.
 
 - `TASKER_INBOUND_MAIL_ENABLED` — toggle the feature (default: `false`).
 - `TASKER_INBOUND_MAIL_DOMAIN` — the domain the addresses live on, e.g. `m.example.com`. Needs an
-  MX record and an MTA that accepts mail for it and hands it to the app; the app does not listen
-  for SMTP itself. The feature stays off (and the startup log warns) while this is blank.
+  MX record and an MTA that accepts mail for it and hands it to the app
+  (`POST /internal/inbound-mail`, see `docs/INBOUND-EMAIL.md`); the app does not listen for SMTP
+  itself.
+- `TASKER_INBOUND_MAIL_DELIVERY_TOKEN` — shared secret the MTA sends with each delivery, at least
+  32 characters (`openssl rand -hex 32`). The feature stays off (and the startup log warns) until
+  both this and the domain are set.
+- `TASKER_INBOUND_MAIL_AUTHSERV_ID` — the authserv-id of the `Authentication-Results` header the
+  MTA's verifier adds (default: the domain). Only that header counts when deciding whether a
+  message really came from the user's own address.
+
+Keep `/internal/` unreachable through the reverse proxy. Per-user volume is capped by
+`tasker.rate-limit.inbound-mail` (30 emails an hour).
 
 The token in each address is hashed with a key derived from `TASKER_DATA_KEK` (it is too short for
 a plain hash), so rotating the KEK means recomputing `inbound_mail_address.token_hmac` from the

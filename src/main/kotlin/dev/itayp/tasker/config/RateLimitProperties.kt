@@ -22,6 +22,8 @@ data class RateLimitProperties(
      * Generous for a human: the limit is about a stuck client, not about rationing.
      */
     val quickAdd: Policy = Policy(limit = 60, windowSeconds = 3600),
+    /** Inbound emails turned into tasks, per user (see `InboundMailReceiver`). */
+    val inboundMail: Policy = Policy(limit = 30, windowSeconds = 3600),
     val externalApi: Policy = Policy(limit = 120, windowSeconds = 60),
     /**
      * Password attempts, counted separately per client IP and per username by

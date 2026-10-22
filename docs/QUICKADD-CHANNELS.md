@@ -76,6 +76,9 @@ new infra.
 
 ## Channel 2: Inbound email quick-add
 
+> **Implemented** as designed below (fire-and-forget, secret per-user address): see
+> `docs/INBOUND-EMAIL.md`. The rest of this section is the original exploration.
+
 **Correcting the starting premise:** the Protonmail SMTP token we already use
 (`TASKER_EMAIL_AUTH_*` / `TASKER_EMAIL_SCHEDULING_*`) authenticates **outbound submission
 only**. Proton has no inbound webhook or mail-receiving API — receiving mail from Proton

@@ -150,6 +150,11 @@ tasker:
     quick-add:
       limit: 60
       window-seconds: 3600
+    # Emails turned into tasks per user per hour. Over the limit, mail is dropped (and counted):
+    # an address that leaked into a mailing list or a mail loop must not run up the AI bill.
+    inbound-mail:
+      limit: 30
+      window-seconds: 3600
     # Agent API (/api/external/v1) gets its own per-user budget, separate from the SPA's.
     external-api:
       limit: 120
@@ -163,6 +168,10 @@ tasker:
     # MTA that accepts mail for the domain and hands it to the app; off unless both are set.
     enabled: ${TASKER_INBOUND_MAIL_ENABLED:false}
     domain: ${TASKER_INBOUND_MAIL_DOMAIN:}
+    # Shared secret the MTA sends with each delivery to /internal/inbound-mail (>= 32 characters).
+    delivery-token: ${TASKER_INBOUND_MAIL_DELIVERY_TOKEN:}
+    # authserv-id of the Authentication-Results header the MTA adds; defaults to the domain.
+    authserv-id: ${TASKER_INBOUND_MAIL_AUTHSERV_ID:}
   feedback:
     # Mailbox that in-app feedback is forwarded to (via the auth email sender). When blank,
     # falls back to the auth sender's own `from` address.

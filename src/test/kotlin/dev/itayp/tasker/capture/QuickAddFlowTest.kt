@@ -555,6 +555,29 @@ class QuickAddFlowTest {
         )
     }
 
+    @Test
+    fun `saving without confirmation validates the draft, falls back to a category, and saves to the default board`() {
+        val taskId = stubCreatedTask(title = "Call the plumber")
+
+        val saved = flow.saveWithoutConfirmation(userId, listOf(CapturedItem.Task(TaskDraft(title = "Call the plumber", priority = "URGENT!"))))
+
+        assertEquals(listOf("Call the plumber"), saved?.titles)
+        assertEquals(listOf(taskId), saved?.taskIds)
+        assertEquals(boardId, saved?.boardId)
+        verify(backlogTaskService).createTask(eq(userId), eq(boardId), check {
+            assertEquals(categoryId.toString(), it.categoryId)
+            assertNull(it.priority)
+        })
+    }
+
+    @Test
+    fun `saving without confirmation saves nothing when no item survives validation`() {
+        val pastEvent = CapturedItem.Event(EventDraft(title = "Yesterday", startIso = "2020-01-01T10:00:00Z"))
+
+        assertNull(flow.saveWithoutConfirmation(userId, listOf(pastEvent)))
+        verify(backlogTaskService, never()).createTask(any(), any(), any())
+    }
+
     private fun stubCreatedTask(id: UUID = UUID.randomUUID(), title: String = "Buy milk"): UUID {
         val created: BacklogTask = mock()
         whenever(created.id).thenReturn(id)

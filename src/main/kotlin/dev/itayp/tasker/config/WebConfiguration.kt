@@ -92,6 +92,13 @@ class WebConfiguration(
         windowMillis = rateLimitProperties.quickAdd.windowSeconds * 1_000,
     )
 
+    // Inbound email arrives from the MTA on loopback, never through RateLimitInterceptor.
+    @Bean
+    fun inboundMailRateLimiter(): RateLimiter = InMemoryRateLimiter(
+        limit = rateLimitProperties.inboundMail.limit,
+        windowMillis = rateLimitProperties.inboundMail.windowSeconds * 1_000,
+    )
+
     // Only registered when a Clock bean is present (i.e. full app context, not @WebMvcTest slices,
     // which don't load TimeConfiguration). The filter is non-essential for slice tests anyway —
     // they exercise individual controllers, not session lifetime.

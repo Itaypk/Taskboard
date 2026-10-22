@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Inbound email queue (GitHub issue #288). The MTA's delivery is answered as soon as the
+        message is parsed and stored here; `InboundMailProcessor` turns it into tasks afterwards,
+        so a slow model call can't time the MTA out into a retry, and a deploy loses nothing.
+
+          - payload    : the parsed message (subject, sender, body text, verified flag) as JSON,
+                         encrypted under the user's DEK. Cleared once processed: no mail at rest.
+          - dedup_key  : SHA-256 of user id + Message-ID (or of the raw message when it has none).
+                         The MTA retries a delivery it isn't sure of; the row stays for a week after
+                         processing so such a retry is recognized rather than captured twice.
+          - status     : PENDING → DONE | FAILED. next_attempt_at spaces out retries.
+    -->
+    <changeSet id="018-1-inbound-mail" author="tasker">
+        <createTable tableName="inbound_mail">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="dedup_key" type="VARCHAR(64)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uq_inbound_mail_dedup"/>
+            </column>
+            <column name="status" type="VARCHAR(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="attempts" type="INT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="next_attempt_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="payload" type="BYTEA"/>
+            <column name="received_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="processed_at" type="TIMESTAMP"/>
+        </createTable>
+
+        <createIndex tableName="inbound_mail" indexName="idx_inbound_mail_due">
+            <column name="status"/>
+            <column name="next_attempt_at"/>
+        </createIndex>
+        <createIndex tableName="inbound_mail" indexName="idx_inbound_mail_user">
+            <column name="user_id"/>
+        </createIndex>
+
+        <addForeignKeyConstraint
+                baseTableName="inbound_mail"
+                baseColumnNames="user_id"
+                constraintName="fk_inbound_mail_user"
+                referencedTableName="users"
+                referencedColumnNames="id"/>
+    </changeSet>
+
+</databaseChangeLog>
