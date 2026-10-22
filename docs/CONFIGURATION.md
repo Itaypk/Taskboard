@@ -158,6 +158,20 @@ the full log to stdout instead and write no file — what `docker logs` and log 
   `from` address. Per-user rate-limited (`tasker.rate-limit.feedback`); the admin-facing email is
   English-only (not user-localised).
 
+## Inbound email (`InboundMailProperties`)
+
+Personal inbound addresses, `tasks.<token>@<domain>`: mail sent there becomes a task (GitHub issue
+#288). Users create, change and turn off their address in Settings → Integrations.
+
+- `TASKER_INBOUND_MAIL_ENABLED` — toggle the feature (default: `false`).
+- `TASKER_INBOUND_MAIL_DOMAIN` — the domain the addresses live on, e.g. `m.example.com`. Needs an
+  MX record and an MTA that accepts mail for it and hands it to the app; the app does not listen
+  for SMTP itself. The feature stays off (and the startup log warns) while this is blank.
+
+The token in each address is hashed with a key derived from `TASKER_DATA_KEK` (it is too short for
+a plain hash), so rotating the KEK means recomputing `inbound_mail_address.token_hmac` from the
+encrypted tokens.
+
 ## Frontend
 
 The SPA reads no `VITE_*` variables: everything instance-specific (login methods, name, contact

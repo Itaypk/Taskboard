@@ -2,6 +2,7 @@ package dev.itayp.tasker.service
 
 import dev.itayp.tasker.ai.AiProperties
 import dev.itayp.tasker.config.AppProperties
+import dev.itayp.tasker.config.InboundMailProperties
 import dev.itayp.tasker.model.response.BrandingResponse
 import dev.itayp.tasker.model.response.LoginMethodsResponse
 import dev.itayp.tasker.model.response.PublicConfigResponse
@@ -18,6 +19,7 @@ class PublicConfigProvider(
     private val loginMethods: LoginMethods,
     private val appProperties: AppProperties,
     private val aiProperties: AiProperties,
+    private val inboundMailProperties: InboundMailProperties,
 ) {
     fun config(): PublicConfigResponse = PublicConfigResponse(
         login = LoginMethodsResponse(
@@ -33,5 +35,6 @@ class PublicConfigProvider(
             abuseEmail = appProperties.abuseEmail,
         ),
         aiZeroDataRetention = aiProperties.zeroDataRetentionInEffect,
+        inboundMail = inboundMailProperties.active,
     )
 }

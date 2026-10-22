@@ -20,7 +20,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
 import java.time.Clock
 
 @Configuration
-@EnableConfigurationProperties(RateLimitProperties::class, SessionProperties::class)
+@EnableConfigurationProperties(RateLimitProperties::class, SessionProperties::class, InboundMailProperties::class)
 class WebConfiguration(
     private val rateLimitProperties: RateLimitProperties,
     // ObjectProvider so @WebMvcTest slices (which don't load service beans) still construct this config.

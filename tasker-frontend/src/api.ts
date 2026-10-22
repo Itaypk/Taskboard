@@ -593,3 +593,21 @@ export const createApiToken = (
 
 export const revokeApiToken = (id: string): Promise<void> =>
     apiRequest(`/api-tokens/${id}`, { method: 'DELETE' });
+
+// --- Inbound email address ---
+
+/** Both null when the user has no address (never created, or turned off). */
+export interface InboundMailAddress {
+    address: string | null;
+    createdAt: string | null;
+}
+
+export const fetchInboundMailAddress = (): Promise<InboundMailAddress> =>
+    apiRequest('/inbound-mail-address');
+
+/** Creates the address, or replaces the current one: the old address stops working at once. */
+export const rotateInboundMailAddress = (): Promise<InboundMailAddress> =>
+    apiRequest('/inbound-mail-address', { method: 'POST' });
+
+export const revokeInboundMailAddress = (): Promise<void> =>
+    apiRequest('/inbound-mail-address', { method: 'DELETE' });

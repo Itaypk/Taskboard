@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Personal inbound email addresses (`tasks.<token>@<inbound domain>`, GitHub issue #288): mail
+        sent there becomes a task for the user. At most one per user, so the user id is the key;
+        rotating replaces the row, turning it off deletes it.
+
+        The token is a 10-character base32 secret (~50 bits), short enough to sit in an address.
+        That is too little entropy for the unsalted SHA-256 used for the other capability tokens
+        (a dump could be brute-forced offline), so the lookup key is an HMAC under a key derived
+        from the KEK (`InboundMailTokenHasher`). The token itself is also kept, encrypted under the
+        user's DEK, because unlike an API token the user needs to see the address again; it also
+        lets the HMACs be recomputed if the KEK is ever rotated.
+    -->
+    <changeSet id="017-1-inbound-mail-address" author="tasker">
+        <createTable tableName="inbound_mail_address">
+            <column name="user_id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="token_hmac" type="VARCHAR(64)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uq_inbound_mail_address_token"/>
+            </column>
+            <column name="token" type="BYTEA">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint
+                baseTableName="inbound_mail_address"
+                baseColumnNames="user_id"
+                constraintName="fk_inbound_mail_address_user"
+                referencedTableName="users"
+                referencedColumnNames="id"/>
+    </changeSet>
+
+</databaseChangeLog>

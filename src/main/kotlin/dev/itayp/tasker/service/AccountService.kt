@@ -77,6 +77,8 @@ class AccountService(
         jdbcTemplate.update("DELETE FROM ai_usage_event WHERE user_id = ?", userId)
         // Agent API tokens FK users(id) with no cascade, so they must go before the user row.
         jdbcTemplate.update("DELETE FROM api_token WHERE user_id = ?", userId)
+        // The inbound email address FKs users(id) with no cascade.
+        jdbcTemplate.update("DELETE FROM inbound_mail_address WHERE user_id = ?", userId)
         // planned_task_slot → planned_task → planning_session; no user_id on slot, so use a subquery
         jdbcTemplate.update(
             "DELETE FROM planned_task_slot WHERE planned_task_id IN (SELECT id FROM planned_task WHERE user_id = ?)",

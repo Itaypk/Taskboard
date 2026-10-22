@@ -215,6 +215,21 @@
       "revokeFailed": "Could not revoke the token. Please try again."
     }
   },
+  "inboundMail": {
+    "label": "Email to tasks",
+    "hint": "Send or forward an email to your personal address, and it becomes a task on your board.",
+    "create": "Create my address",
+    "copy": "Copy",
+    "copied": "Copied",
+    "rotate": "Change address",
+    "turnOff": "Turn off",
+    "secretHint": "Anyone who has this address can add tasks for you. If it gets around, change it — the old one stops working right away.",
+    "confirmRotate": "Change your address? The current one stops working right away, so update any contacts or mail filters that use it.",
+    "confirmTurnOff": "Turn off your address? Mail sent to it will no longer become tasks.",
+    "errors": {
+      "failed": "Something went wrong. Please try again."
+    }
+  },
   "emailLoginConfirm": {
     "loading": "Loading…",
     "invalid": {

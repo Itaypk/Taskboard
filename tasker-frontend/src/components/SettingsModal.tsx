@@ -10,12 +10,14 @@ import { ImportResultDialog } from './ImportResultDialog';
 import { categorizeImportError, type ImportResult } from './importResult';
 import { HelpTip } from './HelpTip';
 import { ApiTokens } from './ApiTokens';
+import { InboundMailAddress } from './InboundMailAddress';
 import { Tabs } from './Tabs';
 import { Toggle } from './Toggle';
 import { updateUserSettings, fetchSettingsOptions, deleteAccount, exportAccount, importAccount, requestEmailVerification, clearDeadlineMutes } from '../api';
 import { DIGEST_DAYS, composeDigestCron, parseDigestCron, type DigestDay } from './digestCron';
 import type { ImportSummary } from '../api';
 import { applyLocale } from '../i18n';
+import { usePublicConfig } from '../publicConfig';
 import type { SettingsTab } from '../taskLink';
 
 interface SettingsModalProps {
@@ -80,6 +82,7 @@ function parseCron(cron: string | null | undefined): { day: string; time: string
 
 export function SettingsModal({ settings, open, initialTab, onClose, onSave, onAccountDeleted }: SettingsModalProps) {
   const { t, i18n } = useTranslation();
+  const inboundMailEnabled = usePublicConfig().inboundMail;
   const settingsTabs = SETTINGS_TAB_IDS.map(id => ({ id, label: t(SETTINGS_TAB_LABEL_KEYS[id]) }));
   const daysOfWeek = DAY_VALUES.map(d => ({ value: d.value, cron: d.cron, label: t(d.labelKey) }));
   const [form, setForm] = useState<UserSettings>(settings);
@@ -690,7 +693,12 @@ export function SettingsModal({ settings, open, initialTab, onClose, onSave, onA
             </>
           )}
 
-          {activeTab === 'integrations' && <ApiTokens />}
+          {activeTab === 'integrations' && (
+            <>
+              {inboundMailEnabled && <InboundMailAddress />}
+              <ApiTokens />
+            </>
+          )}
         </div>
 
         <div className="modal__footer">
