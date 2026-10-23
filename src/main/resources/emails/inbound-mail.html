@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="{{lang}}" dir="{{dir}}">
+<head><meta charset="UTF-8"></head>
+<body style="font-family: sans-serif; color: #1a1a1a; max-width: 600px; margin: 0 auto; padding: 24px;">
+  {{#if failed}}
+  <p>{{{message "inboundmail.failed" subject}}}</p>
+  {{else}}
+  <p>{{{message "inboundmail.saved.intro" subject}}}</p>
+  <ul>
+    {{#each titles}}<li><strong>{{this}}</strong></li>{{/each}}
+  </ul>
+  {{/if}}
+  {{#if attachments}}<p style="font-size: 0.9em; color: #444;">{{message "inboundmail.attachments"}}</p>{{/if}}
+  {{#if unverified}}<p style="font-size: 0.9em; color: #444;">{{message "inboundmail.unverified"}}</p>{{/if}}
+  <p style="margin: 32px 0;">
+    <a href="{{app_url}}"
+       style="background: #1a1a1a; color: #fff; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-size: 0.95em; display: inline-block;">
+      {{message "email.inboundmail.button"}}
+    </a>
+  </p>
+  <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 24px 0;">
+  <p style="font-size: 0.85em; color: #666;">
+    {{{message "email.footer.sent_by"}}}
+  </p>
+</body>
+</html>

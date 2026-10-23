@@ -137,8 +137,34 @@ class SecurityConfiguration(
         return http.build()
     }
 
+    /**
+     * The MTA's inbound-mail delivery (`InboundMailController`). Server-to-server on loopback: no
+     * session, no CSRF (there is no cookie to ride), and authorization is the shared delivery
+     * token, checked in the controller in constant time. The hosted instance's Nginx also answers
+     * `/internal/` with 404 (`internal_paths` in the ops repo), so this is never reachable from
+     * outside there; a self-hosted proxy should do the same.
+     */
     @Bean
     @Order(3)
+    fun internalFilterChain(http: HttpSecurity): SecurityFilterChain {
+        http {
+            securityMatcher("/internal/inbound-mail")
+            authorizeHttpRequests {
+                authorize(anyRequest, permitAll)
+            }
+            sessionManagement {
+                sessionCreationPolicy = SessionCreationPolicy.STATELESS
+            }
+            csrf { disable() }
+            headers {
+                cacheControl { disable() }
+            }
+        }
+        return http.build()
+    }
+
+    @Bean
+    @Order(4)
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
         http {
             authorizeHttpRequests {

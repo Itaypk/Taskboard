@@ -25,6 +25,9 @@
 	@entry path / /index.html
 	header @entry Cache-Control "no-cache"
 
+	# Where a local MTA delivers inbound email (docs/INBOUND-EMAIL.md): never from outside.
+	respond /internal/* 404
+
 	# Caddy replaces any client-supplied X-Forwarded-For with the real client address, which is
 	# what the app's per-IP rate limits key on.
 	reverse_proxy app:8080

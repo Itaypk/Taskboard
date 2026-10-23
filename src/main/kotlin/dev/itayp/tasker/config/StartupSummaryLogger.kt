@@ -60,7 +60,10 @@ class StartupSummaryLogger(
             )
         }
         if (inboundMailProperties.enabled && !inboundMailProperties.active) {
-            log.warn("TASKER_INBOUND_MAIL_ENABLED is set but TASKER_INBOUND_MAIL_DOMAIN is not: inbound email stays off.")
+            log.warn(
+                "TASKER_INBOUND_MAIL_ENABLED is set, but TASKER_INBOUND_MAIL_DOMAIN or TASKER_INBOUND_MAIL_DELIVERY_TOKEN " +
+                    "(at least ${InboundMailProperties.MIN_DELIVERY_TOKEN_LENGTH} characters) is not: inbound email stays off.",
+            )
         }
         if (aiProperties.apiKey.isBlank()) {
             log.warn("TASKER_AI_API_KEY is not set: the weekly planning assistant and AI capture are unavailable.")

@@ -47,12 +47,13 @@ Frontend (run from `tasker-frontend/`, only needed for fast iteration with HMR):
 
 ## Auth model (important — affects every new endpoint)
 
-There are four independent `SecurityFilterChain` beans:
+There are five independent `SecurityFilterChain` beans:
 
 1. **`h2ConsoleFilterChain` (`@Order(0)`)** - applies for the `dev` profile only; allows full access to the `/h2-console` endpoint.
 2. **`prometheusFilterChain` (`@Order(1)`)** — matches only `/actuator/prometheus`. Stateless HTTP Basic Auth; credentials come from `PrometheusAuthProperties` (`TASKER_PROMETHEUS_USERNAME` / `TASKER_PROMETHEUS_PASSWORD`). CSRF disabled.
 3. **`externalApiFilterChain` (`@Order(2)`)** — matches `/api/external/**`. Stateless bearer-token auth for the external API (see below). CSRF disabled.
-4. **`securityFilterChain` (`@Order(3)`)** — everything else. Session-based with a `SameSite=Lax`, `HttpOnly`, `Secure` (prod) cookie (`SESSION`), 30-day rolling timeout. 
+4. **`internalFilterChain` (`@Order(3)`)** — matches only `/internal/inbound-mail`, where the MTA delivers inbound email. Stateless, CSRF disabled, `permitAll`: the shared delivery token is checked in `InboundMailController` (constant time). Must stay unreachable from outside (the hosted Nginx 404s `/internal/`). See `docs/INBOUND-EMAIL.md`.
+5. **`securityFilterChain` (`@Order(4)`)** — everything else. Session-based with a `SameSite=Lax`, `HttpOnly`, `Secure` (prod) cookie (`SESSION`), 30-day rolling timeout. 
 
 Session chain details:
 - **CSRF** via `CookieCsrfTokenRepository.withHttpOnlyFalse()` — mutating requests must echo the `XSRF-TOKEN` cookie value as the `X-XSRF-TOKEN` header. Login endpoints (`/api/auth/dev-login`, `/api/auth/demo-login`, `/api/auth/email`, `/api/auth/password`) are exempt because they create the session; the magic-link callback and the Telegram OIDC start/callback are GETs (inherently CSRF-safe — the OAuth `state` parameter is the anti-forgery token). Account-linking endpoints (`/api/auth/identities/**`) are **not** exempt — the user is already signed in there. Frontend `api.ts` handles the token automatically.
@@ -112,6 +113,22 @@ rule doesn't hide them).
   Errors are RFC 7807 with a `detail` written for a model to read (name the allowed values), so
   an agent can self-correct.
 - Remember to clear new user-owned tables in `AccountService.deleteUserData` (`api_token` already is).
+
+## Inbound email
+
+Users get a personal address, `tasks.<token>@<TASKER_INBOUND_MAIL_DOMAIN>`, and mail sent there
+becomes a task, fire-and-forget (`docs/INBOUND-EMAIL.md`). What bites:
+
+- **The token in the address is the only authentication; `From:` is never identity.** It is 10
+  base32 characters, too short for `CapabilityTokens`' plain SHA-256, so its lookup key is an HMAC
+  under a KEK-derived key (`InboundMailTokenHasher`), and it is also kept encrypted so Settings can
+  show the address again.
+- **Forwarded mail is a stranger's text in front of the model.** The email prompt block says it is
+  data, never instructions, and an email capture can only create tasks and events. Keep it that way
+  before letting email reach anything with more power.
+- **Never reply to the sender.** Confirmations go to the user's Telegram or their own verified
+  email only; bounces and `Auto-Submitted:` mail are dropped, so nothing can loop.
+- The MTA retries on anything but 2xx/4xx, so "can't take it now" must never be a 4xx.
 
 ## Security response headers and caching
 

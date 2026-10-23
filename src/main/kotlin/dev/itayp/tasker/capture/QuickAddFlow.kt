@@ -394,38 +394,58 @@ class QuickAddFlow(
             return null
         }
 
-        val savedTitles = mutableListOf<String>()
-        val savedTaskIds = mutableListOf<UUID>()
-        var invitesSkipped = false
+        val result = runCatching { persist(userId, tasks, events) }
 
-        val result = runCatching {
-            val boardId = boardMembershipService.resolveDefaultBoard(userId)
-            for (task in tasks) {
-                val created = backlogTaskService.createTask(userId, boardId, task.toCreateBacklogTaskRequest())
-                savedTitles += created.title
-                savedTaskIds += created.id
-            }
-            if (events.isNotEmpty()) {
-                val created = oneOffEventService.createEvents(userId, boardId, events.map { it.toOneOffEventDraft() })
-                savedTitles += created.events.map { it.title }
-                invitesSkipped = !created.invitesScheduled
-            }
-        }
-
-        result.onSuccess {
+        result.onSuccess { saved ->
             count("saved")
-            log.debug("quick-add created {} item(s)", savedTitles.size)
-            val joined = savedTitles.joinToString(", ") { channel.formatter.escape(it) }
+            log.debug("quick-add created {} item(s)", saved.titles.size)
+            val joined = saved.titles.joinToString(", ") { channel.formatter.escape(it) }
             channel.send(ChannelMessage.Text(msg(userId, "quickadd.saved", joined)))
-            if (invitesSkipped) {
+            if (saved.invitesSkipped) {
                 channel.send(ChannelMessage.Text(msg(userId, "quickadd.event.invite_skipped")))
             }
         }.onFailure { e ->
             log.warn("quick-add save failed: {}", e.message)
             channel.send(ChannelMessage.Text(msg(userId, "quickadd.failed")))
         }
-        if (result.isFailure || events.isNotEmpty()) return null
-        return savedTaskIds.singleOrNull()
+        if (events.isNotEmpty()) return null
+        return result.getOrNull()?.taskIds?.singleOrNull()
+    }
+
+    /**
+     * Saves a draft with no confirmation card and no channel: for captures nobody is there to
+     * confirm, i.e. inbound email (`docs/INBOUND-EMAIL.md`). The items go through the same
+     * validation the card would have shown. Null when nothing valid was left to save; throws when
+     * the save itself fails, so the caller can retry.
+     */
+    fun saveWithoutConfirmation(userId: UUID, items: List<CapturedItem>): SavedCapture? {
+        val validated = validateItems(userId, items)
+        val tasks = validated.filterIsInstance<CapturedItem.Task>().map { it.draft }
+        val events = validated.filterIsInstance<CapturedItem.Event>().map { it.draft }
+        if (tasks.isEmpty() && events.isEmpty()) return null
+        check(tasks.none { it.categoryId.isNullOrBlank() }) { "a task draft had no category" }
+        return persist(userId, tasks, events).also {
+            count("saved")
+            log.debug("quick-add created {} item(s) without confirmation", it.titles.size)
+        }
+    }
+
+    private fun persist(userId: UUID, tasks: List<TaskDraft>, events: List<EventDraft>): SavedCapture {
+        val titles = mutableListOf<String>()
+        val taskIds = mutableListOf<UUID>()
+        var invitesSkipped = false
+        val boardId = boardMembershipService.resolveDefaultBoard(userId)
+        for (task in tasks) {
+            val created = backlogTaskService.createTask(userId, boardId, task.toCreateBacklogTaskRequest())
+            titles += created.title
+            taskIds += created.id
+        }
+        if (events.isNotEmpty()) {
+            val created = oneOffEventService.createEvents(userId, boardId, events.map { it.toOneOffEventDraft() })
+            titles += created.events.map { it.title }
+            invitesSkipped = !created.invitesScheduled
+        }
+        return SavedCapture(boardId, titles, taskIds, invitesSkipped)
     }
 
     // ── The plan hand-off (`docs/FREE-TEXT-CAPTURE.md` D6) ───────────────────────────────────────

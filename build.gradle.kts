@@ -58,6 +58,7 @@ dependencies {
     implementation("net.logstash.logback:logstash-logback-encoder:9.0")
     implementation("com.github.jknack:handlebars:4.5.5")
     implementation("org.commonmark:commonmark:0.30.1")
+    implementation("org.jsoup:jsoup:1.21.2")
     implementation("org.telegram:telegrambots-springboot-longpolling-starter:10.3.0")
     implementation("org.telegram:telegrambots-client:10.3.0")
     runtimeOnly("com.h2database:h2")

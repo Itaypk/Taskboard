@@ -7,10 +7,20 @@ import org.junit.jupiter.api.Test
 class InboundMailPropertiesTest {
 
     @Test
-    fun `is active only when enabled with a domain`() {
-        assertThat(InboundMailProperties(enabled = true, domain = "m.example.com").active).isTrue()
-        assertThat(InboundMailProperties(enabled = true, domain = "").active).isFalse()
-        assertThat(InboundMailProperties(enabled = false, domain = "m.example.com").active).isFalse()
+    fun `is active only when enabled with a domain and a long enough delivery token`() {
+        val token = "x".repeat(32)
+        assertThat(InboundMailProperties(enabled = true, domain = "m.example.com", deliveryToken = token).active).isTrue()
+        assertThat(InboundMailProperties(enabled = true, domain = "", deliveryToken = token).active).isFalse()
+        assertThat(InboundMailProperties(enabled = false, domain = "m.example.com", deliveryToken = token).active).isFalse()
+        assertThat(InboundMailProperties(enabled = true, domain = "m.example.com", deliveryToken = "short").active).isFalse()
+    }
+
+    @Test
+    fun `defaults the authserv-id to the domain, and never prints the token`() {
+        val properties = InboundMailProperties(enabled = true, domain = "M.Example.com", deliveryToken = "s3cret".repeat(6))
+
+        assertThat(properties.effectiveAuthservId).isEqualTo("m.example.com")
+        assertThat(properties.toString()).doesNotContain("s3cret")
     }
 
     @Test
