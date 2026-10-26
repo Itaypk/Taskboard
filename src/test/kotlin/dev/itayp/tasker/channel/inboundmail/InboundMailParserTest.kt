@@ -1,8 +1,10 @@
 package dev.itayp.tasker.channel.inboundmail
 
 import dev.itayp.tasker.config.InboundMailProperties
+import dev.itayp.tasker.channel.AttachmentKind
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import java.util.Base64
 
 class InboundMailParserTest {
 
@@ -31,7 +33,8 @@ class InboundMailParserTest {
         assertThat(mail.fromAddress).isEqualTo("joe@example.org")
         assertThat(mail.fromName).isEqualTo("Joe Bloggs")
         assertThat(mail.body).isEqualTo("Expires in March.")
-        assertThat(mail.attachmentCount).isZero()
+        assertThat(mail.attachments).isEmpty()
+        assertThat(mail.unreadAttachments).isEmpty()
         assertThat(mail.autoSubmitted).isFalse()
         assertThat(mail.dmarcPassDomain).isNull()
     }
@@ -88,6 +91,11 @@ class InboundMailParserTest {
 
             JVBERi0xLjQK
             --m1
+            Content-Type: application/vnd.ms-excel
+            Content-Disposition: attachment; filename="sheet.xls"
+
+            x
+            --m1
             Content-Type: message/rfc822
             Content-Disposition: attachment
 
@@ -100,7 +108,9 @@ class InboundMailParserTest {
             """,
         )
 
-        assertThat(mail.attachmentCount).isEqualTo(1)
+        assertThat(mail.attachments.map { it.kind to it.filename }).containsExactly(AttachmentKind.DOCUMENT to "invoice.pdf")
+        assertThat(mail.attachments.single().mediaType).isEqualTo("application/pdf")
+        assertThat(mail.unreadAttachments).containsExactly("sheet.xls")
         assertThat(mail.body)
             .startsWith("Please pay this.")
             .contains(InboundMailParser.FORWARDED_MARKER)
@@ -160,5 +170,55 @@ class InboundMailParserTest {
         val mail = parse("From: a@example.org\nSubject: Long\n\n" + "x".repeat(InboundMailParser.MAX_BODY_CHARS + 100))
 
         assertThat(mail.body).hasSize(InboundMailParser.MAX_BODY_CHARS)
+    }
+
+    /** A multipart/mixed message with a text body and one part per [parts] entry (headers, bytes). */
+    private fun withParts(vararg parts: Pair<String, ByteArray>): ParsedInboundMail {
+        val body = StringBuilder("From: me@example.org\r\nSubject: Parts\r\nContent-Type: multipart/mixed; boundary=\"p\"\r\n\r\n")
+        body.append("--p\r\nContent-Type: text/plain\r\n\r\nSee attached.\r\n")
+        for ((headers, bytes) in parts) {
+            body.append("--p\r\n").append(headers.replace("\n", "\r\n")).append("\r\nContent-Transfer-Encoding: base64\r\n\r\n")
+            body.append(Base64.getMimeEncoder().encodeToString(bytes)).append("\r\n")
+        }
+        body.append("--p--\r\n")
+        return parser.parse(body.toString().toByteArray())
+    }
+
+    private fun image(name: String, size: Int = 20_000) =
+        "Content-Type: image/jpeg\nContent-Disposition: attachment; filename=\"$name\"" to ByteArray(size) { 1 }
+
+    @Test
+    fun `drops small images as decoration, without naming them`() {
+        val mail = withParts(
+            "Content-Type: image/png\nContent-ID: <logo>\nContent-Disposition: inline" to ByteArray(2_000) { 1 },
+            image("photo.jpg"),
+        )
+
+        assertThat(mail.attachments.map { it.filename }).containsExactly("photo.jpg")
+        assertThat(mail.attachments.single().mediaType).isEqualTo("image/jpeg")
+        assertThat(mail.unreadAttachments).isEmpty()
+    }
+
+    @Test
+    fun `names attachments over the size cap or past the count cap`() {
+        val mail = withParts(
+            image("huge.jpg", InboundMailParser.MAX_ATTACHMENT_BYTES + 1),
+            image("1.jpg"), image("2.jpg"), image("3.jpg"), image("4.jpg"), image("5.jpg"),
+        )
+
+        assertThat(mail.attachments.map { it.filename }).containsExactly("1.jpg", "2.jpg", "3.jpg", "4.jpg")
+        assertThat(mail.unreadAttachments).containsExactly("huge.jpg", "5.jpg")
+    }
+
+    @Test
+    fun `takes a PDF sent as a generic binary by its name, and an unnamed part by its media type`() {
+        val mail = withParts(
+            "Content-Type: application/octet-stream\nContent-Disposition: attachment; filename=\"Ticket.PDF\"" to "%PDF-1.4".toByteArray(),
+            "Content-Type: application/zip\nContent-Disposition: attachment" to byteArrayOf(1),
+        )
+
+        assertThat(mail.attachments.single().kind).isEqualTo(AttachmentKind.DOCUMENT)
+        assertThat(mail.attachments.single().mediaType).isEqualTo("application/pdf")
+        assertThat(mail.unreadAttachments).containsExactly("application/zip")
     }
 }

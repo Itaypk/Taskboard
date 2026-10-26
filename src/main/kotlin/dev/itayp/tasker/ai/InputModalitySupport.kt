@@ -9,10 +9,10 @@ import org.springframework.stereotype.Component
  * Answers "can the multimodal capture model actually read this?" for a given attachment kind.
  *
  * OpenRouter rejects a modality the target model doesn't accept rather than ignoring it, so every
- * call site that attaches an image or an audio clip must check first. Capabilities come from the
- * library's startup prefetch ([ModelCapabilityService]); an unknown model (fetch failed, or the key
- * isn't configured) reports *no* modalities, so we fail closed and tell the user to type instead of
- * sending a request that would 400.
+ * call site that attaches an image, an audio clip or a PDF must check first. Capabilities come
+ * from the library's startup prefetch ([ModelCapabilityService]); an unknown model (fetch failed,
+ * or the key isn't configured) reports *no* modalities, so we fail closed (and capture from text
+ * only) instead of sending a request that would 400.
  */
 @Component
 class InputModalitySupport(
@@ -29,6 +29,7 @@ class InputModalitySupport(
         val modality = when (kind) {
             AttachmentKind.IMAGE -> "image"
             AttachmentKind.AUDIO -> "audio"
+            AttachmentKind.DOCUMENT -> "file"
         }
         val supported = modelCapabilityService.get(captureModel)?.inputModalities?.contains(modality) == true
         if (!supported) {

@@ -1,5 +1,7 @@
 package dev.itayp.tasker.channel.inboundmail
 
+import dev.itayp.tasker.channel.AttachmentKind
+import dev.itayp.tasker.channel.InboundAttachment
 import dev.itayp.tasker.config.InboundMailProperties
 import jakarta.mail.BodyPart
 import jakarta.mail.MessagingException
@@ -24,8 +26,14 @@ data class ParsedInboundMail(
     val fromAddress: String?,
     val fromName: String?,
     val body: String,
-    /** Parts that aren't the message text (files, images). Not read in v1 (GitHub issue #310). */
-    val attachmentCount: Int,
+    /** The images and PDFs capture can read, within [InboundMailParser]'s caps. */
+    val attachments: List<InboundAttachment>,
+    /**
+     * Display names (the filename, else the media type) of the attachments left out: another type,
+     * over the size cap, or past the count cap. Decoration (signature logos, tracking pixels) is
+     * neither here nor in [attachments].
+     */
+    val unreadAttachments: List<String>,
     /** `Auto-Submitted:` other than `no`: an auto-reply, a bounce report, a robot. */
     val autoSubmitted: Boolean,
     /**
@@ -68,7 +76,8 @@ class InboundMailParser(properties: InboundMailProperties) {
                 fromAddress = from?.address?.trim()?.lowercase()?.takeIf { it.contains('@') },
                 fromName = from?.personal?.trim()?.takeIf { it.isNotEmpty() },
                 body = content.text().take(MAX_BODY_CHARS),
-                attachmentCount = content.attachments,
+                attachments = content.attachments,
+                unreadAttachments = content.unread,
                 autoSubmitted = isAutoSubmitted(message.getHeader("Auto-Submitted")),
                 dmarcPassDomain = dmarcPassDomain(message.getHeader("Authentication-Results")),
             )
@@ -83,7 +92,8 @@ class InboundMailParser(properties: InboundMailProperties) {
     private class Content {
         val plain = StringBuilder()
         val html = StringBuilder()
-        var attachments = 0
+        val attachments = mutableListOf<InboundAttachment>()
+        val unread = mutableListOf<String>()
 
         fun text(): String = (plain.takeIf { it.isNotBlank() } ?: html).toString().trim().replace(BLANK_LINES, "\n\n")
     }
@@ -115,13 +125,63 @@ class InboundMailParser(properties: InboundMailProperties) {
                 content.html.append(header)
                 collect(inner, content, depth + 1)
             }
-            isAttachment -> content.attachments++
+            isAttachment -> addAttachment(part, content)
             part.isMimeType("text/plain") -> content.plain.append(textOf(part)).append('\n')
             part.isMimeType("text/html") -> content.html.append(htmlToText(textOf(part))).append('\n')
             // Inline images and other non-text parts without a filename: still not text.
-            part !is MimeMessage && part is BodyPart -> content.attachments++
+            part !is MimeMessage && part is BodyPart -> addAttachment(part, content)
         }
     }
+
+    /**
+     * Keeps [part] for capture when it is an image or a PDF within the caps, notes it as unread
+     * otherwise. Small images are dropped silently: in mail they are almost always a signature
+     * logo or a tracking pixel, and a photo or a scan is far larger. The size can't be told from
+     * the disposition: Apple Mail sends a photo pasted into the body as an inline `cid:` image, the
+     * same way a signature carries its logo.
+     */
+    private fun addAttachment(part: Part, content: Content) {
+        val filename = part.fileName?.let { decodeFilename(it) }?.trim()?.takeIf { it.isNotEmpty() }
+        val mediaType = part.contentType?.substringBefore(';')?.trim()?.lowercase().orEmpty()
+        val displayName = filename ?: mediaType.ifEmpty { "attachment" }
+        val kind = kindOf(mediaType, filename) ?: run {
+            content.unread += displayName
+            return
+        }
+        val bytes = try {
+            part.inputStream.use { it.readNBytes(MAX_ATTACHMENT_BYTES + 1) }
+        } catch (_: IOException) {
+            null
+        } catch (_: MessagingException) {
+            null
+        }
+        when {
+            bytes == null || bytes.size > MAX_ATTACHMENT_BYTES -> content.unread += displayName
+            kind == AttachmentKind.IMAGE && bytes.size < MIN_IMAGE_BYTES -> Unit
+            content.attachments.size >= MAX_ATTACHMENTS -> content.unread += displayName
+            else -> content.attachments += InboundAttachment(
+                kind = kind,
+                bytes = bytes,
+                mediaType = if (kind == AttachmentKind.DOCUMENT) PDF else mediaType.replace("image/jpg", "image/jpeg"),
+                filename = filename,
+            )
+        }
+    }
+
+    /** Images the providers take, and PDFs, which some senders label as a generic binary. */
+    private fun kindOf(mediaType: String, filename: String?): AttachmentKind? = when {
+        mediaType in IMAGE_TYPES -> AttachmentKind.IMAGE
+        mediaType == PDF -> AttachmentKind.DOCUMENT
+        mediaType == "application/octet-stream" && filename?.lowercase()?.endsWith(".pdf") == true -> AttachmentKind.DOCUMENT
+        else -> null
+    }
+
+    private fun decodeFilename(name: String): String =
+        try {
+            MimeUtility.decodeText(name)
+        } catch (_: IOException) {
+            name
+        }
 
     /** A part in an unknown charset or with a broken encoding reads as empty rather than failing the message. */
     private fun textOf(part: Part): String =
@@ -166,6 +226,18 @@ class InboundMailParser(properties: InboundMailProperties) {
         const val MAX_BODY_CHARS = 20_000
         const val FORWARDED_MARKER = "---------- Forwarded message ----------"
         private const val MAX_DEPTH = 10
+
+        /**
+         * Attachment caps: the same 5 MB per file as Telegram media, and a few files per email.
+         * There is no separate total: the MTA's 25 MB message limit, base64 included, bounds it.
+         */
+        const val MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024
+        const val MAX_ATTACHMENTS = 4
+
+        /** Below this an image is decoration (a logo, a pixel), not something to capture from. */
+        const val MIN_IMAGE_BYTES = 15 * 1024
+        private const val PDF = "application/pdf"
+        private val IMAGE_TYPES = setOf("image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif")
         private val BLANK_LINES = Regex("\\n{3,}")
         private val DMARC_PASS = Regex("^\\s*dmarc\\s*=\\s*pass\\b", RegexOption.IGNORE_CASE)
         private val HEADER_FROM = Regex("header\\.from\\s*=\\s*([^\\s;()]+)", RegexOption.IGNORE_CASE)

@@ -10,8 +10,7 @@
     {{#each titles}}<li><strong>{{this}}</strong></li>{{/each}}
   </ul>
   {{/if}}
-  {{#if attachments}}<p style="font-size: 0.9em; color: #444;">{{message "inboundmail.attachments"}}</p>{{/if}}
-  {{#if unverified}}<p style="font-size: 0.9em; color: #444;">{{message "inboundmail.unverified"}}</p>{{/if}}
+  {{#each notes}}<p style="font-size: 0.9em; color: #444;">{{this}}</p>{{/each}}
   <p style="margin: 32px 0;">
     <a href="{{app_url}}"
        style="background: #1a1a1a; color: #fff; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-size: 0.95em; display: inline-block;">

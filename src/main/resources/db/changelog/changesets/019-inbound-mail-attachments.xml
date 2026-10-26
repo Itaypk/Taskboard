@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Attachments of queued inbound email (GitHub issue #310): the images and PDFs capture reads,
+        as JSON, encrypted under the user's DEK. Kept apart from `payload` because they can run to
+        megabytes. Like `payload`, cleared as soon as the row is processed (DONE or FAILED), so
+        attachment bytes live only between receipt and capture.
+    -->
+    <changeSet id="019-1-inbound-mail-attachments" author="tasker">
+        <addColumn tableName="inbound_mail">
+            <column name="attachments" type="BYTEA"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

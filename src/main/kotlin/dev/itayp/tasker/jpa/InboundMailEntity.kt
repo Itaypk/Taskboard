@@ -36,6 +36,13 @@ class InboundMailEntity {
     @Column
     var payload: ByteArray? = null
 
+    /**
+     * The images and PDFs to capture from, as JSON, encrypted under the user's DEK. Null when there
+     * are none, and once processed. See changeset 019.
+     */
+    @Column
+    var attachments: ByteArray? = null
+
     @Column(name = "received_at", nullable = false)
     var receivedAt: Instant? = null
 

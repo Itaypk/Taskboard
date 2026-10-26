@@ -89,6 +89,9 @@ sealed interface ChannelInbound {
 enum class AttachmentKind {
     IMAGE,
     AUDIO,
+
+    /** A PDF. Only inbound email captures these so far (`docs/INBOUND-EMAIL.md`). */
+    DOCUMENT,
 }
 
 /**
@@ -97,12 +100,15 @@ enum class AttachmentKind {
  * @param mediaType the IANA media type (`image/jpeg`, `audio/ogg`, …).
  * @param format for [AttachmentKind.AUDIO], the codec/container label the AI provider expects
  *   (`ogg`, `mp3`, `wav`, …). Null for images, which are identified by [mediaType].
+ * @param filename the name the sender gave the file, when there is one. A [AttachmentKind.DOCUMENT]
+ *   is sent to the provider under it.
  */
 data class InboundAttachment(
     val kind: AttachmentKind,
     val bytes: ByteArray,
     val mediaType: String,
     val format: String? = null,
+    val filename: String? = null,
 ) {
     // Value-semantics equals/hashCode: ByteArray's identity comparison would make two attachments
     // holding the same bytes unequal, which breaks the data-class equality tests rely on.
@@ -112,7 +118,8 @@ data class InboundAttachment(
         return kind == other.kind &&
             bytes.contentEquals(other.bytes) &&
             mediaType == other.mediaType &&
-            format == other.format
+            format == other.format &&
+            filename == other.filename
     }
 
     override fun hashCode(): Int {
@@ -120,6 +127,7 @@ data class InboundAttachment(
         result = 31 * result + bytes.contentHashCode()
         result = 31 * result + mediaType.hashCode()
         result = 31 * result + (format?.hashCode() ?: 0)
+        result = 31 * result + (filename?.hashCode() ?: 0)
         return result
     }
 }

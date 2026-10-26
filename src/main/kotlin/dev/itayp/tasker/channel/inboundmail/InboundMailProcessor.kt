@@ -1,11 +1,13 @@
 package dev.itayp.tasker.channel.inboundmail
 
+import dev.itayp.tasker.ai.InputModalitySupport
 import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.ai.access.AiDisabledException
 import dev.itayp.tasker.ai.access.AiTierNotGrantedException
 import dev.itayp.tasker.ai.access.AiUsageLimitExceededException
 import dev.itayp.tasker.capture.QuickAddFlow
 import dev.itayp.tasker.capture.SavedCapture
+import dev.itayp.tasker.channel.InboundAttachment
 import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.jpa.InboundMailEntity
 import dev.itayp.tasker.jpa.InboundMailStatus
@@ -20,6 +22,7 @@ import org.springframework.data.domain.PageRequest
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
+import tools.jackson.core.type.TypeReference
 import tools.jackson.databind.ObjectMapper
 import java.time.Clock
 import java.time.Duration
@@ -34,6 +37,11 @@ import java.util.concurrent.TimeUnit
  * becomes a task, verbatim: subject as the title, the text as the description. Losing a forwarded
  * email because the model is unavailable would be worse than an unpolished task.
  *
+ * The email's images and PDFs go to the model with its text when the capture model can read them
+ * (`InputModalitySupport`, failing closed). When it can't, when AI is unavailable, and on the last
+ * attempt (in case the attachments are what keeps failing), capture runs from the text alone and
+ * the confirmation says the attachments weren't read.
+ *
  * Same single-instance polling pattern as `NotificationScheduler`. A failed attempt is retried with
  * backoff; after [MAX_ATTEMPTS] the row is marked FAILED and the user is told nothing was created.
  */
@@ -45,6 +53,7 @@ class InboundMailProcessor(
     private val suggestionAgent: TaskSuggestionAgent,
     private val quickAddFlow: QuickAddFlow,
     private val aiAccessService: AiAccessService,
+    private val inputModalitySupport: InputModalitySupport,
     private val confirmation: InboundMailConfirmation,
     private val meterRegistry: MeterRegistry,
     private val clock: Clock,
@@ -84,9 +93,10 @@ class InboundMailProcessor(
             log.error("Inbound mail {} for user {} has an unreadable payload", mail.id, userId, e)
             return
         }
+        val attachments = readAttachments(mail)
         val lastAttempt = mail.attempts + 1 >= MAX_ATTEMPTS
-        val saved = try {
-            capture(mail, payload, lastAttempt)
+        val captured = try {
+            capture(mail, payload, attachments, lastAttempt)
         } catch (e: Exception) {
             mail.attempts += 1
             if (!lastAttempt) {
@@ -102,19 +112,45 @@ class InboundMailProcessor(
             return
         }
         finish(mail, InboundMailStatus.DONE)
-        log.info("Inbound mail {} for user {} became {} item(s)", mail.id, userId, saved.titles.size)
-        confirmation.sendSaved(userId, payload, saved)
+        countAttachments(attachments, payload, captured.attachmentsRead)
+        log.info(
+            "Inbound mail {} for user {} became {} item(s) (attachments read: {})",
+            mail.id, userId, captured.saved.titles.size, captured.attachmentsRead,
+        )
+        confirmation.sendSaved(userId, payload, captured.saved, captured.attachmentsRead)
     }
+
+    /** An unreadable attachments column costs the attachments, not the email: capture from the text. */
+    private fun readAttachments(mail: InboundMailEntity): List<InboundAttachment> {
+        val stored = mail.attachments ?: return emptyList()
+        return try {
+            val json = checkNotNull(userCryptoService.decrypt(checkNotNull(mail.userId), stored))
+            objectMapper.readValue(json, object : TypeReference<List<InboundAttachment>>() {})
+        } catch (e: Exception) {
+            log.error("Inbound mail {} has unreadable attachments; capturing from the text only", mail.id, e)
+            emptyList()
+        }
+    }
+
+    private class Captured(val saved: SavedCapture, val attachmentsRead: Boolean)
 
     /**
      * The AI draft when AI is available and produces one; the verbatim task otherwise. A model
      * error is worth a retry until the last attempt, which falls back rather than lose the email.
      */
-    private fun capture(mail: InboundMailEntity, payload: InboundMailPayload, lastAttempt: Boolean): SavedCapture {
+    private fun capture(
+        mail: InboundMailEntity,
+        payload: InboundMailPayload,
+        attachments: List<InboundAttachment>,
+        lastAttempt: Boolean,
+    ): Captured {
         val userId = checkNotNull(mail.userId)
         if (aiAccessService.isAiAvailableForUser(userId)) {
+            val readable = attachments.takeIf {
+                it.isNotEmpty() && !lastAttempt && inputModalitySupport.supportsAll(it.map { attachment -> attachment.kind })
+            }.orEmpty()
             val outcome = try {
-                suggestionAgent.quickAddDraftFromEmail(userId, renderForModel(payload))
+                suggestionAgent.quickAddDraftFromEmail(userId, renderForModel(payload), readable)
             } catch (e: AiDisabledException) {
                 null
             } catch (e: AiTierNotGrantedException) {
@@ -129,19 +165,21 @@ class InboundMailProcessor(
             if (outcome is SuggestionOutcome.Draft) {
                 quickAddFlow.saveWithoutConfirmation(userId, outcome.items)?.let {
                     count("drafted")
-                    return it
+                    return Captured(it, attachmentsRead = readable.isNotEmpty())
                 }
             }
         }
         count("verbatim")
-        return checkNotNull(quickAddFlow.saveWithoutConfirmation(userId, listOf(verbatimTask(payload)))) {
+        val saved = checkNotNull(quickAddFlow.saveWithoutConfirmation(userId, listOf(verbatimTask(payload)))) {
             "the verbatim task did not validate"
         }
+        return Captured(saved, attachmentsRead = false)
     }
 
     private fun finish(mail: InboundMailEntity, status: InboundMailStatus) {
         mail.status = status
         mail.payload = null
+        mail.attachments = null
         mail.processedAt = clock.instant()
         repository.save(mail)
     }
@@ -169,6 +207,18 @@ class InboundMailProcessor(
 
     private fun count(result: String) =
         meterRegistry.counter("tasker.inbound_mail.processed", "result", result).increment()
+
+    /** `read` / `not_read` per stored attachment and kind; `skipped` for the ones the parser left out. */
+    private fun countAttachments(attachments: List<InboundAttachment>, payload: InboundMailPayload, read: Boolean) {
+        val result = if (read) "read" else "not_read"
+        attachments.groupingBy { it.kind.name.lowercase() }.eachCount().forEach { (kind, n) ->
+            meterRegistry.counter("tasker.inbound_mail.attachments", "kind", kind, "result", result).increment(n.toDouble())
+        }
+        if (payload.unreadAttachments.isNotEmpty()) {
+            meterRegistry.counter("tasker.inbound_mail.attachments", "kind", "other", "result", "skipped")
+                .increment(payload.unreadAttachments.size.toDouble())
+        }
+    }
 
     companion object {
         private const val POLL_INTERVAL_SECONDS = 15L

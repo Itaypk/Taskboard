@@ -63,7 +63,7 @@ backscatter.
    two auto-responders can never loop through us.
 4. Parses the MIME (`InboundMailParser`, jakarta.mail + jsoup): subject, `From:`, plain-text body
    (an HTML-only body is converted; a message forwarded *as an attachment* is unwrapped into the
-   body), attachment count.
+   body), and the attachments (see [Attachments](#attachments)).
 5. Drops a duplicate: the dedup key is SHA-256 of user id + `Message-ID` (or of the raw message).
 6. Applies the per-user rate limit (`tasker.rate-limit.inbound-mail`, 30/hour): a leaked address
    or a mail loop must not run up the AI bill.
@@ -73,7 +73,8 @@ backscatter.
    forward is verified; an auto-forwarding rule (it keeps the original `From:`) and anyone else
    who has the address are not.
 8. Stores the parsed message, encrypted under the user's DEK, in the `inbound_mail` queue and
-   answers 202.
+   answers 202. The readable attachments go, encrypted the same way, in a column of their own
+   (`attachments`, changeset 019), so the payload stays small.
 
 ## Capture
 
@@ -89,7 +90,37 @@ backscatter.
   forwarded email is worse than an unpolished task.
 - A failed attempt is retried after 1 minute, 10 minutes and an hour; then the row is FAILED and
   the user is told nothing was created.
-- The payload is cleared as soon as the row is done; the row itself stays a week as a dedup key.
+- The payload and the attachments are cleared as soon as the row is done (DONE or FAILED); the
+  row itself stays a week as a dedup key.
+
+## Attachments
+
+Images and PDFs are read by the model together with the email's text (GitHub issue #310), on the
+multimodal path of `docs/MULTIMODAL-CAPTURE.md`: `TaskSuggestionAgent.quickAddDraftFromEmail`
+attaches them, and `InputModalitySupport` gates them on the capture model's advertised input
+modalities (`image`; `file` for a PDF), failing closed. So the feature is dark unless
+`TASKER_AI_MULTIMODAL_MODEL` names a model that takes them.
+
+- **What counts** (`InboundMailParser`): JPEG, PNG, WebP and GIF images, and PDFs (also when sent
+  as `application/octet-stream` with a `.pdf` name), anywhere in the MIME tree, including inside a
+  message forwarded as an attachment. Everything else (audio, office documents, `.ics`, HEIC) is
+  noted by name as not read.
+- **Caps**: 5 MB per file (as for Telegram media) and 4 files per email; the rest is noted as not
+  read. No separate total: the MTA's 25 MB message limit, base64 included, bounds it.
+- **Decoration** is dropped silently: an image under 15 KB is a signature logo or a tracking
+  pixel far more often than a photo. The disposition can't tell them apart (Apple Mail sends a
+  photo pasted into the body as an inline `cid:` image, the same way a signature carries its
+  logo), so size is the heuristic. It isn't counted or mentioned anywhere.
+- **Falling back**: when the model can't read them, when AI is unavailable, and on the last
+  attempt (in case the attachments are what keeps failing), capture runs from the text alone. A
+  verbatim task never reads them.
+- **At rest**: the bytes are in the database only between receipt and capture, normally one poll
+  (15 s), at most the retry window (about 71 minutes). A database dump taken in that window holds
+  them, encrypted under the user's DEK. They are never logged; log lines carry counts only.
+- Text in an attachment is as untrusted as the email's: the email prompt block covers both.
+- Calendar invitations (`text/calendar`) aren't read yet: re-creating the invited event would
+  duplicate what is already on the user's calendar, but an invitation is useful context for the
+  task the user forwarded it with (GitHub issue #316).
 
 Verified and unverified mail are captured alike in v1: the token is the authentication, and a
 quick-add capture can only create tasks and events. The verified flag only changes the
@@ -100,12 +131,13 @@ unfamiliar.
 
 `InboundMailConfirmation`, localized: over Telegram when the bot can reach the user, otherwise by
 email (the scheduling sender) to the account's own verified address, otherwise none. **Never to
-the sender or `From:`.** It lists what was created, and says when the email wasn't verified or
-had attachments that were left out.
+the sender or `From:`.** It lists what was created, and says when the email wasn't verified, which
+attachments were left out (by name, with the caps), and when the readable ones weren't read either
+because capture fell back to the text.
 
-## Not in v1
+## Not yet
 
-- Attachments (images, PDFs, `.ics`): counted and mentioned, not read — GitHub issue #310.
+- Calendar invitations (`.ics`): counted and mentioned, not read (see [Attachments](#attachments)).
 - A board per address: everything goes to the default board, like Telegram quick-add.
 - Validating tokens at SMTP time (an MTA lookup into this database) instead of by shape only.
 
@@ -114,3 +146,7 @@ had attachments that were left out.
 - `tasker.inbound_mail.received{outcome}`: one per delivery (`queued`, `duplicate`,
   `unknown_recipient`, `postmaster`, `bounce`, `auto_submitted`, `rate_limited`, `malformed`).
 - `tasker.inbound_mail.processed{result}`: `drafted`, `verbatim`, `failed`.
+- `tasker.inbound_mail.attachments{kind,result}`: per attachment of a captured email. `read` and
+  `not_read` (by `kind`: `image`, `document`) for the readable ones; `skipped` (`kind=other`) for
+  the ones the parser left out. `not_read` climbing means the configured model can't do what users
+  are sending.
