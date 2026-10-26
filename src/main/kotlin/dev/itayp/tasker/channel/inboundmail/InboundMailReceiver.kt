@@ -112,8 +112,9 @@ class InboundMailReceiver(
             fromAddress = mail.fromAddress,
             fromName = mail.fromName,
             body = mail.body,
-            attachmentCount = mail.attachmentCount,
+            attachmentCount = mail.attachments.size + mail.unreadAttachments.size,
             verified = isVerified(userId, mail),
+            unreadAttachments = mail.unreadAttachments,
         )
         val now = clock.instant()
         val entity = InboundMailEntity().apply {
@@ -122,6 +123,9 @@ class InboundMailReceiver(
             this.dedupKey = dedupKey
             nextAttemptAt = now
             this.payload = userCryptoService.encrypt(userId, objectMapper.writeValueAsString(payload))
+            // Apart from the payload: they can be megabytes, and the payload is read on every attempt.
+            attachments = mail.attachments.takeIf { it.isNotEmpty() }
+                ?.let { userCryptoService.encrypt(userId, objectMapper.writeValueAsString(it)) }
             receivedAt = now
         }
         try {
@@ -130,7 +134,10 @@ class InboundMailReceiver(
             // A concurrent retry of the same delivery won the insert.
             return ReceiveOutcome.DUPLICATE
         }
-        log.info("Queued inbound mail {} for user {} (verified={})", entity.id, userId, payload.verified)
+        log.info(
+            "Queued inbound mail {} for user {} (verified={}, attachments={}, unread={})",
+            entity.id, userId, payload.verified, mail.attachments.size, mail.unreadAttachments.size,
+        )
         return ReceiveOutcome.QUEUED
     }
 
@@ -150,12 +157,18 @@ class InboundMailReceiver(
     }
 }
 
-/** The queued message, as stored (encrypted) in `inbound_mail.payload`. */
+/**
+ * The queued message, as stored (encrypted) in `inbound_mail.payload`. The readable attachments
+ * themselves are in `inbound_mail.attachments`.
+ */
 data class InboundMailPayload(
     val subject: String,
     val fromAddress: String?,
     val fromName: String?,
     val body: String,
+    /** Every attachment but decoration: the readable ones and [unreadAttachments]. */
     val attachmentCount: Int,
     val verified: Boolean,
+    /** Display names of the attachments the parser left out (type or caps). */
+    val unreadAttachments: List<String> = emptyList(),
 )

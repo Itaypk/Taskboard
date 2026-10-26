@@ -1,9 +1,12 @@
 package dev.itayp.tasker.channel.inboundmail
 
+import dev.itayp.tasker.ai.InputModalitySupport
 import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.ai.access.AiUsageLimitExceededException
 import dev.itayp.tasker.capture.QuickAddFlow
 import dev.itayp.tasker.capture.SavedCapture
+import dev.itayp.tasker.channel.AttachmentKind
+import dev.itayp.tasker.channel.InboundAttachment
 import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.jpa.InboundMailEntity
 import dev.itayp.tasker.jpa.InboundMailStatus
@@ -42,6 +45,7 @@ class InboundMailProcessorTest {
     @Mock lateinit var suggestionAgent: TaskSuggestionAgent
     @Mock lateinit var quickAddFlow: QuickAddFlow
     @Mock lateinit var aiAccessService: AiAccessService
+    @Mock lateinit var inputModalitySupport: InputModalitySupport
     @Mock lateinit var confirmation: InboundMailConfirmation
 
     private val now = Instant.parse("2026-10-22T12:00:00Z")
@@ -56,7 +60,7 @@ class InboundMailProcessorTest {
     private val processor by lazy {
         InboundMailProcessor(
             repository, userCryptoService, objectMapper, suggestionAgent, quickAddFlow, aiAccessService,
-            confirmation, SimpleMeterRegistry(), Clock.fixed(now, ZoneOffset.UTC),
+            inputModalitySupport, confirmation, SimpleMeterRegistry(), Clock.fixed(now, ZoneOffset.UTC),
         )
     }
 
@@ -76,11 +80,20 @@ class InboundMailProcessorTest {
         receivedAt = now
     }
 
+    private val image = InboundAttachment(AttachmentKind.IMAGE, ByteArray(20_000) { 7 }, "image/png", filename = "flyer.png")
+    private val stored = byteArrayOf(2)
+
+    /** A mail whose attachments column holds [image]. */
+    private fun mailWithImage(attempts: Int = 0) = mail(attempts).apply {
+        attachments = stored
+        whenever(userCryptoService.decrypt(this@InboundMailProcessorTest.userId, stored)).thenReturn(objectMapper.writeValueAsString(listOf(image)))
+    }
+
     private fun drafted() = SuggestionOutcome.Draft(listOf(CapturedItem.Task(TaskDraft(title = "Call the plumber"))))
 
     @Test
     fun `saves the model's draft, clears the payload and confirms`() {
-        whenever(suggestionAgent.quickAddDraftFromEmail(eq(userId), any())).thenReturn(drafted())
+        whenever(suggestionAgent.quickAddDraftFromEmail(eq(userId), any(), any())).thenReturn(drafted())
         whenever(quickAddFlow.saveWithoutConfirmation(userId, drafted().items)).thenReturn(saved)
         val mail = mail()
 
@@ -89,8 +102,8 @@ class InboundMailProcessorTest {
         assertThat(mail.status).isEqualTo(InboundMailStatus.DONE)
         assertThat(mail.payload).isNull()
         assertThat(mail.processedAt).isEqualTo(now)
-        verify(confirmation).sendSaved(userId, payload, saved)
-        val prompt = argumentCaptor<String>().apply { verify(suggestionAgent).quickAddDraftFromEmail(eq(userId), capture()) }.firstValue
+        verify(confirmation).sendSaved(userId, payload, saved, false)
+        val prompt = argumentCaptor<String>().apply { verify(suggestionAgent).quickAddDraftFromEmail(eq(userId), capture(), eq(emptyList())) }.firstValue
         assertThat(prompt).contains("Subject: Call the plumber").contains("From: <me@example.org>").contains("The sink leaks.")
     }
 
@@ -101,7 +114,7 @@ class InboundMailProcessorTest {
 
         processor.process(mail())
 
-        verify(suggestionAgent, never()).quickAddDraftFromEmail(any(), any())
+        verify(suggestionAgent, never()).quickAddDraftFromEmail(any(), any(), any())
         val items = argumentCaptor<List<CapturedItem>>().apply { verify(quickAddFlow).saveWithoutConfirmation(eq(userId), capture()) }.firstValue
         val draft = (items.single() as CapturedItem.Task).draft
         assertThat(draft.title).isEqualTo("Call the plumber")
@@ -110,7 +123,7 @@ class InboundMailProcessorTest {
 
     @Test
     fun `falls back to verbatim when the AI budget is spent`() {
-        whenever(suggestionAgent.quickAddDraftFromEmail(eq(userId), any())).thenThrow(AiUsageLimitExceededException(userId, 10L, 10L))
+        whenever(suggestionAgent.quickAddDraftFromEmail(eq(userId), any(), any())).thenThrow(AiUsageLimitExceededException(userId, 10L, 10L))
         whenever(quickAddFlow.saveWithoutConfirmation(eq(userId), any())).thenReturn(saved)
         val mail = mail()
 
@@ -121,7 +134,7 @@ class InboundMailProcessorTest {
 
     @Test
     fun `retries a model error later, keeping the payload`() {
-        whenever(suggestionAgent.quickAddDraftFromEmail(eq(userId), any())).thenThrow(IllegalStateException("upstream 502"))
+        whenever(suggestionAgent.quickAddDraftFromEmail(eq(userId), any(), any())).thenThrow(IllegalStateException("upstream 502"))
         val mail = mail()
 
         processor.process(mail)
@@ -135,14 +148,14 @@ class InboundMailProcessorTest {
 
     @Test
     fun `on the last attempt a model error falls back to verbatim instead of losing the email`() {
-        whenever(suggestionAgent.quickAddDraftFromEmail(eq(userId), any())).thenThrow(IllegalStateException("upstream 502"))
+        whenever(suggestionAgent.quickAddDraftFromEmail(eq(userId), any(), any())).thenThrow(IllegalStateException("upstream 502"))
         whenever(quickAddFlow.saveWithoutConfirmation(eq(userId), any())).thenReturn(saved)
         val mail = mail(attempts = InboundMailProcessor.MAX_ATTEMPTS - 1)
 
         processor.process(mail)
 
         assertThat(mail.status).isEqualTo(InboundMailStatus.DONE)
-        verify(confirmation).sendSaved(userId, payload, saved)
+        verify(confirmation).sendSaved(userId, payload, saved, false)
     }
 
     @Test
@@ -167,5 +180,54 @@ class InboundMailProcessorTest {
 
         assertThat(mail.status).isEqualTo(InboundMailStatus.FAILED)
         verify(quickAddFlow, never()).saveWithoutConfirmation(any(), any())
+    }
+
+    @Test
+    fun `reads the attachments with the text when the capture model can, and clears them`() {
+        whenever(inputModalitySupport.supportsAll(listOf(AttachmentKind.IMAGE))).thenReturn(true)
+        whenever(suggestionAgent.quickAddDraftFromEmail(eq(userId), any(), eq(listOf(image)))).thenReturn(drafted())
+        whenever(quickAddFlow.saveWithoutConfirmation(userId, drafted().items)).thenReturn(saved)
+        val mail = mailWithImage()
+
+        processor.process(mail)
+
+        assertThat(mail.status).isEqualTo(InboundMailStatus.DONE)
+        assertThat(mail.attachments).isNull()
+        verify(confirmation).sendSaved(userId, payload, saved, true)
+    }
+
+    @Test
+    fun `captures from the text alone when the capture model can't read the attachments`() {
+        whenever(inputModalitySupport.supportsAll(listOf(AttachmentKind.IMAGE))).thenReturn(false)
+        whenever(suggestionAgent.quickAddDraftFromEmail(eq(userId), any(), eq(emptyList()))).thenReturn(drafted())
+        whenever(quickAddFlow.saveWithoutConfirmation(userId, drafted().items)).thenReturn(saved)
+
+        processor.process(mailWithImage())
+
+        verify(confirmation).sendSaved(userId, payload, saved, false)
+    }
+
+    @Test
+    fun `drops the attachments on the last attempt, in case they are what keeps failing`() {
+        whenever(inputModalitySupport.supportsAll(listOf(AttachmentKind.IMAGE))).thenReturn(true)
+        whenever(suggestionAgent.quickAddDraftFromEmail(eq(userId), any(), eq(emptyList()))).thenReturn(drafted())
+        whenever(quickAddFlow.saveWithoutConfirmation(userId, drafted().items)).thenReturn(saved)
+
+        processor.process(mailWithImage(attempts = InboundMailProcessor.MAX_ATTEMPTS - 1))
+
+        verify(suggestionAgent, never()).quickAddDraftFromEmail(any(), any(), eq(listOf(image)))
+        verify(confirmation).sendSaved(userId, payload, saved, false)
+    }
+
+    @Test
+    fun `clears the attachments of a failed mail too`() {
+        whenever(aiAccessService.isAiAvailableForUser(userId)).thenReturn(false)
+        whenever(quickAddFlow.saveWithoutConfirmation(eq(userId), any())).thenThrow(IllegalStateException("db down"))
+        val mail = mailWithImage(attempts = InboundMailProcessor.MAX_ATTEMPTS - 1)
+
+        processor.process(mail)
+
+        assertThat(mail.status).isEqualTo(InboundMailStatus.FAILED)
+        assertThat(mail.attachments).isNull()
     }
 }

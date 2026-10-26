@@ -1,5 +1,6 @@
 package dev.itayp.tasker.channel.inboundmail
 
+import dev.itayp.tasker.channel.InboundAttachment
 import dev.itayp.tasker.config.InboundMailProperties
 import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.jpa.InboundMailEntity
@@ -132,5 +133,37 @@ class InboundMailReceiverTest {
 
         assertThat(receiver.receive("me@example.org", to, message())).isEqualTo(ReceiveOutcome.RATE_LIMITED)
         verify(repository, never()).saveAndFlush(any<InboundMailEntity>())
+    }
+
+    @Test
+    fun `stores the readable attachments apart from the payload, which names the unread ones`() {
+        val png = java.util.Base64.getMimeEncoder().encodeToString(ByteArray(20_000) { 1 })
+        val raw = (
+            "From: me@example.org\r\nMessage-ID: <2@example.org>\r\nSubject: Flyer\r\n" +
+                "Content-Type: multipart/mixed; boundary=\"m\"\r\n\r\n" +
+                "--m\r\nContent-Type: text/plain\r\n\r\nSee attached.\r\n" +
+                "--m\r\nContent-Type: image/png\r\nContent-Disposition: attachment; filename=\"flyer.png\"\r\n" +
+                "Content-Transfer-Encoding: base64\r\n\r\n$png\r\n" +
+                "--m\r\nContent-Type: application/msword\r\nContent-Disposition: attachment; filename=\"notes.doc\"\r\n\r\nx\r\n" +
+                "--m--\r\n"
+            ).toByteArray()
+
+        assertThat(receiver.receive("me@example.org", to, raw)).isEqualTo(ReceiveOutcome.QUEUED)
+
+        val saved = argumentCaptor<InboundMailEntity>().apply { verify(repository).saveAndFlush(capture()) }.firstValue
+        val payload: InboundMailPayload = objectMapper.readValue(saved.payload!!.toString(Charsets.UTF_8))
+        assertThat(payload.attachmentCount).isEqualTo(2)
+        assertThat(payload.unreadAttachments).containsExactly("notes.doc")
+        val attachments: List<InboundAttachment> = objectMapper.readValue(saved.attachments!!.toString(Charsets.UTF_8))
+        assertThat(attachments.single().filename).isEqualTo("flyer.png")
+        assertThat(attachments.single().bytes).hasSize(20_000)
+    }
+
+    @Test
+    fun `stores no attachments column for a text-only message`() {
+        receiver.receive("me@example.org", to, message())
+
+        val saved = argumentCaptor<InboundMailEntity>().apply { verify(repository).saveAndFlush(capture()) }.firstValue
+        assertThat(saved.attachments).isNull()
     }
 }
