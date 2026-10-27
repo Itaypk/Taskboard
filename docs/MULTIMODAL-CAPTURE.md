@@ -1,4 +1,4 @@
-# Multimodal quick-add capture (photos and voice notes)
+# Multimodal quick-add capture (photos, voice notes and files)
 
 Design note for the shipped first cut of media capture: forward a photo of an invitation, or send a
 voice note, to the Telegram bot and get the same draft card `/add` produces. It records the design,
@@ -27,7 +27,7 @@ An attachment that arrives with no quick-add in progress originally got a pointe
 nothing else; it now opens a capture of its own (D8, superseded by `docs/FREE-TEXT-CAPTURE.md` D7).
 
 One extra step is visible: before the card, the bot echoes **what it read or heard**
-(`🖼 From the image: …` / `🗣 I heard: …`). A misread date on a blurry invitation is far easier to
+(`🖼 From the image: …` / `📄 From the file: …` / `🗣 I heard: …`). A misread date on a blurry invitation is far easier to
 spot in that line than in the resulting event.
 
 Accepted: photos, images sent as documents (`image/*`), voice notes, and audio files in a codec we
@@ -143,6 +143,24 @@ An unprompted image captures outright; an unprompted voice note may instead be r
 command, because a voice note is as open-ended as typed text. The cost the gate used to save is now
 bounded by a per-user capture rate limit instead.
 
+## Files
+
+A file sent to the bot (GitHub issue #321) is captured like a photo, by its declared type or its
+name:
+
+- an **image** sent as a file → `IMAGE`, as a photo;
+- a **PDF** → `AttachmentKind.DOCUMENT`, a `ContentPart.File` gated on the `file` modality, so it is
+  declined ("I can't read PDFs yet") unless the capture model takes files;
+- a **text file** or a **calendar invitation** (`.txt`, `.ics`, `text/calendar`) →
+  `AttachmentKind.TEXT`, decoded by `TextAttachments` and put into the prompt as text. It needs no
+  modality, so the normal model reads it. The prompt treats an invitation's event as already on the
+  user's calendar: capture what they have to do about it, with its date as the deadline
+  (`docs/INBOUND-EMAIL.md` has the details, shared with inbound email);
+- anything else → "I can't read that kind of file", naming what is read. A GIF (an animation that
+  is also a document) is not a file and is ignored as before.
+
+Files are capped at 5 MB, and a text file at 10,000 characters after decoding.
+
 ## Privacy
 
 Attachment bytes are **never persisted and never logged** — not to the database, not to disk, not
@@ -153,17 +171,16 @@ subject to the usual encryption of task content once saved.
 
 ## Metrics
 
-`tasker.quickadd.media{kind=image|audio|mixed, result=captured|failed|unsupported|routed}` —
+`tasker.quickadd.media{kind=image|audio|document|text|mixed, result=captured|failed|unsupported|routed}` —
 alongside the existing `tasker.quickadd.outcome`. `unsupported` climbing means the configured model
 can't do what users are trying to send. `routed` is an unprompted voice note the model decided
 wasn't a capture at all (`docs/FREE-TEXT-CAPTURE.md` D7); it can only appear for audio.
 
 ## Deliberately out of scope
 
-- **PDFs, text files and invitations on Telegram.** `AttachmentKind.DOCUMENT` (`ContentPart.File`,
-  gated on the `file` modality) and `AttachmentKind.TEXT` (text files and `.ics`, decoded by
-  `TextAttachments` and read into the prompt, no modality needed) exist now, for inbound email
-  (`docs/INBOUND-EMAIL.md`), but `TelegramMediaExtractor` still declines documents that aren't images.
+- **Office documents** (Word, Excel, ODF). OpenRouter's `file` input is for PDFs, so these would
+  need text extraction of their own. Left out until a user asks; they get the "can't read that kind
+  of file" reply.
 - **Video and video notes.** Provider support varies too much; the library doesn't model it either.
 - **Multiple attachments in one capture.** The plumbing takes a list, but Telegram delivers an album
   as separate updates, so each photo currently starts its own capture. Grouping by `media_group_id`
@@ -175,7 +192,8 @@ wasn't a capture at all (`docs/FREE-TEXT-CAPTURE.md` D7); it can only appear for
 | Component | Role |
 | --- | --- |
 | `ChannelInbound.Media` / `InboundAttachment` (`channel/ConversationChannel.kt`) | Channel-agnostic inbound media. |
-| `TelegramMediaExtractor` | `getFile` + download, size caps, mime→codec mapping, photo-size choice. |
+| `TelegramMediaExtractor` | `getFile` + download, size caps, mime→codec mapping, photo-size choice, file types. |
+| `TextAttachments` (`channel/`) | Recognizes and decodes text files and invitations (shared with inbound email). |
 | `TelegramChannel.handleMedia` | Routes a media message: AI opt-out check, then into a running capture or a new one. |
 | `QuickAddFlow.beginFromMedia` / `beginUnpromptedFromMedia` | Runs the capture, echoes `source_text`, hands over to the existing card flow. |
 | `TaskSuggestionAgent.quickAddDraftFromMedia` | Builds the multimodal `ChatMessage`, picks the capture model. |

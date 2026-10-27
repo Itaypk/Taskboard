@@ -373,6 +373,28 @@ class QuickAddFlowTest {
     }
 
     @Test
+    fun `a PDF the model cannot read is declined as a PDF, and a file's read-back is echoed as a file's`() {
+        val pdf = InboundAttachment(AttachmentKind.DOCUMENT, byteArrayOf(1), "application/pdf", filename = "ticket.pdf")
+        whenever(suggestionAgent.quickAddDraftFromMedia(eq(userId), eq(listOf(pdf)), anyOrNull(), any()))
+            .thenThrow(UnsupportedModalityException(listOf(AttachmentKind.DOCUMENT)))
+        val declined = channel()
+
+        assertNull(flow.beginFromMedia(userId, declined, listOf(pdf), caption = null))
+        assertTrue(assertIs<ChannelMessage.Text>(declined.drain().single()).text.contains("PDFs"))
+
+        val invitation = InboundAttachment(AttachmentKind.TEXT, "BEGIN:VEVENT".toByteArray(), "text/calendar", filename = "invite.ics")
+        whenever(suggestionAgent.quickAddDraftFromMedia(eq(userId), eq(listOf(invitation)), anyOrNull(), any()))
+            .thenReturn(SuggestionOutcome.Draft(listOf(taskItem()), sourceText = "Mia's party on Saturday"))
+        val read = channel()
+
+        flow.beginFromMedia(userId, read, listOf(invitation), caption = "buy a present")
+
+        val echo = assertIs<ChannelMessage.Text>(read.drain().first())
+        assertTrue(echo.text.startsWith("📄"))
+        assertEquals(1.0, meterRegistry.counter("tasker.quickadd.media", "kind", "text", "result", "captured").count())
+    }
+
+    @Test
     fun `media falls back to its caption when the model reads nothing back`() {
         val png = InboundAttachment(AttachmentKind.IMAGE, byteArrayOf(1), "image/jpeg")
         whenever(suggestionAgent.quickAddDraftFromMedia(any(), any(), anyOrNull(), any()))

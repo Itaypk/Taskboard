@@ -3,6 +3,7 @@ package dev.itayp.tasker.channel.telegram
 import dev.itayp.tasker.channel.AttachmentKind
 import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.InboundAttachment
+import dev.itayp.tasker.channel.TextAttachments
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.telegram.telegrambots.meta.api.methods.GetFile
@@ -10,8 +11,9 @@ import org.telegram.telegrambots.meta.api.objects.message.Message
 import org.telegram.telegrambots.meta.generics.TelegramClient
 
 /**
- * Turns a Telegram message carrying a photo or a voice note into the channel-agnostic
- * [ChannelInbound.Media] the capture flow understands.
+ * Turns a Telegram message carrying a photo, a voice note or a file (an image, a PDF, a text file or
+ * a calendar invitation) into the channel-agnostic [ChannelInbound.Media] the capture flow
+ * understands.
  *
  * Telegram hands us only a `file_id`; the bytes need a `getFile` round-trip for the server-side path
  * and then a download from the file endpoint (which embeds the bot token in its URL — a reason we
@@ -44,7 +46,8 @@ class TelegramMediaExtractor(
      */
     fun carriesMedia(message: Message): Boolean =
         message.hasPhoto() || message.hasVoice() || message.hasAudio() ||
-            (message.hasDocument() && message.document.mimeType?.startsWith("image/") == true)
+            // A GIF arrives as an animation that is also a document; it isn't a file the user sent us.
+            (message.hasDocument() && !message.hasAnimation())
 
     fun extract(message: Message): Extraction {
         val caption = message.caption?.trim()?.takeIf { it.isNotBlank() }
@@ -67,13 +70,23 @@ class TelegramMediaExtractor(
                 download(audio.fileId, audio.fileSize, AttachmentKind.AUDIO, audio.mimeType ?: "audio/mpeg", format, caption)
             }
 
-            // An invitation forwarded as a file rather than a photo (common when the sender kept the
-            // original quality) still arrives as an image — take it, but only for image types.
+            // A file: an image sent as one (common when the sender kept the original quality), a
+            // PDF, or a text file or calendar invitation, read as text. Anything else gets a reply
+            // naming what we do read, rather than silence.
             message.hasDocument() -> {
                 val document = message.document
-                val mimeType = document.mimeType
-                if (mimeType == null || !mimeType.startsWith("image/")) return Extraction.None
-                download(document.fileId, document.fileSize, AttachmentKind.IMAGE, mimeType, null, caption)
+                val mimeType = document.mimeType?.substringBefore(';')?.trim()?.lowercase().orEmpty()
+                val filename = document.fileName?.trim()?.takeIf { it.isNotEmpty() }
+                val textType = TextAttachments.mediaTypeOf(mimeType, filename)
+                when {
+                    mimeType.startsWith("image/") ->
+                        download(document.fileId, document.fileSize, AttachmentKind.IMAGE, mimeType, null, caption)
+                    mimeType == PDF || filename?.lowercase()?.endsWith(".pdf") == true ->
+                        download(document.fileId, document.fileSize, AttachmentKind.DOCUMENT, PDF, null, caption, filename)
+                    textType != null ->
+                        download(document.fileId, document.fileSize, AttachmentKind.TEXT, textType, null, caption, filename)
+                    else -> unsupported(null, mimeType)
+                }
             }
 
             else -> Extraction.None
@@ -87,6 +100,7 @@ class TelegramMediaExtractor(
         mediaType: String,
         format: String?,
         caption: String?,
+        filename: String? = null,
     ): Extraction {
         val limit = limitFor(kind)
         if (declaredSize != null && declaredSize > limit) {
@@ -108,23 +122,24 @@ class TelegramMediaExtractor(
         }
         if (bytes.isEmpty()) return Extraction.Rejected(Reason.DOWNLOAD_FAILED, kind)
         log.debug("downloaded {} attachment ({}, {}B) for capture", kind, mediaType, bytes.size)
-        return Extraction.Media(
-            ChannelInbound.Media(
-                attachments = listOf(InboundAttachment(kind, bytes, mediaType, format)),
-                caption = caption,
-            )
-        )
+        val attachment = if (kind == AttachmentKind.TEXT) {
+            // Empty, or binary under a text name: nothing to read.
+            TextAttachments.of(bytes, mediaType, filename) ?: return unsupported(kind, mediaType)
+        } else {
+            InboundAttachment(kind, bytes, mediaType, format, filename)
+        }
+        return Extraction.Media(ChannelInbound.Media(attachments = listOf(attachment), caption = caption))
     }
 
-    private fun unsupported(kind: AttachmentKind, mimeType: String?): Extraction {
+    private fun unsupported(kind: AttachmentKind?, mimeType: String?): Extraction {
         log.info("declining {} attachment: unsupported media type {}", kind, mimeType)
         return Extraction.Rejected(Reason.UNSUPPORTED_TYPE, kind)
     }
 
     private fun limitFor(kind: AttachmentKind): Int = when (kind) {
-        // Telegram doesn't capture documents or text files yet; this only keeps the `when` exhaustive.
-        AttachmentKind.IMAGE, AttachmentKind.DOCUMENT, AttachmentKind.TEXT -> MAX_IMAGE_BYTES
+        AttachmentKind.IMAGE -> MAX_IMAGE_BYTES
         AttachmentKind.AUDIO -> MAX_AUDIO_BYTES
+        AttachmentKind.DOCUMENT, AttachmentKind.TEXT -> MAX_DOCUMENT_BYTES
     }
 
     /**
@@ -151,5 +166,9 @@ class TelegramMediaExtractor(
          */
         const val MAX_IMAGE_BYTES = 5 * 1024 * 1024
         const val MAX_AUDIO_BYTES = 5 * 1024 * 1024
+
+        /** PDFs and text files, as on inbound email. A text file is cut to `TextAttachments.MAX_CHARS` after. */
+        const val MAX_DOCUMENT_BYTES = 5 * 1024 * 1024
+        private const val PDF = "application/pdf"
     }
 }

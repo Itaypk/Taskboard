@@ -73,8 +73,8 @@ sealed interface ChannelInbound {
     data class Selection(val optionId: String, val freeText: String? = null) : ChannelInbound
 
     /**
-     * A message carrying non-text content — a photo the user forwarded, a voice note they recorded.
-     * [caption] is whatever text came alongside it (Telegram photo captions), and may be blank.
+     * A message carrying an attachment — a photo the user forwarded, a voice note they recorded, a
+     * file. [caption] is whatever text came alongside it (Telegram captions), and may be blank.
      *
      * The bytes are held in memory only for the length of the call that consumes them; they are
      * never persisted or logged (see `docs/MULTIMODAL-CAPTURE.md`).
@@ -90,7 +90,7 @@ enum class AttachmentKind {
     IMAGE,
     AUDIO,
 
-    /** A PDF. Only inbound email captures these so far (`docs/INBOUND-EMAIL.md`). */
+    /** A PDF. */
     DOCUMENT,
 
     /**
