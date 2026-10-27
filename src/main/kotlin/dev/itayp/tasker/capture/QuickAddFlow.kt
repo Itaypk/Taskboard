@@ -141,7 +141,8 @@ class QuickAddFlow(
      *
      * The two media kinds are not treated alike (`docs/FREE-TEXT-CAPTURE.md` D7). An **image** is a
      * capture: nobody forwards a photo to a task bot incidentally, so offering the model a way to
-     * bail out would only be a way to lose the obvious case. A **voice note** is as open-ended as
+     * bail out would only be a way to lose the obvious case, and a **file** (a PDF, a text file, an
+     * invitation) is the same. A **voice note** is as open-ended as
      * typed text — "remind me to call the plumber" and "how does this thing work?" arrive the same
      * way — so it gets the same routing escape text does. Either way the classification rides along
      * in the call that already transcribes and drafts, so it costs nothing extra.
@@ -833,20 +834,24 @@ class QuickAddFlow(
         attachments: List<InboundAttachment>,
         sourceText: String,
     ) {
-        val key = if (attachments.any { it.kind == AttachmentKind.AUDIO }) {
-            "quickadd.media.heard"
-        } else {
-            "quickadd.media.read"
+        val kinds = attachments.map { it.kind }
+        val key = when {
+            AttachmentKind.AUDIO in kinds -> "quickadd.media.heard"
+            AttachmentKind.IMAGE in kinds -> "quickadd.media.read"
+            else -> "quickadd.media.read_file"
         }
         channel.send(ChannelMessage.Text(msg(userId, key, channel.formatter.escape(truncate(sourceText)))))
     }
 
-    private fun unsupportedMessageKey(attachments: List<InboundAttachment>): String =
-        if (attachments.any { it.kind == AttachmentKind.AUDIO }) {
-            "quickadd.media.audio_unsupported"
-        } else {
-            "quickadd.media.image_unsupported"
+    /** Text attachments need no modality, so they are never the reason. */
+    private fun unsupportedMessageKey(attachments: List<InboundAttachment>): String {
+        val kinds = attachments.map { it.kind }
+        return when {
+            AttachmentKind.AUDIO in kinds -> "quickadd.media.audio_unsupported"
+            AttachmentKind.DOCUMENT in kinds -> "quickadd.media.pdf_unsupported"
+            else -> "quickadd.media.image_unsupported"
         }
+    }
 
     private fun countMedia(attachments: List<InboundAttachment>, result: String) {
         val kind = attachments.map { it.kind }.distinct().singleOrNull()?.name?.lowercase() ?: "mixed"

@@ -1,6 +1,7 @@
 package dev.itayp.tasker.channel.telegram
 
 import dev.itayp.tasker.channel.AttachmentKind
+import dev.itayp.tasker.channel.TextAttachments
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
@@ -123,32 +124,79 @@ class TelegramMediaExtractorTest {
         verify(telegramClient, never()).execute(any<GetFile>())
     }
 
-    @Test
-    fun `takes an image sent as a document but ignores other document types`() {
-        stubDownload(byteArrayOf(7))
-        val png: Document = mock {
+    private fun documentMessage(mimeType: String?, fileName: String?, size: Long = 1L): Message {
+        val document: Document = mock {
             on { getFileId() } doReturn "doc-1"
-            on { getMimeType() } doReturn "image/png"
-            on { getFileSize() } doReturn 1L
+            on { getMimeType() } doReturn mimeType
+            on { getFileName() } doReturn fileName
+            on { getFileSize() } doReturn size
         }
-        val pngMessage: Message = mock {
+        return mock {
             on { hasDocument() } doReturn true
-            on { getDocument() } doReturn png
+            on { getDocument() } doReturn document
         }
-        val extraction = assertIs<TelegramMediaExtractor.Extraction.Media>(extractor.extract(pngMessage))
-        assertEquals("image/png", extraction.inbound.attachments.single().mediaType)
-
-        val spreadsheet: Document = mock { on { getMimeType() } doReturn "application/vnd.ms-excel" }
-        val otherMessage: Message = mock {
-            on { hasDocument() } doReturn true
-            on { getDocument() } doReturn spreadsheet
-        }
-        assertIs<TelegramMediaExtractor.Extraction.None>(extractor.extract(otherMessage))
     }
 
     @Test
-    fun `carriesMedia recognizes photos and voice notes but not plain messages`() {
+    fun `takes an image sent as a document`() {
+        stubDownload(byteArrayOf(7))
+
+        val extraction = assertIs<TelegramMediaExtractor.Extraction.Media>(extractor.extract(documentMessage("image/png", "flyer.png")))
+
+        assertEquals(AttachmentKind.IMAGE, extraction.inbound.attachments.single().kind)
+        assertEquals("image/png", extraction.inbound.attachments.single().mediaType)
+    }
+
+    @Test
+    fun `takes a PDF by its type or its name, keeping the name`() {
+        stubDownload("%PDF-1.4".toByteArray())
+
+        val extraction = assertIs<TelegramMediaExtractor.Extraction.Media>(
+            extractor.extract(documentMessage("application/octet-stream", "Ticket.PDF")),
+        )
+
+        val attachment = extraction.inbound.attachments.single()
+        assertEquals(AttachmentKind.DOCUMENT, attachment.kind)
+        assertEquals("application/pdf", attachment.mediaType)
+        assertEquals("Ticket.PDF", attachment.filename)
+    }
+
+    @Test
+    fun `reads a calendar invitation as text`() {
+        stubDownload("BEGIN:VEVENT\r\nSUMMARY:Party\r\nEND:VEVENT\r\n".toByteArray())
+
+        val extraction = assertIs<TelegramMediaExtractor.Extraction.Media>(
+            extractor.extract(documentMessage("text/calendar", "invite.ics")),
+        )
+
+        val attachment = extraction.inbound.attachments.single()
+        assertEquals(AttachmentKind.TEXT, attachment.kind)
+        assertEquals(TextAttachments.CALENDAR, attachment.mediaType)
+        assertEquals("BEGIN:VEVENT\nSUMMARY:Party\nEND:VEVENT", TextAttachments.textOf(attachment))
+    }
+
+    @Test
+    fun `rejects other file types, and binary posing as text, by saying so`() {
+        val spreadsheet = assertIs<TelegramMediaExtractor.Extraction.Rejected>(
+            extractor.extract(documentMessage("application/vnd.ms-excel", "budget.xls")),
+        )
+        assertEquals(TelegramMediaExtractor.Reason.UNSUPPORTED_TYPE, spreadsheet.reason)
+        verify(telegramClient, never()).execute(any<GetFile>())
+
+        stubDownload(byteArrayOf(0x50, 0x4B, 0, 3))
+        val binary = assertIs<TelegramMediaExtractor.Extraction.Rejected>(extractor.extract(documentMessage("text/plain", "notes.txt")))
+        assertEquals(TelegramMediaExtractor.Reason.UNSUPPORTED_TYPE, binary.reason)
+    }
+
+    @Test
+    fun `carriesMedia recognizes photos, voice notes and files, but not plain messages or GIFs`() {
         assertEquals(true, extractor.carriesMedia(photoMessage(photoSize("a", 100, 100))))
+        assertEquals(true, extractor.carriesMedia(documentMessage("application/zip", "a.zip")))
         assertEquals(false, extractor.carriesMedia(mock<Message>()))
+        val gif: Message = mock {
+            on { hasDocument() } doReturn true
+            on { hasAnimation() } doReturn true
+        }
+        assertEquals(false, extractor.carriesMedia(gif))
     }
 }
