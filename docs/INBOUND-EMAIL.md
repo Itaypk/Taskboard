@@ -101,26 +101,38 @@ attaches them, and `InputModalitySupport` gates them on the capture model's adve
 modalities (`image`; `file` for a PDF), failing closed. So the feature is dark unless
 `TASKER_AI_MULTIMODAL_MODEL` names a model that takes them.
 
-- **What counts** (`InboundMailParser`): JPEG, PNG, WebP and GIF images, and PDFs (also when sent
-  as `application/octet-stream` with a `.pdf` name), anywhere in the MIME tree, including inside a
-  message forwarded as an attachment. Everything else (audio, office documents, `.ics`, HEIC) is
-  noted by name as not read.
+Text files and calendar invitations (GitHub issue #316) take another path: `TextAttachments`
+decodes them at parse time into `AttachmentKind.TEXT`, and the prompt carries their text between
+`BEGIN FILE` / `END FILE` lines. That needs no modality, so they are read by any model, whenever
+the model drafts.
+
+- **What counts** (`InboundMailParser`): JPEG, PNG, WebP and GIF images; PDFs (also when sent
+  as `application/octet-stream` with a `.pdf` name); plain text (`text/plain`, or a generic binary
+  named `.txt`); calendar invitations (`text/calendar`, `application/ics`, or anything named
+  `.ics`, including the `text/calendar` alternative Outlook and Google put next to the body).
+  Anywhere in the MIME tree, including inside a message forwarded as an attachment. Everything
+  else (audio, office documents, HEIC) is noted by name as not read. Office documents are left out
+  on purpose until someone asks: they would need text extraction of their own.
+- **Invitations stay raw iCalendar**, unfolded, minus `ATTACH` and `X-ALT-DESC` (bulk without
+  information); models read the format well enough that a parser isn't worth it. Google sends the
+  same invitation inline and as `invite.ics`, so a text attachment repeating one already kept is
+  dropped. The prompt says the invited event is most likely on the user's calendar already:
+  capture what the user has to do about it, using its date for the deadline, and only draft an
+  event when asked.
+- **Text cap**: 10,000 characters per file, with a cut-off marker.
 - **Caps**: 5 MB per file (as for Telegram media) and 4 files per email; the rest is noted as not
   read. No separate total: the MTA's 25 MB message limit, base64 included, bounds it.
 - **Decoration** is dropped silently: an image under 15 KB is a signature logo or a tracking
   pixel far more often than a photo. The disposition can't tell them apart (Apple Mail sends a
   photo pasted into the body as an inline `cid:` image, the same way a signature carries its
   logo), so size is the heuristic. It isn't counted or mentioned anywhere.
-- **Falling back**: when the model can't read them, when AI is unavailable, and on the last
-  attempt (in case the attachments are what keeps failing), capture runs from the text alone. A
-  verbatim task never reads them.
+- **Falling back**: when the model can't read an image or a PDF, when AI is unavailable, and on
+  the last attempt (in case the attachments are what keeps failing), capture runs without it.
+  Text attachments are only dropped with AI itself. A verbatim task reads none.
 - **At rest**: the bytes are in the database only between receipt and capture, normally one poll
   (15 s), at most the retry window (about 71 minutes). A database dump taken in that window holds
   them, encrypted under the user's DEK. They are never logged; log lines carry counts only.
 - Text in an attachment is as untrusted as the email's: the email prompt block covers both.
-- Calendar invitations (`text/calendar`) aren't read yet: re-creating the invited event would
-  duplicate what is already on the user's calendar, but an invitation is useful context for the
-  task the user forwarded it with (GitHub issue #316).
 
 Verified and unverified mail are captured alike in v1: the token is the authentication, and a
 quick-add capture can only create tasks and events. The verified flag only changes the
@@ -132,12 +144,11 @@ unfamiliar.
 `InboundMailConfirmation`, localized: over Telegram when the bot can reach the user, otherwise by
 email (the scheduling sender) to the account's own verified address, otherwise none. **Never to
 the sender or `From:`.** It lists what was created, and says when the email wasn't verified, which
-attachments were left out (by name, with the caps), and when the readable ones weren't read either
-because capture fell back to the text.
+attachments were left out (by name, with the caps), and which readable ones the capture went
+without (by name).
 
 ## Not yet
 
-- Calendar invitations (`.ics`): counted and mentioned, not read (see [Attachments](#attachments)).
 - A board per address: everything goes to the default board, like Telegram quick-add.
 - Validating tokens at SMTP time (an MTA lookup into this database) instead of by shape only.
 
@@ -147,6 +158,6 @@ because capture fell back to the text.
   `unknown_recipient`, `postmaster`, `bounce`, `auto_submitted`, `rate_limited`, `malformed`).
 - `tasker.inbound_mail.processed{result}`: `drafted`, `verbatim`, `failed`.
 - `tasker.inbound_mail.attachments{kind,result}`: per attachment of a captured email. `read` and
-  `not_read` (by `kind`: `image`, `document`) for the readable ones; `skipped` (`kind=other`) for
+  `not_read` (by `kind`: `image`, `document`, `text`) for the readable ones; `skipped` (`kind=other`) for
   the ones the parser left out. `not_read` climbing means the configured model can't do what users
   are sending.

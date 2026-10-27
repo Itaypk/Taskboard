@@ -30,6 +30,8 @@ class InputModalitySupport(
             AttachmentKind.IMAGE -> "image"
             AttachmentKind.AUDIO -> "audio"
             AttachmentKind.DOCUMENT -> "file"
+            // Read as text in the prompt: every model takes that.
+            AttachmentKind.TEXT -> return true
         }
         val supported = modelCapabilityService.get(captureModel)?.inputModalities?.contains(modality) == true
         if (!supported) {

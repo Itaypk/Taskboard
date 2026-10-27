@@ -92,16 +92,23 @@ enum class AttachmentKind {
 
     /** A PDF. Only inbound email captures these so far (`docs/INBOUND-EMAIL.md`). */
     DOCUMENT,
+
+    /**
+     * A plain text file or a calendar invitation, already decoded to UTF-8 text by
+     * [TextAttachments]. Read as text in the prompt, so it needs no modality.
+     */
+    TEXT,
 }
 
 /**
- * One inbound non-text attachment, already downloaded from the channel.
+ * One inbound attachment, already downloaded from the channel.
  *
- * @param mediaType the IANA media type (`image/jpeg`, `audio/ogg`, …).
+ * @param mediaType the IANA media type (`image/jpeg`, `audio/ogg`, …). For [AttachmentKind.TEXT],
+ *   [TextAttachments.PLAIN] or [TextAttachments.CALENDAR].
  * @param format for [AttachmentKind.AUDIO], the codec/container label the AI provider expects
  *   (`ogg`, `mp3`, `wav`, …). Null for images, which are identified by [mediaType].
  * @param filename the name the sender gave the file, when there is one. A [AttachmentKind.DOCUMENT]
- *   is sent to the provider under it.
+ *   is sent to the provider under it, and a [AttachmentKind.TEXT] is shown to the model under it.
  */
 data class InboundAttachment(
     val kind: AttachmentKind,

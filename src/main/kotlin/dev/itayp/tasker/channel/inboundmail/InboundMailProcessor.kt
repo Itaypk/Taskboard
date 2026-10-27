@@ -7,6 +7,7 @@ import dev.itayp.tasker.ai.access.AiTierNotGrantedException
 import dev.itayp.tasker.ai.access.AiUsageLimitExceededException
 import dev.itayp.tasker.capture.QuickAddFlow
 import dev.itayp.tasker.capture.SavedCapture
+import dev.itayp.tasker.channel.AttachmentKind
 import dev.itayp.tasker.channel.InboundAttachment
 import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.jpa.InboundMailEntity
@@ -39,8 +40,9 @@ import java.util.concurrent.TimeUnit
  *
  * The email's images and PDFs go to the model with its text when the capture model can read them
  * (`InputModalitySupport`, failing closed). When it can't, when AI is unavailable, and on the last
- * attempt (in case the attachments are what keeps failing), capture runs from the text alone and
- * the confirmation says the attachments weren't read.
+ * attempt (in case the attachments are what keeps failing), capture runs without them and the
+ * confirmation names them as not read. Text files and calendar invitations are part of the prompt,
+ * so they are read whenever the model drafts.
  *
  * Same single-instance polling pattern as `NotificationScheduler`. A failed attempt is retried with
  * backoff; after [MAX_ATTEMPTS] the row is marked FAILED and the user is told nothing was created.
@@ -112,12 +114,12 @@ class InboundMailProcessor(
             return
         }
         finish(mail, InboundMailStatus.DONE)
-        countAttachments(attachments, payload, captured.attachmentsRead)
+        countAttachments(attachments, payload, captured.notRead)
         log.info(
-            "Inbound mail {} for user {} became {} item(s) (attachments read: {})",
-            mail.id, userId, captured.saved.titles.size, captured.attachmentsRead,
+            "Inbound mail {} for user {} became {} item(s) (attachments read: {} of {})",
+            mail.id, userId, captured.saved.titles.size, attachments.size - captured.notRead.size, attachments.size,
         )
-        confirmation.sendSaved(userId, payload, captured.saved, captured.attachmentsRead)
+        confirmation.sendSaved(userId, payload, captured.saved, captured.notRead.map { it.filename ?: it.mediaType })
     }
 
     /** An unreadable attachments column costs the attachments, not the email: capture from the text. */
@@ -132,7 +134,8 @@ class InboundMailProcessor(
         }
     }
 
-    private class Captured(val saved: SavedCapture, val attachmentsRead: Boolean)
+    /** [notRead]: the stored attachments the capture went without. */
+    private class Captured(val saved: SavedCapture, val notRead: List<InboundAttachment>)
 
     /**
      * The AI draft when AI is available and produces one; the verbatim task otherwise. A model
@@ -146,9 +149,9 @@ class InboundMailProcessor(
     ): Captured {
         val userId = checkNotNull(mail.userId)
         if (aiAccessService.isAiAvailableForUser(userId)) {
-            val readable = attachments.takeIf {
-                it.isNotEmpty() && !lastAttempt && inputModalitySupport.supportsAll(it.map { attachment -> attachment.kind })
-            }.orEmpty()
+            val readable = attachments.filter {
+                it.kind == AttachmentKind.TEXT || (!lastAttempt && inputModalitySupport.supports(it.kind))
+            }
             val outcome = try {
                 suggestionAgent.quickAddDraftFromEmail(userId, renderForModel(payload), readable)
             } catch (e: AiDisabledException) {
@@ -165,7 +168,7 @@ class InboundMailProcessor(
             if (outcome is SuggestionOutcome.Draft) {
                 quickAddFlow.saveWithoutConfirmation(userId, outcome.items)?.let {
                     count("drafted")
-                    return Captured(it, attachmentsRead = readable.isNotEmpty())
+                    return Captured(it, notRead = attachments - readable.toSet())
                 }
             }
         }
@@ -173,7 +176,7 @@ class InboundMailProcessor(
         val saved = checkNotNull(quickAddFlow.saveWithoutConfirmation(userId, listOf(verbatimTask(payload)))) {
             "the verbatim task did not validate"
         }
-        return Captured(saved, attachmentsRead = false)
+        return Captured(saved, notRead = attachments)
     }
 
     private fun finish(mail: InboundMailEntity, status: InboundMailStatus) {
@@ -209,11 +212,12 @@ class InboundMailProcessor(
         meterRegistry.counter("tasker.inbound_mail.processed", "result", result).increment()
 
     /** `read` / `not_read` per stored attachment and kind; `skipped` for the ones the parser left out. */
-    private fun countAttachments(attachments: List<InboundAttachment>, payload: InboundMailPayload, read: Boolean) {
-        val result = if (read) "read" else "not_read"
-        attachments.groupingBy { it.kind.name.lowercase() }.eachCount().forEach { (kind, n) ->
-            meterRegistry.counter("tasker.inbound_mail.attachments", "kind", kind, "result", result).increment(n.toDouble())
-        }
+    private fun countAttachments(attachments: List<InboundAttachment>, payload: InboundMailPayload, notRead: List<InboundAttachment>) {
+        attachments.groupingBy { it.kind.name.lowercase() to (if (it in notRead) "not_read" else "read") }.eachCount()
+            .forEach { (key, n) ->
+                val (kind, result) = key
+                meterRegistry.counter("tasker.inbound_mail.attachments", "kind", kind, "result", result).increment(n.toDouble())
+            }
         if (payload.unreadAttachments.isNotEmpty()) {
             meterRegistry.counter("tasker.inbound_mail.attachments", "kind", "other", "result", "skipped")
                 .increment(payload.unreadAttachments.size.toDouble())

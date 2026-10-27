@@ -41,19 +41,19 @@ class InboundMailConfirmation(
 ) {
     private val log = LoggerFactory.getLogger(InboundMailConfirmation::class.java)
 
-    /** [attachmentsRead]: the capture read the email's images and PDFs, rather than its text only. */
-    fun sendSaved(userId: UUID, payload: InboundMailPayload, saved: SavedCapture, attachmentsRead: Boolean) =
-        send(userId, payload, saved.titles, attachmentsRead)
+    /** [notRead]: display names of the readable attachments the capture went without. */
+    fun sendSaved(userId: UUID, payload: InboundMailPayload, saved: SavedCapture, notRead: List<String>) =
+        send(userId, payload, saved.titles, notRead)
 
     fun sendFailure(userId: UUID, payload: InboundMailPayload) =
-        send(userId, payload, titles = null, attachmentsRead = false)
+        send(userId, payload, titles = null, notRead = emptyList())
 
     /** [titles] null means nothing was created. Best effort: a failed confirmation is only logged. */
-    private fun send(userId: UUID, payload: InboundMailPayload, titles: List<String>?, attachmentsRead: Boolean) {
+    private fun send(userId: UUID, payload: InboundMailPayload, titles: List<String>?, notRead: List<String>) {
         try {
             val locale = userSettingsService.getLocale(userId)
             val subject = payload.subject.ifBlank { "…" }.take(SUBJECT_CHARS)
-            val notes = notes(locale, payload, created = titles != null, attachmentsRead)
+            val notes = notes(locale, payload, created = titles != null, notRead)
             val telegram = channelResolver.resolve(userId)?.channel
             if (telegram != null) {
                 telegram.send(ChannelMessage.Text(telegramText(locale, subject, titles, notes, telegram.formatter::escape)))
@@ -124,10 +124,9 @@ class InboundMailConfirmation(
 
     /**
      * The fine print under the result. Attachments are only worth a word when something was created:
-     * which ones were left out (type or caps), and, when the capture used the text alone, that the
-     * readable ones weren't read either.
+     * which ones were left out (type or caps), and which readable ones the capture went without.
      */
-    private fun notes(locale: Locale, payload: InboundMailPayload, created: Boolean, attachmentsRead: Boolean): List<String> =
+    private fun notes(locale: Locale, payload: InboundMailPayload, created: Boolean, notRead: List<String>): List<String> =
         buildList {
             if (created) {
                 if (payload.unreadAttachments.isNotEmpty()) {
@@ -138,8 +137,9 @@ class InboundMailConfirmation(
                         InboundMailParser.MAX_ATTACHMENTS,
                     ))
                 }
-                val readable = payload.attachmentCount - payload.unreadAttachments.size
-                if (readable > 0 && !attachmentsRead) add(msg("inboundmail.attachments", locale))
+                if (notRead.isNotEmpty()) {
+                    add(msg("inboundmail.attachments", locale, notRead.joinToString(", ") { it.take(FILENAME_CHARS) }))
+                }
             }
             if (!payload.verified) add(msg("inboundmail.unverified", locale))
         }

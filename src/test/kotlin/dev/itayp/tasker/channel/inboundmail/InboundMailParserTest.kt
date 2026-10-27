@@ -2,6 +2,7 @@ package dev.itayp.tasker.channel.inboundmail
 
 import dev.itayp.tasker.config.InboundMailProperties
 import dev.itayp.tasker.channel.AttachmentKind
+import dev.itayp.tasker.channel.TextAttachments
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.util.Base64
@@ -220,5 +221,46 @@ class InboundMailParserTest {
         assertThat(mail.attachments.single().kind).isEqualTo(AttachmentKind.DOCUMENT)
         assertThat(mail.attachments.single().mediaType).isEqualTo("application/pdf")
         assertThat(mail.unreadAttachments).containsExactly("application/zip")
+    }
+
+    @Test
+    fun `reads an invitation sent both as an alternative and as invite_ics once, without its bulk`() {
+        val ics = "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nSUMMARY:Mia's party\r\nDTSTART;TZID=Europe/London:20260606T160000\r\n" +
+            "ATTACH;ENCODING=BASE64;VALUE=BINARY:QUJD\r\n REVG\r\nX-ALT-DESC;FMTTYPE=text/html:<p>hi</p>\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+        val encoded = Base64.getMimeEncoder().encodeToString(ics.toByteArray())
+        val mail = parser.parse(
+            (
+                "From: me@example.org\r\nSubject: Invitation\r\nContent-Type: multipart/mixed; boundary=\"m\"\r\n\r\n" +
+                    "--m\r\nContent-Type: multipart/alternative; boundary=\"a\"\r\n\r\n" +
+                    "--a\r\nContent-Type: text/plain\r\n\r\nYou are invited.\r\n" +
+                    "--a\r\nContent-Type: text/calendar; charset=UTF-8; method=REQUEST\r\n\r\n" + ics +
+                    "--a--\r\n" +
+                    "--m\r\nContent-Type: application/ics; name=\"invite.ics\"\r\nContent-Disposition: attachment; filename=\"invite.ics\"\r\n" +
+                    "Content-Transfer-Encoding: base64\r\n\r\n" + encoded + "\r\n" +
+                    "--m--\r\n"
+                ).toByteArray(),
+        )
+
+        assertThat(mail.body).isEqualTo("You are invited.")
+        val invitation = mail.attachments.single()
+        assertThat(invitation.kind).isEqualTo(AttachmentKind.TEXT)
+        assertThat(invitation.mediaType).isEqualTo(TextAttachments.CALENDAR)
+        assertThat(TextAttachments.textOf(invitation)).isEqualTo(
+            "BEGIN:VCALENDAR\nBEGIN:VEVENT\nSUMMARY:Mia's party\nDTSTART;TZID=Europe/London:20260606T160000\nEND:VEVENT\nEND:VCALENDAR",
+        )
+        assertThat(mail.unreadAttachments).isEmpty()
+    }
+
+    @Test
+    fun `reads text files in their charset, also when sent as a generic binary`() {
+        val mail = withParts(
+            "Content-Type: text/plain; charset=ISO-8859-1\nContent-Disposition: attachment; filename=\"notes.txt\"" to "Caf\u00e9 at 5".toByteArray(Charsets.ISO_8859_1),
+            "Content-Type: application/octet-stream\nContent-Disposition: attachment; filename=\"list.TXT\"" to "milk\neggs".toByteArray(),
+            "Content-Type: text/plain\nContent-Disposition: attachment; filename=\"empty.txt\"" to "  ".toByteArray(),
+        )
+
+        assertThat(mail.attachments.map { TextAttachments.textOf(it) }).containsExactly("Caf\u00e9 at 5", "milk\neggs")
+        assertThat(mail.attachments.map { it.filename }).containsExactly("notes.txt", "list.TXT")
+        assertThat(mail.unreadAttachments).isEmpty()
     }
 }
