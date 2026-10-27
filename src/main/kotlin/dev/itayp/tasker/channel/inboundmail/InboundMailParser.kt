@@ -2,12 +2,14 @@ package dev.itayp.tasker.channel.inboundmail
 
 import dev.itayp.tasker.channel.AttachmentKind
 import dev.itayp.tasker.channel.InboundAttachment
+import dev.itayp.tasker.channel.TextAttachments
 import dev.itayp.tasker.config.InboundMailProperties
 import jakarta.mail.BodyPart
 import jakarta.mail.MessagingException
 import jakarta.mail.Multipart
 import jakarta.mail.Part
 import jakarta.mail.Session
+import jakarta.mail.internet.ContentType
 import jakarta.mail.internet.InternetAddress
 import jakarta.mail.internet.MimeMessage
 import jakarta.mail.internet.MimeUtility
@@ -16,6 +18,7 @@ import org.jsoup.nodes.Document
 import org.springframework.stereotype.Component
 import java.io.ByteArrayInputStream
 import java.io.IOException
+import java.nio.charset.Charset
 import java.util.Properties
 
 /** What an inbound email carries that capture needs. Bodies are plain text, already trimmed to size. */
@@ -26,7 +29,7 @@ data class ParsedInboundMail(
     val fromAddress: String?,
     val fromName: String?,
     val body: String,
-    /** The images and PDFs capture can read, within [InboundMailParser]'s caps. */
+    /** The images, PDFs, text files and calendar invitations capture can read, within [InboundMailParser]'s caps. */
     val attachments: List<InboundAttachment>,
     /**
      * Display names (the filename, else the media type) of the attachments left out: another type,
@@ -104,10 +107,13 @@ class InboundMailParser(properties: InboundMailProperties) {
         when {
             part.isMimeType("multipart/alternative") -> {
                 // Alternatives of one body: take the plain one if there is one, else the HTML one.
+                // An invitation from Outlook or Google is a third alternative, `text/calendar`:
+                // not a body, but the invitation itself.
                 val multipart = part.content as Multipart
                 val parts = (0 until multipart.count).map { multipart.getBodyPart(it) }
                 val chosen = parts.firstOrNull { it.isMimeType("text/plain") } ?: parts.firstOrNull()
                 chosen?.let { collect(it, content, depth + 1) }
+                parts.filter { it !== chosen && it.isMimeType("text/calendar") }.forEach { addAttachment(it, content) }
             }
             part.isMimeType("multipart/*") -> {
                 val multipart = part.content as Multipart
@@ -134,11 +140,12 @@ class InboundMailParser(properties: InboundMailProperties) {
     }
 
     /**
-     * Keeps [part] for capture when it is an image or a PDF within the caps, notes it as unread
-     * otherwise. Small images are dropped silently: in mail they are almost always a signature
-     * logo or a tracking pixel, and a photo or a scan is far larger. The size can't be told from
-     * the disposition: Apple Mail sends a photo pasted into the body as an inline `cid:` image, the
-     * same way a signature carries its logo.
+     * Keeps [part] for capture when it is an image, a PDF, a text file or a calendar invitation
+     * within the caps, notes it as unread otherwise. Small images are dropped silently: in mail they
+     * are almost always a signature logo or a tracking pixel, and a photo or a scan is far larger.
+     * The size can't be told from the disposition: Apple Mail sends a photo pasted into the body as
+     * an inline `cid:` image, the same way a signature carries its logo. So is a text attachment
+     * repeating one already kept: Google sends an invitation both inline and as `invite.ics`.
      */
     private fun addAttachment(part: Part, content: Content) {
         val filename = part.fileName?.let { decodeFilename(it) }?.trim()?.takeIf { it.isNotEmpty() }
@@ -155,26 +162,45 @@ class InboundMailParser(properties: InboundMailProperties) {
         } catch (_: MessagingException) {
             null
         }
+        if (bytes == null || bytes.size > MAX_ATTACHMENT_BYTES) {
+            content.unread += displayName
+            return
+        }
+        val attachment = when (kind) {
+            AttachmentKind.TEXT -> {
+                val textType = checkNotNull(TextAttachments.mediaTypeOf(mediaType, filename))
+                TextAttachments.of(bytes, textType, filename, charsetOf(part)) ?: return
+            }
+            AttachmentKind.DOCUMENT -> InboundAttachment(kind, bytes, PDF, filename = filename)
+            else -> InboundAttachment(kind, bytes, mediaType.replace("image/jpg", "image/jpeg"), filename = filename)
+        }
         when {
-            bytes == null || bytes.size > MAX_ATTACHMENT_BYTES -> content.unread += displayName
             kind == AttachmentKind.IMAGE && bytes.size < MIN_IMAGE_BYTES -> Unit
+            kind == AttachmentKind.TEXT && content.attachments.any { it.bytes.contentEquals(attachment.bytes) } -> Unit
             content.attachments.size >= MAX_ATTACHMENTS -> content.unread += displayName
-            else -> content.attachments += InboundAttachment(
-                kind = kind,
-                bytes = bytes,
-                mediaType = if (kind == AttachmentKind.DOCUMENT) PDF else mediaType.replace("image/jpg", "image/jpeg"),
-                filename = filename,
-            )
+            else -> content.attachments += attachment
         }
     }
 
-    /** Images the providers take, and PDFs, which some senders label as a generic binary. */
+    /**
+     * Images the providers take; PDFs, text files and invitations, which some senders label as a
+     * generic binary.
+     */
     private fun kindOf(mediaType: String, filename: String?): AttachmentKind? = when {
         mediaType in IMAGE_TYPES -> AttachmentKind.IMAGE
         mediaType == PDF -> AttachmentKind.DOCUMENT
         mediaType == "application/octet-stream" && filename?.lowercase()?.endsWith(".pdf") == true -> AttachmentKind.DOCUMENT
+        TextAttachments.mediaTypeOf(mediaType, filename) != null -> AttachmentKind.TEXT
         else -> null
     }
+
+    /** The declared charset, or null (UTF-8) when there is none or Java doesn't know it. */
+    private fun charsetOf(part: Part): Charset? =
+        try {
+            ContentType(part.contentType).getParameter("charset")?.let { Charset.forName(MimeUtility.javaCharset(it)) }
+        } catch (_: Exception) {
+            null
+        }
 
     private fun decodeFilename(name: String): String =
         try {

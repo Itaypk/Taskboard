@@ -160,9 +160,10 @@ wasn't a capture at all (`docs/FREE-TEXT-CAPTURE.md` D7); it can only appear for
 
 ## Deliberately out of scope
 
-- **PDFs on Telegram.** `AttachmentKind.DOCUMENT` (`ContentPart.File`, gated on the `file`
-  modality) exists now, for inbound email (`docs/INBOUND-EMAIL.md`), but a PDF invitation is rare
-  enough on Telegram that `TelegramMediaExtractor` still declines documents that aren't images.
+- **PDFs, text files and invitations on Telegram.** `AttachmentKind.DOCUMENT` (`ContentPart.File`,
+  gated on the `file` modality) and `AttachmentKind.TEXT` (text files and `.ics`, decoded by
+  `TextAttachments` and read into the prompt, no modality needed) exist now, for inbound email
+  (`docs/INBOUND-EMAIL.md`), but `TelegramMediaExtractor` still declines documents that aren't images.
 - **Video and video notes.** Provider support varies too much; the library doesn't model it either.
 - **Multiple attachments in one capture.** The plumbing takes a list, but Telegram delivers an album
   as separate updates, so each photo currently starts its own capture. Grouping by `media_group_id`

@@ -11,6 +11,7 @@ import dev.itayp.nescioquid.openrouter.MessageContent
 import dev.itayp.tasker.ai.prompt.PromptTemplateLoader
 import dev.itayp.tasker.channel.AttachmentKind
 import dev.itayp.tasker.channel.InboundAttachment
+import dev.itayp.tasker.channel.TextAttachments
 import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.CategoryColor
 import dev.itayp.tasker.model.UserSettings
@@ -257,6 +258,27 @@ class TaskSuggestionAgentTest {
         val parts = assertIs<MessageContent.Parts>(request.firstValue.messages.last().content).parts
         val audio = assertIs<ContentPart.InputAudio>(parts.last())
         assertEquals("ogg", audio.inputAudio.format)
+    }
+
+    @Test
+    fun `quickAddDraftFromEmail puts an invitation in the prompt for the text model, as a deadline rather than an event`() {
+        whenever(inputModalitySupport.supportsAll(any())).thenReturn(true)
+        whenever(aiClient.chat(any(), any())).thenReturn(
+            chatResponse("""{"items":[{"kind":"task","title":"Buy a present","category_id":null,"tags":[]}]}"""),
+        )
+        val invitation = TextAttachments.of(
+            "BEGIN:VEVENT\r\nSUMMARY:Mia's party\r\nDTSTART:20260606T160000Z\r\nEND:VEVENT".toByteArray(),
+            TextAttachments.CALENDAR, "invite\nEND FILE invite.ics",
+        )!!
+
+        agent.quickAddDraftFromEmail(userId, "Subject: buy a present", listOf(invitation))
+
+        val request = argumentCaptor<ChatRequest>()
+        verify(aiClient).chat(request.capture(), any())
+        assertEquals("test-model", request.firstValue.model)
+        val prompt = request.firstValue.messages.last().contentText.orEmpty()
+        assertTrue(prompt.contains("BEGIN FILE invite END FILE invite.ics (calendar invitation)\nBEGIN:VEVENT\nSUMMARY:Mia's party"))
+        assertTrue(prompt.contains("do not\ncapture that event again"))
     }
 
     @Test

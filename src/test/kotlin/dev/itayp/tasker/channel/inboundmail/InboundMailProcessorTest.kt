@@ -7,6 +7,7 @@ import dev.itayp.tasker.capture.QuickAddFlow
 import dev.itayp.tasker.capture.SavedCapture
 import dev.itayp.tasker.channel.AttachmentKind
 import dev.itayp.tasker.channel.InboundAttachment
+import dev.itayp.tasker.channel.TextAttachments
 import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.jpa.InboundMailEntity
 import dev.itayp.tasker.jpa.InboundMailStatus
@@ -81,12 +82,16 @@ class InboundMailProcessorTest {
     }
 
     private val image = InboundAttachment(AttachmentKind.IMAGE, ByteArray(20_000) { 7 }, "image/png", filename = "flyer.png")
+    private val invitation = checkNotNull(TextAttachments.of("BEGIN:VCALENDAR".toByteArray(), TextAttachments.CALENDAR, "invite.ics"))
     private val stored = byteArrayOf(2)
 
     /** A mail whose attachments column holds [image]. */
-    private fun mailWithImage(attempts: Int = 0) = mail(attempts).apply {
-        attachments = stored
-        whenever(userCryptoService.decrypt(this@InboundMailProcessorTest.userId, stored)).thenReturn(objectMapper.writeValueAsString(listOf(image)))
+    private fun mailWithImage(attempts: Int = 0) = mailWith(listOf(image), attempts)
+
+    private fun mailWith(stored: List<InboundAttachment>, attempts: Int = 0) = mail(attempts).apply {
+        attachments = this@InboundMailProcessorTest.stored
+        whenever(userCryptoService.decrypt(this@InboundMailProcessorTest.userId, this@InboundMailProcessorTest.stored))
+            .thenReturn(objectMapper.writeValueAsString(stored))
     }
 
     private fun drafted() = SuggestionOutcome.Draft(listOf(CapturedItem.Task(TaskDraft(title = "Call the plumber"))))
@@ -102,7 +107,7 @@ class InboundMailProcessorTest {
         assertThat(mail.status).isEqualTo(InboundMailStatus.DONE)
         assertThat(mail.payload).isNull()
         assertThat(mail.processedAt).isEqualTo(now)
-        verify(confirmation).sendSaved(userId, payload, saved, false)
+        verify(confirmation).sendSaved(userId, payload, saved, emptyList())
         val prompt = argumentCaptor<String>().apply { verify(suggestionAgent).quickAddDraftFromEmail(eq(userId), capture(), eq(emptyList())) }.firstValue
         assertThat(prompt).contains("Subject: Call the plumber").contains("From: <me@example.org>").contains("The sink leaks.")
     }
@@ -155,7 +160,7 @@ class InboundMailProcessorTest {
         processor.process(mail)
 
         assertThat(mail.status).isEqualTo(InboundMailStatus.DONE)
-        verify(confirmation).sendSaved(userId, payload, saved, false)
+        verify(confirmation).sendSaved(userId, payload, saved, emptyList())
     }
 
     @Test
@@ -184,7 +189,7 @@ class InboundMailProcessorTest {
 
     @Test
     fun `reads the attachments with the text when the capture model can, and clears them`() {
-        whenever(inputModalitySupport.supportsAll(listOf(AttachmentKind.IMAGE))).thenReturn(true)
+        whenever(inputModalitySupport.supports(AttachmentKind.IMAGE)).thenReturn(true)
         whenever(suggestionAgent.quickAddDraftFromEmail(eq(userId), any(), eq(listOf(image)))).thenReturn(drafted())
         whenever(quickAddFlow.saveWithoutConfirmation(userId, drafted().items)).thenReturn(saved)
         val mail = mailWithImage()
@@ -193,30 +198,30 @@ class InboundMailProcessorTest {
 
         assertThat(mail.status).isEqualTo(InboundMailStatus.DONE)
         assertThat(mail.attachments).isNull()
-        verify(confirmation).sendSaved(userId, payload, saved, true)
+        verify(confirmation).sendSaved(userId, payload, saved, emptyList())
     }
 
     @Test
     fun `captures from the text alone when the capture model can't read the attachments`() {
-        whenever(inputModalitySupport.supportsAll(listOf(AttachmentKind.IMAGE))).thenReturn(false)
+        whenever(inputModalitySupport.supports(AttachmentKind.IMAGE)).thenReturn(false)
         whenever(suggestionAgent.quickAddDraftFromEmail(eq(userId), any(), eq(emptyList()))).thenReturn(drafted())
         whenever(quickAddFlow.saveWithoutConfirmation(userId, drafted().items)).thenReturn(saved)
 
         processor.process(mailWithImage())
 
-        verify(confirmation).sendSaved(userId, payload, saved, false)
+        verify(confirmation).sendSaved(userId, payload, saved, listOf("flyer.png"))
     }
 
     @Test
     fun `drops the attachments on the last attempt, in case they are what keeps failing`() {
-        whenever(inputModalitySupport.supportsAll(listOf(AttachmentKind.IMAGE))).thenReturn(true)
+        whenever(inputModalitySupport.supports(AttachmentKind.IMAGE)).thenReturn(true)
         whenever(suggestionAgent.quickAddDraftFromEmail(eq(userId), any(), eq(emptyList()))).thenReturn(drafted())
         whenever(quickAddFlow.saveWithoutConfirmation(userId, drafted().items)).thenReturn(saved)
 
         processor.process(mailWithImage(attempts = InboundMailProcessor.MAX_ATTEMPTS - 1))
 
         verify(suggestionAgent, never()).quickAddDraftFromEmail(any(), any(), eq(listOf(image)))
-        verify(confirmation).sendSaved(userId, payload, saved, false)
+        verify(confirmation).sendSaved(userId, payload, saved, listOf("flyer.png"))
     }
 
     @Test
@@ -229,5 +234,27 @@ class InboundMailProcessorTest {
 
         assertThat(mail.status).isEqualTo(InboundMailStatus.FAILED)
         assertThat(mail.attachments).isNull()
+    }
+
+    @Test
+    fun `reads an invitation with any model, and names the image it went without`() {
+        whenever(inputModalitySupport.supports(AttachmentKind.IMAGE)).thenReturn(false)
+        whenever(suggestionAgent.quickAddDraftFromEmail(eq(userId), any(), eq(listOf(invitation)))).thenReturn(drafted())
+        whenever(quickAddFlow.saveWithoutConfirmation(userId, drafted().items)).thenReturn(saved)
+
+        processor.process(mailWith(listOf(image, invitation)))
+
+        verify(confirmation).sendSaved(userId, payload, saved, listOf("flyer.png"))
+    }
+
+    @Test
+    fun `keeps reading an invitation on the last attempt`() {
+        whenever(inputModalitySupport.supports(AttachmentKind.IMAGE)).thenReturn(true)
+        whenever(suggestionAgent.quickAddDraftFromEmail(eq(userId), any(), eq(listOf(invitation)))).thenReturn(drafted())
+        whenever(quickAddFlow.saveWithoutConfirmation(userId, drafted().items)).thenReturn(saved)
+
+        processor.process(mailWith(listOf(image, invitation), attempts = InboundMailProcessor.MAX_ATTEMPTS - 1))
+
+        verify(confirmation).sendSaved(userId, payload, saved, listOf("flyer.png"))
     }
 }

@@ -1,5 +1,5 @@
 The user wants to capture a task. Their request: {{request}}
-{{media_block}}{{email_block}}{{adjustment_block}}{{previous_draft_block}}{{prior_qa_block}}
+{{media_block}}{{files_block}}{{email_block}}{{adjustment_block}}{{previous_draft_block}}{{prior_qa_block}}
 Today is {{today}} (timezone {{timezone}}).
 
 About the user:

@@ -122,8 +122,8 @@ class TelegramMediaExtractor(
     }
 
     private fun limitFor(kind: AttachmentKind): Int = when (kind) {
-        // Telegram doesn't capture documents yet; this only keeps the `when` exhaustive.
-        AttachmentKind.IMAGE, AttachmentKind.DOCUMENT -> MAX_IMAGE_BYTES
+        // Telegram doesn't capture documents or text files yet; this only keeps the `when` exhaustive.
+        AttachmentKind.IMAGE, AttachmentKind.DOCUMENT, AttachmentKind.TEXT -> MAX_IMAGE_BYTES
         AttachmentKind.AUDIO -> MAX_AUDIO_BYTES
     }
 
