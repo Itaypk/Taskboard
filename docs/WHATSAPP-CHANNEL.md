@@ -7,13 +7,9 @@ Status: **exploration only** — feasibility, effort, and design tradeoffs, not 
 implementation should start from this document without a separate follow-up decision. Supersedes
 the earlier one-line idea ("WhatsApp as a communication channel support"), now tracked as issue #268.
 
-Hardware assumption behind the questions this note answers: a spare always-on Moto G5S Plus
-(Android 8.1) with an Israeli SIM, fully under our control, while the app runs on a VPS in
-Germany.
-
 ## Correcting the starting premise: the phone is not the asset
 
-The natural worry — "the phone is in Israel, the server is in Germany, so a WhatsApp-Web-style
+The natural worry — "the phone location is far off the server's location, so a WhatsApp-Web-style
 solution will lose access fast" — turns out not to be the binding constraint under either route,
 though for opposite reasons:
 
@@ -28,13 +24,10 @@ though for opposite reasons:
   argument for keeping the phone: it is the anchor that keeps the session alive.
 
 What actually drives bans on the unofficial route is **behavioral fingerprint + datacenter IP**,
-not the Israel/Germany distance. Reported signals: low reply ratio, messaging accounts far away
+not the distance. Reported signals: low reply ratio, messaging accounts far away
 in the contact graph, robotic timing, and traffic originating from VPS/datacenter ranges. A
 personal task bot scores *well* on the first three (every message is a reply to a user who
 initiated) and badly on the fourth — which points at a different topology, see Option B.
-
-**Android 8.1 is not a limiting factor.** WhatsApp's minimum rises to **Android 6.0 on
-8 September 2026**; 8.1 stays supported. No need for a newer phone or a custom ROM.
 
 ## The constraint that actually shapes the work: the 24-hour window
 
@@ -87,7 +80,7 @@ a window the user just opened, and therefore:
 - **No template/window state machine.** The "nudge → hope they reply → then start the session"
   dance disappears, along with the new terminal state it needed ("nudged, window never opened").
 - **Nothing to pay.** In-window free-form messages are free; templates were the only billable
-  thing. The Israel/EU utility rate becomes a number we never have to look up.
+  thing (note: recent Meta policy change might mean that this is not true any more).
 - **No resolver or dispatcher work.** `ScheduledConversationChannelResolver` and
   `SlotReminderDispatcher` stay untouched — no two-channel `resolve`, no WhatsApp session
   registry, no both-linked precedence rule. That is a real chunk of the Option A estimate below,
@@ -152,8 +145,7 @@ The "non-trivial hassle" is smaller than its reputation at our scale:
   it unlocks a 100k limit immediately once done.
 - **Cost is near zero for us.** No subscription. Free-form messages inside the service window are
   never charged. Only proactive nudge/reminder templates are billable, as *utility* messages, at
-  single-digit cents each in most markets — **verify the Israel and EU utility rates against
-  Meta's current rate card before committing to a number.** At beta volume this is rounding-error
+  single-digit cents each in most markets — at beta volume this is rounding-error
   money; it becomes a real line item only if reminders ever go high-frequency.
 - **A dedicated number is required** and must not be in use on the consumer WhatsApp app. The
   spare SIM covers this; the phone itself is then surplus.
@@ -230,11 +222,11 @@ including reports of "your account may be at risk" warnings, and bans, for *low-
 reply-only* clients. A ban removes the number permanently, with no appeal path, and takes every
 user on it down at once.
 
-**If it is tried, invert the topology instead of running it on the German VPS.** Run WAHA on
-hardware sharing the phone's own Israeli residential network — a Pi/mini-PC, or Termux on the
-Moto itself — and have it make **outbound** HTTPS calls to Backlog (a long-poll/queue relay, or
+**If it is tried, invert the topology instead of running it on the production server.** Run WAHA on
+hardware sharing the phone's own residential network — a Pi/mini-PC, or Termux on the
+device itself — and have it make **outbound** HTTPS calls to Backlog (a long-poll/queue relay, or
 an authenticated push to an `/api/external`-shaped endpoint). Nothing inbound is exposed, the
-German VPS never touches WhatsApp, and the datacenter-IP signal disappears. That directly answers
+VPS never touches WhatsApp, and the datacenter-IP signal disappears. That directly answers
 the original geography concern, and it is the only configuration worth considering here. It does
 add a second always-on box on a home connection as a hard dependency of the channel.
 
@@ -253,7 +245,7 @@ Recommendation. Note that reactive-only removes its entire reason to exist: ever
 expensive for is the proactive half.
 
 **Why the ban risk really is near zero.** Every packet WhatsApp sees comes from an unmodified
-client, on a real device, on a residential Israeli IP, with the SIM that registered the number.
+client, on a real device, on a residential IP, with the SIM that registered the number.
 There is no linked-device session, no reverse-engineered protocol, and no datacenter traffic —
 none of the signals from Option B apply. What remains is behavioral (volume, timing), and a
 personal task bot is well-behaved on those by construction. This is a ToS matter, not a
