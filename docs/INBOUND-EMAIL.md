@@ -102,8 +102,8 @@ modalities (`image`; `file` for a PDF), failing closed. So the feature is dark u
 `TASKER_AI_MULTIMODAL_MODEL` names a model that takes them.
 
 Text files and calendar invitations (GitHub issue #316) take another path: `TextAttachments`
-decodes them at parse time into `AttachmentKind.TEXT`, and the prompt carries their text between
-`BEGIN FILE` / `END FILE` lines. That needs no modality, so they are read by any model, whenever
+decodes them at parse time into `AttachmentKind.TEXT`, and the prompt carries their text, like
+the email itself, in a guarded `ExternalContent` block (GitHub issue #300). That needs no modality, so they are read by any model, whenever
 the model drafts.
 
 - **What counts** (`InboundMailParser`): JPEG, PNG, WebP and GIF images; PDFs (also when sent

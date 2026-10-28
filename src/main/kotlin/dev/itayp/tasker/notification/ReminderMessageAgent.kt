@@ -5,6 +5,7 @@ import dev.itayp.tasker.ai.ReasoningAwareAiClient
 import dev.itayp.tasker.ai.client.AiConversationType
 import dev.itayp.nescioquid.openrouter.ChatMessage
 import dev.itayp.nescioquid.openrouter.ChatRequest
+import dev.itayp.tasker.ai.prompt.ExternalContent
 import dev.itayp.tasker.ai.prompt.PromptTemplateLoader
 import dev.itayp.tasker.service.UserSettingsService
 import org.slf4j.LoggerFactory
@@ -55,11 +56,12 @@ class ReminderMessageAgent(
             .format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale))
 
         val systemPrompt = promptTemplateLoader.load("slot-reminder/system.md")
-            .render(mapOf("language" to languageName))
+            .render(mapOf("language" to languageName, "external_content_rule" to ExternalContent.RULE))
         val userMessage = promptTemplateLoader.load("slot-reminder/user.md").render(mapOf(
-            "title" to title,
-            "description_block" to (description?.takeIf { it.isNotBlank() }
-                ?.let { "Notes: ${it.take(DESCRIPTION_LIMIT)}\n" } ?: ""),
+            "task" to ExternalContent.wrap("task", buildString {
+                append("Task: ").append(title)
+                description?.takeIf { it.isNotBlank() }?.let { append("\nNotes: ").append(it.take(DESCRIPTION_LIMIT)) }
+            }),
             "start_time" to startTime,
             "user_context" to contextBlock,
         ))

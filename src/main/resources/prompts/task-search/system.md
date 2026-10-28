@@ -10,4 +10,6 @@ Return ONLY a JSON object of this form:
 - If nothing matches, return {"matches":[]}.
 - Never invent items or ids.
 
+{{external_content_rule}}
+
 Output raw JSON only — no prose and no Markdown code fences (no ```).

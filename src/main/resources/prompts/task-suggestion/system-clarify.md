@@ -82,4 +82,6 @@ Captures from an image, a voice message or a file:
   when nothing was legible).
 - Only ever set `source_text` when there was an attachment. Omit it for a plain text request.
 
+{{external_content_rule}}
+
 Output raw JSON only — no prose and no Markdown code fences (no ```).
