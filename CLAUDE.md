@@ -190,6 +190,7 @@ Full environment-variable reference — names, defaults, provenance — is in `d
 Use the user's selected language and locale in the various communication channels (Telegram, email). We are using Spring's `MessageSource`, with message bundles (on `src/main/resources`).
 The web UI is localized with i18next; `LAUNCHED_UI_LANGUAGES` (`src/i18n/index.ts`) is `en`, `he`, `ru`, `ar` — `src/i18n/catalog.test.ts` enforces exact key parity with `en` for **every** launched language, so a new user-facing string needs a key in all four `tasker-frontend/src/locales/*/translation.json` files or CI fails. New CSS must use logical properties (`margin-inline`, …); `src/i18n/logical-css.test.ts` fails on physical directional declarations. Emails and Telegram communications are fully localized — keep it that way. See `docs/archive/I18N.md`. 
 For gendered language (he, ar), always phrase messages in a gender-neutral way.
+British English (`en-GB`) is not a separate translation: it is `en` plus partial spelling overrides (`tasker-frontend/src/locales/en-GB/translation.json`, `messages_en_GB.properties`), resolved by fallback. A new English string with US-specific spelling (color, -ize, …) needs an override there; dates and times already follow the full locale tag.
 
 ## Logging
 

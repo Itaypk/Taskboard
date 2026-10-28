@@ -31,6 +31,26 @@ class BrandedMessageSourceTest {
             .isEqualTo("Bob hat dich zu einem Board bei Acme Tasks eingeladen")
     }
 
+    @Test
+    fun `British English overrides spelling and falls back to the base bundle for the rest`() {
+        assertThat(source.getMessage("inboundmail.unverified", null, Locale.UK)).contains("recognise")
+        assertThat(source.getMessage("email.login.subject", null, Locale.UK)).isEqualTo("Sign in to Acme Tasks")
+    }
+
+    @Test
+    fun `a locale without its own bundle gets the base bundle, whatever the system locale`() {
+        val systemDefault = Locale.getDefault()
+        try {
+            Locale.setDefault(Locale.GERMAN)
+            val fresh = BrandedMessageSource(AppProperties(baseUrl = "https://tasks.acme.test", name = "Acme Tasks"))
+            // messages_de carries this key, so falling back to the system locale would answer in German.
+            assertThat(fresh.getMessage("email.boardInvite.subject", arrayOf("Bob"), Locale.US))
+                .isEqualTo("Bob invited you to a board on Acme Tasks")
+        } finally {
+            Locale.setDefault(systemDefault)
+        }
+    }
+
     /** A hard-coded name in a bundle would show the hosted product's name on every other instance. */
     @Test
     fun `no bundle hard-codes the hosted product name or URL`() {

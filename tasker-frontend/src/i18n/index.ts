@@ -15,6 +15,7 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import enTranslation from '../locales/en/translation.json';
+import enGbTranslation from '../locales/en-GB/translation.json';
 import { isUsableLocale, setActiveLocale } from './format';
 
 /** Languages whose UI catalog is complete and QA'd (D7). */
@@ -37,6 +38,17 @@ const catalogLoaders: Partial<Record<UiLanguage, () => Promise<{ default: Record
 
 function baseLanguage(tag: string): string {
     return tag.toLowerCase().split('-')[0];
+}
+
+/**
+ * The language i18next renders, which can be narrower than the UI language: British English is
+ * `en` with a small override catalog (spelling only), so an `en-GB` preference renders as `en-GB`
+ * and i18next falls back to `en` for every key the override doesn't carry. Kept out of `UiLanguage`
+ * because it is not a separate catalog to launch, translate or pick in the anonymous switcher.
+ */
+function i18nLanguage(tag: string): string {
+    const ui = resolveUiLanguage(tag);
+    return ui === 'en' && tag.toLowerCase().startsWith('en-gb') ? 'en-GB' : ui;
 }
 
 /**
@@ -123,8 +135,9 @@ async function loadCatalog(ui: UiLanguage): Promise<void> {
 const bootTag = detectPreferredTag();
 
 i18n.use(initReactI18next).init({
-    resources: { en: { translation: enTranslation } },
-    lng: resolveUiLanguage(bootTag),
+    // The en-GB overrides are a handful of strings, so they ship with `en` rather than as a chunk.
+    resources: { en: { translation: enTranslation }, 'en-GB': { translation: enGbTranslation } },
+    lng: i18nLanguage(bootTag),
     fallbackLng: 'en',
     interpolation: { escapeValue: false }, // React already escapes
     returnNull: false,
@@ -168,7 +181,8 @@ export async function applyLocale(tag?: string | null): Promise<void> {
     const fullTag = tag && tag.trim().length > 0 ? tag : detectPreferredTag();
     const ui = resolveUiLanguage(fullTag);
     await loadCatalog(ui);
-    if (i18n.language !== ui) await i18n.changeLanguage(ui);
+    const lng = i18nLanguage(fullTag);
+    if (i18n.language !== lng) await i18n.changeLanguage(lng);
     setActiveLocale(fullTag);
     applyDocumentLanguage(ui, fullTag);
     cacheLocale(fullTag);

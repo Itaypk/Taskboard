@@ -1,0 +1,38 @@
+{
+  "activeSessions": {
+    "hint": "Where your account is signed in. Sign out everywhere else if you see something you don't recognise."
+  },
+  "tagEditModal": {
+    "color": "Colour"
+  },
+  "planDetails": {
+    "finalized": "Finalised"
+  },
+  "categoryEditor": {
+    "changeColor": "Change colour for {{label}}"
+  },
+  "tagEditor": {
+    "empty": "No tags yet. Add a tag from any task and it'll show up here to rename, recolour, or remove.",
+    "changeColor": "Change colour for {{label}}"
+  },
+  "paperSwatchPicker": {
+    "ariaLabel": "Paper colour"
+  },
+  "settingsModal": {
+    "assistant": {
+      "remindersHelp": "When on, the reminder sent before a planned task starts is written by the assistant — a short, personalised nudge instead of the standard template. The reminder buttons (snooze, mark done) work either way."
+    }
+  },
+  "boardSettingsModal": {
+    "labels": {
+      "categoriesHint": "Post-it colour on the board. Every task belongs to one.",
+      "tagsHint": "Washi-tape labels a task can carry several of. Rename, recolour, or remove them."
+    }
+  },
+  "weeklyPlanDrawer": {
+    "planFinalized": "Plan finalised",
+    "override": {
+      "body": "Planning {{week}} from scratch starts a new session that will replace the existing plan when you finalise it. Revise the current plan instead to keep what's already scheduled."
+    }
+  }
+}
