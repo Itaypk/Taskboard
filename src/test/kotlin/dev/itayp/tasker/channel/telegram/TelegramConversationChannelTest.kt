@@ -1,6 +1,7 @@
 package dev.itayp.tasker.channel.telegram
 
 import dev.itayp.tasker.channel.ChannelMessage
+import dev.itayp.tasker.channel.ChoiceOption
 import dev.itayp.tasker.channel.ChannelUnreachableException
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
@@ -8,6 +9,7 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 import org.telegram.telegrambots.meta.api.methods.botapimethods.BotApiMethod
 import org.telegram.telegrambots.meta.api.methods.send.SendChatAction
+import org.telegram.telegrambots.meta.api.methods.send.SendMessage
 import org.telegram.telegrambots.meta.api.objects.ApiResponse
 import org.telegram.telegrambots.meta.exceptions.TelegramApiRequestException
 import org.telegram.telegrambots.meta.generics.TelegramClient
@@ -27,6 +29,7 @@ import kotlin.test.assertTrue
 class TelegramConversationChannelTest {
 
     private val chatActions = AtomicInteger()
+    private val sentMessages = mutableListOf<SendMessage>()
     private val telegramClient: TelegramClient = mock()
 
     private val channel = TelegramConversationChannel(
@@ -37,7 +40,10 @@ class TelegramConversationChannelTest {
 
     init {
         whenever(telegramClient.execute(any<BotApiMethod<Serializable>>())).thenAnswer { invocation ->
-            if (invocation.arguments[0] is SendChatAction) chatActions.incrementAndGet()
+            when (val method = invocation.arguments[0]) {
+                is SendChatAction -> chatActions.incrementAndGet()
+                is SendMessage -> sentMessages += method
+            }
             null
         }
     }
@@ -78,6 +84,16 @@ class TelegramConversationChannelTest {
         Thread.sleep(200)
 
         assertEquals(settled, chatActions.get(), "the keep-alive outlived a failed turn")
+    }
+
+    /** Telegram fetches a link to preview it, so a link in model output would leak with no tap. */
+    @Test
+    fun `texts and choices go out without link previews`() {
+        channel.send(ChannelMessage.Text("see https://example.com/?q=1"))
+        channel.send(ChannelMessage.Choice("https://example.com/?q=2", listOf(ChoiceOption("a", "A"))))
+
+        assertEquals(2, sentMessages.size)
+        sentMessages.forEach { assertEquals(true, it.linkPreviewOptions?.isDisabled) }
     }
 
     private fun telegramError(code: Int, description: String) = TelegramApiRequestException(
