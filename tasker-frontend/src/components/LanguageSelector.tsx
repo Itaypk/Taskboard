@@ -17,6 +17,27 @@ const ENDONYMS: Record<UiLanguage, string> = {
 };
 
 /**
+ * English is offered as its two variants, matching the Settings picker: they share a catalog but
+ * not date formats or spelling, and the anonymous choice is what a new account is seeded with
+ * (`authApi` forwards the full tag).
+ */
+const ENGLISH_VARIANTS: readonly { tag: string; label: string }[] = [
+    { tag: 'en-US', label: 'English (US)' },
+    { tag: 'en-GB', label: 'English (UK)' },
+];
+
+function optionsFor(languages: readonly UiLanguage[]): { tag: string; label: string }[] {
+    return languages.flatMap(code => (code === 'en' ? ENGLISH_VARIANTS : [{ tag: code, label: ENDONYMS[code] }]));
+}
+
+/** The option an active locale tag selects: English collapses to its variant, others to the UI language. */
+function optionTagFor(locale: string): string {
+    const ui = resolveUiLanguage(locale);
+    if (ui !== 'en') return ui;
+    return locale.toLowerCase().startsWith('en-gb') ? 'en-GB' : 'en-US';
+}
+
+/**
  * Language switcher for the *anonymous* surface (login, policy, invite and email-confirm pages).
  * Signed-in users set their language in Settings, where it is stored on the account and drives
  * email and Telegram too; this only moves the browser, so it is hidden once a user is known.
@@ -33,7 +54,7 @@ export default function LanguageSelector({ className }: { className?: string } =
     // `getActiveLocale()` at render time: `applyLocale` is async, and the i18next
     // `languageChanged` event that would otherwise trigger a re-render can fire before
     // `setActiveLocale` runs, leaving the dropdown showing the previous selection.
-    const [current, setCurrent] = useState<UiLanguage>(() => resolveUiLanguage(getActiveLocale()));
+    const [current, setCurrent] = useState(() => optionTagFor(getActiveLocale()));
 
     return (
         <select
@@ -41,13 +62,13 @@ export default function LanguageSelector({ className }: { className?: string } =
             value={current}
             aria-label={t('footer.language')}
             onChange={e => {
-                const next = e.target.value as UiLanguage;
+                const next = e.target.value;
                 setCurrent(next);
                 void applyLocale(next);
             }}
         >
-            {selectableLanguages().map(code => (
-                <option key={code} value={code}>{ENDONYMS[code]}</option>
+            {optionsFor(selectableLanguages()).map(({ tag, label }) => (
+                <option key={tag} value={tag}>{label}</option>
             ))}
         </select>
     );
