@@ -18,7 +18,7 @@ describe('LanguageSelector', () => {
         render(<LanguageSelector />);
 
         const options = screen.getAllByRole('option').map(o => o.textContent);
-        expect(options).toEqual(expect.arrayContaining(['English', 'עברית', 'Русский', 'العربية']));
+        expect(options).toEqual(expect.arrayContaining(['English (US)', 'English (UK)', 'עברית', 'Русский', 'العربية']));
     });
 
     it('switches the active locale and flips document direction for an RTL choice', async () => {
@@ -49,5 +49,16 @@ describe('LanguageSelector', () => {
         // detectPreferredTag reads this cache ahead of navigator.languages.
         await waitFor(() => expect(window.localStorage.getItem('backlog.locale')).toBe('ru'));
         expect(document.documentElement.dir).toBe('ltr');
+    });
+
+    it('offers British English as its own choice, keeping the region for dates and sign-up', async () => {
+        render(<LanguageSelector />);
+        expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('en-US');
+
+        fireEvent.change(screen.getByRole('combobox'), { target: { value: 'en-GB' } });
+
+        await waitFor(() => expect(getActiveLocale()).toBe('en-GB'));
+        expect(document.documentElement.lang).toBe('en-GB');
+        expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('en-GB');
     });
 });
