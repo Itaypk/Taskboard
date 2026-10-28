@@ -11,8 +11,7 @@ import java.util.Locale
  * Matching is RFC 4647 lookup ([Locale.lookupTag]) over the [UserSettingsService.SUPPORTED_LANGUAGES]
  * codes, so a browser sending `he-IL` matches `he`. Lookup only ever *truncates* a range, never
  * extends it, so a bare `en` matches no tag on its own — hence the basic-filtering fallback in
- * [resolveSupportedTag]. The English variants are ordered `en-US` before `en-GB` in the list so
- * that fallback resolves a bare `en` to US English (the historical default) rather than UK.
+ * [resolveSupportedTag], which resolves a bare `en` (or `en-GB`, via its `en` range) to `en-US`.
  */
 @Service
 class LocaleNegotiationService {
@@ -59,7 +58,7 @@ class LocaleNegotiationService {
         /** Generous next to a real tag (`zh-Hant-TW` is 11), tight enough that parsing can't be abused. */
         private const val MAX_EXPLICIT_TAG_LENGTH = 35
 
-        /** Supported codes ordered for [Locale.lookupTag]; `en-US` precedes `en-GB` so bare `en` → US. */
-        private val LOOKUP_TAGS: List<String> = listOf("en-US", "en-GB", "he", "ar", "ru")
+        /** Supported codes for [Locale.lookupTag]. */
+        private val LOOKUP_TAGS: List<String> = listOf("en-US", "he", "ar", "ru")
     }
 }

@@ -303,10 +303,16 @@ class UserSettingsService(
          */
         val SUPPORTED_LANGUAGES: List<LanguageOption> = listOf(
             LanguageOption("ar", "Arabic"),
-            LanguageOption("en-GB", "English (UK)"),
             LanguageOption("en-US", "English (US)"),
             LanguageOption("he", "Hebrew"),
             LanguageOption("ru", "Russian"),
         )
+
+        /**
+         * Codes that used to be offered and were retired, mapped to what replaces them. Changeset 020
+         * rewrote the stored values; this covers an account export made before that, so importing it
+         * still succeeds instead of failing validation on a language the picker no longer offers.
+         */
+        val RETIRED_LANGUAGES: Map<String, String> = mapOf("en-GB" to "en-US")
     }
 }

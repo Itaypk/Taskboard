@@ -16,10 +16,10 @@ class LocaleNegotiationServiceTest {
         // extending it), so this only works via the basic-filtering fallback, which takes the first
         // match in LOOKUP_TAGS order.
         assertThat(service.resolveSupportedTag("en")).isEqualTo("en-US")
-        // ...and the fallback must not collapse every English range to en-US: an explicit en-GB
-        // still resolves to itself.
-        assertThat(service.resolveSupportedTag("en-GB")).isEqualTo("en-GB")
-        assertThat(service.resolveSupportedTag("en-GB,en;q=0.9")).isEqualTo("en-GB")
+        // UK English is no longer offered: a typical UK browser header lands on en-US via its `en`
+        // range, and a bare en-GB matches nothing (callers keep the en-US default).
+        assertThat(service.resolveSupportedTag("en-GB,en;q=0.9")).isEqualTo("en-US")
+        assertThat(service.resolveSupportedTag("en-GB")).isNull()
     }
 
     @Test

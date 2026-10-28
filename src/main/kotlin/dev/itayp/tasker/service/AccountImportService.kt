@@ -92,9 +92,10 @@ class AccountImportService(
 
         // Step 6: settings — load the auto-created row and overwrite in place.
         payload.settings?.let { s ->
+            val preferredLanguage = UserSettingsService.RETIRED_LANGUAGES[s.preferredLanguage] ?: s.preferredLanguage
             userSettingsService.validateSettingsInput(
                 timeZone = s.timeZone,
-                preferredLanguage = s.preferredLanguage,
+                preferredLanguage = preferredLanguage,
                 gender = s.gender,
                 planningCron = s.planningCron,
                 weekStartDay = s.weekStartDay,
@@ -105,7 +106,7 @@ class AccountImportService(
             settings.displayName = userCrypto.encrypt(userId, s.displayName)
             settings.contextBlock = userCrypto.encrypt(userId, s.contextBlock)
             settings.timeZone = s.timeZone
-            settings.preferredLanguage = s.preferredLanguage
+            settings.preferredLanguage = preferredLanguage
             settings.calendarInviteEmail = s.calendarInviteEmail
             settings.appReminders = s.appReminders
             settings.gender = s.gender

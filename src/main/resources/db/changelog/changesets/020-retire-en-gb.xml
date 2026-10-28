@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        English (UK) is no longer offered (GitHub issue #247). Move anyone who picked it to US
+        English: the settings form re-submits the stored language, and validation would otherwise
+        reject every later settings save with "Unsupported language: en-GB".
+    -->
+    <changeSet id="020-1-retire-en-gb" author="tasker">
+        <update tableName="user_settings">
+            <column name="preferred_language" value="en-US"/>
+            <where>preferred_language = 'en-GB'</where>
+        </update>
+    </changeSet>
+</databaseChangeLog>
