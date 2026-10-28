@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component
 import java.time.ZoneOffset
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeFormatterBuilder
 import java.util.Locale
 
 @Component
@@ -139,8 +140,9 @@ class CalendarInvitationComposer(
     private fun formatUtc(dt: ZonedDateTime): String =
         dt.withZoneSameInstant(ZoneOffset.UTC).format(ICAL_UTC_FORMAT)
 
+    /** The locale's own date and time order and clock (`28 Oct 2026, 14:00` for en-GB, `Oct 28, 2026, 2:00 PM` for en-US). */
     private fun formatDisplay(dt: ZonedDateTime, locale: Locale): String =
-        dt.format(DateTimeFormatter.ofPattern("EEE, MMM d yyyy HH:mm z").withLocale(locale))
+        dt.format(DISPLAY_FORMAT.withLocale(locale))
 
     // RFC 5545 §3.3.11 — escape backslash, semicolon, comma, newlines in text values
     private fun escapeText(s: String): String = s
@@ -172,5 +174,10 @@ class CalendarInvitationComposer(
 
     companion object {
         private val ICAL_UTC_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'")
+        private val DISPLAY_FORMAT: DateTimeFormatter = DateTimeFormatterBuilder()
+            .appendLocalized("yMMMEdjm")
+            .appendLiteral(' ')
+            .appendPattern("z")
+            .toFormatter()
     }
 }

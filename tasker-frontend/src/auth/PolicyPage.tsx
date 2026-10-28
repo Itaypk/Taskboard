@@ -42,7 +42,8 @@ function PolicyPage({ title, body }: PolicyPageProps) {
     // (docs/archive/I18N.md), so say so to anyone reading the page in another language, and mark the
     // text as English so screen readers don't read it with the UI language's voice and an RTL UI
     // doesn't mirror it.
-    const englishOnly = i18n.resolvedLanguage !== 'en';
+    // Compared on the base language: British English (`en-GB`) is English too.
+    const englishOnly = i18n.resolvedLanguage?.split('-')[0] !== 'en';
 
     return (
         <main className="board-wrap">

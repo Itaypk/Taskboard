@@ -13,7 +13,11 @@ import java.util.ResourceBundle
  * one set of translations serves every instance.
  *
  * Declared as the `messageSource` bean, which makes Spring Boot's auto-configured one step aside;
- * the settings mirror what `spring.messages.*` configured before (basename `messages`, UTF-8).
+ * the settings mirror what `spring.messages.*` configured before (basename `messages`, UTF-8), except
+ * that it never falls back to the system locale.
+ *
+ * `messages_en_GB.properties` is a partial bundle: it holds only the keys whose British spelling
+ * differs, and `ResourceBundle` parent chaining fills in the rest from the base bundle.
  */
 class BrandedMessageSource(appProperties: AppProperties) : ResourceBundleMessageSource() {
 
@@ -23,6 +27,9 @@ class BrandedMessageSource(appProperties: AppProperties) : ResourceBundleMessage
     init {
         setBasename("messages")
         setDefaultEncoding(Charsets.UTF_8.name())
+        // A locale without its own bundle (en-US) must fall through to the base English bundle, not
+        // to whatever the server's default locale happens to have (a German JVM would answer in German).
+        setFallbackToSystemLocale(false)
     }
 
     override fun getStringOrNull(bundle: ResourceBundle, key: String): String? =

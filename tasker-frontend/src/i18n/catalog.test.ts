@@ -3,6 +3,7 @@ import en from '../locales/en/translation.json';
 import he from '../locales/he/translation.json';
 import ru from '../locales/ru/translation.json';
 import ar from '../locales/ar/translation.json';
+import enGb from '../locales/en-GB/translation.json';
 import { LAUNCHED_UI_LANGUAGES } from './index';
 
 /**
@@ -153,5 +154,32 @@ describe('launched-language key parity with en', () => {
                 expect([...target.tags].sort(), `markup tags for "${base}"`).toEqual([...source.tags].sort());
             }
         });
+    });
+});
+
+/**
+ * `en-GB` is not a catalog of its own but a set of overrides on `en` (British spelling), resolved by
+ * i18next's `en-GB` → `en` fallback. So it is deliberately partial; what it must not do is invent a
+ * key `en` lacks (a typo would silently never render) or drop a placeholder.
+ */
+describe('en-GB overrides', () => {
+    const flat = flatten(enGb as Catalog);
+
+    it('overrides only keys en has, with a different non-empty value', () => {
+        expect(Object.keys(flat).length).toBeGreaterThan(0);
+        for (const [key, value] of Object.entries(flat)) {
+            expect(enFlat[key], `"${key}" does not exist in en`).toBeDefined();
+            expect(typeof value, `value for "${key}"`).toBe('string');
+            expect((value as string).trim().length, `value for "${key}"`).toBeGreaterThan(0);
+            expect(value, `"${key}" is identical to en, so it needn't be overridden`).not.toBe(enFlat[key]);
+        }
+    });
+
+    it('keeps every interpolation and markup tag en uses', () => {
+        for (const [key, value] of Object.entries(flat)) {
+            const source = String(enFlat[key]);
+            expect(interpolations(String(value)).sort(), `interpolations for "${key}"`).toEqual(interpolations(source).sort());
+            expect(markupTags(String(value)).sort(), `markup tags for "${key}"`).toEqual(markupTags(source).sort());
+        }
     });
 });

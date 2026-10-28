@@ -18,10 +18,12 @@ class CalendarInvitationComposerTest {
 
     private val outboundChannel: OutboundChannel = mock()
     private val messageSource = StaticMessageSource().apply {
-        addMessage("email.invitation.when", java.util.Locale.ENGLISH, "When")
-        addMessage("email.invitation.location", java.util.Locale.ENGLISH, "Location")
-        addMessage("email.invitation.description", java.util.Locale.ENGLISH, "Description")
-        addMessage("email.invitation.footer", java.util.Locale.ENGLISH, "Footer")
+        for (locale in listOf(java.util.Locale.ENGLISH, java.util.Locale.US, java.util.Locale.UK)) {
+            addMessage("email.invitation.when", locale, "When")
+            addMessage("email.invitation.location", locale, "Location")
+            addMessage("email.invitation.description", locale, "Description")
+            addMessage("email.invitation.footer", locale, "Footer")
+        }
     }
     private val emailTemplateEngine = EmailTemplateEngine(messageSource)
     private val composer = CalendarInvitationComposer(outboundChannel, emailTemplateEngine)
@@ -147,6 +149,19 @@ class CalendarInvitationComposerTest {
         assertTrue(html.contains("Team Sync"))
         assertTrue(html.contains("When"))
         assertTrue(html.contains("2026"))
+    }
+
+    @Test
+    fun `buildHtmlBody formats the date range in the recipient's locale`() {
+        val london = java.time.ZoneId.of("Europe/London")
+        val event = sampleEvent().copy(start = fixedStart.withZoneSameLocal(london), end = fixedEnd.withZoneSameLocal(london))
+
+        val uk = composer.buildHtmlBody(event.copy(locale = java.util.Locale.UK))
+        assertTrue(uk.contains("Thu, 7 May 2026, 09:00 BST"), uk)
+
+        // Month first and a 12-hour clock; CLDR puts a narrow no-break space before the AM marker.
+        val us = composer.buildHtmlBody(event.copy(locale = java.util.Locale.US))
+        assertTrue(us.contains("Thu, May 7, 2026, 9:00\u202FAM BST"), us)
     }
 
     @Test
