@@ -7,6 +7,7 @@ import dev.itayp.tasker.ai.client.AiConversationType
 import dev.itayp.tasker.ai.ReasoningAwareAiClient
 import dev.itayp.nescioquid.openrouter.ChatMessage
 import dev.itayp.nescioquid.openrouter.ChatRequest
+import dev.itayp.tasker.ai.prompt.ExternalContent
 import dev.itayp.tasker.ai.prompt.PromptTemplateLoader
 import dev.itayp.tasker.ai.parseAssistantJsonResponseOrNull
 import dev.itayp.tasker.model.BacklogTask
@@ -40,10 +41,12 @@ class BacklogTaskSearchAgent(
         val tasks = backlogTaskService.getTasksAcrossBoards(userId, null)
         if (tasks.isEmpty()) return emptyList()
 
-        val systemPrompt = promptTemplateLoader.load("task-search/system.md").render(emptyMap())
+        val systemPrompt = promptTemplateLoader.load("task-search/system.md").render(mapOf(
+            "external_content_rule" to ExternalContent.RULE,
+        ))
         val userMessage = promptTemplateLoader.load("task-search/user.md").render(mapOf(
             "query" to query,
-            "task_list" to renderTaskList(tasks),
+            "task_list" to ExternalContent.wrap("tasks", renderTaskList(tasks)),
         ))
         val request = ChatRequest(
             model = model,

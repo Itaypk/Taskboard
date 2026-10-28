@@ -1,6 +1,7 @@
 package dev.itayp.tasker.planning
 
 import dev.itayp.tasker.ai.access.AiAccessService
+import dev.itayp.tasker.ai.prompt.ExternalContent
 import dev.itayp.tasker.ai.prompt.PromptTemplateLoader
 import dev.itayp.tasker.channel.MessageFormatter
 import dev.itayp.tasker.model.BacklogTask
@@ -70,6 +71,7 @@ class WeeklyPlanningPromptAssembler(
         return templateLoader.load("weekly-planning/system.md").render(mapOf(
             "display_name" to displayName,
             "staying_on_task" to renderStayingOnTask(),
+            "external_content_rule" to ExternalContent.RULE,
             "user_context_block" to (settings.contextBlock?.takeIf { it.isNotBlank() }
                 ?: "No personal context shared yet."),
             "previous_session_summary" to (previousSummary ?: "No previous session on record."),
@@ -135,6 +137,7 @@ class WeeklyPlanningPromptAssembler(
         return templateLoader.load("weekly-planning/revise-system.md").render(mapOf(
             "display_name" to displayName,
             "staying_on_task" to renderStayingOnTask(),
+            "external_content_rule" to ExternalContent.RULE,
             "user_context_block" to (settings.contextBlock?.takeIf { it.isNotBlank() }
                 ?: "No personal context shared yet."),
             "previous_plan_summary" to (previousSummary ?: "_(no summary recorded)_"),
@@ -163,7 +166,7 @@ class WeeklyPlanningPromptAssembler(
 
     private fun renderCurrentPlan(tasks: List<AgreedPlanTask>): String {
         if (tasks.isEmpty()) return "_(the plan has no scheduled tasks)_"
-        return tasks.joinToString("\n") { task ->
+        return ExternalContent.wrap("tasks", tasks.joinToString("\n") { task ->
             buildString {
                 append("- [").append(task.taskId).append("] ")
                 append(task.title)
@@ -178,7 +181,7 @@ class WeeklyPlanningPromptAssembler(
                     append("\n    notes: ").append(it.lineSequence().joinToString(" ").trim())
                 }
             }
-        }
+        })
     }
 
     /** Shared scope/off-topic guidance, kept in one file so both prompts stay in sync. */
@@ -236,7 +239,7 @@ class WeeklyPlanningPromptAssembler(
         if (tasks.isEmpty()) return "_(none)_"
         // Only label boards when the user has more than one — a single-board user sees no change.
         val showBoard = boardNames.size > 1
-        return tasks.joinToString("\n") { task ->
+        return ExternalContent.wrap("tasks", tasks.joinToString("\n") { task ->
             buildString {
                 append("- [").append(task.id).append("] ").append(task.title)
                 if (showBoard) boardNames[task.boardId]?.let { append(" · board=").append(it) }
@@ -255,7 +258,7 @@ class WeeklyPlanningPromptAssembler(
                     append("\n    ").append(it.lineSequence().joinToString(" ").trim())
                 }
             }
-        }
+        })
     }
 
     /**
@@ -265,14 +268,14 @@ class WeeklyPlanningPromptAssembler(
      */
     private fun renderCarriedOver(tasks: List<UnfinishedPlannedTask>): String {
         if (tasks.isEmpty()) return "_(none)_"
-        return tasks.joinToString("\n") { "- [${it.taskId}] ${it.title}" }
+        return ExternalContent.wrap("tasks", tasks.joinToString("\n") { "- [${it.taskId}] ${it.title}" })
     }
 
     /** A short kickoff note naming the carried-over tasks by title (ids stay out of the user-facing turn). */
     private fun renderCarriedOverNote(tasks: List<UnfinishedPlannedTask>): String {
         if (tasks.isEmpty()) return ""
-        val titles = tasks.joinToString(", ") { it.title }
-        return " The user chose to carry these unfinished tasks into this week: $titles."
+        val titles = tasks.joinToString("\n") { "- ${it.title}" }
+        return " The user chose to carry these unfinished tasks into this week:\n" + ExternalContent.wrap("tasks", titles)
     }
 
     /**
@@ -306,7 +309,7 @@ class WeeklyPlanningPromptAssembler(
             lines += "Deleted: " + diff.deleted.joinToString(", ") { it.title }
         }
         // Everything that happened was filtered out — say so plainly rather than emitting a blank block.
-        return if (lines.isEmpty()) NO_CHANGES_NOTE else lines.joinToString("\n")
+        return if (lines.isEmpty()) NO_CHANGES_NOTE else ExternalContent.wrap("task changes", lines.joinToString("\n"))
     }
 
     companion object {

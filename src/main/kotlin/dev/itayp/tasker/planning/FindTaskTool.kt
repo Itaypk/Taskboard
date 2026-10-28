@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonPropertyDescription
 import dev.itayp.nescioquid.openrouter.jsonSchema
 import dev.itayp.nescioquid.openrouter.tool.AiTool
 import dev.itayp.nescioquid.openrouter.tool.ToolKind
+import dev.itayp.tasker.ai.prompt.ExternalContent
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
@@ -45,7 +46,8 @@ class FindTaskTool(
             }
         val userId = toolContext.requireUserId()
         val matches = searchAgent.search(userId, query)
-        return objectMapper.writeValueAsString(mapOf("matches" to matches))
+        // Titles may be a co-member's (or a forwarded email's) text, so they come back framed as such.
+        return ExternalContent.wrap("tasks", objectMapper.writeValueAsString(mapOf("matches" to matches)))
     }
 
     private data class FindTaskArgs(

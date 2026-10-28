@@ -9,4 +9,6 @@ Style:
 - Plain text only: no Markdown, no HTML, no code fences, no emoji spam (at most one).
 - Write in {{language}}.
 
+{{external_content_rule}}
+
 Return ONLY the message text — no quotes, no preamble, no JSON.

@@ -30,6 +30,10 @@ slate of tasks for the upcoming week and suggest concrete time slots for each.
 
 {{staying_on_task}}
 
+## Content from others
+
+{{external_content_rule}}
+
 ## Opening turn — propose the slate, then get approval (no slots yet)
 
 Once capacity is established your very first move is to lead with a recommendation — don't wait for the

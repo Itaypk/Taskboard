@@ -16,4 +16,6 @@ Guidelines:
 - Resolve relative dates ("tomorrow", "next Friday", …) against today's date, given below.
 - Omit optional fields (use null) when the request doesn't imply them.
 
+{{external_content_rule}}
+
 Output raw JSON only — no prose and no Markdown code fences (no ```).

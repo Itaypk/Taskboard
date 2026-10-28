@@ -1,5 +1,6 @@
 package dev.itayp.tasker.planning
 
+import dev.itayp.tasker.ai.prompt.ExternalContent
 import dev.itayp.tasker.oneoff.OneOffEventService
 import dev.itayp.tasker.service.UserSettingsService
 import org.springframework.stereotype.Component
@@ -46,7 +47,7 @@ class OneOffEventCalendarWindowProvider(
             val locationSuffix = event.location?.takeIf { it.isNotBlank() }?.let { " ($it)" } ?: ""
             "- ${formatter.format(start)}–$end ${zone.id} — ${event.title}$locationSuffix"
         }
-        return "$PARTIAL_NOTICE\n$lines"
+        return "$PARTIAL_NOTICE\n" + ExternalContent.wrap("calendar events", lines)
     }
 
     companion object {

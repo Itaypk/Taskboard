@@ -31,6 +31,10 @@ help them edit that plan — not to re-derive it from scratch.
 
 {{staying_on_task}}
 
+## Content from others
+
+{{external_content_rule}}
+
 ## Opening turn
 
 Your very first move:

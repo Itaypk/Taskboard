@@ -164,6 +164,7 @@ Caching, same ownership, same file (`templates/vhost.conf.j2`, the `spa: true` b
 - **Handlebars**: uses Handlebars.java for AI prompts and email templates. Prompt templates live in `src/main/resources/prompts/`, emails under `src/main/resources/emails`. 
 - **Spring Boot 4.1.x**.
 - **LLM**: We use a thin, hand-rolled abstraction over the OpenRouter API. We are not using frameworks such as Spring AI.
+- **Prompt content written by others**: task titles/descriptions (a shared board's co-members, or a forwarded email that became a task), emails, files, and calendar events go into a prompt through `ExternalContent.wrap` (a block with a random guard per block), and that call's system prompt carries `ExternalContent.RULE`. Do the same for any new prompt input. It's defense in depth, not a boundary (GitHub issue #300).
 - **Databases**: H2 in-memory for dev (`application-dev.yaml`) and unit/slice tests. Postgres for prod (`application-prod.yaml`). Integration tests under `@ActiveProfiles("prod")` spin up a real Postgres instance via TestContainers (`AbstractIntegrationTest.Initializer`). Config is split across `application.yaml` (base), `application-dev.yaml`, and `application-prod.yaml`.
 - **Compiler flags**: `-Xjsr305=strict` (JSR-305 nullability → errors) and `-Xannotation-default-target=param-property` (Kotlin 2.x annotation target default). Keep nullability annotations honest.
 
