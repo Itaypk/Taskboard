@@ -9,6 +9,7 @@ import dev.itayp.tasker.channel.HtmlMessageFormatter
 import dev.itayp.tasker.channel.MessageFormatter
 import org.telegram.telegrambots.meta.api.methods.send.SendChatAction
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage
+import org.telegram.telegrambots.meta.api.objects.LinkPreviewOptions
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove
@@ -113,6 +114,7 @@ class TelegramConversationChannel(
                 .chatId(chatId)
                 .text(message.text)
                 .parseMode("HTML")
+                .linkPreviewOptions(NO_LINK_PREVIEW)
                 .replyMarkup(replyMarkup)
                 .build()
         )
@@ -132,6 +134,7 @@ class TelegramConversationChannel(
                 .chatId(chatId)
                 .text(message.prompt)
                 .parseMode("HTML")
+                .linkPreviewOptions(NO_LINK_PREVIEW)
                 .replyMarkup(InlineKeyboardMarkup.builder().keyboard(rows).build())
                 .build()
         )
@@ -147,6 +150,14 @@ class TelegramConversationChannel(
         internal fun isRecipientUnreachable(e: TelegramApiRequestException): Boolean =
             e.errorCode == 403 ||
                 (e.errorCode == 400 && e.apiResponse.orEmpty().contains("chat not found", ignoreCase = true))
+
+        /**
+         * Sent with every message that can carry model output. Telegram's servers fetch a link to
+         * build its preview, so a link the model was talked into writing (by an injected email,
+         * file, or a co-member's task) would reach its host, query string and all, without anyone
+         * tapping it. The bot's own copy needs no previews either.
+         */
+        internal val NO_LINK_PREVIEW: LinkPreviewOptions = LinkPreviewOptions.builder().isDisabled(true).build()
 
         /** Telegram clears a chat action after ~5 seconds, so refresh a beat inside that. */
         private val DEFAULT_TYPING_REFRESH: Duration = Duration.ofSeconds(4)

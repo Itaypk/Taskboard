@@ -141,6 +141,9 @@ class TelegramChannel(
                     // re-sending it under parseMode="HTML" would lose the prompt's formatting and
                     // mangle any "<" or "&" in it. Appending at the end keeps the offsets valid.
                     .entities(message.entities.orEmpty())
+                    // An edit doesn't inherit the original's preview setting: left out, Telegram
+                    // may build a preview for a link in the prompt now.
+                    .linkPreviewOptions(TelegramConversationChannel.NO_LINK_PREVIEW)
                     .replyMarkup(null)
                     .build()
             )

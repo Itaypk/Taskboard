@@ -331,6 +331,7 @@ class TelegramChannelRoutingTest {
         assertEquals("Which week?\n\n\u2713 This week", edit.text)
         // The keyboard is gone, so the same option can't be tapped twice.
         assertNull(edit.replyMarkup)
+        assertEquals(true, edit.linkPreviewOptions?.isDisabled)
     }
 
     @Test
