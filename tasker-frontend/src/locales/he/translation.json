@@ -411,7 +411,8 @@
     "dragToReorder": "גרירה לשינוי הסדר",
     "taskActions": "פעולות על המשימה",
     "foldAway": "קיפול הפתק",
-    "peekNote": "הצצה בפתק"
+    "peekNote": "הצצה בפתק",
+    "subtaskProgress": "תתי-משימות שהושלמו: {{done}} מתוך {{total}}"
   },
   "planDetails": {
     "inProgress": "בתהליך",

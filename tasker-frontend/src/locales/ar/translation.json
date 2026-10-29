@@ -438,7 +438,8 @@
     "dragToReorder": "السحب لإعادة الترتيب",
     "taskActions": "إجراءات المهمة",
     "foldAway": "طي الملاحظة",
-    "peekNote": "عرض الملاحظة"
+    "peekNote": "عرض الملاحظة",
+    "subtaskProgress": "المهام الفرعية المنجزة: {{done}} من {{total}}"
   },
   "planDetails": {
     "inProgress": "قيد التنفيذ",
