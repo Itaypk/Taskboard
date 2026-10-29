@@ -499,6 +499,39 @@ class BacklogTaskServiceTest {
     }
 
     @Test
+    fun `rolling a recurring task forward unticks its checklist and the copy keeps the ticks`() {
+        val taskId = UUID.randomUUID()
+        val catId = UUID.randomUUID()
+        val existing = taskEntity(categoryEntity(id = catId), id = taskId, title = "Weekly review").apply {
+            recurrenceKind = RecurrenceKind.WEEKLY
+            recurrenceDay = 5
+            relevantFrom = LocalDate.parse("2026-09-25")
+        }
+        whenever(backlogTaskRepository.findByIdAndBoardId(taskId, boardId)).thenReturn(existing)
+        whenever(categoryRepository.findByIdAndBoardId(catId, boardId)).thenReturn(existing.category)
+        whenever(tagRepository.findAllByBoardId(boardId)).thenReturn(emptyList())
+        stubSaveTask()
+        stubToday("2026-09-27T10:00:00Z")
+        // Partly ticked on purpose: the reset doesn't depend on every item being done.
+        val ticked = "Steps:\n- [x] inbox\n- [ ] calendar\n- [X] backlog"
+
+        val result = service.updateTask(userId, boardId, taskId, UpdateBacklogTaskRequest(
+            title = "Weekly review",
+            description = ticked,
+            status = "done",
+            categoryId = catId.toString(),
+            relevantFrom = "2026-09-25",
+            recurrence = RecurrenceInput(kind = "WEEKLY", day = 5),
+        ))
+
+        val saved = argumentCaptor<BacklogTaskEntity>()
+        verify(backlogTaskRepository, org.mockito.kotlin.times(2)).save(saved.capture())
+        val copy = saved.allValues.single { it.recurrenceSourceId == taskId }
+        assertEquals(ticked, boardCrypto.decrypt(boardId, copy.description))
+        assertEquals("Steps:\n- [ ] inbox\n- [ ] calendar\n- [ ] backlog", result.description)
+    }
+
+    @Test
     fun `markDone rolls a recurring task forward through the rebuilt request`() {
         val taskId = UUID.randomUUID()
         val category = categoryEntity()

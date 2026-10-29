@@ -30,7 +30,7 @@ describe('subtaskProgressFor', () => {
     expect(subtaskProgressFor(task({ status: 'archived' }))).toBeNull();
   });
 
-  it('hides on recurring tasks', () => {
-    expect(subtaskProgressFor(task({ recurrence: { kind: 'WEEKLY', day: 1 } }))).toBeNull();
+  it('counts the current occurrence of a recurring task', () => {
+    expect(subtaskProgressFor(task({ recurrence: { kind: 'WEEKLY', day: 1 } }))).toEqual({ done: 2, total: 3 });
   });
 });

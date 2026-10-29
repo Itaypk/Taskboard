@@ -26,6 +26,7 @@ import dev.itayp.tasker.repository.BacklogTaskCategoryRepository
 import dev.itayp.tasker.repository.BacklogTaskRepository
 import dev.itayp.tasker.repository.BacklogTaskTagRepository
 import dev.itayp.tasker.repository.UserRepository
+import dev.itayp.tasker.util.MarkdownChecklist
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
@@ -350,6 +351,12 @@ class BacklogTaskService(
             entity.relevantFrom = next
             entity.deadline = RecurrenceCalculator.deadlineFor(rule, next)
             entity.rescheduleCount = 0
+            // Every occurrence starts with a fresh checklist, even a partly ticked one; the copy keeps
+            // what was ticked this time.
+            request.description?.let { description ->
+                val reset = MarkdownChecklist.uncheckAll(description)
+                if (reset != description) entity.description = boardCrypto.encrypt(boardId, reset)
+            }
             // lastScheduledInSessionId is deliberately kept: the plan view joins planned_task rows to
             // tasks through it, so clearing it would drop the task from the week it was planned in.
             // The future relevant_from already takes it off the Week pill and the planner slate.
