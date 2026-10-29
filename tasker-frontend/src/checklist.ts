@@ -2,6 +2,8 @@
  * A list item that starts with a GFM task marker. Mirrors marked's own rule (`listIsTask`:
  * `[ ]`/`[x]`, then spaces, then content), so the Nth match here is the Nth checkbox marked renders.
  * The prefix allows blockquote markers and indentation, for quoted and nested lists.
+ * The server's `MarkdownChecklist.kt` (which unticks a recurring task on roll-forward) has a copy of
+ * both patterns; keep them in sync.
  */
 const TASK_ITEM = /^((?:[ \t]*>)*[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]+)\[([ xX])\](?= +\S)/;
 const FENCE = /^[ \t]*(?:>[ \t]*)*(`{3,}|~{3,})/;

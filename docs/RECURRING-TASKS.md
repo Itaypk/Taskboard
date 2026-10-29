@@ -47,6 +47,9 @@ set to `DONE`. When it's marked done, `BacklogTaskService.updateTask` does this 
    resolved the same way `filterOutFutureDated` does it.
 4. Sets `relevant_from = next occurrence` and `deadline = next occurrence + due_within_days`
    (or `null`).
+   Every Markdown checklist item in the original's description goes back to `[ ]`, partly ticked
+   list or not (`MarkdownChecklist.uncheckAll`, the Kotlin twin of the frontend's `checklist.ts`).
+   The completed copy keeps this occurrence's ticks.
 5. **Keeps** `last_scheduled_in_session_id`. The plan view (`PlanningSessionController`, Telegram
    `/current`) joins `planned_task` rows to tasks through that stamp, so clearing it would drop the
    task from the week it was planned in. The future `relevant_from` already takes it off the Week
