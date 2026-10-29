@@ -34,6 +34,7 @@ class PublicConfigProvider(
             supportEmail = appProperties.supportEmail,
             abuseEmail = appProperties.abuseEmail,
         ),
+        ai = aiProperties.enabled,
         aiZeroDataRetention = aiProperties.zeroDataRetentionInEffect,
         inboundMail = inboundMailProperties.active,
     )

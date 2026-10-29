@@ -61,7 +61,7 @@ import { useAuth } from './auth/AuthContext';
 import { mascotFor } from './mascots';
 import BalloonCelebration from './components/BalloonCelebration';
 import i18n from './i18n';
-import { useBranding } from './publicConfig';
+import { useBranding, usePublicConfig } from './publicConfig';
 
 
 /** Up to two initials from a display name (e.g. "Dana Scully" → "DS", "it***@gmail.com" → "IT"). */
@@ -95,6 +95,7 @@ function PlanIcon() {
 export default function Board({ onSignOut }: { onSignOut: () => Promise<void> }) {
   const { t } = useTranslation();
   const { name: appName } = useBranding();
+  const { ai: instanceAi } = usePublicConfig();
   const { state: authState } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -364,6 +365,9 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
   const sortedTasks = useMemo(() => sortTasks(tasks, sortMode), [tasks, sortMode]);
 
   const planId = currentPlan?.id ?? null;
+  // Without an AI provider no plan can be started, so the planner only stays reachable to view a
+  // plan made before AI was switched off (adding to it from the context menu still works).
+  const planningOffered = instanceAi || currentPlan !== null;
   const sortedArchivedTasks = useMemo(() => sortTasks(archivedTasks, sortMode), [archivedTasks, sortMode]);
 
   // Hand-reorder only makes sense against the manual order; a field sort suspends drag.
@@ -879,6 +883,7 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
             setFilter(f);
           }}
           hasCurrentPlan={currentPlan !== null}
+          showPlan={planningOffered}
         />
         <div className="header-right">
           <button
@@ -890,15 +895,17 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
           >
             <span className="new-note-btn__plus">+</span>
           </button>
-          <button
-            type="button"
-            className="icon-btn"
-            onClick={openPlanDrawer}
-            aria-label={t('app.openPlanAria')}
-            title={t('app.openPlanTitle')}
-          >
-            <PlanIcon />
-          </button>
+          {planningOffered && (
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={openPlanDrawer}
+              aria-label={t('app.openPlanAria')}
+              title={t('app.openPlanTitle')}
+            >
+              <PlanIcon />
+            </button>
+          )}
           <UserMenu
             displayName={settings.displayName}
             onOpenStats={() => setStatsOpen(true)}
@@ -982,7 +989,7 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
         defaultCategoryId={defaultCategoryId}
         members={members}
         currentUserId={currentUserId}
-        aiEnabled={settings.aiEnabled}
+        aiEnabled={settings.aiEnabled && instanceAi}
         onClose={closeDrawer}
         onSave={handleSave}
         onDelete={requestDelete}

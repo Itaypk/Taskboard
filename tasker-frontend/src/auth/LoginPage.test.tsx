@@ -25,6 +25,7 @@ const selfHosted: PublicConfig = {
     login: { telegram: false, email: false, password: true, demo: false },
     registrationOpen: false,
     branding: { name: 'Acme Tasks', supportEmail: 'help@acme.test', abuseEmail: 'abuse@acme.test' },
+    ai: false,
     aiZeroDataRetention: false,
     inboundMail: false,
 };

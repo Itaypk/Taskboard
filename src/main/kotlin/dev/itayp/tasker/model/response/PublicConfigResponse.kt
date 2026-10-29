@@ -6,6 +6,8 @@ data class PublicConfigResponse(
     /** False when only existing accounts and operator-listed local users can sign in. */
     val registrationOpen: Boolean,
     val branding: BrandingResponse,
+    /** True when the instance has an AI provider configured (`TASKER_AI_API_KEY`). */
+    val ai: Boolean,
     /**
      * True when AI features are on and every AI call is restricted to zero-data-retention endpoints,
      * so the landing copy only makes that promise when it holds.

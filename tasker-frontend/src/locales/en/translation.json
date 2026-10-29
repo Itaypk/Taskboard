@@ -856,6 +856,7 @@
       "revise": "Revise"
     },
     "aiDisabledHint": "AI planning isn't available for your account right now. Check Settings → Assistant for details, or ask a co-member who opted out to switch it back on for a board you share.",
+    "aiNotConfiguredHint": "AI planning isn't set up on this server, so new plans can't be started. An existing plan stays viewable, and tasks can still be added to it from a task's right-click menu.",
     "sessionInProgress": "A planning session is in progress.",
     "continuePlanning": "Continue planning",
     "abandonStartOver": "Abandon & start over",

@@ -1,5 +1,6 @@
 package dev.itayp.tasker.service
 
+import dev.itayp.tasker.ai.AiProperties
 import dev.itayp.tasker.crypto.BoardCryptoService
 import dev.itayp.tasker.jpa.BacklogTaskEntity
 import dev.itayp.tasker.model.TaskStatus
@@ -28,6 +29,7 @@ class TutorialSeeder(
     private val boardMembershipService: BoardMembershipService,
     private val messageSource: MessageSource,
     private val localeNegotiationService: LocaleNegotiationService,
+    private val aiProperties: AiProperties,
     private val clock: Clock,
 ) {
 
@@ -52,7 +54,8 @@ class TutorialSeeder(
         val now = clock.instant()
         val locale = localeNegotiationService.resolveLocale(localeHint)
 
-        val cards = CARD_KEYS.map { (key, url) ->
+        val cardKeys = if (aiProperties.enabled) CARD_KEYS else CARD_KEYS.filterNot { (key, _) -> key in AI_CARD_KEYS }
+        val cards = cardKeys.map { (key, url) ->
             TutorialCard(
                 title = messageSource.getMessage("tutorial.$key.title", null, locale),
                 url = url,
@@ -91,5 +94,8 @@ class TutorialSeeder(
             "plan_session" to "app:open-planner",
             "clear" to "app:clear-tutorial",
         )
+
+        /** Cards that only lead somewhere when the instance has AI; the SPA hides both destinations without it. */
+        private val AI_CARD_KEYS = setOf("assistant", "plan_session")
     }
 }

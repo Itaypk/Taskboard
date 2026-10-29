@@ -23,6 +23,8 @@ export interface PublicConfig {
         supportEmail: string;
         abuseEmail: string;
     };
+    /** The instance has an AI provider configured; without one, planning and other AI features are hidden. */
+    ai: boolean;
     /** AI is on and every AI call goes only to zero-data-retention endpoints (`TASKER_AI_ZERO_DATA_RETENTION`). */
     aiZeroDataRetention: boolean;
     /** Users can get a personal inbound email address that turns mail into tasks (`TASKER_INBOUND_MAIL_*`). */
@@ -37,6 +39,7 @@ export const DEFAULT_PUBLIC_CONFIG: PublicConfig = {
         supportEmail: 'hello@backlog.fyi',
         abuseEmail: 'abuse@backlog.fyi',
     },
+    ai: true,
     aiZeroDataRetention: true,
     inboundMail: false,
 };

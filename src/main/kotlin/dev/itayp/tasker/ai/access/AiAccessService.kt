@@ -1,5 +1,6 @@
 package dev.itayp.tasker.ai.access
 
+import dev.itayp.tasker.ai.AiProperties
 import dev.itayp.tasker.ai.usage.AiUsageEventRepository
 import dev.itayp.tasker.repository.BoardMembershipRepository
 import dev.itayp.tasker.repository.UserSettingsRepository
@@ -35,6 +36,7 @@ class AiAccessService(
     private val userSettingsRepository: UserSettingsRepository,
     private val boardMembershipRepository: BoardMembershipRepository,
     private val usageRepository: AiUsageEventRepository,
+    private val aiProperties: AiProperties,
     private val clock: Clock,
 ) {
 
@@ -68,13 +70,13 @@ class AiAccessService(
     }
 
     /**
-     * Composite "can this user use AI right now?" — true iff they themselves are opted in, their
-     * tier grants access, AND they have at least one board where AI is allowed. Used by the web
-     * planning entry and the Telegram dispatcher to disable AI affordances when there's nothing to
-     * plan against.
+     * Composite "can this user use AI right now?" — true iff the instance has an AI provider, the
+     * user themselves are opted in, their tier grants access, AND they have at least one board where
+     * AI is allowed. Used by the web planning entry and the Telegram dispatcher to disable AI
+     * affordances when there's nothing to plan against.
      */
     fun isAiAvailableForUser(userId: UUID): Boolean =
-        isAiEnabledForUser(userId) && tierFor(userId).grantsAccess && aiAllowedBoardIds(userId).isNotEmpty()
+        aiProperties.enabled && isAiEnabledForUser(userId) && tierFor(userId).grantsAccess && aiAllowedBoardIds(userId).isNotEmpty()
 
     /** Throws [AiDisabledException] when the caller has flipped AI off in their settings. */
     fun requireAiEnabledForUser(userId: UUID) {

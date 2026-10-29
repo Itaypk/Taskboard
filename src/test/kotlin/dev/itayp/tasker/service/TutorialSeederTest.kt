@@ -1,5 +1,6 @@
 package dev.itayp.tasker.service
 
+import dev.itayp.tasker.ai.AiProperties
 import dev.itayp.tasker.crypto.noopBoardCryptoService
 import dev.itayp.tasker.jpa.BacklogTaskCategoryEntity
 import dev.itayp.tasker.jpa.BacklogTaskEntity
@@ -40,6 +41,8 @@ class TutorialSeederTest {
         setDefaultEncoding("UTF-8")
     }
 
+    private var aiProperties = AiProperties(apiKey = "test-key")
+
     private val seeder: TutorialSeeder by lazy {
         TutorialSeeder(
             categoryRepository,
@@ -48,6 +51,7 @@ class TutorialSeederTest {
             boardMembershipService,
             messageSource,
             LocaleNegotiationService(),
+            aiProperties,
             clock,
         )
     }
@@ -135,6 +139,19 @@ class TutorialSeederTest {
         val tasks = seedAndCapture(categories, localeHint = "de-DE,de;q=0.9")
 
         assertTrue(tasks.map { it.title() }.contains("Add your own task"))
+    }
+
+    @Test
+    fun `leaves out the assistant and planning cards when the instance has no AI`() {
+        aiProperties = AiProperties(apiKey = "")
+        val categories = CategoryColor.entries.take(6).map(::category)
+
+        val tasks = seedAndCapture(categories)
+
+        assertEquals(
+            listOf(null, "/settings/general", null, "app:clear-tutorial"),
+            tasks.sortedBy { it.sortKey }.map { it.url },
+        )
     }
 
     @Test

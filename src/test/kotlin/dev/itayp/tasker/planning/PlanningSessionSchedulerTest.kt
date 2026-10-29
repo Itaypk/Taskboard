@@ -1,5 +1,6 @@
 package dev.itayp.tasker.planning
 
+import dev.itayp.tasker.ai.AiProperties
 import dev.itayp.tasker.channel.ConversationChannel
 import dev.itayp.tasker.jpa.UserSettingsEntity
 import dev.itayp.tasker.model.UserSettings
@@ -43,10 +44,12 @@ class PlanningSessionSchedulerTest {
     // Fixed Wednesday 2026-05-13 UTC; Monday week-start → next week = 2026-05-18
     private val clock = Clock.fixed(Instant.parse("2026-05-13T08:00:00Z"), ZoneOffset.UTC)
 
+    private var aiProperties = AiProperties(apiKey = "test-key")
+
     private val scheduler by lazy {
         PlanningSessionScheduler(
             taskScheduler, settingsRepository, orchestrator,
-            planningSessionService, userSettingsService, channelResolver, clock,
+            planningSessionService, userSettingsService, channelResolver, aiProperties, clock,
         )
     }
 
@@ -119,6 +122,16 @@ class PlanningSessionSchedulerTest {
 
         verify(future).cancel(false)
         verify(taskScheduler).schedule(any(), any<Trigger>())
+    }
+
+    @Test
+    fun `scheduleFor skips scheduling when the instance has no AI`() {
+        aiProperties = AiProperties(apiKey = "")
+        whenever(settingsRepository.findById(userId)).thenReturn(Optional.of(settings("0 30 9 * * MON")))
+
+        scheduler.scheduleFor(userId)
+
+        verify(taskScheduler, never()).schedule(any(), any<Trigger>())
     }
 
     @Test

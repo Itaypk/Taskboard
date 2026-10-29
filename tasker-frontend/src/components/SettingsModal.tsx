@@ -82,14 +82,19 @@ function parseCron(cron: string | null | undefined): { day: string; time: string
 
 export function SettingsModal({ settings, open, initialTab, onClose, onSave, onAccountDeleted }: SettingsModalProps) {
   const { t, i18n } = useTranslation();
-  const inboundMailEnabled = usePublicConfig().inboundMail;
-  const settingsTabs = SETTINGS_TAB_IDS.map(id => ({ id, label: t(SETTINGS_TAB_LABEL_KEYS[id]) }));
+  const { inboundMail: inboundMailEnabled, ai: instanceAi } = usePublicConfig();
+  // Everything on the Assistant tab configures AI, so an instance without it has no use for the tab.
+  const settingsTabs = SETTINGS_TAB_IDS
+    .filter(id => instanceAi || id !== 'assistant')
+    .map(id => ({ id, label: t(SETTINGS_TAB_LABEL_KEYS[id]) }));
   const daysOfWeek = DAY_VALUES.map(d => ({ value: d.value, cron: d.cron, label: t(d.labelKey) }));
   const [form, setForm] = useState<UserSettings>(settings);
   const { state: authState } = useAuth();
   // Weekly planning is pushed over Telegram, which needs a chat the user has opened — not just a link.
   const telegramChatReady = authState.status === 'authenticated' && authState.user.telegramChatReady;
-  const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab ?? 'general');
+  const [requestedTab, setActiveTab] = useState<SettingsTab>(initialTab ?? 'general');
+  // A `/settings/assistant` link (an old tutorial card, a bookmark) lands on General instead.
+  const activeTab: SettingsTab = !instanceAi && requestedTab === 'assistant' ? 'general' : requestedTab;
   const [lastInitialTab, setLastInitialTab] = useState(initialTab);
   const [wasOpen, setWasOpen] = useState(open);
   const [saving, setSaving] = useState(false);

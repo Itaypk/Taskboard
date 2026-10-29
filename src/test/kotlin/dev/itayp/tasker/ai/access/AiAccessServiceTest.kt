@@ -1,5 +1,6 @@
 package dev.itayp.tasker.ai.access
 
+import dev.itayp.tasker.ai.AiProperties
 import dev.itayp.tasker.ai.usage.AiUsageEventRepository
 import dev.itayp.tasker.jpa.BoardMembershipEntity
 import dev.itayp.tasker.jpa.UserSettingsEntity
@@ -29,6 +30,8 @@ class AiAccessServiceTest {
     @Mock lateinit var boardMembershipRepository: BoardMembershipRepository
     @Mock lateinit var usageRepository: AiUsageEventRepository
 
+    private val aiProperties = AiProperties(apiKey = "test-key")
+
     private val clock = Clock.fixed(Instant.parse("2026-06-19T10:00:00Z"), ZoneOffset.UTC)
 
     private val service by lazy {
@@ -36,6 +39,7 @@ class AiAccessServiceTest {
             userSettingsRepository,
             boardMembershipRepository,
             usageRepository,
+            aiProperties,
             clock,
         )
     }
@@ -155,5 +159,14 @@ class AiAccessServiceTest {
         whenever(userSettingsRepository.findById(userId)).thenReturn(Optional.of(settings(userId, enabled = true, tier = "none")))
 
         assertFalse(service.isAiAvailableForUser(userId))
+    }
+
+    @Test
+    fun `isAiAvailableForUser is false when the instance has no AI provider`() {
+        val noAi = AiAccessService(
+            userSettingsRepository, boardMembershipRepository, usageRepository, AiProperties(apiKey = ""), clock,
+        )
+
+        assertFalse(noAi.isAiAvailableForUser(userId))
     }
 }

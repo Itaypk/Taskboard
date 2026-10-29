@@ -1,5 +1,6 @@
 package dev.itayp.tasker.planning
 
+import dev.itayp.tasker.ai.AiProperties
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ChannelUnreachableException
 import dev.itayp.tasker.channel.ConversationChannel
@@ -26,7 +27,8 @@ import java.util.concurrent.ScheduledFuture
  *
  * The push channel itself is resolved by [ScheduledConversationChannelResolver], which owns the
  * "scheduled planning needs Telegram" assumption. Users with no deliverable channel are skipped
- * rather than scheduled into a job that could only no-op.
+ * rather than scheduled into a job that could only no-op, and so is everyone when the instance has
+ * no AI provider.
  *
  * Rescheduling is driven by [UserPlanningScheduleChangedEvent] published from
  * `UserSettingsService.update` (and should be re-published when a push channel is linked). The
@@ -42,6 +44,7 @@ class PlanningSessionScheduler(
     private val planningSessionService: PlanningSessionService,
     private val userSettingsService: UserSettingsService,
     private val channelResolver: ScheduledConversationChannelResolver,
+    private val aiProperties: AiProperties,
     private val clock: Clock,
 ) {
     private val log = LoggerFactory.getLogger(PlanningSessionScheduler::class.java)
@@ -67,6 +70,12 @@ class PlanningSessionScheduler(
         futures.remove(userId)?.cancel(false)
         val settings = settingsRepository.findById(userId).orElse(null) ?: return
         val cron = settings.planningCron ?: return
+        // Every run would fail without an AI provider. The cron stays saved, so a restart with AI
+        // configured picks it back up.
+        if (!aiProperties.enabled) {
+            log.debug("User {} has a planning cron but the instance has no AI; skipping schedule", userId)
+            return
+        }
         // Don't register a cron that could only ever no-op: scheduled planning needs a channel
         // that can push to the user unprompted. Channel-less users (e.g. email-only) are skipped;
         // linking such a channel later should re-publish UserPlanningScheduleChangedEvent.
