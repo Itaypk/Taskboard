@@ -402,7 +402,8 @@
     "dragToReorder": "Drag to reorder",
     "taskActions": "Task actions",
     "foldAway": "Fold note away",
-    "peekNote": "Peek note"
+    "peekNote": "Peek note",
+    "subtaskProgress": "Sub-tasks done: {{done}} of {{total}}"
   },
   "planDetails": {
     "inProgress": "In progress",

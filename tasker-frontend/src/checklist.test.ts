@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { toggleChecklistItem } from './checklist';
+import { checklistProgress, toggleChecklistItem } from './checklist';
 
 describe('toggleChecklistItem', () => {
   it('checks and unchecks the item at the given index', () => {
@@ -31,5 +31,25 @@ describe('toggleChecklistItem', () => {
 
   it('leaves the note alone when the index is out of range', () => {
     expect(toggleChecklistItem('- [ ] only', 3)).toBe('- [ ] only');
+  });
+});
+
+describe('checklistProgress', () => {
+  it('counts every box once, nested or not', () => {
+    const note = 'Intro\n\n- [x] date\n- [x] venue\n- [ ] logistics\n  - [x] book';
+    expect(checklistProgress(note)).toEqual({ done: 3, total: 4 });
+  });
+
+  it('counts ordered and quoted items, and an uppercase X', () => {
+    expect(checklistProgress('1. [X] one\n> - [ ] quoted')).toEqual({ done: 1, total: 2 });
+  });
+
+  it('skips fenced code and markers that do not render as checkboxes', () => {
+    const note = '```\n- [x] not a task\n```\n[ ] no bullet\n- [ ]\n- [x] real';
+    expect(checklistProgress(note)).toEqual({ done: 1, total: 1 });
+  });
+
+  it('is empty for a note without a checklist', () => {
+    expect(checklistProgress('Just prose.\n\n- a plain bullet')).toEqual({ done: 0, total: 0 });
   });
 });

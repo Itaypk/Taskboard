@@ -4,6 +4,8 @@ import type { Task, Category, PaperSwatchId } from '../types';
 import { PAPER_SWATCHES } from '../types';
 import { formatDeadline, isOverdue, formatDuration, rotationFromId } from '../utils';
 import { WashiTape } from './WashiTape';
+import { SubtaskCount, SubtaskStroke } from './SubtaskProgress';
+import { subtaskProgressFor } from '../subtaskProgress';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { resolveTaskLink, linkLabel } from '../taskLink';
 import { formatShortDate, waitingUntil } from '../recurrence';
@@ -53,6 +55,12 @@ export function PostItNote({
   const rotation = rotationFromId(task.id) * 0.3;
   const tags = task.tags.slice(0, 3);
   const link = onFollowLink != null ? resolveTaskLink(task.url) : null;
+  const progress = subtaskProgressFor(task);
+  const categoryLabel = category && (
+    <span className="note__category" title={t('taskCard.categoryTitle', { label: category.label })}>
+      {category.label}
+    </span>
+  );
 
   const {
     attributes,
@@ -110,11 +118,13 @@ export function PostItNote({
         <span className={styles.planSrLabel}>{t('taskCard.inCurrentPlan')}</span>
       )}
 
-      {category && (
-        <span className="note__category" title={t('taskCard.categoryTitle', { label: category.label })}>
-          {category.label}
-        </span>
-      )}
+      {progress ? (
+        <div className={styles.categoryRow}>
+          <SubtaskStroke progress={progress} variant="row" />
+          {categoryLabel}
+          <SubtaskCount progress={progress} />
+        </div>
+      ) : categoryLabel}
 
       <h3 className="note__title">{task.title}</h3>
 

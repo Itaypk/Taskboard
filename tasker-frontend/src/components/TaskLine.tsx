@@ -5,6 +5,8 @@ import type { Task, Category, PaperSwatchId } from '../types';
 import { PAPER_SWATCHES } from '../types';
 import { formatDeadline, isOverdue, formatDuration, rotationFromId, notePreview } from '../utils';
 import { WashiTape } from './WashiTape';
+import { SubtaskCount, SubtaskStroke } from './SubtaskProgress';
+import { subtaskProgressFor } from '../subtaskProgress';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { resolveTaskLink, linkLabel } from '../taskLink';
 import type { AssigneeChipInfo } from './PostItNote';
@@ -50,6 +52,7 @@ export function TaskLine({
   const tags = task.tags.slice(0, 3);
   const link = onFollowLink != null ? resolveTaskLink(task.url) : null;
   const preview = task.description ? notePreview(task.description) : '';
+  const progress = subtaskProgressFor(task);
   // A dog-ear (and thus the reveal) appears whenever there's anything folded away beyond the row.
   const expandable = !!task.description || tags.length > 0 || link != null;
 
@@ -113,6 +116,7 @@ export function TaskLine({
 
       <div className={styles.main}>
         <div className={styles.title}>{task.title}</div>
+        {progress && <SubtaskStroke progress={progress} variant="underline" />}
         {preview && (
           <div className={styles.preview}>
             <NoteIcon />
@@ -122,6 +126,7 @@ export function TaskLine({
       </div>
 
       <div className={styles.meta}>
+        {progress && <SubtaskCount progress={progress} />}
         {assignee && (
           <span
             className={`${styles.who} ${assignee.isMe ? styles.whoMe : ''}`}

@@ -420,7 +420,8 @@
     "dragToReorder": "Перетащите, чтобы изменить порядок",
     "taskActions": "Действия с задачей",
     "foldAway": "Свернуть заметку",
-    "peekNote": "Развернуть заметку"
+    "peekNote": "Развернуть заметку",
+    "subtaskProgress": "Выполнено подзадач: {{done}} из {{total}}"
   },
   "planDetails": {
     "inProgress": "В процессе",
