@@ -25,6 +25,7 @@ import { formatDate } from '../i18n/format';
 import i18n from '../i18n';
 import styles from './WeeklyPlanDrawer.module.css';
 import { Arrow } from './Arrow';
+import { usePublicConfig } from '../publicConfig';
 
 interface WeeklyPlanDrawerProps {
   open: boolean;
@@ -559,6 +560,7 @@ function OverviewActions({ entry, viewedPlan, weekRel, loading, busy, onStart, o
   onAbandon: (sessionId: string) => void;
 }) {
   const { t } = useTranslation();
+  const { ai: instanceAi } = usePublicConfig();
   if (loading || !entry) {
     return <p className={styles.entryHint}>{t('weeklyPlanDrawer.loading')}</p>;
   }
@@ -569,7 +571,7 @@ function OverviewActions({ entry, viewedPlan, weekRel, loading, busy, onStart, o
   // itself stays readable; only the AI-driven actions are gated.
   const aiHint = aiOff ? (
     <p className={styles.actionsNote}>
-      {t('weeklyPlanDrawer.aiDisabledHint')}
+      {t(instanceAi ? 'weeklyPlanDrawer.aiDisabledHint' : 'weeklyPlanDrawer.aiNotConfiguredHint')}
     </p>
   ) : null;
 

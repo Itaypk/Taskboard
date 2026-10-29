@@ -6,6 +6,8 @@ interface BoardFilterProps {
   value: TaskFilter;
   onChange: (next: TaskFilter) => void;
   hasCurrentPlan: boolean;
+  /** Hide the plan chip outright (rather than disabling it) when no plan can ever be made. */
+  showPlan: boolean;
 }
 
 const OPTIONS: { id: TaskFilter; labelKey: string; shortLabelKey?: string; planOnly?: boolean }[] = [
@@ -15,11 +17,11 @@ const OPTIONS: { id: TaskFilter; labelKey: string; shortLabelKey?: string; planO
   { id: 'all',  labelKey: 'boardFilter.all' },
 ];
 
-export function BoardFilter({ value, onChange, hasCurrentPlan }: BoardFilterProps) {
+export function BoardFilter({ value, onChange, hasCurrentPlan, showPlan }: BoardFilterProps) {
   const { t } = useTranslation();
   return (
     <div className={styles.row} role="radiogroup" aria-label={t('boardFilter.filterTasks')}>
-      {OPTIONS.map(opt => {
+      {OPTIONS.filter(opt => showPlan || !opt.planOnly).map(opt => {
         const disabled = opt.planOnly === true && !hasCurrentPlan;
         const selected = value === opt.id;
         return (

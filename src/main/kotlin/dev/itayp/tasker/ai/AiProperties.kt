@@ -29,9 +29,13 @@ data class AiProperties(
     /** Hard cap on how many accounts may hold a granted AI tier at once. */
     val tierCap: AiTierCapProperties = AiTierCapProperties(),
 ) {
+    /** Whether the instance has an AI provider at all; without one, every AI feature is dark. */
+    val enabled: Boolean
+        get() = apiKey.isNotBlank()
+
     /** Whether user-facing copy may promise zero data retention: AI is on, and restricted to ZDR endpoints. */
     val zeroDataRetentionInEffect: Boolean
-        get() = apiKey.isNotBlank() && zeroDataRetention
+        get() = enabled && zeroDataRetention
 
     /** Distinct set of configured model slugs, for the startup capability prefetch. */
     val configuredModels: Set<String>
