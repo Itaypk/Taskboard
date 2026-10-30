@@ -51,3 +51,4 @@ out/
 /.env.perftest
 /.env.grafana
 /.env.integration
+/deploy.sh

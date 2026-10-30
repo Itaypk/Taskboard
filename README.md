@@ -71,6 +71,12 @@ JAR. You need JDK 25 and Node 22; Docker only for the Postgres integration tests
 ./gradlew bootRun    # builds the frontend too; in-memory H2, nothing else to set up
 ```
 
+To run with a local environment file:
+
+```bash
+export $(cat .env | grep -v "#" | xargs) && ./gradlew bootRun
+```
+
 Then open `http://localhost:8080` and sign in with **Start now — no sign-up** (a sandbox account).
 Commands, optional Telegram setup, the test layout and CI are in
 [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
