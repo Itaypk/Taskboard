@@ -99,6 +99,8 @@ class BoardServiceTest {
         assertEquals(BoardRole.OWNER, summary.role)
         // Default category set is seeded into the new board.
         verify(categoryRepository, org.mockito.kotlin.times(UserService.DEFAULT_CATEGORIES.size)).save(any())
+        // The watermark row exists from the start, so parallel first edits never race to insert it.
+        verify(taskChangeService).bumpWatermark(summary.id)
     }
 
     @Test
@@ -150,6 +152,7 @@ class BoardServiceTest {
         assertEquals(BoardRole.OWNER, summary.role)
         assertEquals(1, summary.memberCount)
         assertNotEquals(sourceBoardId, summary.id)
+        verify(taskChangeService).bumpWatermark(summary.id)
 
         val savedTask = org.mockito.kotlin.argumentCaptor<BacklogTaskEntity>()
         verify(backlogTaskRepository).save(savedTask.capture())

@@ -57,8 +57,8 @@ class BoardService(
     }
 
     /**
-     * Creates the board row, its DEK, the encrypted name, and an OWNER membership for [userId] —
-     * no content (categories/tasks/tags). The board row is persisted before
+     * Creates the board row, its DEK, the encrypted name, an OWNER membership for [userId], and the
+     * sync watermark row — no content (categories/tasks/tags). The board row is persisted before
      * [BoardCryptoService.ensureBoardKey] so the `board_data_key` FK is satisfied; the name is
      * encrypted only after the DEK exists. Shared by [createBoardForOwner] (which seeds the default
      * categories) and [duplicateBoard] (which seeds copied ones instead).
@@ -82,6 +82,10 @@ class BoardService(
             this.role = BoardRole.OWNER
             this.joinedAt = now
         })
+        // Seed the sync watermark row up front. The first edits on a board often arrive in parallel
+        // (the board settings modal saves every category/tag at once), and if the row didn't exist yet
+        // each of them would try to insert it and all but one would fail on the primary key.
+        taskChangeService.bumpWatermark(boardId)
         return boardId
     }
 
