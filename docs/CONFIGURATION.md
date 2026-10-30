@@ -156,7 +156,7 @@ the full log to stdout instead and write no file — what `docker logs` and log 
 - `TASKER_FEEDBACK_RECIPIENT` — mailbox that feedback submissions are forwarded to, over the **auth**
   sender (same SMTP credentials as login mail). When blank, falls back to the auth sender's own
   `from` address. Per-user rate-limited (`tasker.rate-limit.feedback`); the admin-facing email is
-  English-only (not user-localised).
+  English-only (not user-localized).
 
 ## Inbound email (`InboundMailProperties`)
 
