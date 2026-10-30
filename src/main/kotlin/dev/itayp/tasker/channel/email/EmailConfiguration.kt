@@ -2,12 +2,13 @@ package dev.itayp.tasker.channel.email
 
 import dev.itayp.tasker.channel.OutboundChannel
 import io.micrometer.core.instrument.MeterRegistry
+import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.mail.javamail.JavaMailSender
 import org.springframework.mail.javamail.JavaMailSenderImpl
-import java.util.Properties
+import java.util.*
 
 /**
  * Wires the two email senders. Each becomes a qualified [OutboundChannel] bean
@@ -21,6 +22,14 @@ class EmailConfiguration(
     private val properties: EmailProperties,
     private val meterRegistry: MeterRegistry,
 ) {
+    private val log = LoggerFactory.getLogger(EmailConfiguration::class.java)
+
+    init {
+        log.debug(
+            "Email enabled: {}, authentication SMTP: {}, scheduling SMTP: {}, {} blocked domains",
+            properties.enabled, properties.auth, properties.scheduling, properties.blockedDomains.size,
+        )
+    }
 
     @Bean
     fun authEmailChannel(): OutboundChannel = buildChannel(properties.auth, AUTH)
@@ -46,15 +55,25 @@ class EmailConfiguration(
             port = smtp.port
             username = smtp.username
             password = smtp.password
-            javaMailProperties = Properties().apply {
-                setProperty("mail.smtp.auth", "true")
-                setProperty("mail.smtp.starttls.enable", "true")
-                setProperty("mail.smtp.starttls.required", "true")
-            }
+            javaMailProperties = javaMailProperties(smtp.port)
         }
 
     companion object {
         const val AUTH = "auth"
         const val SCHEDULING = "scheduling"
+
+        private const val SMTPS_PORT = 465
+
+        fun javaMailProperties(port: Int): Properties = Properties().apply {
+            setProperty("mail.smtp.auth", "true")
+            // 465 is implicit TLS (SMTPS): the server expects a TLS handshake first, so a STARTTLS
+            // client just waits for a greeting until the connection times out.
+            if (port == SMTPS_PORT) {
+                setProperty("mail.smtp.ssl.enable", "true")
+            } else {
+                setProperty("mail.smtp.starttls.enable", "true")
+                setProperty("mail.smtp.starttls.required", "true")
+            }
+        }
     }
 }

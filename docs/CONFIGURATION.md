@@ -150,6 +150,14 @@ the full log to stdout instead and write no file — what `docker logs` and log 
   `TASKER_EMAIL_SCHEDULING_FROM_NAME`, `TASKER_EMAIL_SCHEDULING_SMTP_HOST`,
   `TASKER_EMAIL_SCHEDULING_SMTP_PORT`, `TASKER_EMAIL_SCHEDULING_SMTP_USERNAME`,
   `TASKER_EMAIL_SCHEDULING_SMTP_PASSWORD`.
+- Both senders speak STARTTLS on any port except 465, which is treated as implicit TLS (SMTPS).
+- **Deliverability:** send the auth mail through a transactional provider (Resend, Postmark, SES, …)
+  rather than a personal mailbox's SMTP. Corporate filters (Proofpoint, Mimecast) silently drop
+  sign-in links sent from consumer/privacy mailbox IP pools even with SPF, DKIM and DMARC passing.
+  The hosted instance moved its auth sender from Proton to Resend for this reason; the
+  `smtp.protonmail.ch` default is historical, not a recommendation. Such a provider's DNS records
+  coexist with a mailbox provider's: its DKIM uses its own selector, and its SPF/MX go on a
+  return-path subdomain, never on the apex.
 
 ## Feedback form (`FeedbackController` → `FeedbackService`, `POST /api/v1/feedback`)
 
