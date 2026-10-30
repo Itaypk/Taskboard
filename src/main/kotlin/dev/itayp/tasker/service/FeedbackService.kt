@@ -64,7 +64,7 @@ class FeedbackService(
             log.warn("Feedback received from userId={} but no recipient is configured", userId)
         }
 
-        // Admin-facing email; English by design (not user-localised). Handlebars escapes the
+        // Admin-facing email; English by design (not user-localized). Handlebars escapes the
         // {{...}} values, so user-authored content can't inject markup.
         val htmlBody = emailTemplateEngine.render(
             "emails/feedback.html",

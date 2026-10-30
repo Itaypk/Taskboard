@@ -39,7 +39,7 @@ class OneOffEventCalendarWindowProviderTest {
     }
 
     @Test
-    fun `emits the partial caveat and a localised line per event`() {
+    fun `emits the partial caveat and a localized line per event`() {
         whenever(userSettingsService.getOrCreate(userId))
             .thenReturn(userSettings(timeZone = "Asia/Jerusalem", language = "en"))
         whenever(oneOffEventService.listForWeek(eq(userId), any(), any())).thenReturn(
