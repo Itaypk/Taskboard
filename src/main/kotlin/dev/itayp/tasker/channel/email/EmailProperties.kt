@@ -37,5 +37,9 @@ data class EmailProperties(
         val port: Int = 587,
         val username: String = "",
         val password: String = "",
-    )
+    ) {
+        override fun toString(): String {
+            return "SmtpConfig(host='$host', port=$port, username='$username', password='**redacted**')"
+        }
+    }
 }
