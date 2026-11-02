@@ -132,7 +132,7 @@ jobs:
     # Configure Gradle for optimal use in GitHub Actions, including caching of downloaded dependencies.
     # See: https://github.com/gradle/actions/blob/main/setup-gradle/README.md
     - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
 
     - name: Build with Gradle Wrapper
       run: ./gradlew release
@@ -215,16 +215,16 @@ jobs:
     - name: Image name
       run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
 
-    - uses: docker/setup-buildx-action@v3
+    - uses: docker/setup-buildx-action@v4
 
-    - uses: docker/login-action@v3
+    - uses: docker/login-action@v4
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ github.token }}
 
     - name: Build and push image
-      uses: docker/build-push-action@v6
+      uses: docker/build-push-action@v7
       with:
         context: .
         build-args: JAR_FILE=jar/Taskboard-*-SNAPSHOT.jar
@@ -269,6 +269,6 @@ jobs:
     # steady drain on the account's artifact storage — and its rejection was the sole reason this
     # job reported failure. Restore the default if the graph artifact is ever needed to debug.
     - name: Generate and submit dependency graph
-      uses: gradle/actions/dependency-submission@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      uses: gradle/actions/dependency-submission@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
       with:
         dependency-graph: generate-and-submit
