@@ -112,7 +112,10 @@ class TelegramOidcController(
         response: HttpServletResponse,
     ): ResponseEntity<Void> {
         val session = request.session
-        val mode = session.getAttribute(ATTR_MODE) as? String ?: MODE_LOGIN
+        // No stored mode means this browser never ran /start or /link/start (or already used the
+        // callback once). A signed-in user can only have been linking: the SPA offers login only to
+        // signed-out visitors, and a login failure notice on "/" would never render behind the board.
+        val mode = session.getAttribute(ATTR_MODE) as? String ?: if (principal != null) MODE_LINK else MODE_LOGIN
         val expectedState = session.getAttribute(ATTR_STATE) as? String
         val verifier = session.getAttribute(ATTR_VERIFIER) as? String
         val next = session.getAttribute(ATTR_NEXT) as? String ?: "/"
@@ -122,7 +125,17 @@ class TelegramOidcController(
 
         val isLink = mode == MODE_LINK
         if (!error.isNullOrBlank() || code.isNullOrBlank() || state.isNullOrBlank() || verifier == null) {
-            logger.warn("Telegram callback rejected (mode={}): error={}, missing code/state/verifier", mode, error)
+            val missing = listOfNotNull(
+                "code".takeIf { code.isNullOrBlank() },
+                "state".takeIf { state.isNullOrBlank() },
+                "verifier".takeIf { verifier == null },
+            )
+            // A missing verifier with code+state present means the session that ran /start isn't the one
+            // that came back, e.g. Telegram reopened the callback in another browser or cookie jar.
+            logger.warn(
+                "Telegram callback rejected (mode={}, signedIn={}): error={}, missing={}",
+                mode, principal != null, error, missing,
+            )
             return failureRedirect(isLink)
         }
         if (expectedState == null || state != expectedState) {
