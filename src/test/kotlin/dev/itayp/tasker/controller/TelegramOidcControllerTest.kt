@@ -174,6 +174,28 @@ class TelegramOidcControllerTest(@Autowired val mockMvc: MockMvc) {
     }
 
     @Test
+    fun `callback without a stored oauth session sends a signed-out visitor back to the login notice`() {
+        mockMvc.perform(get("/api/auth/telegram/callback").param("code", "CODE").param("state", "ST"))
+            .andExpect(status().isFound)
+            .andExpect(redirectedUrl("/?telegramLogin=failed"))
+    }
+
+    /**
+     * Seen in production: a signed-in user's callback arrived in a browser context that never ran
+     * /link/start (no stored mode or verifier). The login notice on "/" can't render behind the board,
+     * so the failure has to land on Settings, where the link notice is shown.
+     */
+    @Test
+    fun `callback without a stored oauth session sends a signed-in user to the link notice`() {
+        mockMvc.perform(
+            get("/api/auth/telegram/callback").param("code", "CODE").param("state", "ST")
+                .with(authentication(auth)),
+        )
+            .andExpect(status().isFound)
+            .andExpect(redirectedUrl("/settings?telegramLink=failed"))
+    }
+
+    @Test
     fun `callback links Telegram in link mode`() {
         whenever(telegramOidcService.completeAuthorization(any(), any(), any())).thenReturn(data)
         whenever(accountLinkService.linkTelegram(userId, data)).thenReturn(LinkResult.Success)
