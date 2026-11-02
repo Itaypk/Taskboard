@@ -99,9 +99,13 @@ describe('ConnectedAccounts', () => {
 
         render(<ConnectedAccounts />);
         await screen.findByRole('status');
-        fireEvent.focus(window);
 
-        expect(auth.refresh).toHaveBeenCalled();
+        // The focus listener is attached in a passive effect, which can still be pending when the panel
+        // first shows up (flaked in CI), so keep refocusing until it's in place.
+        await waitFor(() => {
+            fireEvent.focus(window);
+            expect(auth.refresh).toHaveBeenCalled();
+        });
     });
 
     it('offers only a quiet chat link once the bot can reach the user', async () => {
