@@ -202,6 +202,8 @@ class BoardInvitationServiceTest {
         verify(boardMembershipRepository).save(membership.capture())
         assertEquals(BoardRole.MEMBER, membership.firstValue.role)
         assertEquals(acceptor, membership.firstValue.userId)
+        // Joining marks the acceptor engaged, so an unclaimed invitee isn't swept on the short TTL.
+        verify(userRepository).stampEngagedAt(acceptor, now)
     }
 
     @Test

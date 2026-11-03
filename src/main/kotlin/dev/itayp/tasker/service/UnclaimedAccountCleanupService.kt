@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit
  * is the hard guard — a claimed account is never touched regardless of activity. Among unclaimed
  * accounts, the inactivity window depends on engagement: a tire-kicker that never did real work is
  * swept after [SHORT_TTL]; one that engaged (created a real task) but never added a login method
- * gets [LONG_TTL] of runway to come back and claim. See docs/DEMO-ACCOUNT-UNIFICATION.md.
+ * gets [LONG_TTL] of runway to come back and claim. See docs/archive/DEMO-ACCOUNT-UNIFICATION.md.
  */
 @Service
 class UnclaimedAccountCleanupService(
