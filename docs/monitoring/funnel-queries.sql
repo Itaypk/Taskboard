@@ -4,7 +4,8 @@
 --
 --   1. The numbers are already in the schema, and can be computed retroactively. `users.created_at`
 --      and `users.claimed` give registration; `users.engaged_at` (changeset 004) is stamped on the
---      first non-tutorial write, which is exactly "created a first real task"; `planning_session`
+--      first non-tutorial write ("created a first real task") or on joining a board through an
+--      invitation, so an invitee counts as reached even before their first task; `planning_session`
 --      carries `user_id`, `status` and `started_at`. Adding counters would only have started
 --      collecting from the day they shipped, and would have told us nothing we can't ask now.
 --   2. The retention number is a per-user cohort question ("did this person come back at least five

@@ -156,6 +156,8 @@ class BoardInvitationService(
      * Accepts [token] as [acceptorUserId]. Single-use: the token is consumed **before** the
      * membership is created (mirrors `completeLogin`), so a replay is rejected. No-ops if the
      * acceptor is already a member. Re-checks the member cap so a flurry of accepts can't overflow it.
+     * Joining a board counts as engagement, so an unclaimed (demo) acceptor who only edits shared
+     * tasks gets the long cleanup TTL rather than the 2-day one ([UnclaimedAccountCleanupService]).
      */
     @Transactional
     fun accept(token: String, acceptorUserId: UUID): AcceptedInvitation {
@@ -184,6 +186,7 @@ class BoardInvitationService(
             this.role = BoardRole.MEMBER
             this.joinedAt = now
         })
+        userRepository.stampEngagedAt(acceptorUserId, now)
         log.info("User {} joined board {} via invitation", acceptorUserId, boardId)
         return AcceptedInvitation(boardId, boardName)
     }
