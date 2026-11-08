@@ -15,7 +15,7 @@ The mascots are licensed under
 (`CC-BY-4.0`); the full text is in [`LICENSES/CC-BY-4.0.txt`](LICENSES/CC-BY-4.0.txt). This covers:
 
 - the board mascots and the balloon faces: `tasker-frontend/src/assets/balloon/`;
-  `mr_roboto*.webp`, `pineapple*.webp` and `stationery_holder*.webp` in `tasker-frontend/src/assets/`;
+  `mr_roboto*.webp`, `pineapple*.webp`, `sigmund*.webp` and `stationery_holder*.webp` in `tasker-frontend/src/assets/`;
   and the source image `tools/Balloon.png`.
 
 You may share and adapt them, including commercially, as long as you give credit. A suitable credit

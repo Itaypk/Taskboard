@@ -8,7 +8,8 @@ package dev.itayp.tasker.model
 enum class BoardMascot(val id: String) {
     PINEAPPLE("pineapple"),
     MR_ROBOTO("mr_roboto"),
-    STATIONERY("stationery");
+    STATIONERY("stationery"),
+    SIGMUND("sigmund");
 
     companion object {
         val DEFAULT = PINEAPPLE

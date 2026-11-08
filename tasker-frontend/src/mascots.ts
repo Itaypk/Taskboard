@@ -4,6 +4,8 @@ import mrRobotoUrl from './assets/mr_roboto.webp';
 import mrRobotoSmUrl from './assets/mr_roboto-sm.webp';
 import stationeryUrl from './assets/stationery_holder.webp';
 import stationerySmUrl from './assets/stationery_holder-sm.webp';
+import sigmundUrl from './assets/sigmund.webp';
+import sigmundSmUrl from './assets/sigmund-sm.webp';
 
 /** A board mascot: the little character shown in the corner of the board. */
 export interface Mascot {
@@ -32,13 +34,18 @@ export const MASCOTS: Mascot[] = [
   },
   {
     id: 'mr_roboto', label: 'Mr. Roboto', url: mrRobotoUrl,
-    srcSet: `${mrRobotoSmUrl} 316w, ${mrRobotoUrl} 479w`,
-    sizes: '(max-width: 600px) 116px, (max-width: 820px) 169px, 221px',
+    srcSet: `${mrRobotoSmUrl} 296w, ${mrRobotoUrl} 449w`,
+    sizes: '(max-width: 600px) 109px, (max-width: 820px) 158px, 207px',
   },
   {
     id: 'stationery', label: 'Pencil Cup', url: stationeryUrl,
     srcSet: `${stationerySmUrl} 318w, ${stationeryUrl} 704w`,
     sizes: '(max-width: 600px) 117px, (max-width: 820px) 170px, 223px',
+  },
+  {
+    id: 'sigmund', label: 'Sigmund', url: sigmundUrl,
+    srcSet: `${sigmundSmUrl} 407w, ${sigmundUrl} 617w`,
+    sizes: '(max-width: 600px) 149px, (max-width: 820px) 217px, 285px',
   },
 ];
 
