@@ -16,7 +16,7 @@ the desired amount is padded back. Top/left/right padding is left untouched.
 Usage:
     python3 tools/level-bottom-gap.py mr_roboto.png stationery_holder.png
     python3 tools/level-bottom-gap.py --mode pixels --gap 13 mr_roboto.png
-    python3 tools/level-bottom-gap.py --reference pineapple.png --dry-run *.png
+    python3 tools/level-bottom-gap.py --reference pineapple.webp --dry-run *.png
 
 Paths are resolved relative to the assets dir unless absolute / already valid.
 """
@@ -90,7 +90,7 @@ def level(path: str, target_ratio: float | None, target_px: int | None, dry_run:
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("targets", nargs="+", help="PNG(s) to adjust (relative to the assets dir)")
-    p.add_argument("--reference", default="pineapple.png", help="image whose gap is matched (default: pineapple.png)")
+    p.add_argument("--reference", default="pineapple.webp", help="image whose gap is matched (default: pineapple.webp)")
     p.add_argument("--mode", choices=["ratio", "pixels"], default="ratio", help="match the reference gap as a height ratio (default) or absolute pixels")
     p.add_argument("--gap", type=float, help="override the target gap (ratio 0-1 in ratio mode, or pixels in pixels mode)")
     p.add_argument("--dry-run", action="store_true", help="report changes without writing")
