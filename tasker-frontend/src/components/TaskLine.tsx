@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
+import { boardTranslate } from '../textSize';
 import { useTranslation } from 'react-i18next';
 import type { Task, Category, PaperSwatchId } from '../types';
 import { PAPER_SWATCHES } from '../types';
@@ -76,7 +77,7 @@ export function TaskLine({
   // Base CSS applies rotate(var(--rot)); while dnd-kit drives an inline transform we compose the
   // tilt back in ourselves so it isn't stripped mid-drag.
   const inlineTransform = transform
-    ? `translate3d(${transform.x}px, ${transform.y}px, 0) rotate(${tilt.toFixed(2)}deg)`
+    ? `${boardTranslate(transform)} rotate(${tilt.toFixed(2)}deg)`
     : undefined;
 
   const style: React.CSSProperties = {

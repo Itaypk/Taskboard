@@ -24,7 +24,8 @@ import {
 } from '@dnd-kit/sortable';
 import { PostItNote, type AssigneeChipInfo } from './components/PostItNote';
 import { TaskLine } from './components/TaskLine';
-import { ViewToggle } from './components/ViewToggle';
+import { DisplayMenu } from './components/DisplayMenu';
+import { loadTextSize, saveTextSize, zoomFor, type TextSize } from './textSize';
 import { TaskDrawer } from './components/TaskDrawer';
 import { SettingsModal } from './components/SettingsModal';
 import { BoardFilter } from './components/BoardFilter';
@@ -361,6 +362,19 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
     localStorage.setItem(VIEW_MODE_KEY + activeBoardId, mode);
     setViewModeByBoard(prev => ({ ...prev, [activeBoardId]: mode }));
   }, [activeBoardId]);
+
+  // Text size is per device, not per board: it's about the screen (e.g. one being shared), not the board.
+  const [textSize, setTextSize] = useState<TextSize>(loadTextSize);
+  const changeTextSize = useCallback((size: TextSize) => {
+    saveTextSize(size);
+    setTextSize(size);
+  }, []);
+  // Exposed as a root custom property so both the board and the task drawer (rendered elsewhere) can zoom.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty('--board-zoom', String(zoomFor(textSize)));
+    return () => { root.style.removeProperty('--board-zoom'); };
+  }, [textSize]);
 
   const sortedTasks = useMemo(() => sortTasks(tasks, sortMode), [tasks, sortMode]);
 
@@ -875,7 +889,12 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
           onDuplicate={() => setBoardDuplicateOpen(true)}
         />
         <SortMenu value={sortMode} onChange={changeSortMode} />
-        <ViewToggle value={viewMode} onChange={changeViewMode} />
+        <DisplayMenu
+          viewMode={viewMode}
+          onViewModeChange={changeViewMode}
+          textSize={textSize}
+          onTextSizeChange={changeTextSize}
+        />
         <BoardFilter
           value={filter}
           onChange={(f) => {

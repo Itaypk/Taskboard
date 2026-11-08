@@ -523,11 +523,17 @@
     "message": "גרסה חדשה של {{appName}} זמינה.",
     "refresh": "רענון"
   },
-  "viewToggle": {
-    "switchToCard": "מעבר לתצוגת כרטיסים",
-    "cardView": "תצוגת כרטיסים",
-    "switchToCompact": "מעבר לתצוגה מצומצמת",
-    "compactView": "תצוגה מצומצמת"
+  "displayMenu": {
+    "label": "אפשרויות תצוגה",
+    "layout": "פריסה",
+    "cards": "כרטיסים",
+    "compact": "מצומצם",
+    "textSize": "גודל טקסט",
+    "textSizes": {
+      "default": "גודל טקסט רגיל",
+      "large": "טקסט גדול",
+      "larger": "טקסט גדול יותר"
+    }
   },
   "eventsSection": {
     "heading": "אירועים ({{count}})",

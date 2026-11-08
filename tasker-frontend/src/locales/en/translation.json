@@ -509,11 +509,17 @@
     "message": "A new version of {{appName}} is available.",
     "refresh": "Refresh"
   },
-  "viewToggle": {
-    "switchToCard": "Switch to card view",
-    "cardView": "Card view",
-    "switchToCompact": "Switch to compact view",
-    "compactView": "Compact view"
+  "displayMenu": {
+    "label": "Display options",
+    "layout": "Layout",
+    "cards": "Cards",
+    "compact": "Compact",
+    "textSize": "Text size",
+    "textSizes": {
+      "default": "Default text size",
+      "large": "Large text",
+      "larger": "Larger text"
+    }
   },
   "eventsSection": {
     "heading": "Events ({{count}})",
