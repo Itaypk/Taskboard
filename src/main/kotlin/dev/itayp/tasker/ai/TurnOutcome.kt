@@ -20,8 +20,13 @@ sealed interface TurnOutcome {
      * Distinct from a blank [TextReply] because it is not a reply at all: nothing was appended to
      * the transcript, so the caller can re-issue the identical request, and a caller that ends its
      * turn here leaves the user staring at nothing.
+     *
+     * [malformedToolCall] is set when the provider says why: the model tried to call a tool and
+     * produced a call it could not parse (Gemini's `MALFORMED_FUNCTION_CALL`). That is the model's
+     * own mistake rather than a transient fault, so re-issuing the identical request tends to
+     * reproduce it; [AiConversationManager.continueAfterMalformedToolCall] retries with a nudge.
      */
-    data object Empty : TurnOutcome
+    data class Empty(val malformedToolCall: Boolean) : TurnOutcome
 }
 
 data class RequestedToolCall(

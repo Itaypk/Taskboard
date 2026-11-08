@@ -392,21 +392,24 @@ class WeeklyPlanningOrchestrator(
                 markConversing(sessionId)
             }
             is TurnOutcome.ToolCalls -> dispatchToolCalls(sessionId, outcome.calls, channel, malformedCallRetried)
-            is TurnOutcome.Empty -> handleEmptyTurn(sessionId, channel, emptyTurnRetried, malformedCallRetried)
+            is TurnOutcome.Empty -> handleEmptyTurn(sessionId, outcome, channel, emptyTurnRetried, malformedCallRetried)
         }
     }
 
     /**
      * Recovers from a turn the model answered with nothing at all (see [TurnOutcome.Empty]).
      *
-     * Retried once: the failure is provider-side and transient, and because nothing was appended to
-     * the transcript the retry re-issues the identical request. If it happens again, the session
+     * Retried once. A plain empty turn is a provider-side, transient failure, and because nothing was
+     * appended to the transcript the retry re-issues the identical request. A malformed tool call is
+     * the model's own mistake, which an identical request tends to reproduce, so that retry carries a
+     * one-off note telling the model to fix the call. If it happens again, the session
      * must still say *something* — every channel here is a conversation the user is waiting on, and
      * the web drawer in particular renders a turn that buffered no messages as pure silence, with
      * no affordance to recover. The session stays open, so any reply resumes it.
      */
     private fun handleEmptyTurn(
         sessionId: UUID,
+        outcome: TurnOutcome.Empty,
         channel: ConversationChannel,
         alreadyRetried: Boolean,
         malformedCallRetried: Boolean,
@@ -414,8 +417,17 @@ class WeeklyPlanningOrchestrator(
         val current = state[sessionId]
         val conversationId = current?.conversationId
         if (!alreadyRetried && conversationId != null) {
-            log.warn("Empty model turn for session {}; retrying once", sessionId)
-            val retry = channel.whileWorking { aiConversationManager.continueConversation(conversationId) }
+            log.warn(
+                "Empty model turn for session {} (malformedToolCall={}); retrying once",
+                sessionId, outcome.malformedToolCall,
+            )
+            val retry = channel.whileWorking {
+                if (outcome.malformedToolCall) {
+                    aiConversationManager.continueAfterMalformedToolCall(conversationId)
+                } else {
+                    aiConversationManager.continueConversation(conversationId)
+                }
+            }
             processOutcome(sessionId, retry, channel, emptyTurnRetried = true, malformedCallRetried = malformedCallRetried)
             return
         }

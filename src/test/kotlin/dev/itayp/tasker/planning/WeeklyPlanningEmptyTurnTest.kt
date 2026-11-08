@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -83,7 +84,7 @@ class WeeklyPlanningEmptyTurnTest {
         whenever(aiConversationManager.startConversation(any(), any())).thenReturn(conversationId)
         // Every entry point funnels through the same processOutcome; revise is the shortest one
         // that reaches it without first walking the capacity and reconciliation questions.
-        whenever(aiConversationManager.sendMessage(any(), any())).thenReturn(TurnOutcome.Empty)
+        whenever(aiConversationManager.sendMessage(any(), any())).thenReturn(TurnOutcome.Empty(malformedToolCall = false))
     }
 
     @Test
@@ -101,7 +102,7 @@ class WeeklyPlanningEmptyTurnTest {
 
     @Test
     fun `an empty turn that survives the retry still says something`() {
-        whenever(aiConversationManager.continueConversation(conversationId)).thenReturn(TurnOutcome.Empty)
+        whenever(aiConversationManager.continueConversation(conversationId)).thenReturn(TurnOutcome.Empty(malformedToolCall = false))
         val channel = BufferedConversationChannel(ChannelType.DEV)
 
         orchestrator.startRevision(userId, sessionId, channel)
@@ -112,6 +113,38 @@ class WeeklyPlanningEmptyTurnTest {
         val texts = channel.drain().filterIsInstance<ChannelMessage.Text>().map { it.text }
         assertEquals(listOf("Sorry, try again."), texts)
         // The session stays open, so anything the user sends next resumes it.
+        assertEquals(WeeklyPlanningOrchestrator.Phase.CONVERSING, orchestrator.phase(sessionId))
+    }
+
+    @Test
+    fun `a malformed tool call is retried with the nudge rather than the identical request`() {
+        whenever(aiConversationManager.sendMessage(any(), any()))
+            .thenReturn(TurnOutcome.Empty(malformedToolCall = true))
+        whenever(aiConversationManager.continueAfterMalformedToolCall(conversationId))
+            .thenReturn(TurnOutcome.TextReply("here we go"))
+        val channel = BufferedConversationChannel(ChannelType.DEV)
+
+        orchestrator.startRevision(userId, sessionId, channel)
+
+        verify(aiConversationManager, times(1)).continueAfterMalformedToolCall(conversationId)
+        verify(aiConversationManager, never()).continueConversation(any())
+        val texts = channel.drain().filterIsInstance<ChannelMessage.Text>().map { it.text }
+        assertEquals(listOf("here we go"), texts)
+    }
+
+    @Test
+    fun `a malformed tool call that survives the nudged retry still says something`() {
+        whenever(aiConversationManager.sendMessage(any(), any()))
+            .thenReturn(TurnOutcome.Empty(malformedToolCall = true))
+        whenever(aiConversationManager.continueAfterMalformedToolCall(conversationId))
+            .thenReturn(TurnOutcome.Empty(malformedToolCall = true))
+        val channel = BufferedConversationChannel(ChannelType.DEV)
+
+        orchestrator.startRevision(userId, sessionId, channel)
+
+        verify(aiConversationManager, times(1)).continueAfterMalformedToolCall(conversationId)
+        val texts = channel.drain().filterIsInstance<ChannelMessage.Text>().map { it.text }
+        assertEquals(listOf("Sorry, try again."), texts)
         assertEquals(WeeklyPlanningOrchestrator.Phase.CONVERSING, orchestrator.phase(sessionId))
     }
 }
