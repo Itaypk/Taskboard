@@ -272,6 +272,9 @@ input[type="number"] { -moz-appearance: textfield; }
   padding: 36px 56px 120px;
   column-width: 260px;
   column-gap: 40px;
+  /* Per-device text size (DisplayMenu). `zoom`, not font-size: the stylesheet sizes text in px, and
+     zoom scales text, spacing and column widths together, so bigger text also means fewer columns. */
+  zoom: var(--board-zoom, 1);
 }
 
 /* List view uses CSS Grid with row-major flow so visual order matches DOM
@@ -672,6 +675,7 @@ input[type="number"] { -moz-appearance: textfield; }
 .drawer__close:hover { background: rgba(90, 70, 30, 0.08); color: var(--ink); }
 
 .drawer__body {
+  zoom: var(--board-zoom, 1);
   flex: 1;
   overflow-y: auto;
   padding-block: 10px 24px;

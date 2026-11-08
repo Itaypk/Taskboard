@@ -565,11 +565,17 @@
     "message": "يتوفر إصدار جديد من {{appName}}.",
     "refresh": "تحديث"
   },
-  "viewToggle": {
-    "switchToCard": "التبديل إلى عرض البطاقات",
-    "cardView": "عرض البطاقات",
-    "switchToCompact": "التبديل إلى العرض المضغوط",
-    "compactView": "العرض المضغوط"
+  "displayMenu": {
+    "label": "خيارات العرض",
+    "layout": "التخطيط",
+    "cards": "بطاقات",
+    "compact": "مضغوط",
+    "textSize": "حجم النص",
+    "textSizes": {
+      "default": "حجم النص العادي",
+      "large": "نص كبير",
+      "larger": "نص أكبر"
+    }
   },
   "eventsSection": {
     "heading": "الأحداث ({{count}})",

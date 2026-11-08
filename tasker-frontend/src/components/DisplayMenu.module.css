@@ -1,0 +1,122 @@
+.root {
+  position: relative;
+  display: inline-flex;
+}
+
+/* Paper-pill icon button, matching SortMenu's trigger so the two controls read as one family. */
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  color: var(--ink-soft);
+  border-radius: 999px;
+  border: 1px solid var(--paper-border);
+  background: var(--paper-surface);
+  box-shadow: 0 1px 2px rgba(40, 28, 10, 0.06);
+  transition: background var(--t), color var(--t), border-color var(--t), box-shadow var(--t), transform var(--t);
+}
+.trigger:hover {
+  color: var(--ink);
+  border-color: var(--paper-border-2);
+  transform: translateY(-1px);
+}
+
+/* Goes dark while the layout or text size is off its default — the same signal SortMenu uses for an active sort. */
+.triggerActive {
+  background: var(--ink);
+  color: var(--paper-surface);
+  border-color: var(--ink);
+  box-shadow: 0 4px 12px rgba(40, 28, 10, 0.22);
+}
+.triggerActive:hover {
+  color: var(--paper-surface);
+  border-color: var(--ink);
+}
+
+.trigger:focus-visible,
+.segment:focus-visible {
+  outline: 2px solid var(--stamp);
+  outline-offset: 2px;
+}
+
+.panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  inset-inline-start: 0;
+  z-index: 40;
+  width: 216px;
+  padding: 6px 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--paper-surface);
+  border: 1px solid var(--paper-border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-modal);
+  animation: displayMenuIn var(--t) ease;
+}
+
+@keyframes displayMenuIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.heading {
+  padding: 6px 2px 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-ghost);
+}
+
+.segmented {
+  display: flex;
+  border: 1px solid var(--paper-border);
+  border-radius: 999px;
+  background: var(--paper-surface-2);
+  overflow: hidden;
+}
+
+.segment {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding-inline: 8px;
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  transition: background var(--t), color var(--t);
+}
+.segment + .segment { border-inline-start: 1px solid var(--paper-border); }
+.segment:hover { color: var(--ink); background: var(--paper-surface); }
+
+.segmentOn,
+.segmentOn:hover {
+  background: var(--ink);
+  color: var(--paper-surface);
+}
+
+/* The three "A" glyphs grow with the size they pick. */
+.size-default,
+.size-large,
+.size-larger {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  line-height: 1;
+}
+.size-default { font-size: 12px; }
+.size-large   { font-size: 15px; }
+.size-larger  { font-size: 19px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .panel { animation: none; }
+  .trigger:hover { transform: none; }
+}

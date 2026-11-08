@@ -1,4 +1,5 @@
 import { useSortable } from '@dnd-kit/sortable';
+import { boardTranslate } from '../textSize';
 import { useTranslation } from 'react-i18next';
 import type { Task, Category, PaperSwatchId } from '../types';
 import { PAPER_SWATCHES } from '../types';
@@ -83,7 +84,7 @@ export function PostItNote({
   // animating the card we set an inline transform, which would otherwise
   // strip that rotation — so we compose translate + rotate ourselves.
   const inlineTransform = transform
-    ? `translate3d(${transform.x}px, ${transform.y}px, 0) rotate(${rotation.toFixed(2)}deg)`
+    ? `${boardTranslate(transform)} rotate(${rotation.toFixed(2)}deg)`
     : undefined;
 
   const style: React.CSSProperties = {

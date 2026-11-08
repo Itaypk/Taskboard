@@ -537,11 +537,17 @@
     "message": "Доступна новая версия {{appName}}.",
     "refresh": "Обновить"
   },
-  "viewToggle": {
-    "switchToCard": "Переключить на карточки",
-    "cardView": "Вид карточками",
-    "switchToCompact": "Переключить на компактный вид",
-    "compactView": "Компактный вид"
+  "displayMenu": {
+    "label": "Параметры отображения",
+    "layout": "Макет",
+    "cards": "Карточки",
+    "compact": "Компактно",
+    "textSize": "Размер текста",
+    "textSizes": {
+      "default": "Обычный размер текста",
+      "large": "Крупный текст",
+      "larger": "Очень крупный текст"
+    }
   },
   "eventsSection": {
     "heading": "События ({{count}})",
