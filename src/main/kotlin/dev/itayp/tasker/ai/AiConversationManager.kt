@@ -57,6 +57,16 @@ class AiConversationManager(
     fun continueConversation(conversationId: UUID): TurnOutcome = invokeModel(conversationId)
 
     /**
+     * Like [continueConversation], but tells the model that its previous attempt was a malformed
+     * tool call (see [TurnOutcome.Empty.malformedToolCall]). Re-issuing the identical request tends
+     * to reproduce that mistake, while any new input usually unblocks it — in production, the user
+     * replying "Sure" did. The note is sent with this one request only and never stored, so the
+     * transcript holds no message the user didn't write.
+     */
+    fun continueAfterMalformedToolCall(conversationId: UUID): TurnOutcome =
+        invokeModel(conversationId, transientNote = MALFORMED_TOOL_CALL_NOTE)
+
+    /**
      * Records a `tool_result` message for [toolCallId] in the conversation transcript.
      * Every tool_call_id emitted by the model must have a matching result before the
      * next model call.
@@ -71,7 +81,7 @@ class AiConversationManager(
         )
     }
 
-    private fun invokeModel(conversationId: UUID): TurnOutcome {
+    private fun invokeModel(conversationId: UUID, transientNote: String? = null): TurnOutcome {
         val conversation = conversationService.findById(conversationId)
             ?: error("Conversation $conversationId not found")
 
@@ -92,7 +102,8 @@ class AiConversationManager(
         val systemMessage = conversation.systemPrompt
             ?.let { listOf(ChatMessage.cacheable(role = "system", text = it)) }
             ?: emptyList()
-        val messages = systemMessage + storedMessages
+        val note = transientNote?.let { listOf(ChatMessage(role = "user", content = it)) } ?: emptyList()
+        val messages = systemMessage + storedMessages + note
 
         val request = ChatRequest(
             model = conversation.model,
@@ -121,7 +132,7 @@ class AiConversationManager(
         // practice, since a provider that never generated anything bills nothing).
         if (toolCalls.isNullOrEmpty() && contentText.isNullOrBlank()) {
             logEmptyTurn(conversationId, response, choice)
-            return TurnOutcome.Empty
+            return TurnOutcome.Empty(malformedToolCall = choice?.nativeFinishReason == MALFORMED_FUNCTION_CALL)
         }
 
         val usage = response.usage
@@ -165,5 +176,15 @@ class AiConversationManager(
             choice?.nativeFinishReason,
             choice?.error ?: response.error,
         )
+    }
+
+    private companion object {
+        /** Gemini's native finish reason for a tool call it could not serialize. */
+        const val MALFORMED_FUNCTION_CALL = "MALFORMED_FUNCTION_CALL"
+
+        const val MALFORMED_TOOL_CALL_NOTE =
+            "(System note, not from the user: your previous response was a malformed tool call and " +
+                "could not be processed. Continue from where you were, calling the tool again with " +
+                "valid JSON arguments that match its schema.)"
     }
 }
