@@ -88,3 +88,40 @@ describe('MarkdownRenderer checklists', () => {
     expect(onCardKey).not.toHaveBeenCalled();
   });
 });
+
+describe('MarkdownRenderer truncation', () => {
+  function renderTruncated(content: string, maxLength: number) {
+    return render(
+      <MemoryRouter>
+        <MarkdownRenderer content={content} maxLength={maxLength} showExpandButton={false} />
+      </MemoryRouter>,
+    );
+  }
+
+  it('never cuts through link syntax', () => {
+    const { container } = renderTruncated(
+      'Per protocol, use the [Self Assessment](https://www.example.com/a/very/long/path/to/the/self-assessment-form) and then report back to the team.',
+      45,
+    );
+
+    const link = screen.getByRole('link', { name: 'Self Assessment' });
+    expect(link).toHaveAttribute('href', 'https://www.example.com/a/very/long/path/to/the/self-assessment-form');
+    expect(container.textContent).not.toContain('](');
+    expect(container.textContent).toMatch(/…$/);
+    expect(container.textContent).not.toContain('report');
+  });
+
+  it('counts visible text, not markdown syntax', () => {
+    const { container } = renderTruncated('**bold** [short](https://example.com/' + 'x'.repeat(200) + ')', 20);
+
+    expect(container.textContent?.trim()).toBe('bold short');
+  });
+
+  it('drops blocks after the cut point', () => {
+    const { container } = renderTruncated('First paragraph here.\n\nSecond paragraph that is long.\n\n- [ ] hidden item', 30);
+
+    expect(container.textContent).toContain('First paragraph here.');
+    expect(container.textContent).not.toContain('hidden');
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+  });
+});
