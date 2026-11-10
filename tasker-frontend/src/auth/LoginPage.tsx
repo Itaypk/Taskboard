@@ -13,6 +13,7 @@ import pineappleUrl from '../assets/pineapple.webp';
 import pineappleSmUrl from '../assets/pineapple-sm.webp';
 import styles from './LoginPage.module.css';
 import { Arrow } from '../components/Arrow';
+import { MailIcon, TelegramIcon } from './loginIcons';
 
 // This mascot's own rendered width at each `.pineapple-pet` breakpoint (index.css) — see the
 // `sizes` doc on mascots.ts's Mascot interface for why this must be pineapple's own aspect ratio,
@@ -439,24 +440,3 @@ function PasswordForm() {
 //         </svg>
 //     );
 // }
-
-function TelegramIcon() {
-    return (
-        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="12" r="12" fill="#2aabee" />
-            <path
-                fill="#fff"
-                d="M5.5 11.9l11-4.25c.51-.18.96.12.79.9l-1.87 8.82c-.13.62-.5.77-1.02.48l-2.82-2.08-1.36 1.31c-.15.15-.28.28-.57.28l.2-2.88 5.25-4.74c.23-.2-.05-.32-.35-.12l-6.49 4.08-2.8-.87c-.6-.19-.62-.6.13-.89z"
-            />
-        </svg>
-    );
-}
-
-function MailIcon() {
-    return (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-            <rect x="3" y="5" width="18" height="14" rx="2.5" />
-            <path d="M4 7l8 6 8-6" />
-        </svg>
-    );
-}

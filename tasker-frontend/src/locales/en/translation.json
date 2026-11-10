@@ -290,6 +290,28 @@
       "generic": "Something went wrong. Please try again."
     }
   },
+  "saveAccountModal": {
+    "title": "Save your account",
+    "savedTitle": "Account saved",
+    "close": "Close",
+    "intro": "Add a way to sign in so you can get back to this board from any device. Your tasks stay exactly as they are.",
+    "telegram": "Continue with Telegram",
+    "email": "Continue with email",
+    "emailLabel": "Email address",
+    "emailPlaceholder": "you@example.com",
+    "sendLink": "Send confirmation link",
+    "sending": "Sending…",
+    "emailSent": "We sent a confirmation link to <strong>{{email}}</strong>. Open it to save your account; it works for 24 hours. You can keep using the board in the meantime.",
+    "useDifferentEmail": "Use a different email",
+    "savedBody": "Your account is saved. You can now sign in from any device and get back to your board.",
+    "done": "Done",
+    "noMethods": "There's no sign-in method to add on this instance. Ask whoever runs it to turn on email or Telegram.",
+    "errors": {
+      "emailTaken": "That email already has its own account, and this board can't be moved into it. Use a different address to keep this board.",
+      "rateLimited": "Too many confirmation emails just now. Please wait a few minutes and try again.",
+      "sendFailed": "Couldn't send the confirmation link. Please try again."
+    }
+  },
   "invitePage": {
     "loading": "Loading…",
     "yourAccount": "your account",
@@ -800,7 +822,7 @@
     "makeMember": "Make member",
     "makeOwner": "Make owner",
     "remove": "Remove",
-    "inviteHint": "Link a login method (Telegram or a verified email) in Settings to invite people to this board.",
+    "inviteHint": "Save your account with Telegram or a verified email to invite people to this board.",
     "invitePlaceholder": "invite by email…",
     "invite": "Invite",
     "pendingInvitations": "Pending invitations",

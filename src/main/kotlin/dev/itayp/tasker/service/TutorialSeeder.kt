@@ -35,8 +35,9 @@ class TutorialSeeder(
 
     /**
      * A seeded tutorial card. [url] carries an in-app deep link the client resolves: an internal route
-     * (`/settings/<tab>`) or an action token (`app:clear-tutorial`). These bypass the API's `https?://`
-     * URL validation because they're written straight to the repository — users can never create them.
+     * (`/settings/<tab>`) or an action token (`app:clear-tutorial`, `app:save-account`). These bypass
+     * the API's `https?://` URL validation because they're written straight to the repository — users
+     * can never create them.
      */
     private data class TutorialCard(val title: String, val url: String?, val description: String?)
 
@@ -86,7 +87,7 @@ class TutorialSeeder(
         /** Card message-key stems, in board order, each with the in-app deep link it carries. */
         private val CARD_KEYS = listOf(
             "welcome" to null,
-            "save_tasks" to "/settings/general",
+            "save_tasks" to "app:save-account",
             "assistant" to "/settings/assistant",
             // "Add your own task" sits late on purpose: the planner ignores tutorial cards, so the
             // planning card below only pays off once the user has real tasks to plan.

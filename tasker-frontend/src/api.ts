@@ -437,8 +437,8 @@ export const fetchAiUsage = (): Promise<AiUsage> =>
 export const clearDeadlineMutes = (): Promise<{ cleared: number }> =>
     apiRequest('/settings/deadline-mutes', { method: 'DELETE' });
 
-export const requestEmailVerification = (email: string): Promise<void> =>
-    apiRequest('/settings/email', { method: 'POST', ...jsonBody({ email }) });
+export const requestEmailVerification = (email: string, config?: RequestConfig): Promise<void> =>
+    apiRequest('/settings/email', { method: 'POST', ...jsonBody({ email }) }, config);
 
 // --- Feedback ---
 
