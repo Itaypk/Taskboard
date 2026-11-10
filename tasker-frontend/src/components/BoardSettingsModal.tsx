@@ -44,6 +44,8 @@ interface BoardSettingsModalProps {
     onLeft: () => void;
     /** Called after the board is deleted, so the shell can switch boards. */
     onDeleted: () => void;
+    /** Opens the "save my account" flow; shown in place of the invite form when `canInvite` is false. */
+    onSaveAccount?: () => void;
 }
 
 type Confirm =
@@ -65,7 +67,7 @@ function formatDate(iso: string): string {
 
 export function BoardSettingsModal({
     open, board, currentUserId, canDelete, canInvite, initialTab, categories, tags, tasks,
-    onClose, onMembershipChanged, onBoardChanged, onCategoriesChanged, onTagsChanged, onLeft, onDeleted,
+    onClose, onMembershipChanged, onBoardChanged, onCategoriesChanged, onTagsChanged, onLeft, onDeleted, onSaveAccount,
 }: BoardSettingsModalProps) {
     const { t } = useTranslation();
     const boardTabs = BOARD_TAB_IDS.map(id => ({ id, label: t(BOARD_TAB_LABEL_KEYS[id]) }));
@@ -404,9 +406,16 @@ export function BoardSettingsModal({
                         )}
 
                         {isOwner && !canInvite && (
-                            <p className={styles.inviteHint}>
-                                {t('boardSettingsModal.inviteHint')}
-                            </p>
+                            <>
+                                <p className={styles.inviteHint}>
+                                    {t('boardSettingsModal.inviteHint')}
+                                </p>
+                                {onSaveAccount && (
+                                    <button type="button" className="btn btn--primary btn--sm" onClick={onSaveAccount}>
+                                        {t('app.nudgeCta')}
+                                    </button>
+                                )}
+                            </>
                         )}
 
                         {isOwner && canInvite && (

@@ -41,6 +41,7 @@ import { MoveTaskModal } from './components/MoveTaskModal';
 import { UserMenu } from './components/UserMenu';
 import { StatsModal } from './components/StatsModal';
 import { FeedbackModal } from './components/FeedbackModal';
+import { SaveAccountModal } from './components/SaveAccountModal';
 import { BoardSettingsModal } from './components/BoardSettingsModal';
 import { DEFAULT_SETTINGS } from './data';
 import { fetchBoards, createBoard, duplicateBoard, fetchTasks, fetchCategories, fetchUserSettings, fetchTags, updateTag, fetchCurrentPlan, fetchSync, createTask, updateTask, deleteTask, duplicateTask, moveTaskToBoard, reorderTask, removeTaskFromPlan, clearTutorialTasks, addTaskToPlan, changeTaskSlot, notifyError, fetchMembers, setTaskAssignee, type TaskStatusFilter, type Board, type BoardMember } from './api';
@@ -141,6 +142,7 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
   const [isCreating, setIsCreating]   = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [saveAccountOpen, setSaveAccountOpen] = useState(false);
   // Keyed to its board so a stale fetch from a previous board is ignored without a synchronous reset.
   const [memberData, setMemberData]   = useState<{ boardId: string; members: BoardMember[] } | null>(null);
   const [leavingId, setLeavingId]     = useState<string | null>(null);
@@ -513,10 +515,12 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
         switch (link.action) {
           case 'clear-tutorial': void handleClearTutorial(); break;
           case 'open-planner': openPlanDrawer(); break;
+          // Once claimed there's nothing left to save; the card then points at connected accounts.
+          case 'save-account': if (claimed) navigate('/settings/general'); else setSaveAccountOpen(true); break;
         }
         break;
     }
-  }, [navigate, handleClearTutorial, openPlanDrawer]);
+  }, [navigate, handleClearTutorial, openPlanDrawer, claimed]);
 
   // `latest` comes from a drawer that just saved edits: `tasks` in this closure predates that save,
   // and the PUT is a full replace, so building on the stale copy would undo the edits.
@@ -1060,12 +1064,15 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
 
       <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
 
+      <SaveAccountModal open={saveAccountOpen} onClose={() => setSaveAccountOpen(false)} />
+
       <BoardSettingsModal
         open={boardSettingsOpen}
         board={activeBoard}
         currentUserId={currentUserId}
         canDelete={boards.length > 1}
         canInvite={claimed}
+        onSaveAccount={() => { setBoardSettingsOpen(false); setSaveAccountOpen(true); }}
         initialTab={boardSettingsTab}
         categories={settings.categories}
         tags={tags}
@@ -1159,7 +1166,7 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
           <button
             type="button"
             className="account-nudge__cta"
-            onClick={() => navigate('/settings/general')}
+            onClick={() => setSaveAccountOpen(true)}
           >
             {t('app.nudgeCta')}
           </button>

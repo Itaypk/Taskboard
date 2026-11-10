@@ -96,7 +96,7 @@ class TutorialSeederTest {
         assertTrue(tasks.all { it.createdAt == clock.instant() })
 
         val byTitleUrl = tasks.associate { it.title() to it.url }
-        assertEquals("/settings/general", byTitleUrl["Save your tasks — add an email or Telegram"])
+        assertEquals("app:save-account", byTitleUrl["Save your tasks — add an email or Telegram"])
         assertEquals("/settings/assistant", byTitleUrl["Set your assistant preferences"])
         assertEquals("app:open-planner", byTitleUrl["Now try your first planning session"])
         assertEquals("app:clear-tutorial", byTitleUrl["Clear these tutorial tasks when you\u2019re ready"])
@@ -107,7 +107,7 @@ class TutorialSeederTest {
         // Board order is the lesson order, and it matters: the planner ignores tutorial cards, so
         // "try a planning session" only pays off once "add your own task" has been done first.
         assertEquals(
-            listOf(null, "/settings/general", "/settings/assistant", null, "app:open-planner", "app:clear-tutorial"),
+            listOf(null, "app:save-account", "/settings/assistant", null, "app:open-planner", "app:clear-tutorial"),
             tasks.sortedBy { it.sortKey }.map { it.url },
         )
 
@@ -149,7 +149,7 @@ class TutorialSeederTest {
         val tasks = seedAndCapture(categories)
 
         assertEquals(
-            listOf(null, "/settings/general", null, "app:clear-tutorial"),
+            listOf(null, "app:save-account", null, "app:clear-tutorial"),
             tasks.sortedBy { it.sortKey }.map { it.url },
         )
     }

@@ -1,0 +1,32 @@
+.modal {
+  width: 440px;
+}
+
+.lead {
+  font-family: var(--font-serif);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ink);
+  margin: 4px 0 16px;
+}
+
+.methods {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-block-end: 8px;
+}
+
+.method {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+}
+
+.emailForm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}

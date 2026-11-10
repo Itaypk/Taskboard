@@ -1,13 +1,13 @@
 // Interpretation of a task's `url` field. Most tasks hold an external `https://` link, but seeded
 // tutorial tasks carry in-app deep links — an internal route (`/settings/<tab>`) or an action token
-// (`app:clear-tutorial`, `app:open-planner`). Classification is allowlist-based: anything
+// (`app:clear-tutorial`, `app:open-planner`, `app:save-account`). Classification is allowlist-based: anything
 // unrecognized resolves to `null` so we never render or follow an unsafe scheme (`javascript:`,
 // `data:`, …). Users can't create the internal/action forms (the API rejects non-http urls), so
 // they only ever originate from the seeder.
 
 import i18n from './i18n';
 
-export type TaskAction = 'clear-tutorial' | 'open-planner';
+export type TaskAction = 'clear-tutorial' | 'open-planner' | 'save-account';
 
 export type TaskLink =
   | { kind: 'external'; href: string }
@@ -18,6 +18,7 @@ export type TaskLink =
 const ACTIONS: Record<string, TaskAction> = {
   'app:clear-tutorial': 'clear-tutorial',
   'app:open-planner': 'open-planner',
+  'app:save-account': 'save-account',
 };
 
 export function resolveTaskLink(url: string | null | undefined): TaskLink {
@@ -51,6 +52,7 @@ export function linkLabel(link: TaskLink): string {
       switch (link.action) {
         case 'clear-tutorial': return i18n.t('taskLink.clearTutorial');
         case 'open-planner': return i18n.t('taskLink.openPlanner');
+        case 'save-account': return i18n.t('app.nudgeCta');
       }
   }
 }
