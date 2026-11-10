@@ -39,30 +39,71 @@ function truncateAtWord(text: string, maxLen: number): string {
     const lastPunct = Math.max(slice.lastIndexOf('.'), slice.lastIndexOf('!'), slice.lastIndexOf('?'));
     const lastSpace = slice.lastIndexOf(' ');
     const breakPoint = lastPunct > lastSpace ? lastPunct + 1 : lastSpace > 0 ? lastSpace : maxLen;
-    return slice.substring(0, breakPoint) + '…';
+    return slice.substring(0, breakPoint);
+}
+
+/**
+ * Cuts rendered markup down to `maxLen` characters of visible text, in place. Truncating the
+ * rendered DOM rather than the markdown source means a cut can never land inside markdown syntax
+ * (a link's `](url)`, a `**`), and the syntax itself doesn't eat into the budget.
+ * Returns whether anything was cut.
+ */
+function truncateRendered(root: HTMLElement, maxLen: number): boolean {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let remaining = maxLen;
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        const text = node.textContent ?? '';
+        // Whitespace between blocks (marked's newlines) isn't visible text.
+        if (text.trim() === '') continue;
+        if (text.length <= remaining) {
+            remaining -= text.length;
+            continue;
+        }
+        node.textContent = truncateAtWord(text, remaining).trimEnd() + '…';
+        removeEverythingAfter(node, root);
+        return true;
+    }
+    return false;
+}
+
+/** Drops every node that follows `node` in document order, up to (not including) `root`. */
+function removeEverythingAfter(node: Node, root: Node) {
+    for (let current: Node | null = node; current && current !== root; current = current.parentNode) {
+        while (current.nextSibling) current.nextSibling.remove();
+    }
 }
 
 const ALLOWED_ATTR = ['href', 'title', 'src', 'alt', 'align', 'dir', 'type', 'checked', 'disabled'];
 // marked renders checklist boxes as `disabled`; dropping that attribute is what makes them clickable.
 const INTERACTIVE_ALLOWED_ATTR = ALLOWED_ATTR.filter(attr => attr !== 'disabled');
 
-function renderMarkdown(markdown: string, interactive = false): string {
+interface RenderedMarkdown {
+    html: string;
+    truncated: boolean;
+}
+
+function renderMarkdown(markdown: string, interactive: boolean, maxLength?: number): RenderedMarkdown {
     try {
         const html = marked.parse(markdown) as string;
         // DOMPurify sanitizes the marked output to prevent XSS
-        return DOMPurify.sanitize(html, {
+        const sanitized = DOMPurify.sanitize(html, {
             ALLOWED_TAGS: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'br', 'strong', 'em', 'b', 'i', 'u',
                            'code', 'pre', 'ul', 'ol', 'li', 'blockquote', 'a', 'img',
                            'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr', 'input'],
             ALLOWED_ATTR: interactive ? INTERACTIVE_ALLOWED_ATTR : ALLOWED_ATTR,
-        });
+            RETURN_DOM: true,
+            // Typed as Node, but RETURN_DOM always hands back the sanitized <body>.
+        }) as HTMLElement;
+        const truncated = maxLength !== undefined && truncateRendered(sanitized, maxLength);
+        return { html: sanitized.innerHTML, truncated };
     } catch (error) {
         console.error('Error rendering markdown:', error);
-        return markdown
+        const escaped = markdown
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/\n/g, '<br>');
+        return { html: escaped, truncated: false };
     }
 }
 
@@ -101,8 +142,10 @@ function MarkdownRenderer({ content, maxLength, showExpandButton = true, onToggl
 
     if (!content) return <div className="markdown-content" />;
 
-    const needsTruncation = maxLength !== undefined && content.length > maxLength;
-    const displayContent = needsTruncation && !isExpanded ? truncateAtWord(content, maxLength) : content;
+    const interactive = onToggleCheckbox !== undefined;
+    const rendered = renderMarkdown(content, interactive, isExpanded ? undefined : maxLength);
+    // Once expanded, the full render no longer reports a cut; keep the "show less" button.
+    const needsTruncation = rendered.truncated || isExpanded;
 
     return (
         <div className="markdown-renderer-wrapper">
@@ -115,7 +158,7 @@ function MarkdownRenderer({ content, maxLength, showExpandButton = true, onToggl
                 onClick={handleClick}
                 // Space on a focused checkbox must toggle it, not open or drag the surrounding card.
                 onKeyDown={(e: KeyboardEvent) => { if (isCheckbox(e.target)) e.stopPropagation(); }}
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(displayContent, onToggleCheckbox !== undefined) }}
+                dangerouslySetInnerHTML={{ __html: rendered.html }}
             />
             {needsTruncation && showExpandButton && (
                 <button
