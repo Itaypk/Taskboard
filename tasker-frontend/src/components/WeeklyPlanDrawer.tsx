@@ -17,7 +17,8 @@ import {
   type RenderedMessage,
 } from '../api';
 import type { CurrentPlan, OneOffEvent } from '../types';
-import MarkdownRenderer from './MarkdownRenderer';
+import { AssistantBubble, ThinkingDots, UserBubble } from './ChatMessages';
+import { QuickAddCapture } from './QuickAddCapture';
 import { ConfirmDialog } from './ConfirmDialog';
 import { EventsSection } from './EventsSection';
 import { PlanDetails } from './PlanDetails';
@@ -30,12 +31,14 @@ import { usePublicConfig } from '../publicConfig';
 interface WeeklyPlanDrawerProps {
   open: boolean;
   onClose: () => void;
+  /** The open board. Tasks typed into the empty-backlog capture are saved there; without it the capture isn't offered. */
+  boardId?: string | null;
   /** The plan for the week containing today (the board's anchor), shown read-only as the default view. */
   currentPlan: CurrentPlan | null;
   /** Open a task from the plan's task list. */
   onTaskClick: (taskId: string) => void;
   onTaskContextMenu?: (e: React.MouseEvent, taskId: string) => void;
-  /** Called whenever a turn finalizes a plan, so the board can refresh the read-only plan view. */
+  /** Called whenever a turn finalizes a plan or a capture saves tasks, so the board can refresh. */
   onFinalized: () => void;
 }
 
@@ -53,7 +56,7 @@ type Turn = UserTurn | AssistantTurn;
 
 const DONE = 'DONE';
 
-export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTaskContextMenu, onFinalized }: WeeklyPlanDrawerProps) {
+export function WeeklyPlanDrawer({ open, onClose, boardId, currentPlan, onTaskClick, onTaskContextMenu, onFinalized }: WeeklyPlanDrawerProps) {
   const { t } = useTranslation();
   const [view, setView] = useState<'overview' | 'chat'>('overview');
   const [entry, setEntry] = useState<PlanningEntry | null>(null);
@@ -400,6 +403,17 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
                 loading={entryLoading}
                 busy={thinking}
                 onStart={planForWeek}
+                capture={boardId ? (
+                  // An empty backlog is where nearly every new account starts, so instead of
+                  // sending the user away to add tasks, take them right here. Saving doesn't start
+                  // a session: reloading the overview finds the new tasks and enables the buttons.
+                  <QuickAddCapture
+                    boardId={boardId}
+                    prompt={t('weeklyPlanDrawer.capturePrompt')}
+                    onBoardChanged={onFinalized}
+                    onFinished={loadOverview}
+                  />
+                ) : null}
                 onRevise={id => void begin(() => revisePlanning(id))}
                 onContinue={id => void resume(id)}
                 onAbandon={async id => { try { await abandonPlanning(id); } catch {/* ignore */} onFinalized(); resetToOverview(); }}
@@ -408,9 +422,7 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
           ) : (
             <div className={styles.chat}>
               {transcript.map((turn, i) => turn.role === 'user' ? (
-                <div key={turn.id} className={`${styles.msg} ${styles.msgUser}`}>
-                  <div className={styles.bubbleUser}>{turn.text}</div>
-                </div>
+                <UserBubble key={turn.id} text={turn.text} />
               ) : (
                 <AssistantBubble
                   key={turn.id}
@@ -420,7 +432,7 @@ export function WeeklyPlanDrawer({ open, onClose, currentPlan, onTaskClick, onTa
                   onChip={text => void send(text)}
                 />
               ))}
-              {thinking && <div className={styles.thinking}><span /><span /><span /></div>}
+              {thinking && <ThinkingDots />}
               {phase === DONE && (
                 <div className={styles.doneBar}>
                   <span className={styles.doneLabel}>{t('weeklyPlanDrawer.planFinalized')}</span>
@@ -516,38 +528,7 @@ function OverridePlanDialog({ open, offset, onRevise, onPlanFresh, onClose }: {
   );
 }
 
-function AssistantBubble({ message, interactive, onChoose, onChip }: {
-  message: RenderedMessage;
-  interactive: boolean;
-  onChoose: (label: string, id: string) => void;
-  onChip: (text: string) => void;
-}) {
-  return (
-    <div className={`${styles.msg} ${styles.msgAssistant}`}>
-      <div className={styles.bubbleAssistant}>
-        <MarkdownRenderer content={message.text} />
-      </div>
-      {message.type === 'choice' && interactive && message.options.length > 0 && (
-        <div className={styles.choiceList}>
-          {message.options.map(opt => (
-            <button key={opt.id} type="button" className={styles.choiceBtn} onClick={() => onChoose(opt.label, opt.id)}>
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      )}
-      {message.type === 'text' && interactive && message.completions.length > 0 && (
-        <div className={styles.chips}>
-          {message.completions.map((c, i) => (
-            <button key={i} type="button" className={styles.chip} onClick={() => onChip(c)}>{c}</button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function OverviewActions({ entry, viewedPlan, weekRel, loading, busy, onStart, onRevise, onContinue, onAbandon }: {
+function OverviewActions({ entry, viewedPlan, weekRel, loading, busy, onStart, capture, onRevise, onContinue, onAbandon }: {
   entry: PlanningEntry | null;
   viewedPlan: CurrentPlan | null;
   /** The viewed week relative to today's week — decides which planning actions are offered. */
@@ -555,6 +536,8 @@ function OverviewActions({ entry, viewedPlan, weekRel, loading, busy, onStart, o
   loading: boolean;
   busy: boolean;
   onStart: (offset: 'CURRENT' | 'NEXT') => void;
+  /** Shown in place of the "nothing to plan" hint: a way to add tasks on the spot. Null when unavailable. */
+  capture: React.ReactNode;
   onRevise: (sessionId: string) => void;
   onContinue: (sessionId: string) => void;
   onAbandon: (sessionId: string) => void;
@@ -581,9 +564,7 @@ function OverviewActions({ entry, viewedPlan, weekRel, loading, busy, onStart, o
   // aiOff wins when both apply: it's the harder block, and one note at a time reads better.
   const nothingToPlan = entry.plannableTaskCount === 0;
   const startHint = aiHint ?? (nothingToPlan ? (
-    <p className={styles.actionsNote}>
-      {t('weeklyPlanDrawer.nothingToPlanHint')}
-    </p>
+    capture ?? <p className={styles.actionsNote}>{t('weeklyPlanDrawer.nothingToPlanHint')}</p>
   ) : null);
   const startDisabled = busy || aiOff || nothingToPlan;
 

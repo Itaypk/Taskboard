@@ -112,6 +112,7 @@ class TaskSuggestionAgent(
         clarifications: List<ClarificationExchange> = emptyList(),
         mustDraft: Boolean = false,
         unprompted: Boolean = false,
+        boardId: UUID? = null,
     ): SuggestionOutcome = runQuickAdd(
         userId = userId,
         request = request,
@@ -120,6 +121,7 @@ class TaskSuggestionAgent(
         clarifications = clarifications,
         mustDraft = mustDraft,
         unprompted = unprompted,
+        boardId = boardId,
     )
 
     /**
@@ -199,6 +201,7 @@ class TaskSuggestionAgent(
         instruction: String,
         clarifications: List<ClarificationExchange> = emptyList(),
         mustDraft: Boolean = false,
+        boardId: UUID? = null,
     ): SuggestionOutcome = runQuickAdd(
         userId = userId,
         request = request,
@@ -206,6 +209,7 @@ class TaskSuggestionAgent(
         previousItems = previousItems,
         clarifications = clarifications,
         mustDraft = mustDraft,
+        boardId = boardId,
     )
 
     private fun runQuickAdd(
@@ -218,6 +222,8 @@ class TaskSuggestionAgent(
         attachments: List<InboundAttachment> = emptyList(),
         unprompted: Boolean = false,
         emailBlock: String = "",
+        /** The board whose categories and tags the draft may use; null for the user's default board. */
+        boardId: UUID? = null,
     ): SuggestionOutcome {
         val settings = userSettingsService.getOrCreate(userId)
         val zone = runCatching { ZoneId.of(settings.timeZone) }.getOrDefault(ZoneId.of("UTC"))
@@ -227,8 +233,8 @@ class TaskSuggestionAgent(
             Locale.forLanguageTag(settings.preferredLanguage).getDisplayLanguage(Locale.ENGLISH)
         }.getOrNull()?.takeIf { it.isNotBlank() } ?: "English"
 
-        val categories = categoryService.getAllForUser(userId)
-        val tags = tagService.getAllForUser(userId)
+        val categories = boardId?.let { categoryService.getCategories(userId, it) } ?: categoryService.getAllForUser(userId)
+        val tags = boardId?.let { tagService.getTags(userId, it) } ?: tagService.getAllForUser(userId)
         val sample = backlogTaskService.getTasksAcrossBoards(userId, null).take(SAMPLE_SIZE)
 
         // The third reply shape exists only for a capture the user didn't ask for (`docs/

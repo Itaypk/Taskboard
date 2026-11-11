@@ -1033,6 +1033,7 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
       <WeeklyPlanDrawer
         open={planDrawerOpen}
         onClose={() => setPlanDrawerOpen(false)}
+        boardId={activeBoardId}
         currentPlan={currentPlan}
         onTaskClick={(taskId) => {
           setPlanDrawerOpen(false);
