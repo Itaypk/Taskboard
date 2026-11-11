@@ -66,7 +66,7 @@ class TaskSuggestionAgent(
 
         val categories = categoryService.getAllForUser(userId)
         val tags = tagService.getAllForUser(userId)
-        val sample = backlogTaskService.getTasksAcrossBoards(userId, null).take(SAMPLE_SIZE)
+        val sample = backlogTaskService.getAssistantVisibleTasks(userId, null).take(SAMPLE_SIZE)
 
         val systemPrompt = promptTemplateLoader.load("task-suggestion/system.md").render(mapOf(
             "external_content_rule" to ExternalContent.RULE,
@@ -235,7 +235,7 @@ class TaskSuggestionAgent(
 
         val categories = boardId?.let { categoryService.getCategories(userId, it) } ?: categoryService.getAllForUser(userId)
         val tags = boardId?.let { tagService.getTags(userId, it) } ?: tagService.getAllForUser(userId)
-        val sample = backlogTaskService.getTasksAcrossBoards(userId, null).take(SAMPLE_SIZE)
+        val sample = backlogTaskService.getAssistantVisibleTasks(userId, null).take(SAMPLE_SIZE)
 
         // The third reply shape exists only for a capture the user didn't ask for (`docs/
         // FREE-TEXT-CAPTURE.md` D2): with `/add`, or on any later round of a live capture, the

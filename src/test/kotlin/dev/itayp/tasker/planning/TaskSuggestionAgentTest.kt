@@ -66,7 +66,7 @@ class TaskSuggestionAgentTest {
             listOf(BacklogTaskCategory(UUID.randomUUID(), userId, "Health", CategoryColor.PEACH)),
         )
         whenever(tagService.getAllForUser(userId)).thenReturn(emptyList())
-        whenever(backlogTaskService.getTasksAcrossBoards(userId, null)).thenReturn(emptyList())
+        whenever(backlogTaskService.getAssistantVisibleTasks(userId, null)).thenReturn(emptyList())
     }
 
     private fun userSettings() = UserSettings(
