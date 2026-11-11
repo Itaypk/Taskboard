@@ -1,5 +1,6 @@
 package dev.itayp.tasker.service
 
+import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.crypto.BoardCryptoService
 import dev.itayp.tasker.jpa.BacklogTaskEntity
 import dev.itayp.tasker.jpa.BacklogTaskTagEntity
@@ -57,6 +58,7 @@ class BacklogTaskService(
     private val clock: Clock,
     private val taskCompletionCancellationService: TaskCompletionCancellationService,
     private val plannedTaskService: PlannedTaskService,
+    private val aiAccessService: AiAccessService,
 ) {
     private val log = LoggerFactory.getLogger(BacklogTaskService::class.java)
 
@@ -73,17 +75,31 @@ class BacklogTaskService(
     }
 
     /**
-     * Tasks across **every** board the user belongs to — the AI assistant's view (backlog search,
-     * `find_task`, suggestion sampling). `status == null` means everything except archived. The
-     * future-dated filter applies to the TODO view exactly as in [getTasks].
+     * Tasks across **every** board the user belongs to, minus tasks hidden from the assistant —
+     * the external API's cross-board listing. `status == null` means everything except archived.
+     * The future-dated filter applies to the TODO view exactly as in [getTasks].
      *
-     * Tasks the user has hidden from the assistant are dropped here: this method feeds only AI read
-     * paths (the web board view uses [getTasks], which keeps them visible). If a future non-AI caller
-     * is added, revisit this filter.
+     * Not for prompts: a model must only see [getAssistantVisibleTasks], which also drops boards
+     * where a co-member has opted out of AI.
      */
     @Transactional(readOnly = true)
-    fun getTasksAcrossBoards(userId: UUID, status: TaskStatus?): List<BacklogTask> {
-        val boardIds = boardMembershipService.listBoardIds(userId)
+    fun getTasksAcrossBoards(userId: UUID, status: TaskStatus?): List<BacklogTask> =
+        tasksOnBoards(userId, boardMembershipService.listBoardIds(userId), status)
+
+    /**
+     * The AI assistant's view of the backlog (backlog search, suggestion sampling): tasks on the
+     * user's boards that AI may read ([AiAccessService.aiAllowedBoardIds], the same board set the
+     * planner's candidate slate uses), minus tasks hidden from the assistant. Every prompt input
+     * that spans boards must come through here.
+     */
+    @Transactional(readOnly = true)
+    fun getAssistantVisibleTasks(userId: UUID, status: TaskStatus?): List<BacklogTask> {
+        val allowed = aiAccessService.aiAllowedBoardIds(userId)
+        // Keep listBoardIds' stable order rather than the set's.
+        return tasksOnBoards(userId, boardMembershipService.listBoardIds(userId).filter { it in allowed }, status)
+    }
+
+    private fun tasksOnBoards(userId: UUID, boardIds: List<UUID>, status: TaskStatus?): List<BacklogTask> {
         if (boardIds.isEmpty()) return emptyList()
         val entities = when (status) {
             null -> backlogTaskRepository.findAllByBoardIdInAndStatusNotOrderBySortKeyAsc(boardIds, TaskStatus.ARCHIVED)

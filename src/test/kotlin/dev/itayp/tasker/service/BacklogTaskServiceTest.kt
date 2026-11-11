@@ -1,5 +1,6 @@
 package dev.itayp.tasker.service
 
+import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.crypto.noopBoardCryptoService
 import dev.itayp.tasker.jpa.BacklogTaskCategoryEntity
 import dev.itayp.tasker.jpa.BacklogTaskEntity
@@ -56,6 +57,7 @@ class BacklogTaskServiceTest {
     @Mock private lateinit var clock: Clock
     @Mock private lateinit var taskCompletionCancellationService: TaskCompletionCancellationService
     @Mock private lateinit var plannedTaskService: dev.itayp.tasker.planning.PlannedTaskService
+    @Mock private lateinit var aiAccessService: AiAccessService
 
     private val boardCrypto = noopBoardCryptoService()
 
@@ -73,6 +75,7 @@ class BacklogTaskServiceTest {
             clock,
             taskCompletionCancellationService,
             plannedTaskService,
+            aiAccessService,
         )
     }
 
@@ -124,6 +127,32 @@ class BacklogTaskServiceTest {
         val result = service.getTasksAcrossBoards(userId, null)
 
         assertEquals(listOf("Visible"), result.map { it.title })
+    }
+
+    @Test
+    fun `getAssistantVisibleTasks leaves out boards where AI is not allowed`() {
+        val restrictedBoardId = UUID.fromString("00000000-0000-0000-0000-0000000000b2")
+        whenever(boardMembershipService.listBoardIds(userId)).thenReturn(listOf(boardId, restrictedBoardId))
+        whenever(aiAccessService.aiAllowedBoardIds(userId)).thenReturn(setOf(boardId))
+        whenever(backlogTaskRepository.findAllByBoardIdInAndStatusNotOrderBySortKeyAsc(
+            listOf(boardId), TaskStatus.ARCHIVED,
+        )).thenReturn(listOf(
+            taskEntity(categoryEntity(), title = "Visible"),
+            taskEntity(categoryEntity(), title = "Hidden", hiddenFromAssistant = true),
+        ))
+
+        val result = service.getAssistantVisibleTasks(userId, null)
+
+        assertEquals(listOf("Visible"), result.map { it.title })
+    }
+
+    @Test
+    fun `getAssistantVisibleTasks reads nothing when no board allows AI`() {
+        whenever(boardMembershipService.listBoardIds(userId)).thenReturn(listOf(boardId))
+        whenever(aiAccessService.aiAllowedBoardIds(userId)).thenReturn(emptySet())
+
+        assertEquals(emptyList(), service.getAssistantVisibleTasks(userId, null))
+        verify(backlogTaskRepository, never()).findAllByBoardIdInAndStatusNotOrderBySortKeyAsc(any(), any())
     }
 
     @Test
