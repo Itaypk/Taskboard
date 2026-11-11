@@ -155,7 +155,11 @@ val buildFrontend = tasks.register<Exec>("buildFrontend") {
 }
 
 tasks.named<ProcessResources>("processResources") {
-    mustRunAfter(buildFrontend)
+    // The bundle is part of the app, not an optional extra: IndexHtmlController renders every page
+    // from static/index.html, so a classpath without it answers each one with a 404 (and fails
+    // IndexHtmlIntegrationTest). buildFrontend is incremental, so this costs nothing once it's built.
+    // For a backend-only loop without Node, `-x buildFrontend` reuses whatever dist/ is there.
+    dependsOn(buildFrontend)
     from(frontendDist) { into("static") }
     // The static content pages' markdown, which IndexHtmlController renders into the document for
     // clients that don't run JavaScript. Copied straight from the sources (not from dist/), so it is
@@ -166,12 +170,9 @@ tasks.named<ProcessResources>("processResources") {
     }
 }
 
-// Full production build: npm install → frontend bundle → backend JAR with frontend embedded.
-// Default `build` / `bootRun` skip npm entirely.
-tasks.named("build") { mustRunAfter(buildFrontend) }
-
+// Kept as the name CI and the self-hosting guide use; `build` bundles the frontend itself now.
 tasks.register("release") {
     group = "build"
     description = "Builds the full application with the frontend bundle embedded in the JAR"
-    dependsOn(buildFrontend, "build")
+    dependsOn("build")
 }

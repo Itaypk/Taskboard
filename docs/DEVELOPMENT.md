@@ -75,6 +75,10 @@ Backend, from the repo root:
 ./gradlew test --tests "dev.itayp.tasker.SomeTest.method"  # a single test
 ```
 
+Every Gradle build bundles the frontend (`processResources` depends on `buildFrontend`), so Node.js 22
+is needed for backend work too. The npm steps are incremental and skipped once up to date; to skip
+them outright, add `-x buildFrontend`, which reuses whatever is already in `tasker-frontend/dist/`.
+
 Frontend, from `tasker-frontend/`:
 
 ```bash
