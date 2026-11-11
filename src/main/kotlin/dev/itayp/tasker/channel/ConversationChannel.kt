@@ -1,5 +1,7 @@
 package dev.itayp.tasker.channel
 
+import java.util.UUID
+
 /**
  * Thin abstraction over the user-facing communication surface (Telegram today,
  * email/web/etc. tomorrow). The orchestrator only ever talks to this interface;
@@ -14,6 +16,14 @@ interface ConversationChannel {
 
     /** Renders static text and tells the model which markup this channel supports. */
     val formatter: MessageFormatter
+
+    /**
+     * The board this conversation is looking at, when the surface has one: the web UI always has a
+     * board open, a Telegram chat never does. Null means the user's default board
+     * (`BoardMembershipService.resolveDefaultBoard`). The caller that sets it must have checked the
+     * user's membership.
+     */
+    val boardId: UUID? get() = null
 
     fun send(message: ChannelMessage)
 

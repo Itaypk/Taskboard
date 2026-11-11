@@ -5,6 +5,7 @@ import dev.itayp.tasker.channel.InboundAttachment
 import dev.itayp.tasker.channel.MessageFormatter
 import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.ChannelMessage
+import dev.itayp.tasker.channel.ChannelType
 import dev.itayp.tasker.channel.ChoiceOption
 import dev.itayp.tasker.channel.ConversationChannel
 import dev.itayp.tasker.model.BacklogTaskCategory
@@ -111,7 +112,9 @@ class QuickAddFlow(
         if (!allow(userId, channel)) return CaptureEntry.Captured(null)
         val op = PendingOp.Draft(request, emptyList())
         val outcome = channel.whileWorking {
-            suggestionAgent.quickAddDraft(userId, request, emptyList(), mustDraft = false, unprompted = unprompted)
+            suggestionAgent.quickAddDraft(
+                userId, request, emptyList(), mustDraft = false, unprompted = unprompted, boardId = channel.boardId,
+            )
         }
         return renderOutcome(userId, channel, op, outcome, clarifyRound = 1)
     }
@@ -305,11 +308,16 @@ class QuickAddFlow(
             when (val op = state.op) {
                 is PendingOp.Draft -> {
                     val o = PendingOp.Draft(op.originalRequest, newClarifications)
-                    o to suggestionAgent.quickAddDraft(userId, op.originalRequest, newClarifications, mustDraft)
+                    o to suggestionAgent.quickAddDraft(
+                        userId, op.originalRequest, newClarifications, mustDraft, boardId = channel.boardId,
+                    )
                 }
                 is PendingOp.Revise -> {
                     val o = PendingOp.Revise(op.originalRequest, op.items, op.instruction, newClarifications)
-                    o to suggestionAgent.quickAddRevise(userId, op.originalRequest, op.items, op.instruction, newClarifications, mustDraft)
+                    o to suggestionAgent.quickAddRevise(
+                        userId, op.originalRequest, op.items, op.instruction, newClarifications, mustDraft,
+                        boardId = channel.boardId,
+                    )
                 }
             }
         }
@@ -326,7 +334,9 @@ class QuickAddFlow(
     ): QuickAddState? {
         val op = PendingOp.Revise(originalRequest, items, instruction, clarifications)
         val outcome = channel.whileWorking {
-            suggestionAgent.quickAddRevise(userId, originalRequest, items, instruction, clarifications, mustDraft = false)
+            suggestionAgent.quickAddRevise(
+                userId, originalRequest, items, instruction, clarifications, mustDraft = false, boardId = channel.boardId,
+            )
         }
         return renderOutcome(userId, channel, op, outcome, clarifyRound = 1).stateOrNull()
     }
@@ -339,10 +349,10 @@ class QuickAddFlow(
         clarifyRound: Int,
     ): CaptureEntry = when (outcome) {
         is SuggestionOutcome.Draft -> CaptureEntry.Captured(
-            validateItems(userId, outcome.items).let { validated ->
+            validateItems(userId, outcome.items, channel.boardId).let { validated ->
                 if (validated.isEmpty()) {
                     log.warn("quick-add validated to no items; abandoning capture")
-                    channel.send(ChannelMessage.Text(msg(userId, "quickadd.unparseable")))
+                    channel.send(ChannelMessage.Text(msg(userId, unparseableKey(channel))))
                     null
                 } else {
                     renderCard(userId, channel, validated)
@@ -356,7 +366,7 @@ class QuickAddFlow(
             if (clarifyRound > MAX_CLARIFY_ROUNDS) {
                 // The agent asked again despite being told it must draft — give up gracefully.
                 log.warn("quick-add exceeded clarification budget; abandoning capture")
-                channel.send(ChannelMessage.Text(msg(userId, "quickadd.unparseable")))
+                channel.send(ChannelMessage.Text(msg(userId, unparseableKey(channel))))
                 null
             } else {
                 // Normalize option ids to short, stable values (they become channel callback data).
@@ -375,7 +385,7 @@ class QuickAddFlow(
         }
         is SuggestionOutcome.Unparseable -> {
             count("failed")
-            channel.send(ChannelMessage.Text(msg(userId, "quickadd.unparseable")))
+            channel.send(ChannelMessage.Text(msg(userId, unparseableKey(channel))))
             CaptureEntry.Captured(null)
         }
     }
@@ -395,7 +405,7 @@ class QuickAddFlow(
             return null
         }
 
-        val result = runCatching { persist(userId, tasks, events) }
+        val result = runCatching { persist(userId, channel.boardId, tasks, events) }
 
         result.onSuccess { saved ->
             count("saved")
@@ -420,22 +430,22 @@ class QuickAddFlow(
      * the save itself fails, so the caller can retry.
      */
     fun saveWithoutConfirmation(userId: UUID, items: List<CapturedItem>): SavedCapture? {
-        val validated = validateItems(userId, items)
+        val validated = validateItems(userId, items, boardId = null)
         val tasks = validated.filterIsInstance<CapturedItem.Task>().map { it.draft }
         val events = validated.filterIsInstance<CapturedItem.Event>().map { it.draft }
         if (tasks.isEmpty() && events.isEmpty()) return null
         check(tasks.none { it.categoryId.isNullOrBlank() }) { "a task draft had no category" }
-        return persist(userId, tasks, events).also {
+        return persist(userId, boardId = null, tasks, events).also {
             count("saved")
             log.debug("quick-add created {} item(s) without confirmation", it.titles.size)
         }
     }
 
-    private fun persist(userId: UUID, tasks: List<TaskDraft>, events: List<EventDraft>): SavedCapture {
+    private fun persist(userId: UUID, boardId: UUID?, tasks: List<TaskDraft>, events: List<EventDraft>): SavedCapture {
         val titles = mutableListOf<String>()
         val taskIds = mutableListOf<UUID>()
         var invitesSkipped = false
-        val boardId = boardMembershipService.resolveDefaultBoard(userId)
+        val boardId = boardId ?: boardMembershipService.resolveDefaultBoard(userId)
         for (task in tasks) {
             val created = backlogTaskService.createTask(userId, boardId, task.toCreateBacklogTaskRequest())
             titles += created.title
@@ -677,9 +687,9 @@ class QuickAddFlow(
      * events, parses ISO timestamps, defaults a missing/invalid end to start + 60min, and silently
      * drops events whose start is unparseable or far in the past (the agent should have asked).
      */
-    private fun validateItems(userId: UUID, items: List<CapturedItem>): List<CapturedItem> {
+    private fun validateItems(userId: UUID, items: List<CapturedItem>, boardId: UUID?): List<CapturedItem> {
         if (items.isEmpty()) return emptyList()
-        val categories = categoryService.getAllForUser(userId)
+        val categories = categoriesFor(userId, boardId)
         val zone = userZone(userId)
         val nowInstant = clock.instant()
         return items.mapNotNull { item ->
@@ -731,7 +741,7 @@ class QuickAddFlow(
         val f = channel.formatter
         val locale = locale(userId)
         val zone = userZone(userId)
-        val categories = categoryService.getAllForUser(userId)
+        val categories = categoriesFor(userId, channel.boardId)
         val blocks = items.map { item ->
             when (item) {
                 is CapturedItem.Task -> renderTaskBlock(item.draft, categories, f, locale)
@@ -749,6 +759,10 @@ class QuickAddFlow(
             )
         )
     }
+
+    /** The categories of the board the capture saves to: [boardId], or the user's default board. */
+    private fun categoriesFor(userId: UUID, boardId: UUID?): List<BacklogTaskCategory> =
+        boardId?.let { categoryService.getCategories(userId, it) } ?: categoryService.getAllForUser(userId)
 
     private fun renderTaskBlock(
         draft: TaskDraft,
@@ -842,6 +856,10 @@ class QuickAddFlow(
         }
         channel.send(ChannelMessage.Text(msg(userId, key, channel.formatter.escape(truncate(sourceText)))))
     }
+
+    /** Only Telegram has an `/add` command to point the user back to. */
+    private fun unparseableKey(channel: ConversationChannel): String =
+        if (channel.type == ChannelType.TELEGRAM) "quickadd.unparseable" else "quickadd.unparseable.plain"
 
     /** Text attachments need no modality, so they are never the reason. */
     private fun unsupportedMessageKey(attachments: List<InboundAttachment>): String {

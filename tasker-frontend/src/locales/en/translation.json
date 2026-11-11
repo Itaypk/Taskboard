@@ -900,7 +900,15 @@
       "inWeeks_one": "In {{count}} week",
       "inWeeks_other": "In {{count}} weeks"
     },
-    "nothingToPlanHint": "Nothing to plan yet — add a task to your board first."
+    "nothingToPlanHint": "Nothing to plan yet — add a task to your board first.",
+    "capture": {
+      "title": "Add tasks",
+      "prompt": "Nothing to plan yet. What's on your plate this week?",
+      "hint": "Write it the way you'd say it; one thing per line works well. You'll review the tasks before they're saved.",
+      "placeholder": "Dentist on Thursday\nFile taxes before the 15th\nCall the plumber",
+      "submit": "Turn into tasks",
+      "inputAria": "What's on your plate this week"
+    }
   },
   "footer": {
     "about": "About",

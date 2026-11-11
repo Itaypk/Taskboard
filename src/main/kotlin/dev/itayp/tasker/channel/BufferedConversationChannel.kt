@@ -1,5 +1,6 @@
 package dev.itayp.tasker.channel
 
+import java.util.UUID
 import java.util.concurrent.ConcurrentLinkedQueue
 
 /**
@@ -21,6 +22,7 @@ class BufferedConversationChannel(
         supportsAutocompletions = true,
         supportsInlineButtons = true,
     ),
+    override val boardId: UUID? = null,
 ) : ConversationChannel {
 
     private val outbox: ConcurrentLinkedQueue<ChannelMessage> = ConcurrentLinkedQueue()

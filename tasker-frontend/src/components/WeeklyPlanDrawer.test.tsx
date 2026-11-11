@@ -8,6 +8,8 @@ import { WeeklyPlanDrawer } from './WeeklyPlanDrawer';
 const fetchPlanningEntry = vi.fn();
 const startPlanning = vi.fn();
 const replyPlanning = vi.fn();
+const startQuickAdd = vi.fn();
+const replyQuickAdd = vi.fn();
 vi.mock('../api', () => ({
   ApiError: class extends Error {},
   fetchPlanningEntry: () => fetchPlanningEntry(),
@@ -19,6 +21,9 @@ vi.mock('../api', () => ({
   replyPlanning: (...args: unknown[]) => replyPlanning(...args),
   revisePlanning: vi.fn(),
   abandonPlanning: vi.fn(),
+  startQuickAdd: (...args: unknown[]) => startQuickAdd(...args),
+  replyQuickAdd: (...args: unknown[]) => replyQuickAdd(...args),
+  abandonQuickAdd: vi.fn(),
 }));
 
 const entry = (plannableTaskCount: number) => ({
@@ -32,15 +37,16 @@ const entry = (plannableTaskCount: number) => ({
 });
 
 // Router context because assistant bubbles render through MarkdownRenderer, which links internally.
-function renderDrawer() {
+function renderDrawer(props: { boardId?: string; onFinalized?: () => void } = {}) {
   return render(
     <MemoryRouter>
       <WeeklyPlanDrawer
         open
         onClose={() => {}}
+        boardId={props.boardId}
         currentPlan={null}
         onTaskClick={() => {}}
-        onFinalized={() => {}}
+        onFinalized={props.onFinalized ?? (() => {})}
       />
     </MemoryRouter>,
   );
@@ -107,5 +113,69 @@ describe('WeeklyPlanDrawer replies', () => {
 
     // Otherwise the spinner just stops and the drawer looks idle — the failure mode this guards.
     await waitFor(() => expect(screen.getByText(/No reply came back/)).toBeInTheDocument());
+  });
+});
+
+describe('WeeklyPlanDrawer empty-backlog capture', () => {
+  afterEach(() => { cleanup(); vi.clearAllMocks(); });
+
+  const draftCard = {
+    active: true,
+    boardChanged: false,
+    messages: [{
+      type: 'choice' as const,
+      text: '**Dentist**',
+      completions: [],
+      options: [{ id: 'quickadd_save', label: 'Save' }, { id: 'quickadd_cancel', label: 'Cancel' }],
+    }],
+  };
+
+  async function typeWeek(text: string) {
+    fireEvent.change(await screen.findByLabelText(/on your plate/), { target: { value: text } });
+    fireEvent.click(screen.getByRole('button', { name: 'Turn into tasks' }));
+  }
+
+  it('takes the week as text instead of a dead end when nothing is plannable', async () => {
+    fetchPlanningEntry.mockResolvedValue(entry(0));
+    startQuickAdd.mockResolvedValue(draftCard);
+    renderDrawer({ boardId: 'board-1' });
+
+    await typeWeek('  dentist thursday ');
+
+    expect(startQuickAdd).toHaveBeenCalledWith('board-1', 'dentist thursday');
+    // The draft is shown for review, not saved behind the user's back.
+    expect(await screen.findByRole('button', { name: 'Save' })).toBeInTheDocument();
+  });
+
+  it('refreshes the board on save and returns to the overview without starting a session', async () => {
+    const onFinalized = vi.fn();
+    fetchPlanningEntry.mockResolvedValueOnce(entry(0)).mockResolvedValue(entry(1));
+    startQuickAdd.mockResolvedValue(draftCard);
+    replyQuickAdd.mockResolvedValue({
+      active: false,
+      boardChanged: true,
+      messages: [{ type: 'text', text: 'Added: Dentist', completions: [], options: [] }],
+    });
+    renderDrawer({ boardId: 'board-1', onFinalized });
+
+    await typeWeek('dentist thursday');
+    fireEvent.click(await screen.findByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(onFinalized).toHaveBeenCalled());
+    expect(replyQuickAdd).toHaveBeenCalledWith('board-1', { optionId: 'quickadd_save' });
+
+    // Planning is the user's call: the overview now offers the start buttons, nothing more.
+    // Two buttons carry that name once the capture is over: the header's back arrow and the done bar's.
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Back to plan' })).at(-1)!);
+    expect(await screen.findByRole('button', { name: /Plan next week/ })).toBeEnabled();
+    expect(startPlanning).not.toHaveBeenCalled();
+  });
+
+  it('is not offered when AI is unavailable', async () => {
+    fetchPlanningEntry.mockResolvedValue({ ...entry(0), aiAvailable: false });
+    renderDrawer({ boardId: 'board-1' });
+
+    await screen.findByRole('button', { name: /Plan next week/ });
+    expect(screen.queryByLabelText(/on your plate/)).toBeNull();
   });
 });

@@ -137,6 +137,35 @@
   margin: 0 0 2px;
 }
 
+/* ─── Empty-backlog capture (overview) ─────────────────── */
+.capture {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 6px;
+}
+
+.capturePrompt {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--ink);
+  margin: 0;
+}
+
+.captureInput {
+  padding: 10px 14px;
+  border: 1px solid var(--paper-border);
+  border-radius: var(--r);
+  background: var(--paper-surface);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink);
+  resize: vertical;
+  min-height: 6em;
+}
+.captureInput:focus { outline: none; border-color: var(--ink-ghost); }
+
 /* ─── Chat transcript ──────────────────────────────────── */
 .chat {
   display: flex;

@@ -515,6 +515,26 @@ export const revisePlanning = (sessionId: string): Promise<PlanningTurn> =>
 export const abandonPlanning = (sessionId: string): Promise<void> =>
     apiRequest(`/planning/${sessionId}/abandon`, { method: 'POST' });
 
+// --- Quick-add (AI-assisted capture) ---
+
+/** One turn of a quick-add capture: free text in, drafted tasks to confirm, adjust or cancel. */
+export interface QuickAddTurn {
+    /** False once the capture is over (saved, cancelled or failed). */
+    active: boolean;
+    /** True when the capture has written to the board, so the caller should refresh it. */
+    boardChanged: boolean;
+    messages: RenderedMessage[];
+}
+
+export const startQuickAdd = (boardId: string, text: string): Promise<QuickAddTurn> =>
+    apiRequest(`/boards/${boardId}/quick-add/start`, { method: 'POST', ...jsonBody({ text }) });
+
+export const replyQuickAdd = (boardId: string, body: { text?: string; optionId?: string }): Promise<QuickAddTurn> =>
+    apiRequest(`/boards/${boardId}/quick-add/reply`, { method: 'POST', ...jsonBody(body) });
+
+export const abandonQuickAdd = (boardId: string): Promise<void> =>
+    apiRequest(`/boards/${boardId}/quick-add/abandon`, { method: 'POST' });
+
 // --- Stats ---
 
 export const fetchStats = (): Promise<Stats> =>
