@@ -784,12 +784,12 @@ class QuickAddFlow(
 
         return buildString {
             append("➕ ").append(f.bold(draft.title))
-            if (meta.isNotEmpty()) append("\n").append(meta)
+            if (meta.isNotEmpty()) append(f.lineBreak).append(meta)
             draft.tags.takeIf { it.isNotEmpty() }?.let { tags ->
-                append("\n🏷 ").append(tags.joinToString(", ") { f.escape(it.label) })
+                append(f.lineBreak).append("🏷 ").append(tags.joinToString(", ") { f.escape(it.label) })
             }
             draft.description?.takeIf { it.isNotBlank() }?.let { desc ->
-                append("\n").append(f.italic(truncate(desc)))
+                append(f.lineBreak).append(f.italic(truncate(desc)))
             }
         }
     }
@@ -806,12 +806,12 @@ class QuickAddFlow(
 
         return buildString {
             append("📅 ").append(f.bold(draft.title))
-            append("\n🕒 ").append(f.escape(whenLine))
+            append(f.lineBreak).append("🕒 ").append(f.escape(whenLine))
             draft.location?.takeIf { it.isNotBlank() }?.let { loc ->
-                append("\n📍 ").append(f.escape(loc))
+                append(f.lineBreak).append("📍 ").append(f.escape(loc))
             }
             draft.notes?.takeIf { it.isNotBlank() }?.let { notes ->
-                append("\n").append(f.italic(truncate(notes)))
+                append(f.lineBreak).append(f.italic(truncate(notes)))
             }
         }
     }

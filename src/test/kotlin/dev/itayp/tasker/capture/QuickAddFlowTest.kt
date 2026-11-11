@@ -5,6 +5,7 @@ import dev.itayp.tasker.channel.BufferedConversationChannel
 import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.InboundAttachment
+import dev.itayp.tasker.channel.MarkdownMessageFormatter
 import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.CategoryColor
@@ -828,12 +829,13 @@ class QuickAddFlowTest {
         whenever(created.title).thenReturn("Send report")
         whenever(created.id).thenReturn(UUID.randomUUID())
         whenever(backlogTaskService.createTask(eq(userId), eq(openBoardId), any())).thenReturn(created)
-        val channel = BufferedConversationChannel(ChannelType.WEB, boardId = openBoardId)
+        val channel = BufferedConversationChannel(ChannelType.WEB, MarkdownMessageFormatter, boardId = openBoardId)
 
         val state = assertIs<QuickAddState.AwaitingConfirmation>(flow.begin(userId, channel, "send report"))
         // The category survived validation, so it was checked against the open board's list.
         assertEquals(openCategoryId.toString(), (state.items.single() as CapturedItem.Task).draft.categoryId)
-        assertTrue((channel.drain().single() as ChannelMessage.Choice).prompt.contains("Work"))
+        // A hard break: Markdown would otherwise run the details into the title's line.
+        assertEquals("➕ **Send report**  \n🗂 Work", (channel.drain().single() as ChannelMessage.Choice).prompt)
 
         assertNull(advance(state, ChannelInbound.Selection(QuickAddFlow.OPTION_SAVE), channel))
 
