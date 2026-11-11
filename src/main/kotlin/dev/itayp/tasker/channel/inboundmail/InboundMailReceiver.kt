@@ -115,6 +115,7 @@ class InboundMailReceiver(
             attachmentCount = mail.attachments.size + mail.unreadAttachments.size,
             verified = isVerified(userId, mail),
             unreadAttachments = mail.unreadAttachments,
+            messageId = mail.messageId,
         )
         val now = clock.instant()
         val entity = InboundMailEntity().apply {
@@ -171,4 +172,6 @@ data class InboundMailPayload(
     val verified: Boolean,
     /** Display names of the attachments the parser left out (type or caps). */
     val unreadAttachments: List<String> = emptyList(),
+    /** The email's `Message-ID`, so the email confirmation can thread under it. Null in rows queued before it was stored. */
+    val messageId: String? = null,
 )

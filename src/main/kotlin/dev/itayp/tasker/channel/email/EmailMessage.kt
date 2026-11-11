@@ -14,6 +14,12 @@ data class EmailMessage(
      * submitter's address, so the recipient can reply straight back to them.
      */
     val replyTo: String? = null,
+    /**
+     * The `Message-ID` (with its angle brackets) of the email this one answers. Sets `In-Reply-To`
+     * and `References`, so mail clients thread it under that message. Dropped unless it is a
+     * plain `<…>` token: it can come from someone else's email.
+     */
+    val inReplyTo: String? = null,
 ) : OutboundMessage
 
 data class ICalAttachment(

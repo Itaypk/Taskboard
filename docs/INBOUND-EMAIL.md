@@ -147,6 +147,12 @@ the sender or `From:`.** It lists what was created, and says when the email wasn
 attachments were left out (by name, with the caps), and which readable ones the capture went
 without (by name).
 
+The email confirmation threads under the original: `In-Reply-To` / `References` carry its
+`Message-ID` (only a plain `<…>` token is used: it is the sender's text). For verified mail the
+subject is also `Re: <its subject>`, because Gmail only threads a reply whose subject matches;
+unverified mail keeps the app's own subject, so a stranger's subject line never headlines our
+mail. The forward itself sits in the user's Sent folder, so the confirmation lands next to it.
+
 ## Not yet
 
 - A board per address: everything goes to the default board, like Telegram quick-add.

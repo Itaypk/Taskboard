@@ -63,7 +63,7 @@ class InboundMailConfirmation(
                 log.debug("No channel to confirm inbound mail on for user {}", userId)
                 return
             }
-            emailChannel.send(composeEmail(email, locale, subject, titles, notes))
+            emailChannel.send(composeEmail(email, locale, payload, subject, titles, notes))
         } catch (e: Exception) {
             log.warn("Inbound mail confirmation for user {} failed: {}", userId, e.message)
         }
@@ -89,6 +89,7 @@ class InboundMailConfirmation(
     private fun composeEmail(
         to: String,
         locale: Locale,
+        payload: InboundMailPayload,
         subject: String,
         titles: List<String>?,
         notes: List<String>,
@@ -116,10 +117,23 @@ class InboundMailConfirmation(
         }
         return EmailMessage(
             to = listOf(to),
-            subject = msg(if (titles == null) "email.inboundmail.failed.subject" else "email.inboundmail.subject", locale),
+            subject = replySubject(payload)
+                ?: msg(if (titles == null) "email.inboundmail.failed.subject" else "email.inboundmail.subject", locale),
             htmlBody = html,
             textBody = text,
+            inReplyTo = payload.messageId,
         )
+    }
+
+    /**
+     * `Re: <the email's subject>` when the email verifiably came from the user's own address:
+     * besides `In-Reply-To`, Gmail only threads a reply whose subject matches. Otherwise the
+     * app's own subject: a stranger's subject line shouldn't headline mail we send.
+     */
+    private fun replySubject(payload: InboundMailPayload): String? {
+        val original = payload.subject.trim()
+        if (!payload.verified || payload.messageId == null || original.isEmpty()) return null
+        return if (REPLY_PREFIX.containsMatchIn(original)) original else "Re: $original"
     }
 
     /**
@@ -157,5 +171,6 @@ class InboundMailConfirmation(
     private companion object {
         const val SUBJECT_CHARS = 120
         const val FILENAME_CHARS = 60
+        val REPLY_PREFIX = Regex("^re:", RegexOption.IGNORE_CASE)
     }
 }
