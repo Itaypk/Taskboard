@@ -901,14 +901,18 @@
       "inWeeks_other": "In {{count}} weeks"
     },
     "nothingToPlanHint": "Nothing to plan yet — add a task to your board first.",
-    "capture": {
-      "title": "Add tasks",
-      "prompt": "Nothing to plan yet. What's on your plate this week?",
-      "hint": "Write it the way you'd say it; one thing per line works well. You'll review the tasks before they're saved.",
-      "placeholder": "Dentist on Thursday\nFile taxes before the 15th\nCall the plumber",
-      "submit": "Turn into tasks",
-      "inputAria": "What's on your plate this week"
-    }
+    "capturePrompt": "Nothing to plan yet. What's on your plate this week?"
+  },
+  "quickAdd": {
+    "placeholder": "Dentist on Thursday\nFile taxes before the 15th\nCall the plumber",
+    "hint": "Write it the way you'd say it; one thing per line works well. You'll review the tasks before they're saved.",
+    "submit": "Turn into tasks",
+    "replyPlaceholder": "Say what to change…",
+    "send": "Send",
+    "done": "Done",
+    "noReply": "No reply came back. Send a message to pick up where you left off.",
+    "turnFailed": "That didn't go through. Please try again.",
+    "expired": "This draft is no longer available. Please start again."
   },
   "footer": {
     "about": "About",

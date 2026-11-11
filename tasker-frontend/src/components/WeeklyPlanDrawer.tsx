@@ -11,17 +11,14 @@ import {
   replyPlanning,
   revisePlanning,
   abandonPlanning,
-  startQuickAdd,
-  replyQuickAdd,
-  abandonQuickAdd,
   type PlanningEntry,
   type PlanningTurn,
-  type QuickAddTurn,
   type PlanSummary,
   type RenderedMessage,
 } from '../api';
 import type { CurrentPlan, OneOffEvent } from '../types';
-import MarkdownRenderer from './MarkdownRenderer';
+import { AssistantBubble, ThinkingDots, UserBubble } from './ChatMessages';
+import { QuickAddCapture } from './QuickAddCapture';
 import { ConfirmDialog } from './ConfirmDialog';
 import { EventsSection } from './EventsSection';
 import { PlanDetails } from './PlanDetails';
@@ -34,7 +31,7 @@ import { usePublicConfig } from '../publicConfig';
 interface WeeklyPlanDrawerProps {
   open: boolean;
   onClose: () => void;
-  /** The open board. Tasks typed into the empty-state capture are saved there; without it the capture isn't offered. */
+  /** The open board. Tasks typed into the empty-backlog capture are saved there; without it the capture isn't offered. */
   boardId?: string | null;
   /** The plan for the week containing today (the board's anchor), shown read-only as the default view. */
   currentPlan: CurrentPlan | null;
@@ -58,17 +55,10 @@ interface AssistantTurn {
 type Turn = UserTurn | AssistantTurn;
 
 const DONE = 'DONE';
-/** The chat view's phase while a quick-add capture is running; it ends at DONE like a planning session. */
-const CAPTURING = 'CAPTURING';
-/** Mirrors the server's cap on a capture's text. */
-const CAPTURE_MAX_CHARS = 4000;
 
 export function WeeklyPlanDrawer({ open, onClose, boardId, currentPlan, onTaskClick, onTaskContextMenu, onFinalized }: WeeklyPlanDrawerProps) {
   const { t } = useTranslation();
   const [view, setView] = useState<'overview' | 'chat'>('overview');
-  // What the chat view is talking to: a planning session, or a quick-add capture that turns typed
-  // text into tasks (offered from the overview when there is nothing to plan yet).
-  const [chatKind, setChatKind] = useState<'plan' | 'capture'>('plan');
   const [entry, setEntry] = useState<PlanningEntry | null>(null);
   const [entryLoading, setEntryLoading] = useState(false);
   const [planIndex, setPlanIndex] = useState<PlanSummary[]>([]);
@@ -96,10 +86,6 @@ export function WeeklyPlanDrawer({ open, onClose, boardId, currentPlan, onTaskCl
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const nextId = () => ++turnSeq.current;
 
-  // Whether the chat has a conversation that can still take a reply. A capture has no session id:
-  // the server keeps one capture per user.
-  const live = chatKind === 'capture' ? phase === CAPTURING : sessionId != null && phase !== DONE;
-
   const thisWeekStart = entry?.thisWeek.weekStart ?? null;
 
   const loadOverview = useCallback(() => {
@@ -121,7 +107,7 @@ export function WeeklyPlanDrawer({ open, onClose, boardId, currentPlan, onTaskCl
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!open) return;
-    if (view === 'chat' && live) return;
+    if (sessionId && view === 'chat' && phase !== DONE) return;
     setView('overview');
     loadOverview();
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -220,7 +206,6 @@ export function WeeklyPlanDrawer({ open, onClose, boardId, currentPlan, onTaskCl
     setSessionId(null);
     setTranscript([]);
     setPhase('');
-    setChatKind('plan');
     setView('overview');
     loadOverview();
   }, [loadOverview]);
@@ -233,7 +218,6 @@ export function WeeklyPlanDrawer({ open, onClose, boardId, currentPlan, onTaskCl
 
   // Begin a brand-new conversation (start a week, or revise a completed plan).
   const begin = useCallback(async (action: () => Promise<PlanningTurn>) => {
-    setChatKind('plan');
     setTranscript([]);
     setPhase('');
     setThinking(true);
@@ -246,45 +230,6 @@ export function WeeklyPlanDrawer({ open, onClose, boardId, currentPlan, onTaskCl
       setThinking(false);
     }
   }, [applyTurn, resetToOverview]);
-
-  const applyCaptureTurn = useCallback((turn: QuickAddTurn) => {
-    setPhase(turn.active ? CAPTURING : DONE);
-    if (turn.messages.length > 0) {
-      setTranscript(prev => [
-        ...prev,
-        ...turn.messages.map(message => ({ id: nextId(), role: 'assistant' as const, message })),
-      ]);
-    } else if (turn.active) {
-      setTranscript(prev => [...prev, notice(t('weeklyPlanDrawer.noReply'))]);
-    }
-    if (turn.boardChanged) onFinalized();
-  }, [onFinalized, notice, t]);
-
-  // Turn what the user typed into tasks, in the same chat view planning uses: the draft comes back
-  // as a card to save, adjust or cancel. Saving doesn't start a planning session; going back to the
-  // overview finds the new tasks and offers the usual "Plan this/next week".
-  const beginCapture = useCallback(async (text: string) => {
-    if (!boardId) return;
-    setChatKind('capture');
-    setSessionId(null);
-    setTranscript([{ id: nextId(), role: 'user', text }]);
-    setPhase('');
-    setThinking(true);
-    setView('chat');
-    try {
-      applyCaptureTurn(await startQuickAdd(boardId, text));
-    } catch {
-      resetToOverview();
-    } finally {
-      setThinking(false);
-    }
-  }, [boardId, applyCaptureTurn, resetToOverview]);
-
-  // Leaving a capture drops it: a half-confirmed draft isn't worth resuming, unlike a planning session.
-  const leaveCapture = useCallback(async () => {
-    if (boardId && phase === CAPTURING) { try { await abandonQuickAdd(boardId); } catch {/* ignore */} }
-    resetToOverview();
-  }, [boardId, phase, resetToOverview]);
 
   // Starting a fresh session for a week that already has a finalized plan would create a second plan
   // that supersedes it. Warn first and let the user revise the existing plan instead of overwriting.
@@ -324,18 +269,14 @@ export function WeeklyPlanDrawer({ open, onClose, boardId, currentPlan, onTaskCl
   // alongside it lands in the tool result's `free_text`, which means "the user typed something on
   // top of their choice" (Telegram sends nothing there).
   const send = useCallback(async (text: string, optionId?: string) => {
-    if (!live || thinking) return;
+    if (!sessionId || thinking) return;
     const display = text.trim();
     if (display) setTranscript(prev => [...prev, { id: nextId(), role: 'user', text: display }]);
     setInput('');
     setThinking(true);
     try {
       const body = optionId ? { optionId } : { text: display };
-      if (chatKind === 'capture') {
-        if (boardId) applyCaptureTurn(await replyQuickAdd(boardId, body));
-      } else if (sessionId) {
-        applyTurn(await replyPlanning(sessionId, body));
-      }
+      applyTurn(await replyPlanning(sessionId, body));
     } catch (e) {
       // 409 means the session is gone server-side, so the overview is the honest place to land.
       // Anything else leaves the session usable — say so rather than swallowing it silently.
@@ -344,7 +285,7 @@ export function WeeklyPlanDrawer({ open, onClose, boardId, currentPlan, onTaskCl
     } finally {
       setThinking(false);
     }
-  }, [live, chatKind, boardId, sessionId, thinking, applyTurn, applyCaptureTurn, resetToOverview, notice, t]);
+  }, [sessionId, thinking, applyTurn, resetToOverview, notice, t]);
 
   // Explicitly abandon the in-progress session and return to the overview. Abandoning an
   // ACTIVE session drops it server-side, so the board's read-only plan falls back to the last
@@ -369,7 +310,7 @@ export function WeeklyPlanDrawer({ open, onClose, boardId, currentPlan, onTaskCl
   };
 
   const lastIndex = transcript.length - 1;
-  const inputDisabled = thinking || !live;
+  const inputDisabled = thinking || phase === DONE || !sessionId;
 
   const weekEnd = viewedWeekStart ? isoWeekEnd(viewedWeekStart) : null;
 
@@ -393,16 +334,14 @@ export function WeeklyPlanDrawer({ open, onClose, boardId, currentPlan, onTaskCl
         <div className="drawer__header">
           <div className={styles.headerLeft}>
             {view === 'chat' && (
-              <button type="button" className={styles.backBtn} onClick={chatKind === 'capture' ? () => void leaveCapture() : backToOverview} aria-label={t('weeklyPlanDrawer.backToPlan')}><Arrow direction="back" /></button>
+              <button type="button" className={styles.backBtn} onClick={backToOverview} aria-label={t('weeklyPlanDrawer.backToPlan')}><Arrow direction="back" /></button>
             )}
             <div className={styles.titleGroup}>
-              <span className="drawer__label">{view === 'overview'
-                ? t('weeklyPlanDrawer.titleOverview')
-                : t(chatKind === 'capture' ? 'weeklyPlanDrawer.capture.title' : 'weeklyPlanDrawer.titleChat')}</span>
+              <span className="drawer__label">{view === 'chat' ? t('weeklyPlanDrawer.titleChat') : t('weeklyPlanDrawer.titleOverview')}</span>
             </div>
           </div>
           <div className={styles.headerActions}>
-            {view === 'chat' && chatKind === 'plan' && phase !== DONE && sessionId && (
+            {view === 'chat' && phase !== DONE && sessionId && (
               <button type="button" className={styles.leaveBtn} onClick={() => setConfirmLeave(true)}>
                 {t('weeklyPlanDrawer.leaveSession')}
               </button>
@@ -464,7 +403,17 @@ export function WeeklyPlanDrawer({ open, onClose, boardId, currentPlan, onTaskCl
                 loading={entryLoading}
                 busy={thinking}
                 onStart={planForWeek}
-                onCapture={boardId ? text => void beginCapture(text) : null}
+                capture={boardId ? (
+                  // An empty backlog is where nearly every new account starts, so instead of
+                  // sending the user away to add tasks, take them right here. Saving doesn't start
+                  // a session: reloading the overview finds the new tasks and enables the buttons.
+                  <QuickAddCapture
+                    boardId={boardId}
+                    prompt={t('weeklyPlanDrawer.capturePrompt')}
+                    onBoardChanged={onFinalized}
+                    onFinished={loadOverview}
+                  />
+                ) : null}
                 onRevise={id => void begin(() => revisePlanning(id))}
                 onContinue={id => void resume(id)}
                 onAbandon={async id => { try { await abandonPlanning(id); } catch {/* ignore */} onFinalized(); resetToOverview(); }}
@@ -473,9 +422,7 @@ export function WeeklyPlanDrawer({ open, onClose, boardId, currentPlan, onTaskCl
           ) : (
             <div className={styles.chat}>
               {transcript.map((turn, i) => turn.role === 'user' ? (
-                <div key={turn.id} className={`${styles.msg} ${styles.msgUser}`}>
-                  <div className={styles.bubbleUser}>{turn.text}</div>
-                </div>
+                <UserBubble key={turn.id} text={turn.text} />
               ) : (
                 <AssistantBubble
                   key={turn.id}
@@ -485,11 +432,10 @@ export function WeeklyPlanDrawer({ open, onClose, boardId, currentPlan, onTaskCl
                   onChip={text => void send(text)}
                 />
               ))}
-              {thinking && <div className={styles.thinking}><span /><span /><span /></div>}
+              {thinking && <ThinkingDots />}
               {phase === DONE && (
                 <div className={styles.doneBar}>
-                  {/* A capture's own last message already says how it ended (saved, cancelled, failed). */}
-                  <span className={styles.doneLabel}>{chatKind === 'plan' ? t('weeklyPlanDrawer.planFinalized') : ''}</span>
+                  <span className={styles.doneLabel}>{t('weeklyPlanDrawer.planFinalized')}</span>
                   <button type="button" className={styles.entryBtn} onClick={resetToOverview}>{t('weeklyPlanDrawer.backToPlan')}</button>
                 </div>
               )}
@@ -545,34 +491,6 @@ export function WeeklyPlanDrawer({ open, onClose, boardId, currentPlan, onTaskCl
   );
 }
 
-/** The overview's stand-in for the start buttons while there is nothing to plan: type the week, get tasks. */
-function CaptureStarter({ busy, onCapture }: { busy: boolean; onCapture: (text: string) => void }) {
-  const { t } = useTranslation();
-  const [text, setText] = useState('');
-  const trimmed = text.trim();
-  return (
-    <form
-      className={styles.capture}
-      onSubmit={e => { e.preventDefault(); if (trimmed && !busy) onCapture(trimmed); }}
-    >
-      <p className={styles.capturePrompt}>{t('weeklyPlanDrawer.capture.prompt')}</p>
-      <textarea
-        className={styles.captureInput}
-        rows={4}
-        maxLength={CAPTURE_MAX_CHARS}
-        value={text}
-        onChange={e => setText(e.target.value)}
-        placeholder={t('weeklyPlanDrawer.capture.placeholder')}
-        aria-label={t('weeklyPlanDrawer.capture.inputAria')}
-      />
-      <p className={styles.actionsNote}>{t('weeklyPlanDrawer.capture.hint')}</p>
-      <button type="submit" className={`${styles.entryBtn} ${styles.entryPrimary}`} disabled={busy || !trimmed}>
-        {t('weeklyPlanDrawer.capture.submit')}
-      </button>
-    </form>
-  );
-}
-
 /**
  * Three-way confirmation shown when "Plan this/next week" would overwrite an existing finalized plan
  * for that week: revise the existing plan, replace it with a fresh session, or cancel.
@@ -610,38 +528,7 @@ function OverridePlanDialog({ open, offset, onRevise, onPlanFresh, onClose }: {
   );
 }
 
-function AssistantBubble({ message, interactive, onChoose, onChip }: {
-  message: RenderedMessage;
-  interactive: boolean;
-  onChoose: (label: string, id: string) => void;
-  onChip: (text: string) => void;
-}) {
-  return (
-    <div className={`${styles.msg} ${styles.msgAssistant}`}>
-      <div className={styles.bubbleAssistant}>
-        <MarkdownRenderer content={message.text} />
-      </div>
-      {message.type === 'choice' && interactive && message.options.length > 0 && (
-        <div className={styles.choiceList}>
-          {message.options.map(opt => (
-            <button key={opt.id} type="button" className={styles.choiceBtn} onClick={() => onChoose(opt.label, opt.id)}>
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      )}
-      {message.type === 'text' && interactive && message.completions.length > 0 && (
-        <div className={styles.chips}>
-          {message.completions.map((c, i) => (
-            <button key={i} type="button" className={styles.chip} onClick={() => onChip(c)}>{c}</button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function OverviewActions({ entry, viewedPlan, weekRel, loading, busy, onStart, onCapture, onRevise, onContinue, onAbandon }: {
+function OverviewActions({ entry, viewedPlan, weekRel, loading, busy, onStart, capture, onRevise, onContinue, onAbandon }: {
   entry: PlanningEntry | null;
   viewedPlan: CurrentPlan | null;
   /** The viewed week relative to today's week — decides which planning actions are offered. */
@@ -649,8 +536,8 @@ function OverviewActions({ entry, viewedPlan, weekRel, loading, busy, onStart, o
   loading: boolean;
   busy: boolean;
   onStart: (offset: 'CURRENT' | 'NEXT') => void;
-  /** Turns typed text into tasks; null when there is no open board to save them to. */
-  onCapture: ((text: string) => void) | null;
+  /** Shown in place of the "nothing to plan" hint: a way to add tasks on the spot. Null when unavailable. */
+  capture: React.ReactNode;
   onRevise: (sessionId: string) => void;
   onContinue: (sessionId: string) => void;
   onAbandon: (sessionId: string) => void;
@@ -676,12 +563,8 @@ function OverviewActions({ entry, viewedPlan, weekRel, loading, busy, onStart, o
   // abandoning and revising all stay available, since none of them needs fresh candidates.
   // aiOff wins when both apply: it's the harder block, and one note at a time reads better.
   const nothingToPlan = entry.plannableTaskCount === 0;
-  // An empty backlog is where nearly every new account starts, so instead of sending the user away
-  // to add tasks, take them right here.
   const startHint = aiHint ?? (nothingToPlan ? (
-    onCapture
-      ? <CaptureStarter busy={busy} onCapture={onCapture} />
-      : <p className={styles.actionsNote}>{t('weeklyPlanDrawer.nothingToPlanHint')}</p>
+    capture ?? <p className={styles.actionsNote}>{t('weeklyPlanDrawer.nothingToPlanHint')}</p>
   ) : null);
   const startDisabled = busy || aiOff || nothingToPlan;
 

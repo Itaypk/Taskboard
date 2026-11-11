@@ -57,8 +57,8 @@ class WebQuickAddController(
         if (text.isEmpty() || text.length > MAX_TEXT_CHARS) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Text must be 1 to $MAX_TEXT_CHARS characters")
         }
-        val channel = newChannel(boardId)
-        val state = quickAddFlow.begin(userId, channel, text)
+        val channel = newChannel()
+        val state = quickAddFlow.begin(userId, channel, text, boardId)
         return respond(userId, boardId, state, channel)
     }
 
@@ -83,10 +83,10 @@ class WebQuickAddController(
             text != null -> ChannelInbound.Text(text)
             else -> throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Reply must include text or optionId")
         }
-        val channel = newChannel(boardId)
+        val channel = newChannel()
         // stateOrNull: there is nothing to route to here, so a lapsed plan offer whose replacement
         // message wasn't a capture simply ends the flow.
-        val state = quickAddFlow.handleInbound(userId, channel, capture.state, inbound).stateOrNull()
+        val state = quickAddFlow.handleInbound(userId, channel, capture.state, inbound, boardId).stateOrNull()
         return respond(userId, boardId, state, channel)
     }
 
@@ -106,8 +106,7 @@ class WebQuickAddController(
         aiAccessService.requireAiEnabledForBoard(boardId)
     }
 
-    private fun newChannel(boardId: UUID) =
-        BufferedConversationChannel(ChannelType.WEB, formatter = MarkdownMessageFormatter, boardId = boardId)
+    private fun newChannel() = BufferedConversationChannel(ChannelType.WEB, formatter = MarkdownMessageFormatter)
 
     private fun respond(
         userId: UUID,

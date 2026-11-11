@@ -18,6 +18,7 @@ import dev.itayp.tasker.service.UserSettingsService
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.eq
@@ -180,12 +181,12 @@ class TelegramChannelRoutingTest {
 
     @Test
     fun `a message with no command and nothing in progress opens an unprompted capture`() {
-        whenever(quickAddFlow.beginUnprompted(eq(userId), any(), eq("call the plumber")))
+        whenever(quickAddFlow.beginUnprompted(eq(userId), any(), eq("call the plumber"), anyOrNull()))
             .thenReturn(CaptureEntry.Captured(null))
 
         channel.consume(textUpdate("call the plumber"))
 
-        verify(quickAddFlow).beginUnprompted(eq(userId), any(), eq("call the plumber"))
+        verify(quickAddFlow).beginUnprompted(eq(userId), any(), eq("call the plumber"), anyOrNull())
         verify(orchestrator, never()).handleInbound(any(), any(), any())
     }
 
@@ -200,7 +201,7 @@ class TelegramChannelRoutingTest {
         channel.consume(textUpdate("actually, make that Thursday"))
 
         verify(orchestrator).handleInbound(eq(sessionId), eq(ChannelInbound.Text("actually, make that Thursday")), any())
-        verify(quickAddFlow, never()).beginUnprompted(any(), any(), any())
+        verify(quickAddFlow, never()).beginUnprompted(any(), any(), any(), anyOrNull())
     }
 
     @Test
@@ -208,29 +209,29 @@ class TelegramChannelRoutingTest {
         val staleSessionId = UUID.randomUUID()
         whenever(sessionRegistry.get(chatId)).thenReturn(staleSessionId)
         whenever(orchestrator.phase(staleSessionId)).thenReturn(null)
-        whenever(quickAddFlow.beginUnprompted(any(), any(), any())).thenReturn(CaptureEntry.Captured(null))
+        whenever(quickAddFlow.beginUnprompted(any(), any(), any(), anyOrNull())).thenReturn(CaptureEntry.Captured(null))
 
         channel.consume(textUpdate("buy milk"))
 
         verify(sessionRegistry).remove(chatId)
-        verify(quickAddFlow).beginUnprompted(eq(userId), any(), eq("buy milk"))
+        verify(quickAddFlow).beginUnprompted(eq(userId), any(), eq("buy milk"), anyOrNull())
     }
 
     @Test
     fun `an in-progress capture takes the message before anything else does`() {
         val state = QuickAddState.AwaitingDescription(Instant.parse("2026-06-11T09:59:00Z"))
         whenever(quickAddRegistry.get(chatId)).thenReturn(state)
-        whenever(quickAddFlow.handleInbound(any(), any(), any(), any())).thenReturn(CaptureEntry.Captured(null))
+        whenever(quickAddFlow.handleInbound(any(), any(), any(), any(), anyOrNull())).thenReturn(CaptureEntry.Captured(null))
 
         channel.consume(textUpdate("make it two"))
 
-        verify(quickAddFlow).handleInbound(eq(userId), any(), eq(state), eq(ChannelInbound.Text("make it two")))
-        verify(quickAddFlow, never()).beginUnprompted(any(), any(), any())
+        verify(quickAddFlow).handleInbound(eq(userId), any(), eq(state), eq(ChannelInbound.Text("make it two")), anyOrNull())
+        verify(quickAddFlow, never()).beginUnprompted(any(), any(), any(), anyOrNull())
     }
 
     @Test
     fun `a routed read-only intent runs its command directly`() {
-        whenever(quickAddFlow.beginUnprompted(any(), any(), any()))
+        whenever(quickAddFlow.beginUnprompted(any(), any(), any(), anyOrNull()))
             .thenReturn(CaptureEntry.Routed(CaptureIntent.CURRENT, "what's on for today?"))
         whenever(commandDispatcher.dispatch(any(), any())).thenReturn(true)
 
@@ -245,7 +246,7 @@ class TelegramChannelRoutingTest {
 
     @Test
     fun `a routed plan intent goes through the plan command marked as inferred`() {
-        whenever(quickAddFlow.beginUnprompted(any(), any(), any()))
+        whenever(quickAddFlow.beginUnprompted(any(), any(), any(), anyOrNull()))
             .thenReturn(CaptureEntry.Routed(CaptureIntent.PLAN, "let's sort out my week"))
         whenever(commandDispatcher.dispatch(any(), any())).thenReturn(true)
 
@@ -259,7 +260,7 @@ class TelegramChannelRoutingTest {
 
     @Test
     fun `an unclear intent answers with what the bot can do and runs no command`() {
-        whenever(quickAddFlow.beginUnprompted(any(), any(), any()))
+        whenever(quickAddFlow.beginUnprompted(any(), any(), any(), anyOrNull()))
             .thenReturn(CaptureEntry.Routed(CaptureIntent.UNCLEAR, "hi"))
 
         channel.consume(textUpdate("hi!"))
@@ -273,7 +274,7 @@ class TelegramChannelRoutingTest {
 
         channel.consume(textUpdate("call the plumber"))
 
-        verify(quickAddFlow, never()).beginUnprompted(any(), any(), any())
+        verify(quickAddFlow, never()).beginUnprompted(any(), any(), any(), anyOrNull())
     }
 
 

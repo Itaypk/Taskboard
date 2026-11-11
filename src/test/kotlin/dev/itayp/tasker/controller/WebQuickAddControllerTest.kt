@@ -80,14 +80,13 @@ class WebQuickAddControllerTest(@Autowired val mockMvc: MockMvc) {
     )
 
     @Test
-    fun `start runs one turn on a channel scoped to the board and stores the capture`() {
+    fun `start runs one turn against the board in the URL and stores the capture`() {
         aiAvailable()
         doAnswer { invocation ->
             val channel = invocation.getArgument<ConversationChannel>(1)
-            assertEquals(boardId, channel.boardId)
             channel.send(ChannelMessage.Choice("**Buy milk**", listOf(ChoiceOption(QuickAddFlow.OPTION_SAVE, "Save"))))
             confirmation
-        }.whenever(quickAddFlow).begin(eq(userId), any(), eq("buy milk"))
+        }.whenever(quickAddFlow).begin(eq(userId), any(), eq("buy milk"), eq(boardId))
 
         postJson("/start", """{"text":"  buy milk "}""")
             .andExpect(status().isOk)
@@ -103,7 +102,7 @@ class WebQuickAddControllerTest(@Autowired val mockMvc: MockMvc) {
     fun `reply advances the stored capture and clears it when the flow ends`() {
         aiAvailable()
         whenever(registry.get(userId)).thenReturn(WebQuickAddRegistry.Capture(boardId, confirmation))
-        whenever(quickAddFlow.handleInbound(eq(userId), any(), eq(confirmation), any()))
+        whenever(quickAddFlow.handleInbound(eq(userId), any(), eq(confirmation), any(), eq(boardId)))
             .thenReturn(CaptureEntry.Captured(null))
 
         postJson("/reply", """{"optionId":"${QuickAddFlow.OPTION_SAVE}"}""")
@@ -112,7 +111,7 @@ class WebQuickAddControllerTest(@Autowired val mockMvc: MockMvc) {
             .andExpect(jsonPath("$.boardChanged").value(true))
 
         val inbound = argumentCaptor<ChannelInbound>()
-        verify(quickAddFlow).handleInbound(eq(userId), any(), eq(confirmation), inbound.capture())
+        verify(quickAddFlow).handleInbound(eq(userId), any(), eq(confirmation), inbound.capture(), eq(boardId))
         assertEquals(QuickAddFlow.OPTION_SAVE, assertIs<ChannelInbound.Selection>(inbound.firstValue).optionId)
         verify(registry).remove(userId)
     }
@@ -131,7 +130,7 @@ class WebQuickAddControllerTest(@Autowired val mockMvc: MockMvc) {
         whenever(registry.get(userId)).thenReturn(WebQuickAddRegistry.Capture(UUID.randomUUID(), confirmation))
 
         postJson("/reply", """{"text":"make it oat milk"}""").andExpect(status().isConflict)
-        verify(quickAddFlow, never()).handleInbound(any(), any(), any(), any())
+        verify(quickAddFlow, never()).handleInbound(any(), any(), any(), any(), anyOrNull())
     }
 
     @Test
@@ -141,7 +140,7 @@ class WebQuickAddControllerTest(@Autowired val mockMvc: MockMvc) {
         postJson("/start", """{"text":"   "}""").andExpect(status().isBadRequest)
         postJson("/start", """{"text":"${"x".repeat(WebQuickAddController.MAX_TEXT_CHARS + 1)}"}""")
             .andExpect(status().isBadRequest)
-        verify(quickAddFlow, never()).begin(any(), any(), anyOrNull())
+        verify(quickAddFlow, never()).begin(any(), any(), anyOrNull(), anyOrNull())
     }
 
     @Test
@@ -149,7 +148,7 @@ class WebQuickAddControllerTest(@Autowired val mockMvc: MockMvc) {
         doThrow(BoardAccessDeniedException(userId, boardId)).whenever(boardMembershipService).requireMember(userId, boardId)
 
         postJson("/start", """{"text":"buy milk"}""").andExpect(status().isForbidden)
-        verify(quickAddFlow, never()).begin(any(), any(), anyOrNull())
+        verify(quickAddFlow, never()).begin(any(), any(), anyOrNull(), anyOrNull())
     }
 
     @Test
@@ -157,7 +156,7 @@ class WebQuickAddControllerTest(@Autowired val mockMvc: MockMvc) {
         whenever(aiAccessService.isAiAvailableForUser(userId)).thenReturn(false)
 
         postJson("/start", """{"text":"buy milk"}""").andExpect(status().isForbidden)
-        verify(quickAddFlow, never()).begin(any(), any(), anyOrNull())
+        verify(quickAddFlow, never()).begin(any(), any(), anyOrNull(), anyOrNull())
     }
 
     @Test
@@ -166,7 +165,7 @@ class WebQuickAddControllerTest(@Autowired val mockMvc: MockMvc) {
         doThrow(AiDisabledException("restricted")).whenever(aiAccessService).requireAiEnabledForBoard(boardId)
 
         postJson("/start", """{"text":"buy milk"}""").andExpect(status().isForbidden)
-        verify(quickAddFlow, never()).begin(any(), any(), anyOrNull())
+        verify(quickAddFlow, never()).begin(any(), any(), anyOrNull(), anyOrNull())
     }
 
     @Test

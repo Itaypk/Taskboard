@@ -815,7 +815,7 @@ class QuickAddFlowTest {
     }
 
     @Test
-    fun `a channel scoped to a board drafts with that board's categories and saves there`() {
+    fun `a capture on a given board drafts with that board's categories and saves there`() {
         // The web UI always has a board open, and it need not be the user's default one.
         val openBoardId = UUID.randomUUID()
         val openCategoryId = UUID.randomUUID()
@@ -829,22 +829,23 @@ class QuickAddFlowTest {
         whenever(created.title).thenReturn("Send report")
         whenever(created.id).thenReturn(UUID.randomUUID())
         whenever(backlogTaskService.createTask(eq(userId), eq(openBoardId), any())).thenReturn(created)
-        val channel = BufferedConversationChannel(ChannelType.WEB, MarkdownMessageFormatter, boardId = openBoardId)
+        val channel = BufferedConversationChannel(ChannelType.WEB, MarkdownMessageFormatter)
 
-        val state = assertIs<QuickAddState.AwaitingConfirmation>(flow.begin(userId, channel, "send report"))
+        val state = assertIs<QuickAddState.AwaitingConfirmation>(flow.begin(userId, channel, "send report", openBoardId))
         // The category survived validation, so it was checked against the open board's list.
         assertEquals(openCategoryId.toString(), (state.items.single() as CapturedItem.Task).draft.categoryId)
         // A hard break: Markdown would otherwise run the details into the title's line.
         assertEquals("➕ **Send report**  \n🗂 Work", (channel.drain().single() as ChannelMessage.Choice).prompt)
 
-        assertNull(advance(state, ChannelInbound.Selection(QuickAddFlow.OPTION_SAVE), channel))
+        val save = ChannelInbound.Selection(QuickAddFlow.OPTION_SAVE)
+        assertNull(flow.handleInbound(userId, channel, state, save, openBoardId).stateOrNull())
 
         verify(backlogTaskService).createTask(eq(userId), eq(openBoardId), any())
         verify(boardMembershipService, never()).resolveDefaultBoard(any())
     }
 
     @Test
-    fun `outside Telegram the unparseable reply doesn't point at the add command`() {
+    fun `a channel without slash commands isn't pointed at the add command`() {
         whenever(suggestionAgent.quickAddDraft(any(), any(), any(), any(), any(), anyOrNull()))
             .thenReturn(SuggestionOutcome.Unparseable)
         val channel = BufferedConversationChannel(ChannelType.WEB)

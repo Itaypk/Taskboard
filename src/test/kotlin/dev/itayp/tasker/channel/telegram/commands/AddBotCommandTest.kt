@@ -10,6 +10,7 @@ import dev.itayp.tasker.planning.WeeklyPlanningOrchestrator
 import dev.itayp.tasker.service.UserSettingsService
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
@@ -60,6 +61,6 @@ class AddBotCommandTest {
         command.handle(context("buy milk"))
 
         verify(channel).send(any<ChannelMessage.Text>())
-        verify(flow, never()).begin(any(), any(), any())
+        verify(flow, never()).begin(any(), any(), any(), anyOrNull())
     }
 }
