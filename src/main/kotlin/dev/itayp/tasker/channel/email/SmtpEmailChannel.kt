@@ -6,6 +6,7 @@ import dev.itayp.tasker.service.MemberDisplayNameResolver
 import jakarta.mail.Message.RecipientType
 import jakarta.mail.internet.InternetAddress
 import jakarta.mail.internet.MimeBodyPart
+import jakarta.mail.internet.MimeMessage
 import jakarta.mail.internet.MimeMultipart
 import org.slf4j.LoggerFactory
 import org.springframework.mail.javamail.JavaMailSender
@@ -63,11 +64,26 @@ class SmtpEmailChannel(
             }
         }
 
+        message.inReplyTo?.let { setThreadHeaders(mime, it) }
         mailSender.send(mime)
         log.info("Email sent to {} subject='{}'", message.to.map { MemberDisplayNameResolver.maskEmail(it) }, message.subject.mask())
     }
 
+    /**
+     * Only a single `<…>` of visible ASCII: the value may come from an inbound email, and anything
+     * with whitespace or line breaks could fold into extra headers.
+     */
+    private fun setThreadHeaders(mime: MimeMessage, messageId: String) {
+        if (!MESSAGE_ID.matches(messageId)) {
+            log.debug("Not threading: the Message-ID to reply to is malformed")
+            return
+        }
+        mime.setHeader("In-Reply-To", messageId)
+        mime.setHeader("References", messageId)
+    }
+
     companion object {
+        private val MESSAGE_ID = Regex("^<[!-;=?-~]{1,900}>$")
 
         fun String.mask() =
             takeIf { isNotBlank() }?.first()?.plus("*".repeat((this.length - 2).coerceIn(0, 6)))?.plus(last()) ?: "<empty>"

@@ -63,6 +63,29 @@ class SmtpEmailChannelTest {
     }
 
     @Test
+    fun `sets In-Reply-To and References when replying to a message`() {
+        val mimeMessage = newMimeMessage()
+        whenever(mailSender.createMimeMessage()).thenReturn(mimeMessage)
+
+        channel.send(EmailMessage(to = listOf("user@example.com"), subject = "Re: Bill", htmlBody = "<p>Hi</p>", inReplyTo = "<abc@mail.example>"))
+
+        assertEquals("<abc@mail.example>", mimeMessage.getHeader("In-Reply-To")?.single())
+        assertEquals("<abc@mail.example>", mimeMessage.getHeader("References")?.single())
+    }
+
+    @Test
+    fun `drops a Message-ID that could smuggle in headers`() {
+        val mimeMessage = newMimeMessage()
+        whenever(mailSender.createMimeMessage()).thenReturn(mimeMessage)
+
+        channel.send(EmailMessage(to = listOf("user@example.com"), subject = "Re: Bill", htmlBody = "<p>Hi</p>", inReplyTo = "<a@b>\r\nBcc: x@evil.example"))
+
+        verify(mailSender).send(any<MimeMessage>())
+        assertEquals(null, mimeMessage.getHeader("In-Reply-To"))
+        assertEquals(null, mimeMessage.getHeader("Bcc"))
+    }
+
+    @Test
     fun `sets Reply-To header on multipart iCal message`() {
         val mimeMessage = newMimeMessage()
         whenever(mailSender.createMimeMessage()).thenReturn(mimeMessage)
