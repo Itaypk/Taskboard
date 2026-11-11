@@ -8,6 +8,7 @@ import { WeeklyPlanDrawer } from './WeeklyPlanDrawer';
 const fetchPlanningEntry = vi.fn();
 const startPlanning = vi.fn();
 const replyPlanning = vi.fn();
+const startQuickAdd = vi.fn();
 vi.mock('../api', () => ({
   ApiError: class extends Error {},
   fetchPlanningEntry: () => fetchPlanningEntry(),
@@ -19,6 +20,9 @@ vi.mock('../api', () => ({
   replyPlanning: (...args: unknown[]) => replyPlanning(...args),
   revisePlanning: vi.fn(),
   abandonPlanning: vi.fn(),
+  startQuickAdd: (...args: unknown[]) => startQuickAdd(...args),
+  replyQuickAdd: vi.fn(),
+  abandonQuickAdd: vi.fn(),
 }));
 
 const entry = (plannableTaskCount: number) => ({
@@ -32,12 +36,13 @@ const entry = (plannableTaskCount: number) => ({
 });
 
 // Router context because assistant bubbles render through MarkdownRenderer, which links internally.
-function renderDrawer() {
+function renderDrawer(boardId?: string) {
   return render(
     <MemoryRouter>
       <WeeklyPlanDrawer
         open
         onClose={() => {}}
+        boardId={boardId}
         currentPlan={null}
         onTaskClick={() => {}}
         onFinalized={() => {}}
@@ -68,6 +73,36 @@ describe('WeeklyPlanDrawer start actions', () => {
     for (const name of [/Plan this week/, /Plan next week/]) {
       expect(screen.getByRole('button', { name })).toBeDisabled();
     }
+  });
+});
+
+describe('WeeklyPlanDrawer empty-backlog capture', () => {
+  afterEach(() => { cleanup(); vi.clearAllMocks(); });
+
+  it('asks for the week instead of a dead end, and re-offers planning once tasks are saved', async () => {
+    fetchPlanningEntry.mockResolvedValueOnce(entry(0)).mockResolvedValue(entry(2));
+    startQuickAdd.mockResolvedValue({
+      active: false,
+      boardChanged: true,
+      messages: [{ type: 'text', text: 'Added: Dentist', completions: [], options: [] }],
+    });
+    renderDrawer('board-1');
+
+    fireEvent.change(await screen.findByLabelText(/on your plate this week/), { target: { value: 'dentist' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Turn into tasks' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Done' }));
+
+    // Planning stays the user's call: the start buttons light up, nothing starts by itself.
+    await waitFor(() => expect(screen.getByRole('button', { name: /Plan next week/ })).toBeEnabled());
+    expect(startPlanning).not.toHaveBeenCalled();
+  });
+
+  it('is not offered when AI is unavailable', async () => {
+    fetchPlanningEntry.mockResolvedValue({ ...entry(0), aiAvailable: false });
+    renderDrawer('board-1');
+
+    await screen.findByRole('button', { name: /Plan next week/ });
+    expect(screen.queryByLabelText(/on your plate this week/)).toBeNull();
   });
 });
 

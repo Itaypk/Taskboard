@@ -32,6 +32,13 @@ new channel needs any new persistence-layer work.
 
 ## Channel 1: Web UI quick-add
 
+> **Backend implemented**, with one consumer so far: `WebQuickAddController`
+> (`POST /api/v1/boards/{boardId}/quick-add/{start,reply,abandon}`) drives `QuickAddFlow` for
+> signed-in users, text only. The planner drawer uses it when there is nothing to plan yet: the
+> user types their week, reviews the drafted tasks, and saves them (issue #356). A general
+> quick-add entry point in the web UI, and media uploads, are still open (issue #287). The
+> decisions below were settled as proposed; the rest of this section is the original exploration.
+
 **Verdict: low effort, high confidence.** This is largely wiring up what already exists behind
 the `dev` profile, following the precedent `WebPlanningController` already set for exposing a
 Telegram-shaped AI flow to signed-in web users.

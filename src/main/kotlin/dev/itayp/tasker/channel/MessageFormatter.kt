@@ -36,6 +36,9 @@ interface MessageFormatter {
     /** Escapes text that would otherwise be interpreted as markup by the channel. */
     fun escape(text: String): String
 
+    /** A line break inside one block of text we build ourselves (a card's title and its details). */
+    val lineBreak: String get() = "\n"
+
     /** AI-facing formatting guidance, auto-derived from [features]. */
     fun promptGuidance(): String =
         if (features.isEmpty()) {
@@ -84,6 +87,9 @@ object MarkdownMessageFormatter : MessageFormatter {
     override fun italic(text: String) = "*${escape(text)}*"
 
     override fun bulletList(items: List<String>) = items.joinToString("\n") { "- ${escape(it)}" }
+
+    // A lone newline is a space in Markdown; two trailing spaces make it a hard break.
+    override val lineBreak = "  \n"
 
     override fun escape(text: String) = text
         .replace("\\", "\\\\")

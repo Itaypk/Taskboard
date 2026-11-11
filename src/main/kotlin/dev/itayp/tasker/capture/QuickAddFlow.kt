@@ -76,8 +76,15 @@ class QuickAddFlow(
 ) {
     private val log = LoggerFactory.getLogger(QuickAddFlow::class.java)
 
-    /** Opens a flow. [description] is the inline text after `/add`, or null/blank for a bare `/add`. */
-    fun begin(userId: UUID, channel: ConversationChannel, description: String?): QuickAddState? {
+    /**
+     * Opens a flow. [description] is the inline text after `/add`, or null/blank for a bare `/add`.
+     *
+     * [boardId] is the board the capture saves to, and whose categories and tags it drafts with:
+     * the board open in the web UI. Null means the user's default board, which is all a Telegram
+     * chat has. The caller must have checked the user's membership, and passes the same board on
+     * every later round ([handleInbound]).
+     */
+    fun begin(userId: UUID, channel: ConversationChannel, description: String?, boardId: UUID? = null): QuickAddState? {
         val request = description?.trim().orEmpty()
         if (request.isBlank()) {
             // No model call yet, so nothing to charge against the limit — the description that
@@ -86,7 +93,7 @@ class QuickAddFlow(
             return QuickAddState.AwaitingDescription(now())
         }
         countEntry("command")
-        return draft(userId, channel, request, unprompted = false).stateOrNull()
+        return draft(userId, channel, request, unprompted = false, boardId).stateOrNull()
     }
 
     /**
@@ -95,11 +102,11 @@ class QuickAddFlow(
      * so and this returns [CaptureEntry.Routed] for the channel to dispatch
      * (`docs/FREE-TEXT-CAPTURE.md` D1–D3). That third reply shape is offered **only** here.
      */
-    fun beginUnprompted(userId: UUID, channel: ConversationChannel, text: String): CaptureEntry {
+    fun beginUnprompted(userId: UUID, channel: ConversationChannel, text: String, boardId: UUID? = null): CaptureEntry {
         val request = text.trim()
         if (request.isBlank()) return CaptureEntry.Captured(null)
         countEntry("unprompted")
-        return draft(userId, channel, request, unprompted = true)
+        return draft(userId, channel, request, unprompted = true, boardId)
     }
 
     private fun draft(
@@ -107,13 +114,16 @@ class QuickAddFlow(
         channel: ConversationChannel,
         request: String,
         unprompted: Boolean,
+        boardId: UUID?,
     ): CaptureEntry {
         if (!allow(userId, channel)) return CaptureEntry.Captured(null)
         val op = PendingOp.Draft(request, emptyList())
         val outcome = channel.whileWorking {
-            suggestionAgent.quickAddDraft(userId, request, emptyList(), mustDraft = false, unprompted = unprompted)
+            suggestionAgent.quickAddDraft(
+                userId, request, emptyList(), mustDraft = false, unprompted = unprompted, boardId = boardId,
+            )
         }
-        return renderOutcome(userId, channel, op, outcome, clarifyRound = 1)
+        return renderOutcome(userId, channel, op, outcome, clarifyRound = 1, boardId)
     }
 
     /**
@@ -133,8 +143,9 @@ class QuickAddFlow(
         channel: ConversationChannel,
         attachments: List<InboundAttachment>,
         caption: String?,
+        boardId: UUID? = null,
     ): QuickAddState? =
-        captureMedia(userId, channel, attachments, caption, offerRouting = false, entrySource = null).stateOrNull()
+        captureMedia(userId, channel, attachments, caption, offerRouting = false, entrySource = null, boardId).stateOrNull()
 
     /**
      * Captures from an attachment the user sent on its own, with no `/add` and no capture running.
@@ -152,10 +163,12 @@ class QuickAddFlow(
         channel: ConversationChannel,
         attachments: List<InboundAttachment>,
         caption: String?,
+        boardId: UUID? = null,
     ): CaptureEntry = captureMedia(
         userId, channel, attachments, caption,
         offerRouting = attachments.any { it.kind == AttachmentKind.AUDIO },
         entrySource = "unprompted",
+        boardId = boardId,
     )
 
     private fun captureMedia(
@@ -165,6 +178,7 @@ class QuickAddFlow(
         caption: String?,
         offerRouting: Boolean,
         entrySource: String?,
+        boardId: UUID?,
     ): CaptureEntry {
         if (attachments.isEmpty()) return CaptureEntry.Captured(null)
         entrySource?.let { countEntry(it) }
@@ -184,7 +198,7 @@ class QuickAddFlow(
             // What the model heard stands in for the message text, so a route out of a voice note
             // can carry it the same way a typed one does.
             val heard = outcome.sourceText ?: caption?.trim().orEmpty()
-            return renderOutcome(userId, channel, PendingOp.Draft(heard, emptyList()), outcome, clarifyRound = 1)
+            return renderOutcome(userId, channel, PendingOp.Draft(heard, emptyList()), outcome, clarifyRound = 1, boardId)
         }
         val request = outcome.sourceText
             ?: caption?.trim()?.takeIf { it.isNotBlank() }
@@ -192,7 +206,7 @@ class QuickAddFlow(
         outcome.sourceText?.let { echoSourceText(userId, channel, attachments, it) }
         countMedia(attachments, if (outcome is SuggestionOutcome.Unparseable) "failed" else "captured")
         val op = PendingOp.Draft(request, emptyList())
-        return renderOutcome(userId, channel, op, outcome, clarifyRound = 1)
+        return renderOutcome(userId, channel, op, outcome, clarifyRound = 1, boardId)
     }
 
     /**
@@ -206,36 +220,42 @@ class QuickAddFlow(
         channel: ConversationChannel,
         state: QuickAddState,
         inbound: ChannelInbound,
+        boardId: UUID? = null,
     ): CaptureEntry = when (state) {
         is QuickAddState.AwaitingPlanDay ->
             (inbound as? ChannelInbound.Selection)?.let { onPlanDay(userId, channel, state, it) }
-                ?: lapseOffer(userId, channel, inbound)
+                ?: lapseOffer(userId, channel, inbound, boardId)
         is QuickAddState.AwaitingPlanTime ->
             (inbound as? ChannelInbound.Selection)?.let { onPlanTime(userId, channel, state, it) }
-                ?: lapseOffer(userId, channel, inbound)
+                ?: lapseOffer(userId, channel, inbound, boardId)
         else -> CaptureEntry.Captured(
             if (inbound is ChannelInbound.Media) {
                 // Media always (re)starts the capture from the attachment: it carries far more than
                 // the typed line it replaces, so folding it into a half-built draft would be wrong.
-                beginFromMedia(userId, channel, inbound.attachments, inbound.caption)
+                beginFromMedia(userId, channel, inbound.attachments, inbound.caption, boardId)
             } else when (state) {
-                is QuickAddState.AwaitingDescription -> onDescription(userId, channel, inbound)
-                is QuickAddState.AwaitingConfirmation -> onConfirmation(userId, channel, state, inbound)
-                is QuickAddState.AwaitingAdjustment -> onAdjustment(userId, channel, state, inbound)
-                is QuickAddState.AwaitingClarification -> onClarification(userId, channel, state, inbound)
+                is QuickAddState.AwaitingDescription -> onDescription(userId, channel, inbound, boardId)
+                is QuickAddState.AwaitingConfirmation -> onConfirmation(userId, channel, state, inbound, boardId)
+                is QuickAddState.AwaitingAdjustment -> onAdjustment(userId, channel, state, inbound, boardId)
+                is QuickAddState.AwaitingClarification -> onClarification(userId, channel, state, inbound, boardId)
                 // Handled above; listed so this stays exhaustive.
                 is QuickAddState.AwaitingPlanDay, is QuickAddState.AwaitingPlanTime -> null
             }
         )
     }
 
-    private fun onDescription(userId: UUID, channel: ConversationChannel, inbound: ChannelInbound): QuickAddState? {
+    private fun onDescription(
+        userId: UUID,
+        channel: ConversationChannel,
+        inbound: ChannelInbound,
+        boardId: UUID?,
+    ): QuickAddState? {
         val text = (inbound as? ChannelInbound.Text)?.text?.trim().orEmpty()
         if (text.isBlank()) {
             channel.send(ChannelMessage.Text(msg(userId, "quickadd.prompt.describe")))
             return QuickAddState.AwaitingDescription(now())
         }
-        return draft(userId, channel, text, unprompted = false).stateOrNull()
+        return draft(userId, channel, text, unprompted = false, boardId).stateOrNull()
     }
 
     private fun onConfirmation(
@@ -243,10 +263,11 @@ class QuickAddFlow(
         channel: ConversationChannel,
         state: QuickAddState.AwaitingConfirmation,
         inbound: ChannelInbound,
+        boardId: UUID?,
     ): QuickAddState? {
         if (inbound is ChannelInbound.Selection) {
             return when (inbound.optionId) {
-                OPTION_SAVE -> saveAndOffer(userId, channel, state)
+                OPTION_SAVE -> saveAndOffer(userId, channel, state, boardId)
                 OPTION_CANCEL -> {
                     count("cancelled")
                     channel.send(ChannelMessage.Text(msg(userId, "quickadd.cancelled")))
@@ -256,12 +277,12 @@ class QuickAddFlow(
                     channel.send(ChannelMessage.Text(msg(userId, "quickadd.adjust.prompt")))
                     QuickAddState.AwaitingAdjustment(state.items, state.originalRequest, state.clarifications, now())
                 }
-                else -> { renderCard(userId, channel, state.items); state }
+                else -> { renderCard(userId, channel, state.items, boardId); state }
             }
         }
         val text = (inbound as? ChannelInbound.Text)?.text?.trim().orEmpty()
         if (text.isBlank()) return state
-        return applyAdjustment(userId, channel, state.items, state.originalRequest, state.clarifications, text)
+        return applyAdjustment(userId, channel, state.items, state.originalRequest, state.clarifications, text, boardId)
     }
 
     private fun onAdjustment(
@@ -269,13 +290,14 @@ class QuickAddFlow(
         channel: ConversationChannel,
         state: QuickAddState.AwaitingAdjustment,
         inbound: ChannelInbound,
+        boardId: UUID?,
     ): QuickAddState? {
         val text = (inbound as? ChannelInbound.Text)?.text?.trim().orEmpty()
         if (text.isBlank()) {
             channel.send(ChannelMessage.Text(msg(userId, "quickadd.adjust.prompt")))
             return state
         }
-        return applyAdjustment(userId, channel, state.items, state.originalRequest, state.clarifications, text)
+        return applyAdjustment(userId, channel, state.items, state.originalRequest, state.clarifications, text, boardId)
     }
 
     private fun onClarification(
@@ -283,6 +305,7 @@ class QuickAddFlow(
         channel: ConversationChannel,
         state: QuickAddState.AwaitingClarification,
         inbound: ChannelInbound,
+        boardId: UUID?,
     ): QuickAddState? {
         val answer: String = when (inbound) {
             is ChannelInbound.Selection -> {
@@ -305,15 +328,20 @@ class QuickAddFlow(
             when (val op = state.op) {
                 is PendingOp.Draft -> {
                     val o = PendingOp.Draft(op.originalRequest, newClarifications)
-                    o to suggestionAgent.quickAddDraft(userId, op.originalRequest, newClarifications, mustDraft)
+                    o to suggestionAgent.quickAddDraft(
+                        userId, op.originalRequest, newClarifications, mustDraft, boardId = boardId,
+                    )
                 }
                 is PendingOp.Revise -> {
                     val o = PendingOp.Revise(op.originalRequest, op.items, op.instruction, newClarifications)
-                    o to suggestionAgent.quickAddRevise(userId, op.originalRequest, op.items, op.instruction, newClarifications, mustDraft)
+                    o to suggestionAgent.quickAddRevise(
+                        userId, op.originalRequest, op.items, op.instruction, newClarifications, mustDraft,
+                        boardId = boardId,
+                    )
                 }
             }
         }
-        return renderOutcome(userId, channel, newOp, outcome, clarifyRound = state.rounds + 1).stateOrNull()
+        return renderOutcome(userId, channel, newOp, outcome, clarifyRound = state.rounds + 1, boardId).stateOrNull()
     }
 
     private fun applyAdjustment(
@@ -323,12 +351,15 @@ class QuickAddFlow(
         originalRequest: String,
         clarifications: List<ClarificationExchange>,
         instruction: String,
+        boardId: UUID?,
     ): QuickAddState? {
         val op = PendingOp.Revise(originalRequest, items, instruction, clarifications)
         val outcome = channel.whileWorking {
-            suggestionAgent.quickAddRevise(userId, originalRequest, items, instruction, clarifications, mustDraft = false)
+            suggestionAgent.quickAddRevise(
+                userId, originalRequest, items, instruction, clarifications, mustDraft = false, boardId = boardId,
+            )
         }
-        return renderOutcome(userId, channel, op, outcome, clarifyRound = 1).stateOrNull()
+        return renderOutcome(userId, channel, op, outcome, clarifyRound = 1, boardId).stateOrNull()
     }
 
     private fun renderOutcome(
@@ -337,15 +368,16 @@ class QuickAddFlow(
         op: PendingOp,
         outcome: SuggestionOutcome,
         clarifyRound: Int,
+        boardId: UUID?,
     ): CaptureEntry = when (outcome) {
         is SuggestionOutcome.Draft -> CaptureEntry.Captured(
-            validateItems(userId, outcome.items).let { validated ->
+            validateItems(userId, outcome.items, boardId).let { validated ->
                 if (validated.isEmpty()) {
                     log.warn("quick-add validated to no items; abandoning capture")
-                    channel.send(ChannelMessage.Text(msg(userId, "quickadd.unparseable")))
+                    channel.send(ChannelMessage.Text(msg(userId, unparseableKey(channel))))
                     null
                 } else {
-                    renderCard(userId, channel, validated)
+                    renderCard(userId, channel, validated, boardId)
                     QuickAddState.AwaitingConfirmation(
                         validated, op.originalRequest, op.clarifications, now(), outcome.planThisWeek,
                     )
@@ -356,7 +388,7 @@ class QuickAddFlow(
             if (clarifyRound > MAX_CLARIFY_ROUNDS) {
                 // The agent asked again despite being told it must draft — give up gracefully.
                 log.warn("quick-add exceeded clarification budget; abandoning capture")
-                channel.send(ChannelMessage.Text(msg(userId, "quickadd.unparseable")))
+                channel.send(ChannelMessage.Text(msg(userId, unparseableKey(channel))))
                 null
             } else {
                 // Normalize option ids to short, stable values (they become channel callback data).
@@ -375,7 +407,7 @@ class QuickAddFlow(
         }
         is SuggestionOutcome.Unparseable -> {
             count("failed")
-            channel.send(ChannelMessage.Text(msg(userId, "quickadd.unparseable")))
+            channel.send(ChannelMessage.Text(msg(userId, unparseableKey(channel))))
             CaptureEntry.Captured(null)
         }
     }
@@ -385,7 +417,7 @@ class QuickAddFlow(
      * hand-off will accept: exactly one task and no events (`docs/FREE-TEXT-CAPTURE.md` D6 gate 2).
      * Null for anything else, including a failed save.
      */
-    private fun save(userId: UUID, channel: ConversationChannel, items: List<CapturedItem>): UUID? {
+    private fun save(userId: UUID, channel: ConversationChannel, items: List<CapturedItem>, boardId: UUID?): UUID? {
         val tasks = items.filterIsInstance<CapturedItem.Task>().map { it.draft }
         val events = items.filterIsInstance<CapturedItem.Event>().map { it.draft }
 
@@ -395,7 +427,7 @@ class QuickAddFlow(
             return null
         }
 
-        val result = runCatching { persist(userId, tasks, events) }
+        val result = runCatching { persist(userId, boardId, tasks, events) }
 
         result.onSuccess { saved ->
             count("saved")
@@ -420,22 +452,22 @@ class QuickAddFlow(
      * the save itself fails, so the caller can retry.
      */
     fun saveWithoutConfirmation(userId: UUID, items: List<CapturedItem>): SavedCapture? {
-        val validated = validateItems(userId, items)
+        val validated = validateItems(userId, items, boardId = null)
         val tasks = validated.filterIsInstance<CapturedItem.Task>().map { it.draft }
         val events = validated.filterIsInstance<CapturedItem.Event>().map { it.draft }
         if (tasks.isEmpty() && events.isEmpty()) return null
         check(tasks.none { it.categoryId.isNullOrBlank() }) { "a task draft had no category" }
-        return persist(userId, tasks, events).also {
+        return persist(userId, boardId = null, tasks, events).also {
             count("saved")
             log.debug("quick-add created {} item(s) without confirmation", it.titles.size)
         }
     }
 
-    private fun persist(userId: UUID, tasks: List<TaskDraft>, events: List<EventDraft>): SavedCapture {
+    private fun persist(userId: UUID, boardId: UUID?, tasks: List<TaskDraft>, events: List<EventDraft>): SavedCapture {
         val titles = mutableListOf<String>()
         val taskIds = mutableListOf<UUID>()
         var invitesSkipped = false
-        val boardId = boardMembershipService.resolveDefaultBoard(userId)
+        val boardId = boardId ?: boardMembershipService.resolveDefaultBoard(userId)
         for (task in tasks) {
             val created = backlogTaskService.createTask(userId, boardId, task.toCreateBacklogTaskRequest())
             titles += created.title
@@ -460,8 +492,9 @@ class QuickAddFlow(
         userId: UUID,
         channel: ConversationChannel,
         state: QuickAddState.AwaitingConfirmation,
+        boardId: UUID?,
     ): QuickAddState? {
-        val taskId = save(userId, channel, state.items) ?: return null
+        val taskId = save(userId, channel, state.items, boardId) ?: return null
         return offerPlan(userId, channel, state, taskId)
     }
 
@@ -600,11 +633,17 @@ class QuickAddFlow(
      * already saved, so there is nothing to abandon: the offer lapses silently and the message gets
      * the treatment any out-of-band message gets, routing escape included.
      */
-    private fun lapseOffer(userId: UUID, channel: ConversationChannel, inbound: ChannelInbound): CaptureEntry {
+    private fun lapseOffer(
+        userId: UUID,
+        channel: ConversationChannel,
+        inbound: ChannelInbound,
+        boardId: UUID?,
+    ): CaptureEntry {
         countPlan("lapsed")
         return when (inbound) {
-            is ChannelInbound.Text -> beginUnprompted(userId, channel, inbound.text)
-            is ChannelInbound.Media -> beginUnpromptedFromMedia(userId, channel, inbound.attachments, inbound.caption)
+            is ChannelInbound.Text -> beginUnprompted(userId, channel, inbound.text, boardId)
+            is ChannelInbound.Media ->
+                beginUnpromptedFromMedia(userId, channel, inbound.attachments, inbound.caption, boardId)
             // Unreachable: a selection is what this state is waiting for.
             is ChannelInbound.Selection -> CaptureEntry.Captured(null)
         }
@@ -677,9 +716,9 @@ class QuickAddFlow(
      * events, parses ISO timestamps, defaults a missing/invalid end to start + 60min, and silently
      * drops events whose start is unparseable or far in the past (the agent should have asked).
      */
-    private fun validateItems(userId: UUID, items: List<CapturedItem>): List<CapturedItem> {
+    private fun validateItems(userId: UUID, items: List<CapturedItem>, boardId: UUID?): List<CapturedItem> {
         if (items.isEmpty()) return emptyList()
-        val categories = categoryService.getAllForUser(userId)
+        val categories = categoriesFor(userId, boardId)
         val zone = userZone(userId)
         val nowInstant = clock.instant()
         return items.mapNotNull { item ->
@@ -727,11 +766,11 @@ class QuickAddFlow(
         }
     }
 
-    private fun renderCard(userId: UUID, channel: ConversationChannel, items: List<CapturedItem>) {
+    private fun renderCard(userId: UUID, channel: ConversationChannel, items: List<CapturedItem>, boardId: UUID?) {
         val f = channel.formatter
         val locale = locale(userId)
         val zone = userZone(userId)
-        val categories = categoryService.getAllForUser(userId)
+        val categories = categoriesFor(userId, boardId)
         val blocks = items.map { item ->
             when (item) {
                 is CapturedItem.Task -> renderTaskBlock(item.draft, categories, f, locale)
@@ -749,6 +788,10 @@ class QuickAddFlow(
             )
         )
     }
+
+    /** The categories of the board the capture saves to: [boardId], or the user's default board. */
+    private fun categoriesFor(userId: UUID, boardId: UUID?): List<BacklogTaskCategory> =
+        boardId?.let { categoryService.getCategories(userId, it) } ?: categoryService.getAllForUser(userId)
 
     private fun renderTaskBlock(
         draft: TaskDraft,
@@ -770,12 +813,12 @@ class QuickAddFlow(
 
         return buildString {
             append("➕ ").append(f.bold(draft.title))
-            if (meta.isNotEmpty()) append("\n").append(meta)
+            if (meta.isNotEmpty()) append(f.lineBreak).append(meta)
             draft.tags.takeIf { it.isNotEmpty() }?.let { tags ->
-                append("\n🏷 ").append(tags.joinToString(", ") { f.escape(it.label) })
+                append(f.lineBreak).append("🏷 ").append(tags.joinToString(", ") { f.escape(it.label) })
             }
             draft.description?.takeIf { it.isNotBlank() }?.let { desc ->
-                append("\n").append(f.italic(truncate(desc)))
+                append(f.lineBreak).append(f.italic(truncate(desc)))
             }
         }
     }
@@ -792,12 +835,12 @@ class QuickAddFlow(
 
         return buildString {
             append("📅 ").append(f.bold(draft.title))
-            append("\n🕒 ").append(f.escape(whenLine))
+            append(f.lineBreak).append("🕒 ").append(f.escape(whenLine))
             draft.location?.takeIf { it.isNotBlank() }?.let { loc ->
-                append("\n📍 ").append(f.escape(loc))
+                append(f.lineBreak).append("📍 ").append(f.escape(loc))
             }
             draft.notes?.takeIf { it.isNotBlank() }?.let { notes ->
-                append("\n").append(f.italic(truncate(notes)))
+                append(f.lineBreak).append(f.italic(truncate(notes)))
             }
         }
     }
@@ -842,6 +885,10 @@ class QuickAddFlow(
         }
         channel.send(ChannelMessage.Text(msg(userId, key, channel.formatter.escape(truncate(sourceText)))))
     }
+
+    /** Point the user back to `/add` only where typing it does something. */
+    private fun unparseableKey(channel: ConversationChannel): String =
+        if (channel.capabilities.supportsSlashCommands) "quickadd.unparseable" else "quickadd.unparseable.plain"
 
     /** Text attachments need no modality, so they are never the reason. */
     private fun unsupportedMessageKey(attachments: List<InboundAttachment>): String {

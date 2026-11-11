@@ -50,6 +50,8 @@ enum class ChannelType(
 data class ChannelCapabilities(
     val supportsAutocompletions: Boolean,
     val supportsInlineButtons: Boolean,
+    /** The user can type commands such as `/add`, so a message may point them at one. */
+    val supportsSlashCommands: Boolean = false,
 )
 
 sealed interface ChannelMessage {

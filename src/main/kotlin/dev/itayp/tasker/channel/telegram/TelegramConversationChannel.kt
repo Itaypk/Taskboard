@@ -40,6 +40,7 @@ class TelegramConversationChannel(
     override val capabilities = ChannelCapabilities(
         supportsAutocompletions = true,
         supportsInlineButtons = true,
+        supportsSlashCommands = true,
     )
 
     override val formatter: MessageFormatter = HtmlMessageFormatter
