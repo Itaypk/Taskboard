@@ -1,5 +1,6 @@
 package dev.itayp.tasker.planning
 
+import dev.itayp.tasker.calendar.CalendarDelivery
 import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.ai.prompt.ExternalContent
 import dev.itayp.tasker.ai.prompt.PromptTemplateLoader
@@ -163,7 +164,7 @@ class WeeklyPlanningPromptAssemblerTest {
         contextBlock = null,
         timeZone = "UTC",
         preferredLanguage = "en",
-        calendarInviteEmail = false,
+        calendarDelivery = CalendarDelivery.NONE,
         gender = null,
         agentDescription = null,
         planningCron = null,

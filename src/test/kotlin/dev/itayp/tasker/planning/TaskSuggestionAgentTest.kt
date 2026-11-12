@@ -1,5 +1,6 @@
 package dev.itayp.tasker.planning
 
+import dev.itayp.tasker.calendar.CalendarDelivery
 import dev.itayp.tasker.ai.InputModalitySupport
 import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.ai.ReasoningAwareAiClient
@@ -82,7 +83,7 @@ class TaskSuggestionAgentTest {
         contextBlock = "Works mornings; gym on weekends.",
         timeZone = "UTC",
         preferredLanguage = "en",
-        calendarInviteEmail = false,
+        calendarDelivery = CalendarDelivery.NONE,
         gender = null,
         agentDescription = null,
         planningCron = null,

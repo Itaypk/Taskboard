@@ -1,5 +1,6 @@
 package dev.itayp.tasker.external
 
+import dev.itayp.tasker.calendar.CalendarDelivery
 import dev.itayp.tasker.config.SecurityConfiguration
 import dev.itayp.tasker.model.BoardRole
 import dev.itayp.tasker.model.BoardSummary
@@ -59,7 +60,7 @@ class ExternalBoardControllerTest(@Autowired val mockMvc: MockMvc) {
         contextBlock = null,
         timeZone = "Asia/Jerusalem",
         preferredLanguage = "en",
-        calendarInviteEmail = false,
+        calendarDelivery = CalendarDelivery.NONE,
         gender = null,
         agentDescription = null,
         planningCron = null,

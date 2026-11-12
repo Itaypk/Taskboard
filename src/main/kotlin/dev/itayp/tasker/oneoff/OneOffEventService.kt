@@ -103,8 +103,11 @@ class OneOffEventService(
         if (events.isEmpty()) return false
         val ctx = inviteDeliveryResolver.resolveEmailContext(userId)
         if (ctx == null) {
-            log.debug("Skipping one-off event invites for user {}: no eligible email channel", userId)
-            return false
+            // The subscription feed serves the event as soon as it's saved: nothing to send, but it
+            // does reach the calendar, so the caller mustn't say "no invite was sent".
+            val viaFeed = inviteDeliveryResolver.deliversToFeed(userId)
+            log.debug("No one-off event invites for user {}: no eligible email channel (feed: {})", userId, viaFeed)
+            return viaFeed
         }
         val zone = runCatching { ZoneId.of(userSettingsService.getOrCreate(userId).timeZone) }
             .getOrDefault(ZoneId.of("UTC"))
@@ -125,7 +128,10 @@ class OneOffEventService(
     }
 }
 
-/** Outcome of [OneOffEventService.createEvents]: the persisted rows plus whether invites were scheduled. */
+/**
+ * Outcome of [OneOffEventService.createEvents]: the persisted rows plus whether they reach the
+ * user's calendar (invites scheduled, or served by the subscription feed).
+ */
 data class CreatedEvents(val events: List<OneOffEvent>, val invitesScheduled: Boolean)
 
 /** Result of a cancel attempt — the controller maps each case to an HTTP status. */

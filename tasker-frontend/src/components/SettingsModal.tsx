@@ -11,6 +11,7 @@ import { categorizeImportError, type ImportResult } from './importResult';
 import { HelpTip } from './HelpTip';
 import { ApiTokens } from './ApiTokens';
 import { InboundMailAddress } from './InboundMailAddress';
+import { CalendarDeliverySection } from './CalendarDeliverySection';
 import { Tabs } from './Tabs';
 import { Toggle } from './Toggle';
 import { updateUserSettings, fetchSettingsOptions, deleteAccount, exportAccount, importAccount, requestEmailVerification, clearDeadlineMutes } from '../api';
@@ -179,7 +180,6 @@ export function SettingsModal({ settings, open, initialTab, onClose, onSave, onA
         contextBlock: form.contextBlock,
         timeZone: form.timeZone,
         preferredLanguage: form.preferredLanguage,
-        calendarInviteEmail: form.calendarInviteEmail,
         appReminders: form.appReminders,
         gender: form.gender,
         agentDescription: form.agentDescription,
@@ -378,20 +378,6 @@ export function SettingsModal({ settings, open, initialTab, onClose, onSave, onA
                 <label className="settings-toggle">
                   <input
                     type="checkbox"
-                    checked={form.calendarInviteEmail}
-                    onChange={e => setForm(f => ({ ...f, calendarInviteEmail: e.target.checked }))}
-                    disabled={!settings.emailVerified}
-                  />
-                  <span>
-                    {t('settingsModal.general.calendarInvites')}
-                    {!settings.emailVerified && (
-                      <span className="settings-hint"> {t('settingsModal.general.verifyEmailFirst')}</span>
-                    )}
-                  </span>
-                </label>
-                <label className="settings-toggle">
-                  <input
-                    type="checkbox"
                     checked={form.appReminders}
                     onChange={e => setForm(f => ({ ...f, appReminders: e.target.checked }))}
                   />
@@ -400,6 +386,12 @@ export function SettingsModal({ settings, open, initialTab, onClose, onSave, onA
                     <span className="settings-hint"> {t('settingsModal.general.sentOverTelegram')}</span>
                   </span>
                 </label>
+                <p className="settings-hint">
+                  {t('settingsModal.general.calendarMovedPrefix')}{' '}
+                  <button type="button" className="link-btn" onClick={() => setActiveTab('integrations')}>
+                    {t('settingsModal.general.calendarMovedLink')}
+                  </button>
+                </p>
               </div>
 
               <div className="field">
@@ -700,6 +692,7 @@ export function SettingsModal({ settings, open, initialTab, onClose, onSave, onA
 
           {activeTab === 'integrations' && (
             <>
+              <CalendarDeliverySection onVerifyEmail={() => setActiveTab('general')} />
               {inboundMailEnabled && <InboundMailAddress />}
               <ApiTokens />
             </>

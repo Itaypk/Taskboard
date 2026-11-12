@@ -1,5 +1,6 @@
 package dev.itayp.tasker.notification.digest
 
+import dev.itayp.tasker.calendar.CalendarDelivery
 import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ConversationChannel
@@ -61,7 +62,7 @@ class DailyDigestServiceTest {
         whenever(userSettingsService.getOrCreate(userId)).thenReturn(
             UserSettings(
                 userId = userId, displayName = null, contextBlock = null, timeZone = zone.id,
-                preferredLanguage = language, calendarInviteEmail = false, gender = null,
+                preferredLanguage = language, calendarDelivery = CalendarDelivery.NONE, gender = null,
                 agentDescription = null, planningCron = null, weekStartDay = null, autoArchiveDays = null,
                 dailyDigestDueTasks = dueTasks,
             ),

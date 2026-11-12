@@ -10,7 +10,6 @@ data class UpdateUserSettingsRequest(
     @field:Size(max = 4000) val contextBlock: String?,
     @field:NotBlank @field:Size(max = 64) val timeZone: String,
     @field:NotBlank @field:Size(max = 16) val preferredLanguage: String,
-    val calendarInviteEmail: Boolean = false,
     val appReminders: Boolean = true,
     @field:Size(max = 32) val gender: String? = null,
     @field:Size(max = 2000) val agentDescription: String? = null,

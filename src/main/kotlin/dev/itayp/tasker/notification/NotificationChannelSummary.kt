@@ -7,7 +7,7 @@ import java.util.UUID
 /**
  * Human-readable description of how a user will (or won't) be reminded about the time blocks
  * agreed in a planning session, combining the two independent delivery channels —
- * [InviteDeliveryResolver] (calendar-invite email) and [ReminderDeliveryResolver] (Telegram
+ * [InviteDeliveryResolver] (calendar-invite email or the subscription feed) and [ReminderDeliveryResolver] (Telegram
  * slot reminder) — so the planning prompt can tell the assistant the whole truth rather than
  * just the email half of it. Injected into the weekly-planning system prompt as
  * `{{delivery_methods}}`; the assistant is instructed to acknowledge this in its closing
@@ -21,6 +21,7 @@ class NotificationChannelSummary(
 
     fun describe(userId: UUID): String {
         val emailContext = inviteDeliveryResolver.resolveEmailContext(userId)
+        val viaFeed = emailContext == null && inviteDeliveryResolver.deliversToFeed(userId)
         val reminderEligible = reminderDeliveryResolver.resolve(userId) != null
 
         return when {
@@ -37,11 +38,24 @@ class NotificationChannelSummary(
                     "Telegram, or they've turned app reminders off. Calendar invite email is their " +
                     "only reminder channel."
 
+            viaFeed && reminderEligible ->
+                "Agreed time blocks appear in a calendar the user has subscribed to (no emails are " +
+                    "sent); their calendar app picks up changes on its own schedule, so a block may take " +
+                    "a while to show up. They will ALSO get a Telegram reminder shortly before each " +
+                    "block starts."
+
+            viaFeed ->
+                "Agreed time blocks appear in a calendar the user has subscribed to (no emails are " +
+                    "sent); their calendar app picks up changes on its own schedule, so a block may take " +
+                    "a while to show up. They will NOT get a Telegram reminder — either they haven't " +
+                    "linked/enabled Telegram, or they've turned app reminders off. Whatever alerts their " +
+                    "calendar app gives are their only reminder."
+
             reminderEligible ->
                 "The user will get a Telegram reminder shortly before each agreed block starts. " +
-                    "They will NOT receive a calendar invitation email — either they haven't linked or " +
-                    "verified an email address, or they've turned calendar-invite email off. The " +
-                    "Telegram reminder is their only reminder channel."
+                    "They will NOT receive a calendar invitation, and the blocks don't reach their " +
+                    "calendar at all — either they haven't verified an email address, or they've turned " +
+                    "calendar delivery off. The Telegram reminder is their only reminder channel."
 
             else ->
                 "The user has NO active reminder/notification delivery method: time blocks you agree " +

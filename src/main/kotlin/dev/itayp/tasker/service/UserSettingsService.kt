@@ -2,6 +2,7 @@ package dev.itayp.tasker.service
 
 import dev.itayp.tasker.ai.AiProperties
 import dev.itayp.tasker.ai.access.AiTier
+import dev.itayp.tasker.calendar.CalendarDelivery
 import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.jpa.UserSettingsEntity
 import dev.itayp.tasker.model.UserSettings
@@ -78,7 +79,6 @@ class UserSettingsService(
         entity.contextBlock = userCrypto.encrypt(userId, request.contextBlock)
         entity.timeZone = request.timeZone
         entity.preferredLanguage = request.preferredLanguage
-        entity.calendarInviteEmail = request.calendarInviteEmail
         entity.appReminders = request.appReminders
         entity.gender = request.gender
         entity.agentDescription = userCrypto.encrypt(userId, request.agentDescription)
@@ -122,6 +122,16 @@ class UserSettingsService(
     /** One user's raw settings row for the digest scheduler (same caveat), or null if they have none. */
     fun findDailyDigestSchedule(userId: UUID): UserSettingsEntity? =
         settingsRepository.findById(userId).orElse(null)
+
+    /**
+     * Sets how blocks reach the user's calendar. Only `CalendarDeliveryService` should call this:
+     * a switch has side effects (cancelling or sending invitations) that live there.
+     */
+    fun setCalendarDelivery(userId: UUID, delivery: CalendarDelivery) {
+        val entity = fetchOrCreate(userId)
+        entity.calendarDeliveryMode = delivery
+        settingsRepository.save(entity)
+    }
 
     /** Advances the daily-digest scheduler's watermark. */
     fun markDailyDigestRun(userId: UUID, at: Instant) {
@@ -245,7 +255,7 @@ class UserSettingsService(
             contextBlock = userCrypto.decrypt(userId, entity.contextBlock),
             timeZone = entity.timeZone,
             preferredLanguage = entity.preferredLanguage,
-            calendarInviteEmail = entity.calendarInviteEmail,
+            calendarDelivery = entity.calendarDeliveryMode,
             appReminders = entity.appReminders,
             gender = entity.gender,
             agentDescription = userCrypto.decrypt(userId, entity.agentDescription),

@@ -5,7 +5,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   contextBlock: '',
   timeZone: 'UTC',
   preferredLanguage: 'en',
-  calendarInviteEmail: false,
+  calendarDelivery: 'NONE',
   appReminders: true,
   planningCron: null,
   weekStartDay: null,

@@ -1,5 +1,6 @@
 package dev.itayp.tasker.notification
 
+import dev.itayp.tasker.calendar.CalendarDelivery
 import dev.itayp.tasker.channel.ConversationChannel
 import dev.itayp.tasker.model.UserSettings
 import dev.itayp.tasker.planning.ScheduledConversationChannelResolver
@@ -88,7 +89,7 @@ class ReminderDeliveryResolverTest {
         contextBlock = null,
         timeZone = timeZone,
         preferredLanguage = preferredLanguage,
-        calendarInviteEmail = false,
+        calendarDelivery = CalendarDelivery.NONE,
         appReminders = appReminders,
         gender = null,
         agentDescription = null,

@@ -1,0 +1,130 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-block-start: 6px;
+  padding: 14px 16px;
+  border: 1px solid var(--paper-border);
+  border-radius: var(--r-lg);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+@media (max-width: 560px) {
+  .options {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--paper-border);
+  border-radius: var(--r);
+  font-size: 13px;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.option input {
+  margin-block-start: 2px;
+}
+
+.optionSelected {
+  border-color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink);
+}
+
+.optionDisabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.optionText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.optionHint {
+  font-size: 11.5px;
+  color: var(--ink-soft);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.actions a {
+  text-decoration: none;
+}
+
+.url {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+  user-select: all;
+  padding: 6px 8px;
+  border-radius: var(--r-sm);
+  background: var(--paper-surface);
+  border: 1px solid var(--paper-border);
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.dot {
+  flex-shrink: 0;
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+}
+
+.statusLive {
+  color: #2f5b34;
+}
+
+.statusLive .dot {
+  background: currentColor;
+}
+
+.secret {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-block-start: 10px;
+  border-block-start: 1px dashed var(--paper-border);
+}
+
+.secret p {
+  flex: 1 1 240px;
+  margin: 0;
+}

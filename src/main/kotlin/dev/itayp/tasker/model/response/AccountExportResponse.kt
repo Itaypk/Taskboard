@@ -58,7 +58,10 @@ data class SettingsExport(
     val timeZone: String,
     @field:NotBlank @field:Size(max = 10)
     val preferredLanguage: String,
+    /** Kept for older readers and older export files; [calendarDelivery] wins when present. */
     val calendarInviteEmail: Boolean = false,
+    @field:Size(max = 16)
+    val calendarDelivery: String? = null,
     val appReminders: Boolean = true,
     @field:Size(max = 20)
     val gender: String?,

@@ -47,13 +47,14 @@ Frontend (run from `tasker-frontend/`, only needed for fast iteration with HMR):
 
 ## Auth model (important — affects every new endpoint)
 
-There are five independent `SecurityFilterChain` beans:
+There are six independent `SecurityFilterChain` beans:
 
 1. **`h2ConsoleFilterChain` (`@Order(0)`)** - applies for the `dev` profile only; allows full access to the `/h2-console` endpoint.
 2. **`prometheusFilterChain` (`@Order(1)`)** — matches only `/actuator/prometheus`. Stateless HTTP Basic Auth; credentials come from `PrometheusAuthProperties` (`TASKER_PROMETHEUS_USERNAME` / `TASKER_PROMETHEUS_PASSWORD`). CSRF disabled.
 3. **`externalApiFilterChain` (`@Order(2)`)** — matches `/api/external/**`. Stateless bearer-token auth for the external API (see below). CSRF disabled.
 4. **`internalFilterChain` (`@Order(3)`)** — matches only `/internal/inbound-mail`, where the MTA delivers inbound email. Stateless, CSRF disabled, `permitAll`: the shared delivery token is checked in `InboundMailController` (constant time). Must stay unreachable from outside (the hosted Nginx 404s `/internal/`). See `docs/INBOUND-EMAIL.md`.
-5. **`securityFilterChain` (`@Order(4)`)** — everything else. Session-based with a `SameSite=Lax`, `HttpOnly`, `Secure` (prod) cookie (`SESSION`), 30-day rolling timeout. 
+5. **`calendarFeedFilterChain` (`@Order(4)`)** — matches `/calendar/**`, the calendar subscription feed (`GET /calendar/<token>.ics`, `CalendarFeedController`). Stateless (a poll never creates a session or sets a cookie), CSRF disabled, GET/HEAD `permitAll`: the 256-bit token in the path is the authentication, checked in the controller. See "Calendar delivery" below.
+6. **`securityFilterChain` (`@Order(5)`)** — everything else. Session-based with a `SameSite=Lax`, `HttpOnly`, `Secure` (prod) cookie (`SESSION`), 30-day rolling timeout. 
 
 Session chain details:
 - **CSRF** via `CookieCsrfTokenRepository.withHttpOnlyFalse()` — mutating requests must echo the `XSRF-TOKEN` cookie value as the `X-XSRF-TOKEN` header. Login endpoints (`/api/auth/dev-login`, `/api/auth/demo-login`, `/api/auth/email`, `/api/auth/email/callback`, `/api/auth/password`) are exempt because they create the session (the magic-link token in the body is the credential); the Telegram OIDC start/callback are GETs (inherently CSRF-safe — the OAuth `state` parameter is the anti-forgery token). Account-linking endpoints (`/api/auth/identities/**`) are **not** exempt — the user is already signed in there. Frontend `api.ts` handles the token automatically.
@@ -129,6 +130,28 @@ becomes a task, fire-and-forget (`docs/INBOUND-EMAIL.md`). What bites:
 - **Never reply to the sender.** Confirmations go to the user's Telegram or their own verified
   email only; bounces and `Auto-Submitted:` mail are dropped, so nothing can loop.
 - The MTA retries on anything but 2xx/4xx, so "can't take it now" must never be a 4xx.
+
+## Calendar delivery
+
+How agreed blocks (and one-off events) reach the user's calendar is one setting,
+`user_settings.calendar_delivery` = `NONE` | `EMAIL` | `FEED` (`CalendarDelivery`, GitHub issue #346).
+It replaced the `calendar_invite_email` boolean, which is still written (true exactly for `EMAIL`) so
+a rollback keeps working.
+
+- **Change it only through `CalendarDeliveryService`**, never the settings form: a switch from
+  invitations to the feed cancels the upcoming invitations, and a switch to invitations sends them,
+  or blocks show twice or not at all. The SPA's calendar card saves on its own, after confirming.
+- **The feed is computed per request** from finalized plans and live one-off events
+  (`CalendarFeedContent`), so nothing is "pushed" when a plan changes. Future slots of a task
+  that's done, archived or deleted are dropped, mirroring the invitations
+  `TaskCompletionCancellationService` cancels.
+- **Feed UIDs differ from invitation UIDs** (`plan-<taskId>-<epoch>@<host>`, `event-<id>@<host>`),
+  so a cancelled invitation and a feed event are never taken for one another, and a calendar we
+  read back (#347) can recognise our own events by the host suffix.
+- **The token is the path.** Never log the request URI on that path (`UnhandledExceptionResolver`
+  redacts it); the hosted Nginx redacts it from the shipped access log.
+- A link survives a switch away from the feed (it serves an empty calendar), so switching back
+  needs no re-subscribing; "New link" replaces it.
 
 ## Security response headers and caching
 

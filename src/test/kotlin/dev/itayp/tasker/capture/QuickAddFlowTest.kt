@@ -1,5 +1,6 @@
 package dev.itayp.tasker.capture
 
+import dev.itayp.tasker.calendar.CalendarDelivery
 import dev.itayp.tasker.channel.AttachmentKind
 import dev.itayp.tasker.channel.BufferedConversationChannel
 import dev.itayp.tasker.channel.ChannelInbound
@@ -111,7 +112,7 @@ class QuickAddFlowTest {
         contextBlock = null,
         timeZone = "UTC",
         preferredLanguage = "en",
-        calendarInviteEmail = false,
+        calendarDelivery = CalendarDelivery.NONE,
         gender = null,
         agentDescription = null,
         planningCron = null,

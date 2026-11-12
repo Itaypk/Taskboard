@@ -604,8 +604,6 @@
       "autoArchiveHelp": "Done tasks are archived after this many days. Leave blank to disable.",
       "autoArchivePlaceholder": "7",
       "notifications": "Notifications",
-      "calendarInvites": "Email calendar invites for tasks planned to the week",
-      "verifyEmailFirst": "(verify your email first)",
       "appReminders": "In-app reminders before a planned task starts",
       "sentOverTelegram": "(sent over Telegram, if connected)",
       "dailyDigest": "Daily digest",
@@ -633,7 +631,9 @@
       "deleting": "Deleting…",
       "confirmDelete": "Yes, delete everything",
       "cancel": "Cancel",
-      "deleteAccount": "Delete account"
+      "deleteAccount": "Delete account",
+      "calendarMovedPrefix": "Calendar delivery now lives in",
+      "calendarMovedLink": "Integrations"
     },
     "assistant": {
       "aiAccess": "AI access",
@@ -928,5 +928,47 @@
     "open": "Open",
     "clearTutorial": "Clear tutorial tasks",
     "openPlanner": "Open planner"
+  },
+  "calendarDelivery": {
+    "label": "Calendar",
+    "hint": "Connect your weekly plan with the calendar you already use.",
+    "outgoing": {
+      "title": "Put my planned blocks on my calendar",
+      "options": {
+        "NONE": "Off",
+        "EMAIL": "Email invitations",
+        "FEED": "Subscribed calendar"
+      },
+      "optionHints": {
+        "NONE": "Blocks stay in the app",
+        "EMAIL": "Instant, one email per change",
+        "FEED": "No emails; updates when your calendar app checks"
+      },
+      "noneHint": "Your plan stays in the app and in your reminders. Pick a way to also see it in your calendar.",
+      "emailHint": "Each block arrives as an invitation to your verified email address and shows up right away. Every change to your plan sends another email.",
+      "feedHint": "Your blocks live in their own calendar, separate from your other events. Subscribe once; after that, changes show up the next time your calendar app checks for updates. That's usually within the hour, but some apps take longer.",
+      "emailUnavailable": "Email invitations need a verified email address.",
+      "verifyEmail": "Verify your email"
+    },
+    "feed": {
+      "google": "Add to Google Calendar",
+      "webcal": "Open in Apple Calendar or Outlook",
+      "copy": "Copy link",
+      "copied": "Copied",
+      "lastFetched": "A calendar app last checked for updates {{when}}.",
+      "neverFetched": "No calendar app has checked this link yet.",
+      "secretHint": "Anyone with this link can see your planned blocks and their titles. If it gets around, make a new one and subscribe again.",
+      "rotate": "New link",
+      "confirmRotate": "Make a new link? The current one stops working right away, so you'll need to subscribe again with the new one."
+    },
+    "confirm": {
+      "cancel_one": "We'll cancel the upcoming invitation already in your calendar, so the block doesn't show up twice. Until your calendar app picks up the subscribed calendar, it may be missing for a while.",
+      "cancel_other": "We'll cancel the {{count}} upcoming invitations already in your calendar, so blocks don't show up twice. Until your calendar app picks up the subscribed calendar, they may be missing for a while.",
+      "send_one": "We'll email you an invitation for your upcoming block.",
+      "send_other": "We'll email you invitations for your {{count}} upcoming blocks."
+    },
+    "errors": {
+      "failed": "Something went wrong. Please try again."
+    }
   }
 }

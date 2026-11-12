@@ -53,4 +53,11 @@ interface PlanningSessionRepository : JpaRepository<PlanningSessionEntity, UUID>
         userId: UUID,
         status: PlanningSessionStatus,
     ): List<PlanningSessionEntity>
+
+    /** As above, limited to weeks starting on or after [weekStart] (the calendar feed's window). */
+    fun findAllByUserIdAndStatusAndWeekStartGreaterThanEqualOrderByWeekStartDescStartedAtDesc(
+        userId: UUID,
+        status: PlanningSessionStatus,
+        weekStart: LocalDate,
+    ): List<PlanningSessionEntity>
 }

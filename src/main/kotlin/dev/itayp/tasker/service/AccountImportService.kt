@@ -1,6 +1,7 @@
 package dev.itayp.tasker.service
 
 import dev.itayp.tasker.ai.access.AiTier
+import dev.itayp.tasker.calendar.CalendarDelivery
 import dev.itayp.tasker.crypto.BoardCryptoService
 import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.jpa.BacklogTaskCategoryEntity
@@ -106,7 +107,9 @@ class AccountImportService(
             settings.contextBlock = userCrypto.encrypt(userId, s.contextBlock)
             settings.timeZone = s.timeZone
             settings.preferredLanguage = s.preferredLanguage
-            settings.calendarInviteEmail = s.calendarInviteEmail
+            // The feed token is never exported: an imported FEED mode gets a fresh link on first view.
+            settings.calendarDeliveryMode = s.calendarDelivery?.let(CalendarDelivery::fromName)
+                ?: if (s.calendarInviteEmail) CalendarDelivery.EMAIL else CalendarDelivery.NONE
             settings.appReminders = s.appReminders
             settings.gender = s.gender
             settings.agentDescription = userCrypto.encrypt(userId, s.agentDescription)
