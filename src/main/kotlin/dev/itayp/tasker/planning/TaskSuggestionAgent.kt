@@ -9,6 +9,7 @@ import dev.itayp.nescioquid.openrouter.ChatMessage
 import dev.itayp.nescioquid.openrouter.ChatRequest
 import dev.itayp.nescioquid.openrouter.ContentPart
 import dev.itayp.tasker.ai.InputModalitySupport
+import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.ai.prompt.ExternalContent
 import dev.itayp.tasker.ai.prompt.PromptTemplateLoader
 import dev.itayp.tasker.ai.parseAssistantJsonResponseOrNull
@@ -22,6 +23,7 @@ import dev.itayp.tasker.model.TagColor
 import dev.itayp.tasker.service.BacklogTaskCategoryService
 import dev.itayp.tasker.service.BacklogTaskService
 import dev.itayp.tasker.service.BacklogTaskTagService
+import dev.itayp.tasker.service.BoardMembershipService
 import dev.itayp.tasker.service.UserSettingsService
 import io.micrometer.core.instrument.MeterRegistry
 import org.slf4j.LoggerFactory
@@ -47,6 +49,8 @@ class TaskSuggestionAgent(
     private val backlogTaskService: BacklogTaskService,
     private val categoryService: BacklogTaskCategoryService,
     private val tagService: BacklogTaskTagService,
+    private val boardMembershipService: BoardMembershipService,
+    private val aiAccessService: AiAccessService,
     private val userSettingsService: UserSettingsService,
     private val promptTemplateLoader: PromptTemplateLoader,
     private val inputModalitySupport: InputModalitySupport,
@@ -64,8 +68,7 @@ class TaskSuggestionAgent(
         val today = LocalDate.ofInstant(clock.instant(), zone)
         val contextBlock = settings.contextBlock?.takeIf { it.isNotBlank() }
 
-        val categories = categoryService.getAllForUser(userId)
-        val tags = tagService.getAllForUser(userId)
+        val (categories, tags) = labelsFor(userId, null)
         val sample = backlogTaskService.getAssistantVisibleTasks(userId, null).take(SAMPLE_SIZE)
 
         val systemPrompt = promptTemplateLoader.load("task-suggestion/system.md").render(mapOf(
@@ -233,8 +236,7 @@ class TaskSuggestionAgent(
             Locale.forLanguageTag(settings.preferredLanguage).getDisplayLanguage(Locale.ENGLISH)
         }.getOrNull()?.takeIf { it.isNotBlank() } ?: "English"
 
-        val categories = boardId?.let { categoryService.getCategories(userId, it) } ?: categoryService.getAllForUser(userId)
-        val tags = boardId?.let { tagService.getTags(userId, it) } ?: tagService.getAllForUser(userId)
+        val (categories, tags) = labelsFor(userId, boardId)
         val sample = backlogTaskService.getAssistantVisibleTasks(userId, null).take(SAMPLE_SIZE)
 
         // The third reply shape exists only for a capture the user didn't ask for (`docs/
@@ -402,8 +404,21 @@ summary of your reasoning.
         return "\nEarlier clarifications in this capture:\n$lines\n"
     }
 
+    /**
+     * The categories and tags the model drafts with: those of the board the capture saves to
+     * ([boardId], or the user's default board). When a member of that board has opted out of AI,
+     * the model gets neither, and the save falls back to the board's first category (see
+     * `QuickAddFlow.validateItems`). Writing an AI-drafted task to such a board is fine; reading
+     * its labels into the prompt is not.
+     */
+    private fun labelsFor(userId: UUID, boardId: UUID?): Pair<List<BacklogTaskCategory>, List<BacklogTaskTag>> {
+        val target = boardId ?: boardMembershipService.resolveDefaultBoard(userId)
+        if (!aiAccessService.isAiEnabledForBoard(target)) return emptyList<BacklogTaskCategory>() to emptyList()
+        return categoryService.getCategories(userId, target) to tagService.getTags(userId, target)
+    }
+
     private fun renderCategories(categories: List<BacklogTaskCategory>): String {
-        if (categories.isEmpty()) return "(none)"
+        if (categories.isEmpty()) return "(none available — set category_id to null; a default is applied on save)"
         return categories.joinToString("\n") { "- [${it.id}] ${it.label}" }
     }
 

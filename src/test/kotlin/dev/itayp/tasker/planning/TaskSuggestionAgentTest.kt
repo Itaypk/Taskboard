@@ -1,6 +1,7 @@
 package dev.itayp.tasker.planning
 
 import dev.itayp.tasker.ai.InputModalitySupport
+import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.ai.ReasoningAwareAiClient
 import dev.itayp.nescioquid.openrouter.ChatMessage
 import dev.itayp.nescioquid.openrouter.ChatResponse
@@ -18,6 +19,7 @@ import dev.itayp.tasker.model.UserSettings
 import dev.itayp.tasker.service.BacklogTaskCategoryService
 import dev.itayp.tasker.service.BacklogTaskService
 import dev.itayp.tasker.service.BacklogTaskTagService
+import dev.itayp.tasker.service.BoardMembershipService
 import dev.itayp.tasker.service.UserSettingsService
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.junit.jupiter.api.BeforeEach
@@ -47,25 +49,30 @@ class TaskSuggestionAgentTest {
     private val backlogTaskService: BacklogTaskService = mock()
     private val categoryService: BacklogTaskCategoryService = mock()
     private val tagService: BacklogTaskTagService = mock()
+    private val boardMembershipService: BoardMembershipService = mock()
+    private val aiAccessService: AiAccessService = mock()
     private val userSettingsService: UserSettingsService = mock()
     private val objectMapper = jacksonObjectMapper()
     private val clock = Clock.fixed(Instant.parse("2026-06-01T10:00:00Z"), ZoneOffset.UTC)
     private val meterRegistry = SimpleMeterRegistry()
     private val inputModalitySupport: InputModalitySupport = mock()
     private val agent = TaskSuggestionAgent(
-        aiClient, backlogTaskService, categoryService, tagService, userSettingsService,
+        aiClient, backlogTaskService, categoryService, tagService, boardMembershipService, aiAccessService, userSettingsService,
         PromptTemplateLoader(), inputModalitySupport, objectMapper, clock, meterRegistry, "test-model",
     )
 
     private val userId = UUID.randomUUID()
+    private val defaultBoardId = UUID.randomUUID()
 
     @BeforeEach
     fun stubContext() {
         whenever(userSettingsService.getOrCreate(userId)).thenReturn(userSettings())
-        whenever(categoryService.getAllForUser(userId)).thenReturn(
+        whenever(boardMembershipService.resolveDefaultBoard(userId)).thenReturn(defaultBoardId)
+        whenever(aiAccessService.isAiEnabledForBoard(defaultBoardId)).thenReturn(true)
+        whenever(categoryService.getCategories(userId, defaultBoardId)).thenReturn(
             listOf(BacklogTaskCategory(UUID.randomUUID(), userId, "Health", CategoryColor.PEACH)),
         )
-        whenever(tagService.getAllForUser(userId)).thenReturn(emptyList())
+        whenever(tagService.getTags(userId, defaultBoardId)).thenReturn(emptyList())
         whenever(backlogTaskService.getAssistantVisibleTasks(userId, null)).thenReturn(emptyList())
     }
 
@@ -100,6 +107,24 @@ class TaskSuggestionAgentTest {
         assertEquals("rose", draft?.tags?.first()?.colorId)
         // Drafting must never write to the backlog.
         verify(backlogTaskService, never()).createTask(any(), any(), any())
+    }
+
+    @Test
+    fun `quickAddDraft leaves out the target board's categories and tags when it is AI-restricted`() {
+        whenever(aiAccessService.isAiEnabledForBoard(defaultBoardId)).thenReturn(false)
+        whenever(aiClient.chat(any(), any())).thenReturn(
+            chatResponse("""{"items":[{"kind":"task","title":"Buy milk","category_id":null,"tags":[]}]}"""),
+        )
+
+        agent.quickAddDraft(userId, "buy milk")
+
+        val request = argumentCaptor<ChatRequest>()
+        verify(aiClient).chat(request.capture(), any())
+        val prompt = request.firstValue.messages.last().contentText.orEmpty()
+        assertFalse(prompt.contains("Health"))
+        assertTrue(prompt.contains("set category_id to null"))
+        verify(categoryService, never()).getCategories(any(), any())
+        verify(tagService, never()).getTags(any(), any())
     }
 
     @Test
