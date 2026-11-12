@@ -309,7 +309,7 @@
     {
       "type": "timeseries",
       "title": "Latency (avg & max)",
-      "description": "Average latency = rate(sum)/rate(count); max is Micrometer's rolling per-series max. Excludes the synchronous, AI-backed planning-turn endpoints (see 'Planning turn latency') since they block on OpenRouter and aren't representative of normal API response time. NOTE: true p95/p99 require percentile histograms — see the README to enable them.",
+      "description": "Average latency = rate(sum)/rate(count); max is Micrometer's rolling per-series max. Excludes the synchronous, AI-backed planning-turn endpoints (see 'Planning turn latency') since they block on OpenRouter and aren't representative of normal API response time. p95/p99 are available from http_server_requests_seconds_bucket (SLO buckets, see the README).",
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "gridPos": { "h": 8, "w": 8, "x": 8, "y": 15 },
       "id": 22,
