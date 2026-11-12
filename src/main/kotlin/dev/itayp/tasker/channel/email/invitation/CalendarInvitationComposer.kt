@@ -1,5 +1,10 @@
 package dev.itayp.tasker.channel.email.invitation
 
+import dev.itayp.tasker.calendar.ICalWriter
+import dev.itayp.tasker.calendar.ICalWriter.escapeParam
+import dev.itayp.tasker.calendar.ICalWriter.escapeText
+import dev.itayp.tasker.calendar.ICalWriter.fold
+import dev.itayp.tasker.calendar.ICalWriter.formatUtc
 import dev.itayp.tasker.channel.email.EmailTemplateEngine
 import dev.itayp.tasker.channel.OutboundChannel
 import dev.itayp.tasker.channel.email.EmailMessage
@@ -71,7 +76,7 @@ class CalendarInvitationComposer(
             add("END:VEVENT")
             add("END:VCALENDAR")
         }
-        return lines.joinToString("\r\n") + "\r\n"
+        return ICalWriter.join(lines)
     }
 
     fun buildCancellationHtmlBody(event: CalendarEvent): String {
@@ -121,7 +126,7 @@ class CalendarInvitationComposer(
             add("END:VEVENT")
             add("END:VCALENDAR")
         }
-        return lines.joinToString("\r\n") + "\r\n"
+        return ICalWriter.join(lines)
     }
 
     fun buildHtmlBody(event: CalendarEvent): String {
@@ -137,43 +142,11 @@ class CalendarInvitationComposer(
         )
     }
 
-    private fun formatUtc(dt: ZonedDateTime): String =
-        dt.withZoneSameInstant(ZoneOffset.UTC).format(ICAL_UTC_FORMAT)
-
     /** The locale's own date and time order and clock (`28 Oct 2026, 14:00` for en-GB, `Oct 28, 2026, 2:00 PM` for en-US). */
     private fun formatDisplay(dt: ZonedDateTime, locale: Locale): String =
         dt.format(DISPLAY_FORMAT.withLocale(locale))
 
-    // RFC 5545 §3.3.11 — escape backslash, semicolon, comma, newlines in text values
-    private fun escapeText(s: String): String = s
-        .replace("\\", "\\\\")
-        .replace(";", "\\;")
-        .replace(",", "\\,")
-        .replace("\n", "\\n")
-        .replace("\r", "")
-
-    // Minimal escape for CN= parameter values (avoid ; and ")
-    private fun escapeParam(s: String): String = s.replace("\"", "'").replace(";", " ")
-
-    // RFC 5545 §3.1 — fold lines longer than 75 octets at whitespace
-    private fun fold(line: String): String {
-        if (line.length <= 75) return line
-        val sb = StringBuilder()
-        var offset = 0
-        var firstChunk = true
-        while (offset < line.length) {
-            val limit = if (firstChunk) 75 else 74
-            val end = minOf(offset + limit, line.length)
-            if (!firstChunk) sb.append("\r\n ")
-            sb.append(line, offset, end)
-            offset = end
-            firstChunk = false
-        }
-        return sb.toString()
-    }
-
     companion object {
-        private val ICAL_UTC_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'")
         private val DISPLAY_FORMAT: DateTimeFormatter = DateTimeFormatterBuilder()
             .appendLocalized("yMMMEdjm")
             .appendLiteral(' ')
