@@ -47,6 +47,13 @@ management:
       show-details: when-authorized
       probes:
         enabled: true
+  metrics:
+    distribution:
+      # Explicit SLO buckets publish http_server_requests_seconds_bucket for histogram_quantile,
+      # at ~11 series per tag combination (vs. ~70 for percentiles-histogram: true). The top
+      # buckets cover the synchronous AI endpoints (quick-add, web planning turns).
+      slo:
+        http.server.requests: 25ms,50ms,100ms,250ms,500ms,1s,2500ms,5s,10s,30s
 
 tasker:
   app:

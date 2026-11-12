@@ -89,25 +89,13 @@ never appear in `http_server_requests_seconds` at all — only the web chat does
 If you add another synchronous AI-backed endpoint, extend both regexes (or this
 will silently start polluting "general" latency again).
 
-### Known limitation: latency percentiles
+### Latency percentiles
 
-`http_server_requests_seconds` is currently exported as a plain summary (count/sum/max)
-with **no histogram buckets**, so the latency panel can only show average and max —
-not p95/p99. To unlock real percentiles, enable client-side histograms in
-`application.yaml`:
-
-```yaml
-management:
-  metrics:
-    distribution:
-      percentiles-histogram:
-        http.server.requests: true
-      # optional explicit SLO buckets to bound cardinality:
-      # slo:
-      #   http.server.requests: 50ms,100ms,250ms,500ms,1s,2s
-```
-
-This adds `http_server_requests_seconds_bucket` series, after which a panel using
+`http_server_requests_seconds` is exported with explicit SLO buckets
+(`management.metrics.distribution.slo.http.server.requests` in `application.yaml`:
+25ms … 30s, 10 buckets plus `+Inf`), so `http_server_requests_seconds_bucket` exists and
 `histogram_quantile(0.95, sum by (le) (rate(..._bucket[$__rate_interval])))` works.
-Note it increases metric cardinality (one series per bucket per tag combination), so
-prefer bounding it with explicit SLO buckets on a single-instance VPS.
+Explicit buckets rather than `percentiles-histogram: true` bound cardinality to ~11 series
+per uri/method/status combination instead of ~70. Quantiles are interpolated within a
+bucket, so read them as "which bucket", not to the millisecond; and at low request volume a
+single slow AI-backed request still dominates p95 — filter those endpoints out as above.
