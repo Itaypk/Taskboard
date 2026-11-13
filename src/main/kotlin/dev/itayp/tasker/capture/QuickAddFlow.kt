@@ -156,7 +156,7 @@ class QuickAddFlow(
      * invitation) is the same. A **voice note** is as open-ended as
      * typed text — "remind me to call the plumber" and "how does this thing work?" arrive the same
      * way — so it gets the same routing escape text does. Either way the classification rides along
-     * in the call that already transcribes and drafts, so it costs nothing extra.
+     * in the call that already drafts, so it costs nothing extra.
      */
     fun beginUnpromptedFromMedia(
         userId: UUID,

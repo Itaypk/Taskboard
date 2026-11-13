@@ -153,8 +153,8 @@ reduction, not as the identity mechanism.
 - Attachments are close to free: `InboundAttachment`/`AttachmentKind` and the media-capture
   model path are already channel-agnostic (built for exactly this per
   `docs/MULTIMODAL-CAPTURE.md`), so MIME attachment extraction just needs to produce that same
-  shape. Still gated by `InputModalitySupport`'s fail-closed check — stays dark unless
-  `TASKER_AI_MULTIMODAL_MODEL` is configured with a model advertising the right modalities.
+  shape. Still gated by `InputModalitySupport`'s fail-closed check — images stay dark unless
+  the vision model (`TASKER_AI_VISION_MODEL`) advertises `image` input.
 - Mail-loop protection: check `Auto-Submitted:`/`Precedence:` headers before sending a
   confirmation, never reply to bounces.
 - A new rate-limit policy alongside the existing `quickAdd` (60/hr) policy — per-sender-address

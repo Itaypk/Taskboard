@@ -143,8 +143,8 @@ class TelegramMediaExtractor(
     }
 
     /**
-     * The codec label OpenRouter wants for an `input_audio` part, from Telegram's declared mime type.
-     * Telegram voice notes are always OGG/Opus; the rest cover audio files a user might forward.
+     * The codec label OpenRouter's transcription endpoint wants for the audio, from Telegram's
+     * declared mime type. Telegram voice notes are always OGG/Opus; the rest cover audio files a user might forward.
      * An unmapped type is declined rather than guessed — a wrong label is a provider-side error.
      */
     private fun audioFormat(mimeType: String?): String? = when (mimeType?.substringBefore(';')?.trim()?.lowercase()) {

@@ -11,11 +11,18 @@ data class AiProperties(
     /** Model slug for the planner's task search/suggestion/reminder sub-agents. */
     val taskAssistantModel: String = "",
     /**
-     * Model slug for quick-add captures that carry an image or a voice note. Blank falls back to
-     * [taskAssistantModel] — which is only useful if that model itself accepts those modalities;
-     * capture is declined (with a message to the user) when the resolved model doesn't.
+     * Model slug for captures that carry images or PDFs (both go to it, in one call). Blank falls
+     * back to [taskAssistantModel], which only helps for images if that model itself accepts them;
+     * an image capture is declined (with a message to the user) when the resolved model doesn't.
+     * PDFs likewise need native file input: OpenRouter's PDF parsers run outside zero data retention.
      */
-    val multimodalModel: String = "",
+    val visionModel: String = "",
+    /**
+     * Speech-to-text model slug for voice notes and audio files, sent to OpenRouter's
+     * `/audio/transcriptions`. The transcript then runs the normal text capture against
+     * [taskAssistantModel]. No fallback: blank declines audio capture.
+     */
+    val transcriptionModel: String = "",
     /**
      * Route every LLM call only to provider endpoints with a zero-data-retention policy (OpenRouter's
      * `provider.zdr`). On by default, like the client library's own default: the privacy policy and
@@ -37,9 +44,13 @@ data class AiProperties(
     val zeroDataRetentionInEffect: Boolean
         get() = enabled && zeroDataRetention
 
-    /** Distinct set of configured model slugs, for the startup capability prefetch. */
+    /**
+     * Distinct set of configured model slugs, for the startup capability prefetch and the
+     * zero-data-retention check. OpenRouter lists speech-to-text models in both `/model/{slug}` and
+     * `/endpoints/zdr`, so the transcription model is checked like any chat model.
+     */
     val configuredModels: Set<String>
-        get() = setOf(weeklyPlanningModel, taskAssistantModel, multimodalModel)
+        get() = setOf(weeklyPlanningModel, taskAssistantModel, visionModel, transcriptionModel)
             .filter { it.isNotBlank() }
             .toSet()
 }

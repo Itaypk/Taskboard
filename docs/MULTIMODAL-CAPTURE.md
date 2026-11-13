@@ -37,9 +37,9 @@ have a label for. Everything else is declined with a message saying what to do i
 
 ### D1. The model reads the attachment once; the read-back becomes the request
 
-The capture model is asked for a `source_text` alongside its usual `items` / `clarify` JSON — a short
+The vision model is asked for a `source_text` alongside its usual `items` / `clarify` JSON — a short
 first-person restatement of what the attachment says. `QuickAddFlow` stores *that* as the capture's
-`originalRequest`.
+`originalRequest`. For a voice note the read-back is the transcript itself (D4).
 
 Everything downstream — a clarifying question, an "Adjust", a revise — therefore runs on plain text
 against the normal task-assistant model. Consequences, all of them wanted:
@@ -55,36 +55,56 @@ ever reaches the model.
 
 ### D2. Capability-gated, failing closed
 
-`InputModalitySupport` asks the library's `ModelCapabilityService` whether the capture model
-advertises the `image` / `audio` input modality (from OpenRouter's `architecture.input_modalities`,
-prefetched at startup). OpenRouter *rejects* an unsupported modality rather than ignoring it, so an
-ungated attach is a 400 in the user's face.
+`InputModalitySupport` asks the library's `ModelCapabilityService` whether the model each kind goes
+to can take it (from OpenRouter's `architecture`, prefetched at startup): the vision model must
+advertise `image` input for images and `file` input for PDFs, and the transcription model must be a
+speech-to-text model (`transcription` output). OpenRouter *rejects* an unsupported modality rather
+than ignoring it, so an ungated attach is a 400 in the user's face.
 
 An unknown model — capability fetch failed, no API key — reports no modalities and capture is
 declined with "tell me what it says and I'll capture it". That is the right default: a text path
 always exists.
 
-### D3. A separate model slug for media capture
+### D3. One model slug per modality
 
-`tasker.ai.multimodal-model` (`TASKER_AI_MULTIMODAL_MODEL`), defaulting to the task-assistant model.
-The current default assistant model is a free text-only one; pinning vision to its own slug means
-enabling this feature is a config change, and the (much pricier) vision model isn't dragged into
-every text capture. It joins `configuredModels`, so its capabilities are prefetched at boot.
+**Revised by GitHub issue #362.** The first cut had one `TASKER_AI_MULTIMODAL_MODEL` for every
+attachment, so a model had to take images, audio and files at once: switching to a stronger or
+cheaper model that lacked one modality degraded capture. Models split along a different line —
+chat models that see, and dedicated speech-to-text models — so the config does too:
 
-**Nothing is enabled until that slug is set to a model with the modality.** Until then the bot
-politely declines media, which is also the safe state for cost.
+- **`tasker.ai.vision-model`** (`TASKER_AI_VISION_MODEL`) for images and PDFs, defaulting to the
+  task-assistant model. It needs `image` input for images and native `file` input for PDFs. Both kinds go to it in one call, so an email carrying an image and a PDF is
+  still read at once. `TASKER_AI_MULTIMODAL_MODEL` is read as its deprecated old name for now.
+- **`tasker.ai.transcription-model`** (`TASKER_AI_TRANSCRIPTION_MODEL`) for voice notes and audio
+  files (D4). No fallback.
 
-### D4. Audio goes to the model as audio, not through a transcription step
+Both join `configuredModels`, so their capabilities are prefetched at boot and the zero-data-retention
+check covers them (OpenRouter lists speech-to-text models in `/model/{slug}` and `/endpoints/zdr`
+like chat models). `InputModalitySupport` logs a startup warning when a dedicated slug can't do its
+job: a vision model without `image` input, or a transcription model that isn't speech-to-text.
 
-OpenRouter has a separate `/audio/transcriptions` endpoint (Whisper and friends), which would give a
-transcript we could feed to any text model. We didn't use it: our `openrouter-client` library wraps
-chat and image generation only, so it would mean a new library surface — and the chat `input_audio`
-part gets us the transcript anyway, via `source_text`, in a single call that also does the drafting.
+**Images and voice stay dark until a model that handles them is configured.** Until then the bot
+politely declines them, which is also the safe state for cost.
 
-Telegram voice notes are OGG/Opus and go out with `format: "ogg"`. Whether a given model accepts that
-container is a per-model question; a model that doesn't will reject it, which is why the config knob
-in D3 is the deployment-time control. If we later want codec independence (or cheaper audio), the
-transcription endpoint is the escape hatch — add it to the library and swap the audio branch.
+### D4. Audio is transcribed, then captured as text
+
+**Revised by GitHub issue #362; this used to send audio to the chat model as an `input_audio` part.**
+A voice note goes to OpenRouter's `/audio/transcriptions` (the library's `TranscriptionClient`,
+wrapped by `AudioTranscriber`), and the transcript is then drafted from exactly like typed text, by
+the task-assistant model. Audio is out of chat-model capability routing entirely, so the text model
+can be text-and-vision only. The transcript is the capture's `source_text`: what the user is shown
+as "I heard", and its `originalRequest` from there on. The drafting prompt is told the text is a
+transcript, so it reads past a misheard word instead of capturing it verbatim. An empty transcript
+ends the capture as unreadable.
+
+The transcription call goes through the library's gate and listener like any other, so the AI
+opt-out and tier apply and it is recorded (as `conversation_type=transcription`). It is billed by
+audio seconds and reports no tokens, so for now it doesn't count against the tier's token budget; a
+cost-based budget is where that would change.
+
+Telegram voice notes are OGG/Opus and go out with `format: "ogg"`. Whether a given speech-to-text
+model accepts that container is a per-model question (Whisper does); the config knob in D3 is the
+deployment-time control.
 
 ### D5. We download the bytes rather than passing Telegram's URL
 
@@ -149,8 +169,12 @@ A file sent to the bot (GitHub issue #321) is captured like a photo, by its decl
 name:
 
 - an **image** sent as a file → `IMAGE`, as a photo;
-- a **PDF** → `AttachmentKind.DOCUMENT`, a `ContentPart.File` gated on the `file` modality, so it is
-  declined ("I can't read PDFs yet") unless the capture model takes files;
+- a **PDF** → `AttachmentKind.DOCUMENT`, a `ContentPart.File` sent to the vision model, gated on its
+  `file` input modality, so it is declined ("I can't read PDFs yet") unless that model reads files
+  natively. OpenRouter could parse a PDF for any other model, but its parsers (`mistral-ocr`,
+  `cloudflare-ai`) run as the `file-parser` plugin, and zero data retention doesn't apply to plugins.
+  So the request pins the engine to `native` too, and OpenRouter can never fall back to a parser
+  (GitHub issue #362);
 - a **text file** or a **calendar invitation** (`.txt`, `.ics`, `text/calendar`) →
   `AttachmentKind.TEXT`, decoded by `TextAttachments` and put into the prompt as text. It needs no
   modality, so the normal model reads it. The prompt treats an invitation's event as already on the
@@ -196,8 +220,9 @@ wasn't a capture at all (`docs/FREE-TEXT-CAPTURE.md` D7); it can only appear for
 | `TextAttachments` (`channel/`) | Recognizes and decodes text files and invitations (shared with inbound email). |
 | `TelegramChannel.handleMedia` | Routes a media message: AI opt-out check, then into a running capture or a new one. |
 | `QuickAddFlow.beginFromMedia` / `beginUnpromptedFromMedia` | Runs the capture, echoes `source_text`, hands over to the existing card flow. |
-| `TaskSuggestionAgent.quickAddDraftFromMedia` | Builds the multimodal `ChatMessage`, picks the capture model. |
-| `InputModalitySupport` | The capability gate (`ModelCapabilityService.inputModalities`). |
+| `TaskSuggestionAgent.quickAddDraftFromMedia` | Transcribes audio, builds the `ChatMessage` with images and PDFs, picks the model. |
+| `InputModalitySupport` | The capability gate and the model per kind (`ModelCapabilityService`). |
+| `AudioTranscriber` | Speech-to-text through `TranscriptionClient`, with the instance's data-retention setting. |
 | `prompts/task-suggestion/system-clarify.md` | The `source_text` contract and how to capture from an attachment. |
 
 Requires `openrouter-client` **0.10.0** (`ContentPart.ImageUrl` / `InputAudio`,

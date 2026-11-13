@@ -96,10 +96,11 @@ backscatter.
 ## Attachments
 
 Images and PDFs are read by the model together with the email's text (GitHub issue #310), on the
-multimodal path of `docs/MULTIMODAL-CAPTURE.md`: `TaskSuggestionAgent.quickAddDraftFromEmail`
-attaches them, and `InputModalitySupport` gates them on the capture model's advertised input
-modalities (`image`; `file` for a PDF), failing closed. So the feature is dark unless
-`TASKER_AI_MULTIMODAL_MODEL` names a model that takes them.
+media path of `docs/MULTIMODAL-CAPTURE.md`: `TaskSuggestionAgent.quickAddDraftFromEmail`
+attaches them, in one call to the vision model (`TASKER_AI_VISION_MODEL`, or the task-assistant
+model). `InputModalitySupport` gates them on that model advertising `image` input, and `file` input
+for a PDF, failing closed. A PDF is only ever read natively: OpenRouter's PDF parsers run outside
+zero data retention (GitHub issue #362).
 
 Text files and calendar invitations (GitHub issue #316) take another path: `TextAttachments`
 decodes them at parse time into `AttachmentKind.TEXT`, and the prompt carries their text, like
