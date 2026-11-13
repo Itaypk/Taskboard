@@ -122,7 +122,13 @@
     "daysAgo_two": "قبل {{count}} يوم",
     "daysAgo_few": "قبل {{count}} يوم",
     "daysAgo_many": "قبل {{count}} يوم",
-    "daysAgo_other": "قبل {{count}} يوم"
+    "daysAgo_other": "قبل {{count}} يوم",
+    "minutesAgo_zero": "قبل {{count}} دقيقة",
+    "minutesAgo_one": "قبل {{count}} دقيقة",
+    "minutesAgo_two": "قبل {{count}} دقيقة",
+    "minutesAgo_few": "قبل {{count}} دقيقة",
+    "minutesAgo_many": "قبل {{count}} دقيقة",
+    "minutesAgo_other": "قبل {{count}} دقيقة"
   },
   "statsModal": {
     "title": "إحصائياتك",

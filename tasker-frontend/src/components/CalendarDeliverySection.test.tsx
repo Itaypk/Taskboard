@@ -87,6 +87,6 @@ describe('CalendarDeliverySection', () => {
     fetchCalendarDelivery.mockResolvedValue({ ...feedState, feed: { ...feed, lastFetchedAt: fiveMinutesAgo } });
     render(<CalendarDeliverySection onVerifyEmail={() => {}} />);
 
-    expect(await screen.findByText('A calendar app last checked for updates 5 minutes ago.')).toBeInTheDocument();
+    expect(await screen.findByText('A calendar app last checked for updates 5m ago.')).toBeInTheDocument();
   });
 });

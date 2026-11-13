@@ -116,7 +116,11 @@
     "daysAgo_one": "{{count}} дн назад",
     "daysAgo_few": "{{count}} дн назад",
     "daysAgo_many": "{{count}} дн назад",
-    "daysAgo_other": "{{count}} дн назад"
+    "daysAgo_other": "{{count}} дн назад",
+    "minutesAgo_one": "{{count}} мин назад",
+    "minutesAgo_few": "{{count}} мин назад",
+    "minutesAgo_many": "{{count}} мин назад",
+    "minutesAgo_other": "{{count}} мин назад"
   },
   "statsModal": {
     "title": "Ваша статистика",

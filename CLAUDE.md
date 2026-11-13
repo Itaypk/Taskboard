@@ -147,7 +147,7 @@ a rollback keeps working.
   `TaskCompletionCancellationService` cancels.
 - **Feed UIDs differ from invitation UIDs** (`plan-<taskId>-<epoch>@<host>`, `event-<id>@<host>`),
   so a cancelled invitation and a feed event are never taken for one another, and a calendar we
-  read back (#347) can recognise our own events by the host suffix.
+  read back (#347) can recognize our own events by the host suffix.
 - **The token is the path.** Never log the request URI on that path (`UnhandledExceptionResolver`
   redacts it); the hosted Nginx redacts it from the shipped access log.
 - A link survives a switch away from the feed (it serves an empty calendar), so switching back

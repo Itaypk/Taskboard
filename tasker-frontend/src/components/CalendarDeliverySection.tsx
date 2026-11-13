@@ -9,7 +9,7 @@ import {
     type CalendarDelivery,
     type CalendarDeliveryState,
 } from '../api';
-import { formatRelative } from '../relativeTime';
+import { formatRelative } from '../utils';
 import styles from './CalendarDeliverySection.module.css';
 
 const OPTIONS: CalendarDelivery[] = ['NONE', 'EMAIL', 'FEED'];
@@ -28,7 +28,7 @@ interface Props {
  * A second card, "Let the planner see my calendar" (#347), is meant to sit beside this one.
  */
 export function CalendarDeliverySection({ onVerifyEmail }: Props) {
-    const { t, i18n } = useTranslation();
+    const { t } = useTranslation();
     const [state, setState] = useState<CalendarDeliveryState | null>(null);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -91,7 +91,7 @@ export function CalendarDeliverySection({ onVerifyEmail }: Props) {
     };
 
     const feed = state?.feed ?? null;
-    const lastFetched = feed?.lastFetchedAt ? formatRelative(feed.lastFetchedAt, i18n.language) : null;
+    const lastFetched = feed?.lastFetchedAt ? formatRelative(feed.lastFetchedAt) : null;
 
     return (
         <div className="field">
