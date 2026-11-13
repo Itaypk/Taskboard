@@ -1,4 +1,4 @@
-Last updated: August 29, 2026
+Last updated: November 13, 2026
 
 ## TL;DR
 
@@ -87,6 +87,7 @@ When you use AI features:
 
 * Your input may be sent to third-party AI providers
 * Responses are generated based on that input
+* Providers that may use your input to train models are excluded
 
 {{AI_RETENTION_NOTE}}
 

@@ -46,7 +46,10 @@ enum class ContentPage(val path: String, val file: String, val title: String, va
  */
 const val AI_RETENTION_NOTE =
     "Requests to AI providers are only routed to endpoints with a zero-data-retention policy: the " +
-        "provider doesn't store your input or its response once the request completes."
+        "provider doesn't store your input or its response once the request completes. The one " +
+        "exception is input flagged by automated abuse screening (OpenRouter's or the provider's): " +
+        "it may be kept for a limited time, up to 90 days at some providers, to review it, and " +
+        "reported where the law requires. It is never used to train models."
 
 /** Renders a [ContentPage]'s markdown to HTML, with this instance's name, contact addresses and settings filled in. */
 @Component

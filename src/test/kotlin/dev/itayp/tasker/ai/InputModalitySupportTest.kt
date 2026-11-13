@@ -53,12 +53,14 @@ class InputModalitySupportTest {
     }
 
     @Test
-    fun `PDFs and text files are read by any model`() {
+    fun `text files are read by any model, PDFs only by one with native file input`() {
         whenever(capabilities.get("text-model")).thenReturn(caps(input = listOf("text")))
+        whenever(capabilities.get("vision-model")).thenReturn(caps(input = listOf("text", "image", "file")))
 
-        val support = support()
-
-        assertTrue(support.supportsAll(listOf(AttachmentKind.DOCUMENT, AttachmentKind.TEXT)))
+        // OpenRouter's PDF parsers would cover the text-only model, but they run outside ZDR.
+        assertTrue(support().supports(AttachmentKind.TEXT))
+        assertFalse(support().supports(AttachmentKind.DOCUMENT))
+        assertTrue(support(visionModel = "vision-model").supports(AttachmentKind.DOCUMENT))
     }
 
     @Test
@@ -85,7 +87,7 @@ class InputModalitySupportTest {
 
     @Test
     fun `a mix is read only when every kind is`() {
-        whenever(capabilities.get("vision-model")).thenReturn(caps(input = listOf("text", "image")))
+        whenever(capabilities.get("vision-model")).thenReturn(caps(input = listOf("text", "image", "file")))
 
         val support = support(visionModel = "vision-model")
 

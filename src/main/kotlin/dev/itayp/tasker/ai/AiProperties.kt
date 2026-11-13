@@ -14,7 +14,7 @@ data class AiProperties(
      * Model slug for captures that carry images or PDFs (both go to it, in one call). Blank falls
      * back to [taskAssistantModel], which only helps for images if that model itself accepts them;
      * an image capture is declined (with a message to the user) when the resolved model doesn't.
-     * PDFs work with any model: OpenRouter parses them for a model without native file input.
+     * PDFs likewise need native file input: OpenRouter's PDF parsers run outside zero data retention.
      */
     val visionModel: String = "",
     /**

@@ -76,8 +76,8 @@ tasker:
     # Model for the planner's task search/suggestion sub-agents; defaults to the planning model.
     task-assistant-model: ${TASKER_AI_TASK_ASSISTANT_MODEL:${TASKER_AI_PLANNING_MODEL:google/gemini-3.5-flash-lite}}
     # Model for captures carrying images or PDFs; defaults to the task-assistant model. Images need a
-    # model advertising `image` input in OpenRouter's model capabilities, or they are declined with a
-    # "describe it in text" reply; PDFs work with any model (OpenRouter parses them when needed).
+    # model advertising `image` input in OpenRouter's model capabilities and PDFs `file` input, or
+    # they are declined with a "describe it in text" reply.
     # TASKER_AI_MULTIMODAL_MODEL is its deprecated old name.
     vision-model: ${TASKER_AI_VISION_MODEL:${TASKER_AI_MULTIMODAL_MODEL:}}
     # Speech-to-text model for voice notes and audio files (e.g. openai/whisper-large-v3); the

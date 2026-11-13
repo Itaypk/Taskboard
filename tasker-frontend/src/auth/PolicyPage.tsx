@@ -12,7 +12,10 @@ import styles from './PolicyPage.module.css';
 /** The privacy policy's AI data-retention sentence, present only while it's true. Mirrors `AI_RETENTION_NOTE` in `ContentPage.kt`. */
 const AI_RETENTION_NOTE =
     "Requests to AI providers are only routed to endpoints with a zero-data-retention policy: the " +
-    "provider doesn't store your input or its response once the request completes.";
+    "provider doesn't store your input or its response once the request completes. The one " +
+    "exception is input flagged by automated abuse screening (OpenRouter's or the provider's): " +
+    "it may be kept for a limited time, up to 90 days at some providers, to review it, and " +
+    "reported where the law requires. It is never used to train models.";
 
 /**
  * Fill the instance's name, URL, contact addresses and settings into the raw policy markdown. Same

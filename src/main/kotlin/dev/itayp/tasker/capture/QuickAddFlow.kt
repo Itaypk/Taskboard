@@ -890,10 +890,15 @@ class QuickAddFlow(
     private fun unparseableKey(channel: ConversationChannel): String =
         if (channel.capabilities.supportsSlashCommands) "quickadd.unparseable" else "quickadd.unparseable.plain"
 
-    /** Text files and PDFs can always be read (`InputModalitySupport`), so they are never the reason. */
-    private fun unsupportedMessageKey(attachments: List<InboundAttachment>): String =
-        if (attachments.any { it.kind == AttachmentKind.AUDIO }) "quickadd.media.audio_unsupported"
-        else "quickadd.media.image_unsupported"
+    /** Text attachments need no modality, so they are never the reason. */
+    private fun unsupportedMessageKey(attachments: List<InboundAttachment>): String {
+        val kinds = attachments.map { it.kind }
+        return when {
+            AttachmentKind.AUDIO in kinds -> "quickadd.media.audio_unsupported"
+            AttachmentKind.DOCUMENT in kinds -> "quickadd.media.pdf_unsupported"
+            else -> "quickadd.media.image_unsupported"
+        }
+    }
 
     private fun countMedia(attachments: List<InboundAttachment>, result: String) {
         val kind = attachments.map { it.kind }.distinct().singleOrNull()?.name?.lowercase() ?: "mixed"

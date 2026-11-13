@@ -57,9 +57,9 @@ ever reaches the model.
 
 `InputModalitySupport` asks the library's `ModelCapabilityService` whether the model each kind goes
 to can take it (from OpenRouter's `architecture`, prefetched at startup): the vision model must
-advertise `image` input, and the transcription model must be a speech-to-text model (`transcription`
-output). OpenRouter *rejects* an unsupported modality rather than ignoring it, so an ungated attach
-is a 400 in the user's face. PDFs need no gate (see "Files").
+advertise `image` input for images and `file` input for PDFs, and the transcription model must be a
+speech-to-text model (`transcription` output). OpenRouter *rejects* an unsupported modality rather
+than ignoring it, so an ungated attach is a 400 in the user's face.
 
 An unknown model — capability fetch failed, no API key — reports no modalities and capture is
 declined with "tell me what it says and I'll capture it". That is the right default: a text path
@@ -73,7 +73,7 @@ cheaper model that lacked one modality degraded capture. Models split along a di
 chat models that see, and dedicated speech-to-text models — so the config does too:
 
 - **`tasker.ai.vision-model`** (`TASKER_AI_VISION_MODEL`) for images and PDFs, defaulting to the
-  task-assistant model. Both kinds go to it in one call, so an email carrying an image and a PDF is
+  task-assistant model. It needs `image` input for images and native `file` input for PDFs. Both kinds go to it in one call, so an email carrying an image and a PDF is
   still read at once. `TASKER_AI_MULTIMODAL_MODEL` is read as its deprecated old name for now.
 - **`tasker.ai.transcription-model`** (`TASKER_AI_TRANSCRIPTION_MODEL`) for voice notes and audio
   files (D4). No fallback.
@@ -169,10 +169,12 @@ A file sent to the bot (GitHub issue #321) is captured like a photo, by its decl
 name:
 
 - an **image** sent as a file → `IMAGE`, as a photo;
-- a **PDF** → `AttachmentKind.DOCUMENT`, a `ContentPart.File` sent to the vision model. It needs no
-  modality: OpenRouter passes a PDF to a model with native file input, and parses it for one without
-  (GitHub issue #362). With no `file-parser` plugin set, the parser is OpenRouter's default for that
-  case, `mistral-ocr`, billed per page on top of the model;
+- a **PDF** → `AttachmentKind.DOCUMENT`, a `ContentPart.File` sent to the vision model, gated on its
+  `file` input modality, so it is declined ("I can't read PDFs yet") unless that model reads files
+  natively. OpenRouter could parse a PDF for any other model, but its parsers (`mistral-ocr`,
+  `cloudflare-ai`) run as the `file-parser` plugin, and zero data retention doesn't apply to plugins.
+  So the request pins the engine to `native` too, and OpenRouter can never fall back to a parser
+  (GitHub issue #362);
 - a **text file** or a **calendar invitation** (`.txt`, `.ics`, `text/calendar`) →
   `AttachmentKind.TEXT`, decoded by `TextAttachments` and put into the prompt as text. It needs no
   modality, so the normal model reads it. The prompt treats an invitation's event as already on the

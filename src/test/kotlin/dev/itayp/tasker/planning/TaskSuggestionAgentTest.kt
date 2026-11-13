@@ -12,6 +12,8 @@ import dev.itayp.nescioquid.openrouter.ChatRequest
 import dev.itayp.nescioquid.openrouter.Choice
 import dev.itayp.nescioquid.openrouter.ContentPart
 import dev.itayp.nescioquid.openrouter.MessageContent
+import dev.itayp.nescioquid.openrouter.PdfEngine
+import dev.itayp.nescioquid.openrouter.PluginConfig
 import dev.itayp.tasker.ai.client.AiConversationType
 import dev.itayp.tasker.ai.prompt.PromptTemplateLoader
 import dev.itayp.tasker.channel.AttachmentKind
@@ -270,6 +272,8 @@ class TaskSuggestionAgentTest {
         assertTrue(image.imageUrl.url.startsWith("data:image/png;base64,"))
         // The prompt still carries the user's text context, ahead of the attachment.
         assertIs<ContentPart.Text>(parts.first())
+        // No PDF, so no PDF engine.
+        assertNull(request.firstValue.plugins)
     }
 
     @Test
@@ -333,7 +337,7 @@ class TaskSuggestionAgentTest {
     }
 
     @Test
-    fun `quickAddDraftFromMedia sends a PDF to the vision model as a file part`() {
+    fun `quickAddDraftFromMedia sends a PDF to the vision model as a file part, read natively`() {
         whenever(inputModalitySupport.supportsAll(any())).thenReturn(true)
         whenever(inputModalitySupport.visionModel).thenReturn("vision-model")
         whenever(aiClient.chat(any(), any())).thenReturn(
@@ -350,6 +354,8 @@ class TaskSuggestionAgentTest {
         assertEquals("vision-model", request.firstValue.model)
         val parts = assertIs<MessageContent.Parts>(request.firstValue.messages.last().content).parts
         assertIs<ContentPart.File>(parts.last())
+        // Never one of OpenRouter's parsers: they run outside zero data retention.
+        assertEquals(listOf(PluginConfig.pdfEngine(PdfEngine.NATIVE)), request.firstValue.plugins)
         verifyNoInteractions(audioTranscriber)
     }
 

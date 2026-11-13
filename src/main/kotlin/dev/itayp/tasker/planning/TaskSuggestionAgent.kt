@@ -8,6 +8,8 @@ import dev.itayp.tasker.ai.ReasoningAwareAiClient
 import dev.itayp.nescioquid.openrouter.ChatMessage
 import dev.itayp.nescioquid.openrouter.ChatRequest
 import dev.itayp.nescioquid.openrouter.ContentPart
+import dev.itayp.nescioquid.openrouter.PdfEngine
+import dev.itayp.nescioquid.openrouter.PluginConfig
 import dev.itayp.tasker.ai.AudioTranscriber
 import dev.itayp.tasker.ai.InputModalitySupport
 import dev.itayp.tasker.ai.access.AiAccessService
@@ -327,6 +329,10 @@ class TaskSuggestionAgent(
             ),
             temperature = 0.3,
             maxTokens = MAX_TOKENS,
+            // The model's own file input only: OpenRouter's PDF parsers run as a plugin, which zero
+            // data retention doesn't cover, and the gate only lets a PDF through to a model with
+            // native file input. Pinned so OpenRouter can never quietly fall back to a parser.
+            plugins = if (parts.any { it.kind == AttachmentKind.DOCUMENT }) listOf(PluginConfig.pdfEngine(PdfEngine.NATIVE)) else null,
         )
 
         val context = AiCallContext(userId = userId.toString(), conversationType = AiConversationType.TASK_SUGGESTION)
@@ -348,8 +354,7 @@ class TaskSuggestionAgent(
      */
     private fun InboundAttachment.toContentPart(): ContentPart = when (kind) {
         AttachmentKind.IMAGE -> ContentPart.ImageUrl.ofBytes(bytes, mediaType = mediaType)
-        // No `file-parser` plugin: OpenRouter passes the PDF to a model with native file input, and
-        // parses it for one without (its default engine for that is `mistral-ocr`).
+        // Read natively by the model: see the `native` engine pinned in runQuickAdd.
         AttachmentKind.DOCUMENT -> ContentPart.File.ofBytes(filename ?: "document.pdf", bytes, mediaType = mediaType)
         AttachmentKind.AUDIO -> error("audio is transcribed first, not sent as a part")
         AttachmentKind.TEXT -> error("text attachments are rendered into the prompt, not sent as parts")

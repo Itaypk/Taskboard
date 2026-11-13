@@ -14,7 +14,8 @@ import org.springframework.stereotype.Component
  * - **Images** go to the [visionModel], which must advertise `image` input. OpenRouter rejects a
  *   modality the target model doesn't accept rather than ignoring it, so an unchecked attach is a 400.
  * - **PDFs** go to the [visionModel] too, so a capture mixing images and PDFs (an email) is one call.
- *   They need no modality: OpenRouter parses a PDF for a model without native file input.
+ *   It must advertise `file` input: OpenRouter could parse a PDF for a model without it, but its
+ *   parsers run as a plugin, outside zero data retention, so we only use native file input.
  * - **Audio** is transcribed by the [AiProperties.transcriptionModel] (see [AudioTranscriber]), which
  *   must be configured and advertise `transcription` output. The transcript is then plain text.
  * - **Text** files are read as text in the prompt, by any model.
@@ -35,10 +36,9 @@ class InputModalitySupport(
         get() = properties.visionModel.ifBlank { properties.taskAssistantModel }
 
     fun supports(kind: AttachmentKind): Boolean = when (kind) {
-        AttachmentKind.TEXT, AttachmentKind.DOCUMENT -> true
-        AttachmentKind.IMAGE -> visionReadsImages().also {
-            if (!it) log.debug("model {} does not advertise 'image' input; declining image capture", visionModel)
-        }
+        AttachmentKind.TEXT -> true
+        AttachmentKind.IMAGE -> visionReads(IMAGE)
+        AttachmentKind.DOCUMENT -> visionReads(FILE)
         AttachmentKind.AUDIO -> transcriptionAvailable().also {
             if (!it) log.debug("no usable transcription model configured; declining audio capture")
         }
@@ -77,8 +77,11 @@ class InputModalitySupport(
         }
     }
 
-    private fun visionReadsImages(): Boolean =
-        modelCapabilityService.get(visionModel)?.inputModalities?.contains(IMAGE) == true
+    private fun visionReads(modality: String): Boolean {
+        val supported = modelCapabilityService.get(visionModel)?.inputModalities?.contains(modality) == true
+        if (!supported) log.debug("model {} does not advertise '{}' input; declining media capture", visionModel, modality)
+        return supported
+    }
 
     private fun transcriptionAvailable(): Boolean {
         val model = properties.transcriptionModel
@@ -88,6 +91,7 @@ class InputModalitySupport(
 
     companion object {
         private const val IMAGE = "image"
+        private const val FILE = "file"
 
         /** The output modality OpenRouter reports for speech-to-text models (`audio->transcription`). */
         private const val TRANSCRIPTION = "transcription"

@@ -88,7 +88,8 @@ Telegram *login* is offered only when both the client id and secret are set.
   reminders; defaults to the planning model.
 - `TASKER_AI_VISION_MODEL` — model slug for captures that carry images or PDFs (Telegram, inbound
   email); defaults to the task-assistant model. Images are declined unless the model takes `image`
-  input; PDFs work with any model, since OpenRouter parses them for one without native file input.
+  input, and PDFs unless it takes `file` input natively (OpenRouter's PDF parsers run outside zero
+  data retention, so they are never used).
   `TASKER_AI_MULTIMODAL_MODEL` is its deprecated old name (still read, with a startup warning).
 - `TASKER_AI_TRANSCRIPTION_MODEL` — speech-to-text model for voice notes and audio files, e.g.
   `openai/whisper-large-v3`; the transcript is then captured like typed text by the task-assistant
