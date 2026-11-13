@@ -1,5 +1,6 @@
 package dev.itayp.tasker.controller
 
+import dev.itayp.tasker.calendar.CalendarInvitesUnavailableException
 import dev.itayp.tasker.planning.NoPlannableTasksException
 import dev.itayp.tasker.service.BlockedEmailDomainException
 import dev.itayp.tasker.service.InvalidRecurrenceException
@@ -49,6 +50,13 @@ class ApiExceptionHandler {
             title = "Email domain not allowed"
             // `detail` is English-only; the SPA keys off this code to show a localized message.
             setProperty("code", "BLOCKED_EMAIL_DOMAIN")
+        }
+
+    @ExceptionHandler(CalendarInvitesUnavailableException::class)
+    fun handleCalendarInvitesUnavailable(ex: CalendarInvitesUnavailableException): ProblemDetail =
+        ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.message!!).apply {
+            title = "Calendar invitations unavailable"
+            setProperty("code", "CALENDAR_INVITES_UNAVAILABLE")
         }
 
     /** Same reasoning as [handleBlockedEmailDomain]: set `detail` explicitly so it reaches the client. */

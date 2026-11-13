@@ -1,5 +1,6 @@
 package dev.itayp.tasker.jpa
 
+import dev.itayp.tasker.calendar.CalendarDelivery
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Id
@@ -27,8 +28,23 @@ class UserSettingsEntity {
     @Column(name = "preferred_language", nullable = false)
     var preferredLanguage: String = "en-US"
 
+    /** A [dev.itayp.tasker.calendar.CalendarDelivery] name. Change it through [calendarDeliveryMode], which keeps the legacy column in sync. */
+    @Column(name = "calendar_delivery", nullable = false)
+    var calendarDelivery: String = "NONE"
+
+    /**
+     * Legacy: true exactly when [calendarDelivery] is EMAIL. Superseded by it (changeset 020) but
+     * still written, so rolling back to an earlier release keeps each user's invite setting.
+     */
     @Column(name = "calendar_invite_email", nullable = false)
     var calendarInviteEmail: Boolean = false
+
+    var calendarDeliveryMode: CalendarDelivery
+        get() = CalendarDelivery.fromName(calendarDelivery)
+        set(value) {
+            calendarDelivery = value.name
+            calendarInviteEmail = value == CalendarDelivery.EMAIL
+        }
 
     @Column(name = "app_reminders", nullable = false)
     var appReminders: Boolean = true

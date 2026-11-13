@@ -1,5 +1,6 @@
 package dev.itayp.tasker.planning
 
+import dev.itayp.tasker.calendar.CalendarDelivery
 import dev.itayp.tasker.crypto.noopUserCryptoService
 import dev.itayp.tasker.model.UserSettings
 import dev.itayp.tasker.repository.BacklogTaskRepository
@@ -63,7 +64,7 @@ class PlanningSessionServiceTest {
         contextBlock = null,
         timeZone = "UTC",
         preferredLanguage = "en",
-        calendarInviteEmail = false,
+        calendarDelivery = CalendarDelivery.NONE,
         gender = null,
         agentDescription = null,
         planningCron = null,

@@ -419,7 +419,7 @@ export const deleteTag = (boardId: string, id: string): Promise<void> =>
 
 // --- User Settings ---
 
-type UserSettingsPayload = Pick<UserSettings, 'displayName' | 'contextBlock' | 'timeZone' | 'preferredLanguage' | 'calendarInviteEmail' | 'appReminders' | 'gender' | 'agentDescription' | 'planningCron' | 'weekStartDay' | 'autoArchiveDays' | 'aiEnabled' | 'aiEnhancedReminders' | 'dailyDigestEnabled' | 'dailyDigestDueTasks' | 'dailyDigestCron'>;
+type UserSettingsPayload = Pick<UserSettings, 'displayName' | 'contextBlock' | 'timeZone' | 'preferredLanguage' | 'appReminders' | 'gender' | 'agentDescription' | 'planningCron' | 'weekStartDay' | 'autoArchiveDays' | 'aiEnabled' | 'aiEnhancedReminders' | 'dailyDigestEnabled' | 'dailyDigestDueTasks' | 'dailyDigestCron'>;
 
 export const fetchUserSettings = (): Promise<UserSettingsPayload> =>
     apiRequest('/settings');
@@ -621,6 +621,49 @@ export interface InboundMailAddress {
     address: string | null;
     createdAt: string | null;
 }
+
+/** How planned blocks reach the user's calendar; changed through `updateCalendarDelivery`, not the settings form. */
+export type CalendarDelivery = 'NONE' | 'EMAIL' | 'FEED';
+
+export interface CalendarFeedLink {
+    /** `https://…/calendar/<token>.ics`, for "Copy link". */
+    url: string;
+    /** The same with `webcal:`, which Apple Calendar and Outlook open as a subscription. */
+    webcalUrl: string;
+    /** Google Calendar's add-by-URL page, pre-filled. */
+    googleUrl: string;
+    createdAt: string;
+    /** When a calendar app last fetched the feed (stamped at most every few minutes). */
+    lastFetchedAt: string | null;
+}
+
+export interface CalendarDeliveryState {
+    delivery: CalendarDelivery;
+    /** Invitations need email on this instance and a verified address. */
+    emailAvailable: boolean;
+    /** Present while delivery is FEED. */
+    feed: CalendarFeedLink | null;
+}
+
+export interface CalendarDeliverySwitchPreview {
+    invitationsToCancel: number;
+    invitationsToSend: number;
+}
+
+export const fetchCalendarDelivery = (): Promise<CalendarDeliveryState> =>
+    apiRequest('/calendar-delivery');
+
+/** What switching would do to invitations, so the UI can confirm first. */
+export const previewCalendarDeliverySwitch = (delivery: CalendarDelivery): Promise<CalendarDeliverySwitchPreview> =>
+    apiRequest(`/calendar-delivery/switch-preview?delivery=${delivery}`);
+
+/** Saves at once, cancelling or sending invitations as the switch requires. */
+export const updateCalendarDelivery = (delivery: CalendarDelivery): Promise<CalendarDeliveryState> =>
+    apiRequest('/calendar-delivery', { method: 'PUT', ...jsonBody({ delivery }) });
+
+/** Replaces the feed link: the old one stops working at once. */
+export const rotateCalendarFeed = (): Promise<CalendarDeliveryState> =>
+    apiRequest('/calendar-delivery/feed/rotate', { method: 'POST' });
 
 export const fetchInboundMailAddress = (): Promise<InboundMailAddress> =>
     apiRequest('/inbound-mail-address');

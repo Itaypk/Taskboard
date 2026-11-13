@@ -1,5 +1,6 @@
 package dev.itayp.tasker.channel.telegram.commands
 
+import dev.itayp.tasker.calendar.CalendarDelivery
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ChoiceOption
 import dev.itayp.tasker.channel.telegram.TelegramConversationChannel
@@ -92,7 +93,7 @@ class PlanBotCommandTest {
                 contextBlock = null,
                 timeZone = timeZone,
                 preferredLanguage = "en-US",
-                calendarInviteEmail = false,
+                calendarDelivery = CalendarDelivery.NONE,
                 gender = null,
                 agentDescription = null,
                 planningCron = null,

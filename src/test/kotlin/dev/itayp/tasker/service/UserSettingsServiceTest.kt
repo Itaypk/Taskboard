@@ -46,7 +46,6 @@ class UserSettingsServiceTest {
         contextBlock = null,
         timeZone = tz,
         preferredLanguage = "en-US",
-        calendarInviteEmail = false,
         gender = null,
         agentDescription = null,
         planningCron = cron,

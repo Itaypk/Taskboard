@@ -1,5 +1,6 @@
 package dev.itayp.tasker.oneoff
 
+import dev.itayp.tasker.calendar.CalendarDelivery
 import dev.itayp.tasker.channel.email.EmailProperties
 import dev.itayp.tasker.crypto.noopBoardCryptoService
 import dev.itayp.tasker.jpa.OneOffEventEntity
@@ -301,7 +302,7 @@ class OneOffEventServiceTest {
         contextBlock = null,
         timeZone = timeZone,
         preferredLanguage = "en",
-        calendarInviteEmail = true,
+        calendarDelivery = CalendarDelivery.EMAIL,
         appReminders = true,
         gender = null,
         agentDescription = null,

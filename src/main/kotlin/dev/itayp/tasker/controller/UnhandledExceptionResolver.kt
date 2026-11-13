@@ -27,6 +27,10 @@ class UnhandledExceptionResolver : HandlerExceptionResolver, Ordered {
 
     override fun getOrder(): Int = Ordered.LOWEST_PRECEDENCE
 
+    /** The calendar feed's path is its secret (`CalendarFeedController`): never log the token. */
+    private fun redactedPath(uri: String): String =
+        if (uri.startsWith(CALENDAR_FEED_PREFIX)) "$CALENDAR_FEED_PREFIX[redacted]" else uri
+
     override fun resolveException(
         request: HttpServletRequest,
         response: HttpServletResponse,
@@ -34,7 +38,7 @@ class UnhandledExceptionResolver : HandlerExceptionResolver, Ordered {
         ex: Exception,
     ): ModelAndView? {
         if (ex is AccessDeniedException || ex is AuthenticationException || response.isCommitted) return null
-        log.error("Unhandled exception processing {} {}", request.method, request.requestURI, ex)
+        log.error("Unhandled exception processing {} {}", request.method, redactedPath(request.requestURI), ex)
         response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR)
         return ModelAndView()
     }
@@ -43,3 +47,5 @@ class UnhandledExceptionResolver : HandlerExceptionResolver, Ordered {
         private val log = LoggerFactory.getLogger(UnhandledExceptionResolver::class.java)
     }
 }
+
+private const val CALENDAR_FEED_PREFIX = "/calendar/"

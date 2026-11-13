@@ -1,5 +1,6 @@
 package dev.itayp.tasker.planning
 
+import dev.itayp.tasker.calendar.CalendarDelivery
 import dev.itayp.tasker.channel.email.EmailProperties
 import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.repository.UserRepository
@@ -11,8 +12,8 @@ import java.util.UUID
 
 /**
  * Resolves whether — and how — a user will actually receive calendar-invite emails for the time
- * blocks agreed in a planning session. A user with email integration disabled globally, the
- * calendar-invite setting off, or no verified email address receives nothing over this channel.
+ * blocks agreed in a planning session. A user with email integration disabled globally, calendar
+ * delivery set to anything but EMAIL, or no verified email address receives nothing over this channel.
  *
  * Shared by [PlanFinalizationService] (to decide whether to dispatch invites), `OneOffEventService`
  * (same, for one-off events), and `dev.itayp.tasker.notification.NotificationChannelSummary` (to
@@ -36,9 +37,22 @@ class InviteDeliveryResolver(
             log.debug("Skipping calendar invites: email integration disabled")
             return null
         }
-        val settings = userSettingsService.getOrCreate(userId)
-        if (!settings.calendarInviteEmail) {
-            log.debug("Skipping calendar invites: calendarInviteEmail disabled for user {}", userId)
+        val delivery = userSettingsService.getOrCreate(userId).calendarDelivery
+        if (delivery != CalendarDelivery.EMAIL) {
+            log.debug("Skipping calendar invites: calendar delivery is {} for user {}", delivery, userId)
+            return null
+        }
+        return resolveEmailTarget(userId)
+    }
+
+    /**
+     * Where invitations would go if the user chose them, whatever calendar delivery is set to now:
+     * null when email is off on this instance or the user has no verified address. Lets a switch to
+     * invitations be refused up front, and lets a switch away from them still reach the inbox.
+     */
+    fun resolveEmailTarget(userId: UUID): EmailContext? {
+        if (!emailProperties.enabled) {
+            log.debug("Skipping calendar invites: email integration disabled")
             return null
         }
         val user = userRepository.findById(userId).orElse(null) ?: return null
@@ -53,4 +67,12 @@ class InviteDeliveryResolver(
         }
         return EmailContext(email, userSettingsService.getLocale(userId))
     }
+
+    /**
+     * True when the user's blocks reach their calendar through the subscription feed instead: the
+     * feed serves whatever the plan holds, so there is nothing to dispatch, but the block does reach
+     * the calendar (callers use this to avoid telling the user that "no invite was sent").
+     */
+    fun deliversToFeed(userId: UUID): Boolean =
+        userSettingsService.getOrCreate(userId).calendarDelivery == CalendarDelivery.FEED
 }

@@ -1,5 +1,6 @@
 package dev.itayp.tasker.planning
 
+import dev.itayp.tasker.calendar.CalendarDelivery
 import dev.itayp.tasker.ai.AiConversationManager
 import dev.itayp.nescioquid.openrouter.tool.ToolRegistry
 import dev.itayp.tasker.channel.BufferedConversationChannel
@@ -123,7 +124,7 @@ class WeeklyPlanningStartGuardTest {
                 contextBlock = null,
                 timeZone = "UTC",
                 preferredLanguage = "en-US",
-                calendarInviteEmail = false,
+                calendarDelivery = CalendarDelivery.NONE,
                 gender = null,
                 agentDescription = null,
                 planningCron = null,

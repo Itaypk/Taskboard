@@ -163,8 +163,35 @@ class SecurityConfiguration(
         return http.build()
     }
 
+    /**
+     * The calendar subscription feed (`CalendarFeedController`, GitHub issue #346). Calendar apps
+     * can't send a session, so the secret token in the path is the authentication, checked in the
+     * controller. Stateless, so a poll never creates a session or sets a cookie; no CSRF (nothing
+     * here mutates on behalf of a cookie).
+     */
     @Bean
     @Order(4)
+    fun calendarFeedFilterChain(http: HttpSecurity): SecurityFilterChain {
+        http {
+            securityMatcher("/calendar/**")
+            authorizeHttpRequests {
+                authorize(HttpMethod.GET, "/calendar/*", permitAll)
+                authorize(HttpMethod.HEAD, "/calendar/*", permitAll)
+                authorize(anyRequest, denyAll)
+            }
+            sessionManagement {
+                sessionCreationPolicy = SessionCreationPolicy.STATELESS
+            }
+            csrf { disable() }
+            headers {
+                cacheControl { disable() }
+            }
+        }
+        return http.build()
+    }
+
+    @Bean
+    @Order(5)
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
         http {
             authorizeHttpRequests {

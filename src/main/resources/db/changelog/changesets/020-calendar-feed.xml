@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Calendar subscription feed (GitHub issue #346).
+
+        `calendar_delivery` replaces the `calendar_invite_email` boolean with a three-way choice:
+        NONE, EMAIL (emailed invitations, as before) or FEED (a subscribed calendar). The old column
+        stays and is kept in sync (true exactly when the mode is EMAIL), so rolling back to an
+        earlier release keeps each user's invite setting.
+    -->
+    <changeSet id="020-1-calendar-delivery" author="tasker">
+        <addColumn tableName="user_settings">
+            <column name="calendar_delivery" type="VARCHAR(16)" defaultValue="NONE">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+        <update tableName="user_settings">
+            <column name="calendar_delivery" value="EMAIL"/>
+            <where>calendar_invite_email = TRUE</where>
+        </update>
+    </changeSet>
+
+    <!--
+        A user's secret feed URL, `/calendar/<token>.ics`. At most one per user, so the user id is
+        the key; "new link" replaces the row.
+
+        The token is a 256-bit `CapabilityTokens` secret, looked up by its SHA-256 digest like the
+        other capability tokens. Unlike them it is also kept, encrypted under the user's DEK,
+        because the user needs to copy the link again (a second device, a second calendar app).
+        `last_fetched_at` is when a calendar app last fetched the feed, shown in Settings so the user
+        can tell the subscription works; it is stamped at most every few minutes, not per request.
+    -->
+    <changeSet id="020-2-calendar-feed" author="tasker">
+        <createTable tableName="calendar_feed">
+            <column name="user_id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="token_hash" type="VARCHAR(64)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uq_calendar_feed_token"/>
+            </column>
+            <column name="token" type="BYTEA">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_fetched_at" type="TIMESTAMP"/>
+        </createTable>
+
+        <addForeignKeyConstraint
+                baseTableName="calendar_feed"
+                baseColumnNames="user_id"
+                constraintName="fk_calendar_feed_user"
+                referencedTableName="users"
+                referencedColumnNames="id"/>
+    </changeSet>
+
+</databaseChangeLog>

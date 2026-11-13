@@ -1,5 +1,6 @@
 package dev.itayp.tasker.planning
 
+import dev.itayp.tasker.calendar.CalendarDelivery
 import dev.itayp.tasker.channel.email.EmailProperties
 import dev.itayp.tasker.crypto.noopUserCryptoService
 import dev.itayp.tasker.jpa.UserEntity
@@ -17,6 +18,7 @@ import java.util.Optional
 import java.util.UUID
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 @ExtendWith(MockitoExtension::class)
 class InviteDeliveryResolverTest {
@@ -35,7 +37,7 @@ class InviteDeliveryResolverTest {
     )
 
     private fun stubVerifiedOptIn(email: String = "alice@example.com") {
-        whenever(userSettingsService.getOrCreate(userId)).thenReturn(settings(calendarInviteEmail = true))
+        whenever(userSettingsService.getOrCreate(userId)).thenReturn(settings(calendarDelivery = CalendarDelivery.EMAIL))
         whenever(userSettingsService.getLocale(userId)).thenReturn(Locale.ENGLISH)
         whenever(userRepository.findById(userId)).thenReturn(Optional.of(verifiedUser(email)))
     }
@@ -56,15 +58,15 @@ class InviteDeliveryResolverTest {
     }
 
     @Test
-    fun `returns null when calendarInviteEmail is off`() {
-        whenever(userSettingsService.getOrCreate(userId)).thenReturn(settings(calendarInviteEmail = false))
+    fun `returns null when calendar delivery is not EMAIL`() {
+        whenever(userSettingsService.getOrCreate(userId)).thenReturn(settings(calendarDelivery = CalendarDelivery.NONE))
 
         assertNull(resolver().resolveEmailContext(userId))
     }
 
     @Test
     fun `returns null when email is not verified`() {
-        whenever(userSettingsService.getOrCreate(userId)).thenReturn(settings(calendarInviteEmail = true))
+        whenever(userSettingsService.getOrCreate(userId)).thenReturn(settings(calendarDelivery = CalendarDelivery.EMAIL))
         val user = UserEntity().apply {
             this.id = userId
             this.email = "unverified@example.com".toByteArray(Charsets.UTF_8)
@@ -77,10 +79,26 @@ class InviteDeliveryResolverTest {
 
     @Test
     fun `returns null when the user is not found`() {
-        whenever(userSettingsService.getOrCreate(userId)).thenReturn(settings(calendarInviteEmail = true))
+        whenever(userSettingsService.getOrCreate(userId)).thenReturn(settings(calendarDelivery = CalendarDelivery.EMAIL))
         whenever(userRepository.findById(userId)).thenReturn(Optional.empty())
 
         assertNull(resolver().resolveEmailContext(userId))
+    }
+
+    @Test
+    fun `returns null for a feed user, who deliversToFeed instead`() {
+        whenever(userSettingsService.getOrCreate(userId)).thenReturn(settings(calendarDelivery = CalendarDelivery.FEED))
+
+        assertNull(resolver().resolveEmailContext(userId))
+        assertTrue(resolver().deliversToFeed(userId))
+    }
+
+    @Test
+    fun `resolveEmailTarget ignores the delivery choice`() {
+        whenever(userRepository.findById(userId)).thenReturn(Optional.of(verifiedUser("alice@example.com")))
+        whenever(userSettingsService.getLocale(userId)).thenReturn(Locale.ENGLISH)
+
+        assertEquals("alice@example.com", resolver().resolveEmailTarget(userId)?.email)
     }
 
     private fun verifiedUser(email: String) = UserEntity().apply {
@@ -89,13 +107,13 @@ class InviteDeliveryResolverTest {
         this.emailVerifiedAt = Instant.now()
     }
 
-    private fun settings(calendarInviteEmail: Boolean) = UserSettings(
+    private fun settings(calendarDelivery: CalendarDelivery) = UserSettings(
         userId = userId,
         displayName = null,
         contextBlock = null,
         timeZone = "UTC",
         preferredLanguage = "en-US",
-        calendarInviteEmail = calendarInviteEmail,
+        calendarDelivery = calendarDelivery,
         gender = null,
         agentDescription = null,
         planningCron = null,

@@ -1,5 +1,6 @@
 package dev.itayp.tasker.planning
 
+import dev.itayp.tasker.calendar.CalendarDelivery
 import dev.itayp.tasker.ai.AiProperties
 import dev.itayp.tasker.channel.ConversationChannel
 import dev.itayp.tasker.jpa.UserSettingsEntity
@@ -71,7 +72,7 @@ class PlanningSessionSchedulerTest {
             contextBlock = null,
             timeZone = tz,
             preferredLanguage = "en-US",
-            calendarInviteEmail = false,
+            calendarDelivery = CalendarDelivery.NONE,
             gender = null,
             agentDescription = null,
             planningCron = cron,

@@ -1,5 +1,6 @@
 package dev.itayp.tasker.planning
 
+import dev.itayp.tasker.calendar.CalendarDelivery
 import dev.itayp.tasker.model.UserSettings
 import dev.itayp.tasker.oneoff.OneOffEvent
 import dev.itayp.tasker.oneoff.OneOffEventService
@@ -97,7 +98,7 @@ class OneOffEventCalendarWindowProviderTest {
         contextBlock = null,
         timeZone = timeZone,
         preferredLanguage = language,
-        calendarInviteEmail = false,
+        calendarDelivery = CalendarDelivery.NONE,
         gender = null,
         agentDescription = null,
         planningCron = null,

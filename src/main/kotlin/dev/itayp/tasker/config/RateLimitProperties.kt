@@ -31,6 +31,13 @@ data class RateLimitProperties(
      * username out for one window — an accepted trade on the small instances local users are for.
      */
     val passwordLogin: Policy = Policy(limit = 10, windowSeconds = 900),
+    /**
+     * Calendar feed fetches per feed link. Calendar apps poll every few minutes to every few hours,
+     * and one link can be subscribed on several devices, so this only stops a runaway client.
+     */
+    val calendarFeed: Policy = Policy(limit = 120, windowSeconds = 3600),
+    /** Requests for a feed link that doesn't exist, per client IP. */
+    val calendarFeedMiss: Policy = Policy(limit = 30, windowSeconds = 3600),
 ) {
     data class Policy(val limit: Int, val windowSeconds: Long)
 }

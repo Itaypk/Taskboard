@@ -1,5 +1,6 @@
 package dev.itayp.tasker.model
 
+import dev.itayp.tasker.calendar.CalendarDelivery
 import java.util.UUID
 
 /**
@@ -12,7 +13,7 @@ data class UserSettings(
     val contextBlock: String?,
     val timeZone: String,
     val preferredLanguage: String,
-    val calendarInviteEmail: Boolean,
+    val calendarDelivery: CalendarDelivery = CalendarDelivery.NONE,
     val appReminders: Boolean = true,
     val gender: String?,
     val agentDescription: String?,

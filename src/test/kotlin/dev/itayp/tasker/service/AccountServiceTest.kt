@@ -1,5 +1,6 @@
 package dev.itayp.tasker.service
 
+import dev.itayp.tasker.calendar.CalendarDelivery
 import dev.itayp.tasker.crypto.BoardCryptoService
 import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.jpa.BacklogTaskCategoryEntity
@@ -112,7 +113,7 @@ class AccountServiceTest {
             contextBlock = contextBlockBytes
             timeZone = "Europe/London"
             preferredLanguage = "en-US"
-            calendarInviteEmail = true
+            calendarDeliveryMode = CalendarDelivery.EMAIL
             gender = "feminine"
             agentDescription = agentDescriptionBytes
             planningCron = "0 30 9 * * MON"
@@ -157,8 +158,9 @@ class AccountServiceTest {
 
         assertEquals("alice@example.com", result.user.email)
         assertEquals("Alice", result.user.telegramFirstName)
-
         val exportedSettings = assertNotNull(result.settings)
+        assertEquals(true, exportedSettings.calendarInviteEmail)
+        assertEquals("EMAIL", exportedSettings.calendarDelivery)
         assertEquals(true, exportedSettings.calendarInviteEmail)
         assertEquals("feminine", exportedSettings.gender)
         assertEquals("Founder working on X", exportedSettings.agentDescription)

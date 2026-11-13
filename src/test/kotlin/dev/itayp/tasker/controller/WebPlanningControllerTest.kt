@@ -1,5 +1,6 @@
 package dev.itayp.tasker.controller
 
+import dev.itayp.tasker.calendar.CalendarDelivery
 import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ConversationChannel
@@ -264,7 +265,7 @@ class WebPlanningControllerTest(@Autowired val mockMvc: MockMvc) {
         contextBlock = null,
         timeZone = "UTC",
         preferredLanguage = "en-US",
-        calendarInviteEmail = false,
+        calendarDelivery = CalendarDelivery.NONE,
         gender = null,
         agentDescription = null,
         planningCron = null,

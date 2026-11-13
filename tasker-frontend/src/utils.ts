@@ -79,8 +79,10 @@ export function formatRelative(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
   const diffMs = Date.now() - date.getTime();
-  const diffHours = Math.round(diffMs / (1000 * 60 * 60));
-  if (diffHours < 1) return i18n.t('utils.justNow');
+  const diffMinutes = Math.round(diffMs / (1000 * 60));
+  if (diffMinutes < 1) return i18n.t('utils.justNow');
+  if (diffMinutes < 60) return i18n.t('utils.minutesAgo', { count: diffMinutes });
+  const diffHours = Math.round(diffMinutes / 60);
   if (diffHours < 24) return i18n.t('utils.hoursAgo', { count: diffHours });
   const diffDays = Math.round(diffHours / 24);
   if (diffDays < 7) return i18n.t('utils.daysAgo', { count: diffDays });

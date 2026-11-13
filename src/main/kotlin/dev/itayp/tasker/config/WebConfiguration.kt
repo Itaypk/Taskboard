@@ -92,6 +92,19 @@ class WebConfiguration(
         windowMillis = rateLimitProperties.quickAdd.windowSeconds * 1_000,
     )
 
+    // The calendar feed is outside /api/**, so RateLimitInterceptor never sees it.
+    @Bean
+    fun calendarFeedRateLimiter(): RateLimiter = InMemoryRateLimiter(
+        limit = rateLimitProperties.calendarFeed.limit,
+        windowMillis = rateLimitProperties.calendarFeed.windowSeconds * 1_000,
+    )
+
+    @Bean
+    fun calendarFeedMissRateLimiter(): RateLimiter = InMemoryRateLimiter(
+        limit = rateLimitProperties.calendarFeedMiss.limit,
+        windowMillis = rateLimitProperties.calendarFeedMiss.windowSeconds * 1_000,
+    )
+
     // Inbound email arrives from the MTA on loopback, never through RateLimitInterceptor.
     @Bean
     fun inboundMailRateLimiter(): RateLimiter = InMemoryRateLimiter(

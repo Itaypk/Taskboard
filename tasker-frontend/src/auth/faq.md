@@ -35,9 +35,18 @@ You can still use the application as your todo list, without the weekly planning
 
 ## Does it connect to my calendar?
 
-Not yet — reading your calendar directly is planned but not built. Today the tasks you commit to in
-planning are sent to you as calendar invitations by email, so they land in your calendar as real
-time blocks.
+Partly. The tasks you commit to in planning can land in your calendar as real time blocks, in one of
+two ways (Settings › Integrations › Calendar):
+
+* **Subscribed calendar:** you subscribe once to a private link, and your planned blocks show up as a
+  calendar of their own in Google Calendar, Apple Calendar, Outlook or any app that takes an iCal
+  link. No emails; changes appear the next time your calendar app checks for updates, which is
+  usually within the hour.
+* **Email invitations:** each block arrives as an invitation to your verified email address, right
+  away, and every change sends another one.
+
+Reading your calendar, so planning can work around the meetings you already have, is planned but
+not built yet.
 
 ## Can I share tasks with my family?
 

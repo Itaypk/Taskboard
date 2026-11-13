@@ -9,8 +9,8 @@ attention — the ones that are easy to forget about, until it's too late.
 * **Capture is cheap.** Tasks should land in a backlog the moment you think of them — from the web
   app, from a Telegram message, from a script or an AI assistant through the API.
 * **Committing is the hard part.** Once a week you sit down with an assistant that knows your
-  backlog, and you agree on what actually fits in the week ahead. Whatever you agree to goes out
-  as calendar invitations, so it lands as real time in your week.
+  backlog, and you agree on what actually fits in the week ahead. Whatever you agree to lands in
+  your calendar, as invitations or a calendar you subscribe to, so it becomes real time in your week.
 
 That way nothing slips through the cracks, and you can finally find that bit of motivation to
 commit — and tick your tasks off the list.

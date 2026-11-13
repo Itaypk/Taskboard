@@ -68,8 +68,9 @@ class PlanFinalizationService(
 
     /**
      * Adds a single task to an already-finalized plan, leaving the rest of it untouched. Returns
-     * whether a calendar invitation was actually dispatched, so a caller with nowhere to put the
-     * result in the UI (the Telegram plan hand-off) can tell the user that no invite is coming.
+     * whether the block reaches the user's calendar (an invitation was dispatched, or the
+     * subscription feed serves it), so a caller with nowhere to put the result in the UI (the
+     * Telegram plan hand-off) can tell the user that it won't.
      */
     fun addTaskToSession(userId: UUID, sessionId: UUID, task: AgreedPlanTask): Boolean {
         plannedTaskService.upsertSingleTask(sessionId, userId, task)
@@ -137,9 +138,13 @@ class PlanFinalizationService(
         }
     }
 
-    /** Returns true when invites were dispatched; false when the user has no delivery channel. */
+    /**
+     * Returns true when the block reaches the user's calendar: invites were dispatched, or the
+     * subscription feed will serve it. False when the user has no calendar delivery.
+     */
     private fun dispatchInvitesIfEligible(userId: UUID, plan: AgreedPlan): Boolean {
-        val ctx = inviteDeliveryResolver.resolveEmailContext(userId) ?: return false
+        val ctx = inviteDeliveryResolver.resolveEmailContext(userId)
+            ?: return inviteDeliveryResolver.deliversToFeed(userId)
         log.debug("Dispatching {} calendar invite(s) for user {}", plan.tasks.sumOf { it.slots.size }, userId)
         planInviteDispatcher.dispatch(
             userEmail = ctx.email,

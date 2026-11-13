@@ -57,6 +57,30 @@ class NotificationChannelSummaryTest {
     }
 
     @Test
+    fun `describes the subscribed calendar, with Telegram`() {
+        whenever(inviteDeliveryResolver.resolveEmailContext(userId)).thenReturn(null)
+        whenever(inviteDeliveryResolver.deliversToFeed(userId)).thenReturn(true)
+        whenever(reminderDeliveryResolver.resolve(userId)).thenReturn(reminderContext())
+
+        val description = summary.describe(userId)
+
+        assertTrue(description.contains("subscribed to"), description)
+        assertTrue(description.contains("ALSO get a Telegram reminder"), description)
+    }
+
+    @Test
+    fun `describes the subscribed calendar as the only channel without Telegram`() {
+        whenever(inviteDeliveryResolver.resolveEmailContext(userId)).thenReturn(null)
+        whenever(inviteDeliveryResolver.deliversToFeed(userId)).thenReturn(true)
+        whenever(reminderDeliveryResolver.resolve(userId)).thenReturn(null)
+
+        val description = summary.describe(userId)
+
+        assertTrue(description.contains("subscribed to"), description)
+        assertTrue(description.contains("NOT get a Telegram"), description)
+    }
+
+    @Test
     fun `warns of no delivery method when neither channel is eligible`() {
         whenever(inviteDeliveryResolver.resolveEmailContext(userId)).thenReturn(null)
         whenever(reminderDeliveryResolver.resolve(userId)).thenReturn(null)

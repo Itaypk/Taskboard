@@ -190,6 +190,13 @@ The token in each address is hashed with a key derived from `TASKER_DATA_KEK` (i
 a plain hash), so rotating the KEK means recomputing `inbound_mail_address.token_hmac` from the
 encrypted tokens.
 
+## Calendar subscription feed (`CalendarFeedController`, `GET /calendar/<token>.ics`)
+
+Needs no configuration beyond `TASKER_APP_BASE_URL`, which the feed links are built from. Fetches
+are capped per link by `tasker.rate-limit.calendar-feed` (120 an hour) and requests for unknown
+links per client IP by `tasker.rate-limit.calendar-feed-miss` (30 an hour). The token is the path,
+so keep it out of shipped access logs (the hosted Nginx redacts `/calendar/<token>`).
+
 ## Frontend
 
 The SPA reads no `VITE_*` variables: everything instance-specific (login methods, name, contact

@@ -1,5 +1,6 @@
 package dev.itayp.tasker.notification
 
+import dev.itayp.tasker.calendar.CalendarDelivery
 import dev.itayp.tasker.ai.ReasoningAwareAiClient
 import dev.itayp.nescioquid.openrouter.ChatMessage
 import dev.itayp.nescioquid.openrouter.ChatResponse
@@ -31,7 +32,7 @@ class ReminderMessageAgentTest {
         whenever(userSettingsService.getOrCreate(userId)).thenReturn(
             UserSettings(
                 userId = userId, displayName = "Alex", contextBlock = "Works mornings.",
-                timeZone = "UTC", preferredLanguage = "en", calendarInviteEmail = false,
+                timeZone = "UTC", preferredLanguage = "en", calendarDelivery = CalendarDelivery.NONE,
                 gender = null, agentDescription = null, planningCron = null, weekStartDay = null,
                 autoArchiveDays = null,
             ),
