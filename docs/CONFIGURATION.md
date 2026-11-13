@@ -86,9 +86,14 @@ Telegram *login* is offered only when both the client id and secret are set.
   `google/gemini-3.5-flash-lite` (rationale in `application.yaml`).
 - `TASKER_AI_TASK_ASSISTANT_MODEL` — model for the planner's task search/suggestion sub-agents and
   reminders; defaults to the planning model.
-- `TASKER_AI_MULTIMODAL_MODEL` — model slug used for Telegram quick-add captures that carry an
-  attachment (photos, voice notes); defaults to the task-assistant model. See
-  `docs/MULTIMODAL-CAPTURE.md`.
+- `TASKER_AI_VISION_MODEL` — model slug for captures that carry images or PDFs (Telegram, inbound
+  email); defaults to the task-assistant model. Images are declined unless the model takes `image`
+  input; PDFs work with any model, since OpenRouter parses them for one without native file input.
+  `TASKER_AI_MULTIMODAL_MODEL` is its deprecated old name (still read, with a startup warning).
+- `TASKER_AI_TRANSCRIPTION_MODEL` — speech-to-text model for voice notes and audio files, e.g.
+  `openai/whisper-large-v3`; the transcript is then captured like typed text by the task-assistant
+  model. No default: unset, voice capture is declined. Transcription is billed by audio duration
+  and doesn't count against the AI tier's token budget. See `docs/MULTIMODAL-CAPTURE.md`.
 - `TASKER_AI_ZERO_DATA_RETENTION` — `true` (default) sends every LLM call with OpenRouter's
   `provider.zdr`, so it is only routed to endpoints that retain no prompt data (set on every request
   by `ReasoningAwareAiClient`; `false` explicitly lifts it, since the client library defaults to on). Every configured model needs a ZDR endpoint — check

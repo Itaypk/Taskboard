@@ -14,4 +14,7 @@ object AiConversationType {
     const val TASK_SEARCH = "task_search"
     const val TASK_SUGGESTION = "task_suggestion"
     const val SLOT_REMINDER = "slot_reminder"
+
+    /** Speech-to-text for a voice capture. Billed by audio duration, so it reports no tokens. */
+    const val TRANSCRIPTION = "transcription"
 }

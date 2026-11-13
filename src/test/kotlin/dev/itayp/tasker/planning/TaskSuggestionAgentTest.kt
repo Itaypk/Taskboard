@@ -1,15 +1,18 @@
 package dev.itayp.tasker.planning
 
 import dev.itayp.tasker.calendar.CalendarDelivery
+import dev.itayp.tasker.ai.AudioTranscriber
 import dev.itayp.tasker.ai.InputModalitySupport
 import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.ai.ReasoningAwareAiClient
+import dev.itayp.nescioquid.openrouter.AiCallContext
 import dev.itayp.nescioquid.openrouter.ChatMessage
 import dev.itayp.nescioquid.openrouter.ChatResponse
 import dev.itayp.nescioquid.openrouter.ChatRequest
 import dev.itayp.nescioquid.openrouter.Choice
 import dev.itayp.nescioquid.openrouter.ContentPart
 import dev.itayp.nescioquid.openrouter.MessageContent
+import dev.itayp.tasker.ai.client.AiConversationType
 import dev.itayp.tasker.ai.prompt.PromptTemplateLoader
 import dev.itayp.tasker.channel.AttachmentKind
 import dev.itayp.tasker.channel.InboundAttachment
@@ -27,9 +30,11 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
+import org.mockito.kotlin.verifyNoInteractions
 import org.mockito.kotlin.whenever
 import tools.jackson.module.kotlin.jacksonObjectMapper
 import java.time.Clock
@@ -57,9 +62,10 @@ class TaskSuggestionAgentTest {
     private val clock = Clock.fixed(Instant.parse("2026-06-01T10:00:00Z"), ZoneOffset.UTC)
     private val meterRegistry = SimpleMeterRegistry()
     private val inputModalitySupport: InputModalitySupport = mock()
+    private val audioTranscriber: AudioTranscriber = mock()
     private val agent = TaskSuggestionAgent(
         aiClient, backlogTaskService, categoryService, tagService, boardMembershipService, aiAccessService, userSettingsService,
-        PromptTemplateLoader(), inputModalitySupport, objectMapper, clock, meterRegistry, "test-model",
+        PromptTemplateLoader(), inputModalitySupport, audioTranscriber, objectMapper, clock, meterRegistry, "test-model",
     )
 
     private val userId = UUID.randomUUID()
@@ -236,7 +242,7 @@ class TaskSuggestionAgentTest {
     @Test
     fun `quickAddDraftFromMedia attaches the image and adopts the model's read-back as the request`() {
         whenever(inputModalitySupport.supportsAll(any())).thenReturn(true)
-        whenever(inputModalitySupport.captureModel).thenReturn("vision-model")
+        whenever(inputModalitySupport.visionModel).thenReturn("vision-model")
         whenever(aiClient.chat(any(), any())).thenReturn(
             chatResponse(
                 """{"source_text":"Mia's birthday party, Saturday 4pm, 12 Oak Street",
@@ -257,7 +263,7 @@ class TaskSuggestionAgentTest {
 
         val request = argumentCaptor<ChatRequest>()
         verify(aiClient).chat(request.capture(), any())
-        // The media call goes to the multimodal model, not the text task-assistant one.
+        // The media call goes to the vision model, not the text task-assistant one.
         assertEquals("vision-model", request.firstValue.model)
         val parts = assertIs<MessageContent.Parts>(request.firstValue.messages.last().content).parts
         val image = assertIs<ContentPart.ImageUrl>(parts.last())
@@ -267,24 +273,84 @@ class TaskSuggestionAgentTest {
     }
 
     @Test
-    fun `quickAddDraftFromMedia sends a voice note as an input_audio part in its own format`() {
+    fun `quickAddDraftFromMedia transcribes a voice note and drafts from the transcript with the text model`() {
         whenever(inputModalitySupport.supportsAll(any())).thenReturn(true)
-        whenever(inputModalitySupport.captureModel).thenReturn("audio-model")
+        whenever(audioTranscriber.transcribe(any(), any())).thenReturn("remind me to call the plumber")
         whenever(aiClient.chat(any(), any())).thenReturn(
-            chatResponse("""{"source_text":"remind me to call the plumber","items":[{"kind":"task","title":"Call the plumber","category_id":null,"tags":[]}]}"""),
+            // A model that sets source_text anyway doesn't get to replace what the user said.
+            chatResponse("""{"source_text":"call plumber","items":[{"kind":"task","title":"Call the plumber","category_id":null,"tags":[]}]}"""),
+        )
+        val voice = InboundAttachment(AttachmentKind.AUDIO, byteArrayOf(1, 2, 3), "audio/ogg", format = "ogg")
+
+        val outcome = agent.quickAddDraftFromMedia(userId, listOf(voice), caption = null)
+
+        val draft = assertIs<SuggestionOutcome.Draft>(outcome)
+        assertEquals("remind me to call the plumber\n\ncall plumber", draft.sourceText)
+        val context = argumentCaptor<AiCallContext>()
+        verify(audioTranscriber).transcribe(eq(voice), context.capture())
+        assertEquals(AiConversationType.TRANSCRIPTION, context.firstValue.conversationType)
+        assertEquals(userId.toString(), context.firstValue.userId)
+
+        val request = argumentCaptor<ChatRequest>()
+        verify(aiClient).chat(request.capture(), any())
+        // Plain text to the task-assistant model: no audio part, and no vision model involved.
+        assertEquals("test-model", request.firstValue.model)
+        assertIs<MessageContent.Text>(request.firstValue.messages.last().content)
+        val prompt = request.firstValue.messages.last().contentText.orEmpty()
+        assertTrue(prompt.contains("remind me to call the plumber"))
+        assertTrue(prompt.contains("automatic transcript of a voice message"))
+    }
+
+    @Test
+    fun `quickAddDraftFromMedia keeps the transcript as the read-back of a routed voice note`() {
+        whenever(inputModalitySupport.supportsAll(any())).thenReturn(true)
+        whenever(audioTranscriber.transcribe(any(), any())).thenReturn("what's on for today?")
+        whenever(aiClient.chat(any(), any())).thenReturn(chatResponse("""{"not_a_capture":{"intent":"current"}}"""))
+
+        val outcome = agent.quickAddDraftFromMedia(
+            userId,
+            listOf(InboundAttachment(AttachmentKind.AUDIO, byteArrayOf(1), "audio/ogg", format = "ogg")),
+            unprompted = true,
+        )
+
+        val routed = assertIs<SuggestionOutcome.NotACapture>(outcome)
+        assertEquals(CaptureIntent.CURRENT, routed.intent)
+        assertEquals("what's on for today?", routed.sourceText)
+    }
+
+    @Test
+    fun `quickAddDraftFromMedia gives up on an empty transcript without drafting`() {
+        whenever(inputModalitySupport.supportsAll(any())).thenReturn(true)
+        whenever(audioTranscriber.transcribe(any(), any())).thenReturn("")
+
+        val outcome = agent.quickAddDraftFromMedia(
+            userId,
+            listOf(InboundAttachment(AttachmentKind.AUDIO, byteArrayOf(1), "audio/ogg", format = "ogg")),
+        )
+
+        assertEquals(SuggestionOutcome.Unparseable, outcome)
+        verify(aiClient, never()).chat(any(), any())
+    }
+
+    @Test
+    fun `quickAddDraftFromMedia sends a PDF to the vision model as a file part`() {
+        whenever(inputModalitySupport.supportsAll(any())).thenReturn(true)
+        whenever(inputModalitySupport.visionModel).thenReturn("vision-model")
+        whenever(aiClient.chat(any(), any())).thenReturn(
+            chatResponse("""{"source_text":"Invoice due June 10","items":[{"kind":"task","title":"Pay the invoice","category_id":null,"tags":[]}]}"""),
         )
 
         agent.quickAddDraftFromMedia(
             userId,
-            listOf(InboundAttachment(AttachmentKind.AUDIO, byteArrayOf(1, 2, 3), "audio/ogg", format = "ogg")),
-            caption = null,
+            listOf(InboundAttachment(AttachmentKind.DOCUMENT, byteArrayOf(0x25, 0x50), "application/pdf", filename = "invoice.pdf")),
         )
 
         val request = argumentCaptor<ChatRequest>()
         verify(aiClient).chat(request.capture(), any())
+        assertEquals("vision-model", request.firstValue.model)
         val parts = assertIs<MessageContent.Parts>(request.firstValue.messages.last().content).parts
-        val audio = assertIs<ContentPart.InputAudio>(parts.last())
-        assertEquals("ogg", audio.inputAudio.format)
+        assertIs<ContentPart.File>(parts.last())
+        verifyNoInteractions(audioTranscriber)
     }
 
     @Test

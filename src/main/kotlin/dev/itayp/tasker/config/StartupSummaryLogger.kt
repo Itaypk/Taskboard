@@ -68,7 +68,18 @@ class StartupSummaryLogger(
         if (aiProperties.apiKey.isBlank()) {
             log.warn("TASKER_AI_API_KEY is not set: the weekly planning assistant and AI capture are unavailable.")
         }
+        if (environment.containsProperty(LEGACY_MULTIMODAL_MODEL)) {
+            log.warn(
+                "$LEGACY_MULTIMODAL_MODEL is deprecated and only sets TASKER_AI_VISION_MODEL now; voice notes need " +
+                    "TASKER_AI_TRANSCRIPTION_MODEL. Rename it to TASKER_AI_VISION_MODEL: it will be dropped in a later release.",
+            )
+        }
     }
 
     private fun onOff(value: Boolean) = if (value) "on" else "off"
+
+    private companion object {
+        /** Replaced by TASKER_AI_VISION_MODEL and TASKER_AI_TRANSCRIPTION_MODEL (GitHub issue #362). */
+        const val LEGACY_MULTIMODAL_MODEL = "TASKER_AI_MULTIMODAL_MODEL"
+    }
 }
