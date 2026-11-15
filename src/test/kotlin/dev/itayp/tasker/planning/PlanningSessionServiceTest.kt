@@ -134,7 +134,7 @@ class PlanningSessionServiceTest {
     }
 
     @Test
-    fun `completeSession sets summary and ended_at`() {
+    fun `completeSession sets the week note and ended_at`() {
         val sessionId = UUID.randomUUID()
         val entity = PlanningSessionEntity().apply {
             this.id = sessionId
@@ -150,11 +150,73 @@ class PlanningSessionServiceTest {
 
         assertEquals(PlanningSessionStatus.COMPLETED, entity.status)
         assertEquals(now, entity.endedAt)
-        assertEquals("we agreed on tasks A, B", result.summary)
+        assertEquals("we agreed on tasks A, B", result.weekNote)
     }
 
     @Test
-    fun `abandonSession transitions status without writing summary`() {
+    fun `completeSession leaves the week note empty when the assistant wrote none`() {
+        val sessionId = UUID.randomUUID()
+        val entity = sessionEntity(sessionId)
+        whenever(planningSessionRepository.findByIdAndUserId(sessionId, userId)).thenReturn(entity)
+        whenever(planningSessionRepository.save(any<PlanningSessionEntity>())).thenAnswer { it.arguments[0] }
+
+        val result = service.completeSession(userId, sessionId, "   ")
+
+        assertEquals(null, entity.weekNote)
+        assertEquals(null, result.weekNote)
+    }
+
+    @Test
+    fun `appendRevisionNote appends without touching the week note or earlier notes`() {
+        val sessionId = UUID.randomUUID()
+        val entity = sessionEntity(sessionId).apply {
+            status = PlanningSessionStatus.COMPLETED
+            weekNote = crypto.encrypt(this@PlanningSessionServiceTest.userId, "Heavy week.")
+        }
+        whenever(planningSessionRepository.findByIdAndUserId(sessionId, userId)).thenReturn(entity)
+        whenever(planningSessionRepository.save(any<PlanningSessionEntity>())).thenAnswer { it.arguments[0] }
+
+        service.appendRevisionNote(userId, sessionId, "Moved the dentist.")
+        service.appendRevisionNote(userId, sessionId, " Dropped the report. ")
+
+        val session = entity.toDomain(crypto)
+        assertEquals("Heavy week.", session.weekNote)
+        assertEquals(
+            listOf(RevisionNote(now, "Moved the dentist."), RevisionNote(now, "Dropped the report.")),
+            session.revisionNotes,
+        )
+    }
+
+    @Test
+    fun `appendRevisionNote ignores a blank note`() {
+        val sessionId = UUID.randomUUID()
+
+        service.appendRevisionNote(userId, sessionId, "  ")
+        service.appendRevisionNote(userId, sessionId, null)
+
+        verify(planningSessionRepository, never()).save(any<PlanningSessionEntity>())
+    }
+
+    @Test
+    fun `appendRevisionNote refuses to overwrite notes it can't read`() {
+        val sessionId = UUID.randomUUID()
+        val entity = sessionEntity(sessionId).apply { revisionNotes = crypto.encrypt(this@PlanningSessionServiceTest.userId, "not json") }
+        whenever(planningSessionRepository.findByIdAndUserId(sessionId, userId)).thenReturn(entity)
+
+        assertFailsWith<Exception> { service.appendRevisionNote(userId, sessionId, "Moved the dentist.") }
+        verify(planningSessionRepository, never()).save(any<PlanningSessionEntity>())
+    }
+
+    private fun sessionEntity(sessionId: UUID) = PlanningSessionEntity().apply {
+        this.id = sessionId
+        this.userId = this@PlanningSessionServiceTest.userId
+        this.status = PlanningSessionStatus.ACTIVE
+        this.startedAt = now.minusSeconds(600)
+        this.weekStart = this@PlanningSessionServiceTest.weekStart
+    }
+
+    @Test
+    fun `abandonSession transitions status without writing a week note`() {
         val sessionId = UUID.randomUUID()
         val entity = PlanningSessionEntity().apply {
             this.id = sessionId
@@ -162,7 +224,7 @@ class PlanningSessionServiceTest {
             this.status = PlanningSessionStatus.ACTIVE
             this.startedAt = now.minusSeconds(60)
             this.weekStart = this@PlanningSessionServiceTest.weekStart
-            this.summary = null
+            this.weekNote = null
         }
         whenever(planningSessionRepository.findByIdAndUserId(sessionId, userId)).thenReturn(entity)
         whenever(planningSessionRepository.save(any<PlanningSessionEntity>())).thenAnswer { it.arguments[0] }

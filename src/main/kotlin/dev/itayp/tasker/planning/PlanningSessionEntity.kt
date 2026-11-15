@@ -32,6 +32,18 @@ class PlanningSessionEntity {
     @Column(name = "ended_at")
     var endedAt: Instant? = null
 
-    @Column
-    var summary: ByteArray? = null
+    /**
+     * The week note, encrypted under the user's DEK: what the assistant learned about this week when
+     * the plan was finalized. Written once; a revision never overwrites it. The column keeps its
+     * historical name (it used to hold a prose summary that a revision replaced wholesale).
+     */
+    @Column(name = "summary")
+    var weekNote: ByteArray? = null
+
+    /**
+     * Append-only notes from revise sessions: a JSON array of [RevisionNote], encrypted under the
+     * user's DEK. Only [PlanningSessionService.appendRevisionNote] writes it.
+     */
+    @Column(name = "revision_notes")
+    var revisionNotes: ByteArray? = null
 }

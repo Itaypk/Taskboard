@@ -347,7 +347,6 @@ export interface PlanSummary {
     weekEnd: string;
     status: string;
     taskCount: number;
-    hasSummary: boolean;
 }
 
 /** Index of the user's finalized plans, most recent week first. */
@@ -473,7 +472,6 @@ export interface WeekOption {
 
 export interface PlanningEntry {
     activeSessionId: string | null;
-    completedPlanSummary: string | null;
     revisableSessionId: string | null;
     thisWeek: WeekOption;
     nextWeek: WeekOption;

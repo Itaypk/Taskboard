@@ -6,6 +6,7 @@ import dev.itayp.tasker.model.response.CurrentPlanResponse
 import dev.itayp.tasker.model.response.OneOffEventResponse
 import dev.itayp.tasker.model.response.PlanSummaryResponse
 import dev.itayp.tasker.model.response.PlanTaskResponse
+import dev.itayp.tasker.model.response.RevisionNoteResponse
 import dev.itayp.tasker.model.response.TimeSlotResponse
 import dev.itayp.tasker.model.response.toResponse
 import dev.itayp.tasker.oneoff.CancelOutcome
@@ -121,7 +122,6 @@ class PlanningSessionController(
                 weekEnd = plan.session.weekStart.plusDays(6).toString(),
                 status = plan.session.status.name.lowercase(),
                 taskCount = plan.taskCount,
-                hasSummary = !plan.session.summary.isNullOrBlank(),
             )
         }
 
@@ -154,7 +154,8 @@ class PlanningSessionController(
             status = session.status.name.lowercase(),
             startedAt = session.startedAt.toString(),
             endedAt = session.endedAt?.toString(),
-            summary = session.summary,
+            weekNote = session.weekNote,
+            revisionNotes = session.revisionNotes.map { RevisionNoteResponse(at = it.at.toString(), text = it.text) },
             tasks = planTaskResponses,
             weekStart = weekStart.toString(),
             weekEnd = weekStart.plusDays(6).toString(),

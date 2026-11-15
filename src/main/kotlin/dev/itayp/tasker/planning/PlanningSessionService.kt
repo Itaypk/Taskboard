@@ -5,6 +5,7 @@ import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.repository.BacklogTaskRepository
 import dev.itayp.tasker.service.BoardMembershipService
 import dev.itayp.tasker.service.UserSettingsService
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
@@ -24,6 +25,7 @@ class PlanningSessionService(
     private val aiAccessService: AiAccessService,
     private val clock: Clock,
 ) {
+    private val log = LoggerFactory.getLogger(PlanningSessionService::class.java)
 
     @Transactional
     fun startSession(
@@ -53,9 +55,10 @@ class PlanningSessionService(
             .findFirstByUserIdAndWeekStartOrderByStartedAtDesc(userId, weekStart)
             ?.toDomain(userCrypto)
 
+    /** Finalizes the session, storing [weekNote] when the assistant wrote one. */
     @Transactional
-    fun completeSession(userId: UUID, sessionId: UUID, summary: String?): PlanningSession =
-        endSession(userId, sessionId, PlanningSessionStatus.COMPLETED, summary)
+    fun completeSession(userId: UUID, sessionId: UUID, weekNote: String?): PlanningSession =
+        endSession(userId, sessionId, PlanningSessionStatus.COMPLETED, weekNote)
 
     /**
      * Bumps the reschedule count for tasks scheduled in the plan immediately preceding [finalizingWeek]
@@ -83,27 +86,37 @@ class PlanningSessionService(
 
     @Transactional
     fun abandonSession(userId: UUID, sessionId: UUID): PlanningSession =
-        endSession(userId, sessionId, PlanningSessionStatus.ABANDONED, summary = null)
+        endSession(userId, sessionId, PlanningSessionStatus.ABANDONED, weekNote = null)
 
     private fun endSession(
         userId: UUID,
         sessionId: UUID,
         status: PlanningSessionStatus,
-        summary: String?,
+        weekNote: String?,
     ): PlanningSession {
         val session = planningSessionRepository.findByIdAndUserId(sessionId, userId)
             ?: throw NoSuchElementException("Planning session $sessionId not found")
         session.status = status
         session.endedAt = clock.instant()
-        if (summary != null) session.summary = userCrypto.encrypt(userId, summary)
+        weekNote?.trim()?.takeIf { it.isNotEmpty() }?.let { session.weekNote = userCrypto.encrypt(userId, it) }
         return planningSessionRepository.save(session).toDomain(userCrypto)
     }
 
+    /**
+     * Appends a revise session's note to the plan. Append-only by design (GitHub issue #229): the week
+     * note and earlier revision notes are never rewritten, so a revision can't drop them. A blank
+     * note is a no-op: most revisions have nothing worth remembering beyond the schedule itself.
+     */
     @Transactional
-    fun updateSummary(sessionId: UUID, summary: String?) {
-        val session = planningSessionRepository.findById(sessionId).orElseThrow()
-        session.summary = userCrypto.encrypt(session.userId!!, summary)
+    fun appendRevisionNote(userId: UUID, sessionId: UUID, note: String?) {
+        val text = note?.trim()?.takeIf { it.isNotEmpty() } ?: return
+        val session = planningSessionRepository.findByIdAndUserId(sessionId, userId)
+            ?: throw NoSuchElementException("Planning session $sessionId not found")
+        val existing = RevisionNotesCodec.decodeStrict(userCrypto.decrypt(userId, session.revisionNotes))
+        val updated = existing + RevisionNote(at = clock.instant(), text = text)
+        session.revisionNotes = userCrypto.encrypt(userId, RevisionNotesCodec.encode(updated))
         planningSessionRepository.save(session)
+        log.debug("Appended revision note {} to session {}", updated.size, sessionId)
     }
 
     @Transactional(readOnly = true)
@@ -172,13 +185,13 @@ class PlanningSessionService(
             }
 
     /**
-     * Returns the session whose summary should be prepended to the prompt for the week starting at
+     * Returns the session whose plan and notes should be shown in the prompt for the week starting at
      * [beforeWeek] — the most recent COMPLETED plan for an *earlier* week. Resolving by week (not by
      * globally-latest completed) keeps the "previous session" honest when weeks are planned out of
      * order. Skips ABANDONED sessions.
      */
     @Transactional(readOnly = true)
-    fun findPreviousSummarizableSession(userId: UUID, beforeWeek: LocalDate): PlanningSession? =
+    fun findPreviousPlan(userId: UUID, beforeWeek: LocalDate): PlanningSession? =
         planningSessionRepository
             .findFirstByUserIdAndStatusAndWeekStartLessThanOrderByWeekStartDesc(
                 userId, PlanningSessionStatus.COMPLETED, beforeWeek,
@@ -191,7 +204,7 @@ class PlanningSessionService(
      */
     @Transactional(readOnly = true)
     fun diffSincePreviousSession(userId: UUID, beforeWeek: LocalDate): TaskChangeSummary {
-        val previous = findPreviousSummarizableSession(userId, beforeWeek)
+        val previous = findPreviousPlan(userId, beforeWeek)
             ?: return BacklogTaskChangeService.EMPTY_SUMMARY
         val since = previous.endedAt ?: previous.startedAt
         // The change feed is board-keyed; aggregate across the user's boards — but only those AI is

@@ -4,9 +4,15 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import java.util.UUID
 
 /**
- * Structured payload the assistant submits via the `submit_plan` tool. The backend persists
- * the human-readable [summary] into PlanningSessionEntity.summary and the structured [tasks]
- * (with time slots) into the planned_task / planned_task_slot tables.
+ * Structured payload the assistant submits via the `submit_plan` tool. The backend persists the
+ * structured [tasks] (with time slots) into the planned_task / planned_task_slot tables; the
+ * schedule is always rendered from there, never from model-written prose.
+ *
+ * [weekNote] (first finalization only) and [revisionNote] (revise sessions only) carry what the
+ * assistant learned that the schedule can't say: capacity, why something was deferred, one-off
+ * constraints. Both are optional. The week note is stored once; a revision note is appended next to
+ * it, so a revision never rewrites earlier context (GitHub issue #229). The backend ignores whichever
+ * of the two doesn't apply to the session.
  *
  * [message] is the user-facing farewell rendered to the channel once the plan is finalized.
  * Carrying it on the submission (rather than relying on a separate `say` call in the same turn)
@@ -20,7 +26,8 @@ import java.util.UUID
  */
 data class AgreedPlan(
     val tasks: List<AgreedPlanTask>,
-    val summary: String,
+    @JsonProperty("week_note") val weekNote: String? = null,
+    @JsonProperty("revision_note") val revisionNote: String? = null,
     val message: String? = null,
     @JsonProperty("context_suggestion") val contextSuggestion: String? = null,
 )

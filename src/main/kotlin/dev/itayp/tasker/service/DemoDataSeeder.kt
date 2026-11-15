@@ -97,7 +97,7 @@ class DemoDataSeeder(
             this.status = PlanningSessionStatus.ACTIVE
             this.startedAt = now
             this.weekStart = weekStart
-            this.summary = null
+            this.weekNote = null
         })
         val sessionId = session.id!!
 

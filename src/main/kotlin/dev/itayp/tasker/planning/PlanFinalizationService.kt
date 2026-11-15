@@ -34,13 +34,17 @@ class PlanFinalizationService(
         // may be a week planned ahead). Doing it here (not at session start) means an abandoned session
         // never touches the existing plan's task stats.
         planningSessionService.bumpRescheduleCountsForCarriedOverTasks(userId, session.weekStart)
-        planningSessionService.completeSession(userId, sessionId, plan.summary)
+        planningSessionService.completeSession(userId, sessionId, plan.weekNote)
         applyPlan(userId, sessionId, plan)
     }
 
+    /**
+     * Applies a revise session's plan. The week note is left alone and the revision note, if any, is
+     * appended, so earlier context survives however the model phrased this revision (issue #229).
+     */
     fun revisePlan(userId: UUID, sessionId: UUID, plan: AgreedPlan) {
-        log.debug("Revising agreed plan for session {}", sessionId)
-        planningSessionService.updateSummary(sessionId, plan.summary)
+        log.debug("Revising agreed plan for session {} (hasRevisionNote={})", sessionId, !plan.revisionNote.isNullOrBlank())
+        planningSessionService.appendRevisionNote(userId, sessionId, plan.revisionNote)
         applyPlan(userId, sessionId, plan)
     }
 
@@ -76,7 +80,7 @@ class PlanFinalizationService(
         plannedTaskService.upsertSingleTask(sessionId, userId, task)
         backlogTaskService.stampPlanningSession(userId, listOf(task.taskId), sessionId)
         planWatermarkService.bump(userId)
-        val invited = dispatchInvitesIfEligible(userId, AgreedPlan(tasks = listOf(task), summary = ""))
+        val invited = dispatchInvitesIfEligible(userId, AgreedPlan(tasks = listOf(task)))
         slotReminderService.sync(userId, sessionId, previous = emptyList(), current = listOf(task))
         return invited
     }
@@ -121,13 +125,13 @@ class PlanFinalizationService(
         if (diff.added.isNotEmpty()) {
             planInviteDispatcher.dispatch(
                 ctx.email, emailProperties.scheduling.from, emailProperties.scheduling.fromName,
-                AgreedPlan(PlanSlotDiffer.regroup(diff.added), summary = ""), ctx.locale, sequence,
+                AgreedPlan(PlanSlotDiffer.regroup(diff.added)), ctx.locale, sequence,
             )
         }
         if (diff.changed.isNotEmpty()) {
             planInviteDispatcher.dispatchUpdates(
                 ctx.email, emailProperties.scheduling.from, emailProperties.scheduling.fromName,
-                AgreedPlan(PlanSlotDiffer.regroup(diff.changed), summary = ""), ctx.locale, sequence,
+                AgreedPlan(PlanSlotDiffer.regroup(diff.changed)), ctx.locale, sequence,
             )
         }
         if (diff.removed.isNotEmpty()) {

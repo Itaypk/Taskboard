@@ -8,9 +8,11 @@ import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.BacklogTaskTag
 import dev.itayp.tasker.model.BoardSummary
+import dev.itayp.tasker.model.TaskStatus
 import dev.itayp.tasker.notification.NotificationChannelSummary
 import dev.itayp.tasker.planning.dto.AgreedPlanTask
 import dev.itayp.tasker.service.BacklogTaskCategoryService
+import dev.itayp.tasker.service.BacklogTaskService
 import dev.itayp.tasker.service.BacklogTaskTagService
 import dev.itayp.tasker.service.BoardService
 import dev.itayp.tasker.service.UserSettingsService
@@ -24,7 +26,7 @@ import java.util.UUID
 
 /**
  * Assembles the weekly planning system prompt. Order mirrors `docs/MEMORY-MODEL.md`:
- * stable user context → previous session summary → diff → backlog candidates → calendar →
+ * stable user context → previous week's plan and notes → diff → backlog candidates → calendar →
  * capacity → environment.
  */
 @Service
@@ -33,6 +35,8 @@ class WeeklyPlanningPromptAssembler(
     private val userSettingsService: UserSettingsService,
     private val plannerTaskSelector: PlannerTaskSelector,
     private val planningSessionService: PlanningSessionService,
+    private val plannedTaskService: PlannedTaskService,
+    private val backlogTaskService: BacklogTaskService,
     private val calendarWindowProvider: CalendarWindowProvider,
     private val categoryService: BacklogTaskCategoryService,
     private val tagService: BacklogTaskTagService,
@@ -59,8 +63,7 @@ class WeeklyPlanningPromptAssembler(
         // be allowed to target them via create_task. PlannerTaskSelector applies the same filter.
         val allowedBoardIds = aiAccessService.aiAllowedBoardIds(userId)
         val boards = boardService.listBoardsForUser(userId).filter { it.id in allowedBoardIds }
-        val previousSummary = planningSessionService.findPreviousSummarizableSession(userId, weekStart)
-            ?.summary?.takeIf { it.isNotBlank() }
+        val previousPlan = planningSessionService.findPreviousPlan(userId, weekStart)
         val diff = planningSessionService.diffSincePreviousSession(userId, weekStart)
 
         val weekEnd = weekStart.plusDays(7)
@@ -74,7 +77,7 @@ class WeeklyPlanningPromptAssembler(
             "external_content_rule" to ExternalContent.RULE,
             "user_context_block" to (settings.contextBlock?.takeIf { it.isNotBlank() }
                 ?: "No personal context shared yet."),
-            "previous_session_summary" to (previousSummary ?: "No previous session on record."),
+            "previous_plan" to renderPreviousPlan(userId, previousPlan, allowedBoardIds, zone),
             "task_change_summary" to renderDiff(userId, today, diff),
             "carried_over_tasks" to renderCarriedOver(carriedOver),
             "urgent_tasks" to renderTaskList(selection.urgent, selection.alreadyPlanned, selection.alreadyScheduled, selection.boardNames),
@@ -119,7 +122,6 @@ class WeeklyPlanningPromptAssembler(
 
         val today = LocalDate.ofInstant(clock.instant(), zone)
         val weekStart = session.weekStart
-        val previousSummary = session.summary?.takeIf { it.isNotBlank() }
         val diff = planningSessionService.diffSincePreviousSession(userId, weekStart)
 
         val weekEnd = weekStart.plusDays(7)
@@ -140,7 +142,7 @@ class WeeklyPlanningPromptAssembler(
             "external_content_rule" to ExternalContent.RULE,
             "user_context_block" to (settings.contextBlock?.takeIf { it.isNotBlank() }
                 ?: "No personal context shared yet."),
-            "previous_plan_summary" to (previousSummary ?: "_(no summary recorded)_"),
+            "plan_notes" to renderNotes(session, zone),
             "current_plan" to renderCurrentPlan(currentPlanTasks),
             "categories" to renderCategoriesForBoards(userId, boards),
             "tags" to renderTagsForBoards(userId, boards),
@@ -182,6 +184,49 @@ class WeeklyPlanningPromptAssembler(
                 }
             }
         })
+    }
+
+    /**
+     * Last week's plan, from the data rather than model-written prose: each task with whether it got
+     * done and when it was scheduled, then the notes written about that week. Tasks since deleted, or
+     * on a board a co-member opted out of AI for, are left out (the diff already reports deletions).
+     */
+    private fun renderPreviousPlan(userId: UUID, previous: PlanningSession?, allowedBoardIds: Set<UUID>, zone: ZoneId): String {
+        if (previous == null) return "No previous plan on record."
+        val planned = plannedTaskService.findForSession(userId, previous.id)
+        val live = backlogTaskService.findTasksAcrossBoards(userId, planned.map { it.taskId })
+            .filter { it.boardId in allowedBoardIds }
+            .associateBy { it.id }
+        val lines = planned.mapNotNull { task ->
+            val backlogTask = live[task.taskId] ?: return@mapNotNull null
+            buildString {
+                append("- ").append(backlogTask.title)
+                append(" · ").append(
+                    when (backlogTask.status) {
+                        TaskStatus.DONE -> "done"
+                        TaskStatus.ARCHIVED -> "archived"
+                        TaskStatus.TODO -> "not done"
+                    },
+                )
+                if (task.slots.isNotEmpty()) {
+                    append(" · scheduled ").append(task.slots.joinToString(", ") { "${it.startIso} → ${it.endIso}" })
+                }
+            }
+        }
+        val tasks = if (lines.isEmpty()) "_(no tasks scheduled)_" else ExternalContent.wrap("tasks", lines.joinToString("\n"))
+        val weekEnd = previous.weekStart.plusDays(6)
+        return "Week of ${previous.weekStart} – $weekEnd\n\n$tasks\n\n${renderNotes(previous, zone)}"
+    }
+
+    /** The week note, then the revision notes oldest first, for either prompt. */
+    private fun renderNotes(session: PlanningSession, zone: ZoneId): String = buildString {
+        append("Week note: ").append(session.weekNote ?: "_(none)_")
+        if (session.revisionNotes.isNotEmpty()) {
+            append("\nRevision notes:")
+            session.revisionNotes.forEach { note ->
+                append("\n- ").append(note.at.atZone(zone).toLocalDate()).append(": ").append(note.text)
+            }
+        }
     }
 
     /** Shared scope/off-topic guidance, kept in one file so both prompts stay in sync. */

@@ -41,8 +41,10 @@ class SubmitPlanTool(
         }
         inbox.record(plan)
         log.debug(
-            "submit_plan recorded plan: tasks={} hasMessage={} hasContextSuggestion={}",
+            "submit_plan recorded plan: tasks={} hasWeekNote={} hasRevisionNote={} hasMessage={} hasContextSuggestion={}",
             plan.tasks.size,
+            !plan.weekNote.isNullOrBlank(),
+            !plan.revisionNote.isNullOrBlank(),
             !plan.message.isNullOrBlank(),
             !plan.contextSuggestion.isNullOrBlank(),
         )
@@ -58,14 +60,22 @@ class SubmitPlanTool(
     private data class SubmitPlanArgs(
         @JsonPropertyDescription("Tasks the user agreed to tackle this week, with proposed time slots.")
         val tasks: List<PlanTaskArg>,
+        @JsonProperty("week_note")
         @JsonPropertyDescription(
-            "A self-contained memory note for this week's plan, carried into future sessions.\n" +
-                "Recap what was scheduled, plus any context worth remembering next time (preferences,\n" +
-                "deferrals, what the user is juggling). Make it stand on its own — not a recap of the\n" +
-                "last turn. When revising an existing plan, return the COMPLETE updated note: merge the\n" +
-                "prior summary with what changed this session rather than replacing it with just the change.",
+            "OPTIONAL, first planning session only. What you learned about this particular week that the\n" +
+                "schedule itself can't show: the stated capacity, why tasks were deferred or dropped, one-off\n" +
+                "constraints or circumstances. Do NOT list what was scheduled; the app keeps the schedule.\n" +
+                "Omit when there's nothing beyond the schedule. Ignored when revising a plan.",
         )
-        val summary: String,
+        val weekNote: String? = null,
+        @JsonProperty("revision_note")
+        @JsonPropertyDescription(
+            "OPTIONAL, revise sessions only. One or two sentences on what changed in this revision and\n" +
+                "why, when the why is worth remembering. It is appended to the plan's notes; it never\n" +
+                "replaces the week note or earlier revision notes, so don't repeat them. Omit when the\n" +
+                "change speaks for itself. Ignored on a first planning session.",
+        )
+        val revisionNote: String? = null,
         @JsonPropertyDescription(
             "The closing message shown to the user confirming the finalized plan. " +
                 "Write it in the user's language and warm tone — this is the last thing they see, " +
@@ -85,7 +95,7 @@ class SubmitPlanTool(
                 "lasting that is NOT already covered by the user's context block above; omit the field\n" +
                 "otherwise (most sessions won't need it). Phrase it as one concise first-person context\n" +
                 "line in the user's language, e.g. \"I prefer not to schedule work on Tuesday evenings.\"\n" +
-                "One fact only — not a recap of the week, not a task, not the plan summary.",
+                "One fact only — not a recap of the week, not a task, not the week note.",
         )
         val contextSuggestion: String? = null,
     )

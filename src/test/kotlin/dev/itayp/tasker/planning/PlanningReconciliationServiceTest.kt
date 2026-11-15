@@ -42,7 +42,7 @@ class PlanningReconciliationServiceTest {
 
     @Test
     fun `no previous session yields nothing to reconcile`() {
-        whenever(planningSessionService.findPreviousSummarizableSession(userId, weekStart)).thenReturn(null)
+        whenever(planningSessionService.findPreviousPlan(userId, weekStart)).thenReturn(null)
 
         assertTrue(service.findUnfinishedTasks(userId, weekStart).isEmpty())
     }
@@ -113,7 +113,7 @@ class PlanningReconciliationServiceTest {
     // ── fixtures ────────────────────────────────────────────────────────────────────────
 
     private fun stubPreviousSession() {
-        whenever(planningSessionService.findPreviousSummarizableSession(userId, weekStart)).thenReturn(
+        whenever(planningSessionService.findPreviousPlan(userId, weekStart)).thenReturn(
             PlanningSession(
                 id = prevSessionId,
                 userId = userId,
@@ -122,7 +122,7 @@ class PlanningReconciliationServiceTest {
                 startedAt = now.minusSeconds(7 * 24 * 3600),
                 weekStart = weekStart.minusWeeks(1),
                 endedAt = now.minusSeconds(7 * 24 * 3600),
-                summary = "last week",
+                weekNote = "last week",
             ),
         )
     }

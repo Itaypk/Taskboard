@@ -124,7 +124,8 @@ class PlanningTranscriptService(
     @JsonIgnoreProperties(ignoreUnknown = true)
     private data class OptionArg(val id: String = "", val label: String = "")
 
-    // Real submit_plan arguments also carry `tasks`; we only need the closing message/summary.
+    // Real submit_plan arguments also carry `tasks` and notes; we only need the closing message.
+    // `summary` is read only for transcripts recorded before it was dropped from the contract (#229).
     @JsonIgnoreProperties(ignoreUnknown = true)
     private data class SubmitPlanArgs(val message: String? = null, val summary: String? = null)
 

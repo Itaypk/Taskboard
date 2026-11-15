@@ -60,6 +60,7 @@ class WeeklyPlanningOrchestrator(
     private val messageSource: MessageSource,
     private val userSettingsService: UserSettingsService,
     private val plannerTaskSelector: PlannerTaskSelector,
+    private val recapRenderer: PlanRecapRenderer,
     private val clock: Clock,
     @Value("\${tasker.ai.weekly-planning-model}")
     private val model: String,
@@ -570,22 +571,27 @@ class WeeklyPlanningOrchestrator(
     }
 
     /**
-     * Renders the farewell carried on the submitted plan. Falls back to the stored summary if the
-     * model left [AgreedPlan.message] blank, so a finalized session is never silent.
+     * Renders the farewell carried on the submitted plan. If the model left [AgreedPlan.message]
+     * blank, falls back to a generic acknowledgement plus the plan as stored, so a finalized session
+     * is never silent.
      */
     private fun renderClosingMessage(sessionId: UUID, channel: ConversationChannel) {
-        val plan = state[sessionId]?.agreedPlan
+        val current = state[sessionId]
+        val plan = current?.agreedPlan
         if (plan == null) {
             log.warn("No agreed plan to render closing message for session {}", sessionId)
             return
         }
-        val message = plan.message?.takeIf { it.isNotBlank() }
-            ?: plan.summary.takeIf { it.isNotBlank() }
-        if (message == null) {
-            log.warn("Finalized session {} has no closing message or summary to render", sessionId)
-            return
+        val message = plan.message?.takeIf { it.isNotBlank() } ?: run {
+            log.warn("Finalized session {} has no closing message; rendering the stored plan instead", sessionId)
+            val session = planningSessionService.findById(current.userId, sessionId) ?: return
+            val locale = userSettingsService.getLocale(current.userId)
+            messageSource.getMessage(
+                "planning.closing.fallback",
+                arrayOf<Any>(recapRenderer.render(session, channel.formatter)),
+                locale,
+            )
         }
-        log.debug("Rendering closing message for session {} (fromSummary={})", sessionId, plan.message.isNullOrBlank())
         channel.send(ChannelMessage.Text(message))
     }
 

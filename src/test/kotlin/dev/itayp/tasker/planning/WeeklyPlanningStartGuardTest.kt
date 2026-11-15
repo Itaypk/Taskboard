@@ -78,7 +78,7 @@ class WeeklyPlanningStartGuardTest {
         startedAt = clock.instant(),
         weekStart = weekStart,
         endedAt = null,
-        summary = null,
+        weekNote = null,
     )
 
     private val orchestrator = WeeklyPlanningOrchestrator(
@@ -96,6 +96,7 @@ class WeeklyPlanningStartGuardTest {
         messageSource = messages,
         userSettingsService = userSettingsService,
         plannerTaskSelector = plannerTaskSelector,
+        recapRenderer = mock(),
         clock = clock,
         model = "test-model",
     )

@@ -24,5 +24,6 @@
     <include file="db/changelog/changesets/018-inbound-mail.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changesets/019-inbound-mail-attachments.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changesets/020-calendar-feed.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changesets/021-plan-revision-notes.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

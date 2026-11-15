@@ -41,7 +41,7 @@ class DailyDigestComposerTest {
             PlanningSession(
                 id = sessionId, userId = userId, conversationId = null,
                 status = PlanningSessionStatus.COMPLETED, startedAt = Instant.parse("2026-10-04T08:00:00Z"),
-                weekStart = LocalDate.parse("2026-10-04"), endedAt = null, summary = null,
+                weekStart = LocalDate.parse("2026-10-04"), endedAt = null, weekNote = null,
             ),
         )
         whenever(plannedTaskService.findForSession(userId, sessionId)).thenReturn(tasks.toList())

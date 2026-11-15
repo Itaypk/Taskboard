@@ -54,6 +54,7 @@ class WeeklyPlanningEmptyTurnTest {
         messageSource = messageSource,
         userSettingsService = userSettingsService,
         plannerTaskSelector = mock<PlannerTaskSelector>(),
+        recapRenderer = mock(),
         clock = Clock.systemUTC(),
         model = "test-model",
     )
@@ -75,7 +76,7 @@ class WeeklyPlanningEmptyTurnTest {
                 startedAt = Instant.parse("2026-06-08T08:00:00Z"),
                 weekStart = LocalDate.parse("2026-06-08"),
                 endedAt = Instant.parse("2026-06-08T08:30:00Z"),
-                summary = "a plan",
+                weekNote = "a plan",
             ),
         )
         whenever(plannedTaskService.findForSession(userId, sessionId)).thenReturn(emptyList())

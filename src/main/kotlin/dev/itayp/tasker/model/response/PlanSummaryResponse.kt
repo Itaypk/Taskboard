@@ -10,5 +10,4 @@ data class PlanSummaryResponse(
     val weekEnd: String,
     val status: String,
     val taskCount: Int,
-    val hasSummary: Boolean,
 )

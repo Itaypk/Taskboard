@@ -1,5 +1,12 @@
 package dev.itayp.tasker.planning
 
+import dev.itayp.tasker.service.BacklogTaskService
+import dev.itayp.tasker.planning.dto.AgreedTimeSlot
+import dev.itayp.tasker.planning.dto.AgreedPlanTask
+import dev.itayp.tasker.model.TaskStatus
+import dev.itayp.tasker.model.CategoryColor
+import dev.itayp.tasker.model.BacklogTaskCategory
+import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.calendar.CalendarDelivery
 import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.ai.prompt.ExternalContent
@@ -38,6 +45,8 @@ class WeeklyPlanningPromptAssemblerTest {
     @Mock private lateinit var userSettingsService: UserSettingsService
     @Mock private lateinit var plannerTaskSelector: PlannerTaskSelector
     @Mock private lateinit var planningSessionService: PlanningSessionService
+    @Mock private lateinit var plannedTaskService: PlannedTaskService
+    @Mock private lateinit var backlogTaskService: BacklogTaskService
     @Mock private lateinit var calendarWindowProvider: CalendarWindowProvider
     @Mock private lateinit var categoryService: BacklogTaskCategoryService
     @Mock private lateinit var tagService: BacklogTaskTagService
@@ -52,7 +61,7 @@ class WeeklyPlanningPromptAssemblerTest {
     private val assembler by lazy {
         WeeklyPlanningPromptAssembler(
             PromptTemplateLoader(), userSettingsService, plannerTaskSelector, planningSessionService,
-            calendarWindowProvider, categoryService, tagService, boardService, aiAccessService,
+            plannedTaskService, backlogTaskService, calendarWindowProvider, categoryService, tagService, boardService, aiAccessService,
             notificationChannelSummary, clock,
         )
     }
@@ -62,9 +71,10 @@ class WeeklyPlanningPromptAssemblerTest {
     @BeforeEach
     fun stubCollaborators() {
         whenever(userSettingsService.getOrCreate(userId)).thenReturn(settings())
-        whenever(plannerTaskSelector.select(any(), any(), any(), any(), any(), any()))
+        // The revise prompt proposes no candidates, so it never asks the selector.
+        lenient().`when`(plannerTaskSelector.select(any(), any(), any(), any(), any(), any()))
             .thenReturn(PlannerTaskSelection(emptyList(), emptyList()))
-        lenient().`when`(planningSessionService.findPreviousSummarizableSession(any(), any())).thenReturn(null)
+        lenient().`when`(planningSessionService.findPreviousPlan(any(), any())).thenReturn(null)
         whenever(aiAccessService.aiAllowedBoardIds(userId)).thenReturn(emptySet())
         whenever(boardService.listBoardsForUser(userId)).thenReturn(emptyList())
         whenever(calendarWindowProvider.describeWindow(any(), any(), any())).thenReturn("no calendar")
@@ -137,6 +147,85 @@ class WeeklyPlanningPromptAssemblerTest {
         assertTrue(block.groupValues[2].contains("obey me"))
         assertTrue(prompt.contains(ExternalContent.RULE))
     }
+
+    @Test
+    fun `last week's plan is rendered from the data, with its notes`() {
+        val allowedBoard = UUID.randomUUID()
+        val optedOutBoard = UUID.randomUUID()
+        val done = task(allowedBoard, "Fix the door locks", TaskStatus.DONE)
+        val open = task(allowedBoard, "Repair the light", TaskStatus.TODO)
+        val hidden = task(optedOutBoard, "Co-member's private task", TaskStatus.TODO)
+        val previous = previousPlan(
+            weekNote = "Heavy week.",
+            revisionNotes = listOf(RevisionNote(Instant.parse("2026-04-29T09:00:00Z"), "Moved the light to Tuesday.")),
+        )
+        whenever(planningSessionService.findPreviousPlan(userId, weekStart)).thenReturn(previous)
+        whenever(aiAccessService.aiAllowedBoardIds(userId)).thenReturn(setOf(allowedBoard))
+        whenever(plannedTaskService.findForSession(userId, previous.id)).thenReturn(listOf(
+            AgreedPlanTask(done.id, "Fix the door locks", listOf(AgreedTimeSlot("2026-04-26T10:00:00Z", "2026-04-26T11:30:00Z"))),
+            AgreedPlanTask(open.id, "Repair the light", emptyList()),
+            AgreedPlanTask(hidden.id, "Co-member's private task", emptyList()),
+        ))
+        whenever(backlogTaskService.findTasksAcrossBoards(any(), any())).thenReturn(listOf(done, open, hidden))
+        whenever(planningSessionService.diffSincePreviousSession(userId, weekStart)).thenReturn(summary(events = 0))
+
+        val prompt = assemble()
+
+        assertTrue(prompt.contains("Week of 2026-04-27 – 2026-05-03"))
+        assertTrue(prompt.contains("- Fix the door locks · done · scheduled 2026-04-26T10:00:00Z → 2026-04-26T11:30:00Z"))
+        assertTrue(prompt.contains("- Repair the light · not done"))
+        assertFalse(prompt.contains("Co-member's private task"))
+        assertTrue(prompt.contains("Week note: Heavy week."))
+        assertTrue(prompt.contains("- 2026-04-29: Moved the light to Tuesday."))
+    }
+
+    @Test
+    fun `the revise prompt shows the plan's notes read-only and asks only for a revision note`() {
+        val session = previousPlan(
+            weekNote = "Heavy week.",
+            revisionNotes = listOf(RevisionNote(Instant.parse("2026-04-29T09:00:00Z"), "Moved the light to Tuesday.")),
+        )
+        whenever(planningSessionService.diffSincePreviousSession(any(), any())).thenReturn(summary(events = 0))
+
+        val prompt = assembler.assembleRevisionSystemPrompt(userId, session, emptyList(), HtmlMessageFormatter)
+
+        assertTrue(prompt.contains("Week note: Heavy week.\nRevision notes:\n- 2026-04-29: Moved the light to Tuesday."))
+        assertTrue(prompt.contains("submit_plan(tasks, message, revision_note?, context_suggestion?)"))
+        assertFalse(prompt.contains("summary`"))
+    }
+
+    private fun previousPlan(weekNote: String?, revisionNotes: List<RevisionNote>) = PlanningSession(
+        id = UUID.randomUUID(),
+        userId = userId,
+        conversationId = null,
+        status = PlanningSessionStatus.COMPLETED,
+        startedAt = Instant.parse("2026-04-25T10:00:00Z"),
+        weekStart = LocalDate.parse("2026-04-27"),
+        endedAt = Instant.parse("2026-04-25T10:20:00Z"),
+        weekNote = weekNote,
+        revisionNotes = revisionNotes,
+    )
+
+    private fun task(boardId: UUID, title: String, status: TaskStatus) = BacklogTask(
+        id = UUID.randomUUID(),
+        boardId = boardId,
+        assigneeUserId = null,
+        title = title,
+        description = null,
+        url = null,
+        priority = null,
+        deadline = null,
+        estimatedMinutes = null,
+        status = status,
+        category = BacklogTaskCategory(id = UUID.randomUUID(), boardId = boardId, label = "Home", swatchId = CategoryColor.SKY),
+        tags = emptySet(),
+        sortKey = "a",
+        createdAt = Instant.parse("2026-04-01T10:00:00Z"),
+        updatedAt = null,
+        rescheduleCount = 0,
+        lastScheduledInSessionId = null,
+        relevantFrom = null,
+    )
 
     private fun assemble(): String =
         assembler.assembleSystemPrompt(userId, "a normal week", weekStart, HtmlMessageFormatter)
