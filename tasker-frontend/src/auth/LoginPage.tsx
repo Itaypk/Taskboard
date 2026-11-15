@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { ApiError } from '../api';
@@ -257,7 +257,7 @@ function LoginModal({
         return () => opener?.focus();
     }, [opener]);
 
-    const trapTab = (e: KeyboardEvent<HTMLDivElement>) => {
+    const trapTab = (e: ReactKeyboardEvent<HTMLDivElement>) => {
         if (e.key !== 'Tab' || !dialogRef.current) return;
         const focusables = dialogRef.current.querySelectorAll<HTMLElement>(
             'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled)',
