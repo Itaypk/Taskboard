@@ -1,10 +1,15 @@
 package dev.itayp.tasker.controller
 
 import dev.itayp.nescioquid.telegram.TelegramAuthData
+import dev.itayp.nescioquid.telegram.TelegramAuthException
 import dev.itayp.nescioquid.telegram.TelegramAuthorizationRequest
 import dev.itayp.nescioquid.telegram.TelegramOidcService
 import dev.itayp.tasker.config.SecurityConfiguration
 import dev.itayp.tasker.jpa.UserEntity
+import dev.itayp.tasker.metrics.LoginMetrics
+import dev.itayp.tasker.metrics.LoginMode
+import dev.itayp.tasker.metrics.LoginOutcome
+import dev.itayp.tasker.metrics.LoginProvider
 import dev.itayp.tasker.security.SessionAuthenticator
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.AccountLinkService
@@ -16,6 +21,7 @@ import dev.itayp.tasker.service.UserAuthService
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest
@@ -43,6 +49,7 @@ class TelegramOidcControllerTest(@Autowired val mockMvc: MockMvc) {
     @MockitoBean lateinit var userAuthService: UserAuthService
     @MockitoBean lateinit var accountLinkService: AccountLinkService
     @MockitoBean lateinit var sessionAuthenticator: SessionAuthenticator
+    @MockitoBean lateinit var loginMetrics: LoginMetrics
 
     private val userId = UUID.fromString("00000000-0000-0000-0000-0000000000aa")
     private val auth = UsernamePasswordAuthenticationToken(
@@ -107,6 +114,21 @@ class TelegramOidcControllerTest(@Autowired val mockMvc: MockMvc) {
         )
             .andExpect(status().isFound)
             .andExpect(redirectedUrl("/"))
+        verify(loginMetrics).record(LoginProvider.TELEGRAM, LoginOutcome.SUCCESS, LoginMode.LOGIN)
+    }
+
+    @Test
+    fun `callback counts a failed token exchange or id_token check as an error`() {
+        whenever(telegramOidcService.completeAuthorization(any(), any(), any()))
+            .thenThrow(TelegramAuthException("Invalid id_token: Malformed Jwk set"))
+
+        mockMvc.perform(
+            get("/api/auth/telegram/callback").param("code", "CODE").param("state", "ST")
+                .session(oauthSession("login")),
+        )
+            .andExpect(status().isFound)
+            .andExpect(redirectedUrl("/?telegramLogin=failed"))
+        verify(loginMetrics).record(LoginProvider.TELEGRAM, LoginOutcome.ERROR, LoginMode.LOGIN)
     }
 
     @Test
@@ -171,6 +193,7 @@ class TelegramOidcControllerTest(@Autowired val mockMvc: MockMvc) {
         )
             .andExpect(status().isFound)
             .andExpect(redirectedUrl("/?telegramLogin=failed"))
+        verify(loginMetrics).record(LoginProvider.TELEGRAM, LoginOutcome.REJECTED, LoginMode.LOGIN)
     }
 
     @Test
@@ -207,6 +230,7 @@ class TelegramOidcControllerTest(@Autowired val mockMvc: MockMvc) {
         )
             .andExpect(status().isFound)
             .andExpect(redirectedUrl("/settings?telegramLink=success"))
+        verify(loginMetrics).record(LoginProvider.TELEGRAM, LoginOutcome.SUCCESS, LoginMode.LINK)
     }
 
     @Test
@@ -221,6 +245,7 @@ class TelegramOidcControllerTest(@Autowired val mockMvc: MockMvc) {
         )
             .andExpect(status().isFound)
             .andExpect(redirectedUrl("/settings?telegramLink=conflict"))
+        verify(loginMetrics).record(LoginProvider.TELEGRAM, LoginOutcome.REJECTED, LoginMode.LINK)
     }
 
     /**

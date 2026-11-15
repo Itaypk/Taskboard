@@ -1,5 +1,8 @@
 package dev.itayp.tasker.controller
 
+import dev.itayp.tasker.metrics.LoginMetrics
+import dev.itayp.tasker.metrics.LoginOutcome
+import dev.itayp.tasker.metrics.LoginProvider
 import dev.itayp.tasker.model.request.EmailLoginRequest
 import dev.itayp.tasker.model.request.TokenRequest
 import dev.itayp.tasker.security.SessionAuthenticator
@@ -36,6 +39,7 @@ class EmailAuthController(
     private val sessionAuthenticator: SessionAuthenticator,
     private val localeNegotiationService: LocaleNegotiationService,
     private val registrationHintsResolver: RegistrationHintsResolver,
+    private val loginMetrics: LoginMetrics,
 ) {
 
     @PostMapping
@@ -80,6 +84,7 @@ class EmailAuthController(
         val result = try {
             emailLoginService.completeLogin(body.token, hints)
         } catch (_: RegistrationClosedException) {
+            loginMetrics.record(LoginProvider.EMAIL, LoginOutcome.REJECTED)
             return ResponseEntity.ok(mapOf("outcome" to "closed"))
         }
         val outcome = when (result) {
@@ -90,6 +95,10 @@ class EmailAuthController(
             EmailLoginResult.UnverifiedConflict -> "unverified"
             EmailLoginResult.Invalid -> "invalid"
         }
+        // A bad or reused link is user-side, like a cancelled Telegram round-trip; delivery failures
+        // of the link itself are already on tasker.email.sent{purpose="auth"}.
+        val metricOutcome = if (result is EmailLoginResult.Success) LoginOutcome.SUCCESS else LoginOutcome.REJECTED
+        loginMetrics.record(LoginProvider.EMAIL, metricOutcome)
         return ResponseEntity.ok(mapOf("outcome" to outcome))
     }
 

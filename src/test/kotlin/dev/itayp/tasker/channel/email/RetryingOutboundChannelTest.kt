@@ -36,6 +36,12 @@ class RetryingOutboundChannelTest {
     private val message = EmailMessage(to = listOf("user@example.com"), subject = "s", htmlBody = "<p/>")
 
     @Test
+    fun `both outcomes exist at zero before the first send, so increase() sees the first failure`() {
+        assertEquals(0.0, meterRegistry.get("tasker.email.sent").tags("purpose", "scheduling", "outcome", "failure").counter().count())
+        assertEquals(0.0, meterRegistry.get("tasker.email.sent").tags("purpose", "scheduling", "outcome", "success").counter().count())
+    }
+
+    @Test
     fun `recovered transient failure counts as a single success`() {
         doThrow(MailSendException("blip")).doNothing().whenever(delegate).send(any())
 

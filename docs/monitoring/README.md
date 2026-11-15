@@ -53,7 +53,10 @@ The custom application metrics are defined in
 counter — one final outcome per email, after the scheduling sender's retries;
 `RetryingOutboundChannel` counts the retries themselves on `tasker.email.retries`), and `dev.itayp.tasker.capture.QuickAddFlow` /
 `dev.itayp.tasker.channel.telegram.QuickAddRegistry` (`tasker.quickadd.outcome`
-counter). They are scraped from `/actuator/prometheus` (HTTP Basic auth — see
+counter), and `dev.itayp.tasker.metrics.LoginMetrics` (`tasker.auth.login{provider,
+mode, outcome}` — one count per sign-in attempt; `outcome="error"` means the
+provider exchange or verification failed, e.g. Telegram's token endpoint or JWKS,
+and is the one worth alerting on). They are scraped from `/actuator/prometheus` (HTTP Basic auth — see
 `PrometheusAuthProperties`). The recent-log-lines panel instead queries
 structured logs directly via LogQL, independent of the Prometheus scrape.
 
@@ -67,6 +70,12 @@ exposed as `tasker_users`, not `tasker_users_total`; same for
 `tasker_planning_sessions`. Counters like `tasker.ai.requests` are unaffected
 and do get `_total` appended at scrape time. Keep this in mind if you rename
 any gauge with a `.total`-style suffix.
+
+**Alerting on rare counters**: `increase()` can't see a counter's first
+increment if that increment is what creates the series (there is no earlier
+sample to rise from), so the first failure after a deploy would never fire.
+Counters that back an alert (`tasker.email.sent`, `tasker.auth.login`) are
+therefore registered at zero on startup; do the same for any new one.
 
 ### Excluding AI latency from the general latency panel
 

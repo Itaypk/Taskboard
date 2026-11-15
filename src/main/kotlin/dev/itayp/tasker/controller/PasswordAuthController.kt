@@ -1,12 +1,16 @@
 package dev.itayp.tasker.controller
 
 import dev.itayp.tasker.crypto.UserCryptoService
+import dev.itayp.tasker.metrics.LoginMetrics
+import dev.itayp.tasker.metrics.LoginOutcome
+import dev.itayp.tasker.metrics.LoginProvider
 import dev.itayp.tasker.model.request.PasswordLoginRequest
 import dev.itayp.tasker.model.response.toMeResponse
 import dev.itayp.tasker.security.SessionAuthenticator
 import dev.itayp.tasker.security.TaskerPrincipal
 import dev.itayp.tasker.service.LocalLoginService
 import dev.itayp.tasker.service.RegistrationHintsResolver
+import dev.itayp.tasker.service.TooManyLoginAttemptsException
 import dev.itayp.tasker.service.UserSettingsService
 import dev.itayp.tasker.util.clientIp
 import jakarta.servlet.http.HttpServletRequest
@@ -34,6 +38,7 @@ class PasswordAuthController(
     private val userCrypto: UserCryptoService,
     private val userSettingsService: UserSettingsService,
     private val registrationHintsResolver: RegistrationHintsResolver,
+    private val loginMetrics: LoginMetrics,
 ) {
 
     @PostMapping("/password")
@@ -47,19 +52,26 @@ class PasswordAuthController(
         // Same answer whether local login is off, the username is unknown or the password is wrong.
         if (!localLoginService.enabled) return invalidCredentials()
         val hints = registrationHintsResolver.resolve(lang, request.getHeader("Accept-Language"), tz)
-        val user = localLoginService.login(body.username, body.password, request.clientIp(), hints)
-            ?: return invalidCredentials()
+        val user = try {
+            localLoginService.login(body.username, body.password, request.clientIp(), hints)
+        } catch (e: TooManyLoginAttemptsException) {
+            loginMetrics.record(LoginProvider.LOCAL, LoginOutcome.RATE_LIMITED)
+            throw e
+        } ?: return invalidCredentials()
         sessionAuthenticator.authenticate(TaskerPrincipal(user.id!!), request, response)
+        loginMetrics.record(LoginProvider.LOCAL, LoginOutcome.SUCCESS)
         return ResponseEntity.ok<Any>(user.toMeResponse(userCrypto, userSettingsService.getPreferredLanguage(user.id!!)))
     }
 
     // 400 rather than 401: the SPA treats any 401 as "your session expired" and resets auth state,
     // which is the wrong reaction to a mistyped password on the login form.
-    private fun invalidCredentials(): ResponseEntity<Any> =
-        ResponseEntity.badRequest().body<Any>(
+    private fun invalidCredentials(): ResponseEntity<Any> {
+        loginMetrics.record(LoginProvider.LOCAL, LoginOutcome.INVALID_CREDENTIALS)
+        return ResponseEntity.badRequest().body<Any>(
             ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Wrong username or password").apply {
                 title = "Sign-in failed"
                 setProperty("code", "INVALID_CREDENTIALS")
             },
         )
+    }
 }
