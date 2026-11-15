@@ -159,7 +159,7 @@ class TelegramOidcController(
         return redirect(localRedirect(pending.next))
     }
 
-    private fun redirectUri(): String = "${appProperties.baseUrl}/api/auth/telegram/callback"
+    private fun redirectUri(): String = "${appProperties.baseUrl.trimEnd('/')}/api/auth/telegram/callback"
 
     private fun failureRedirect(isLink: Boolean): ResponseEntity<Void> =
         redirect(if (isLink) "/settings?telegramLink=failed" else "/?telegramLogin=failed")

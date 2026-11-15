@@ -33,6 +33,7 @@ import org.springframework.mock.web.MockHttpSession
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.core.authority.SimpleGrantedAuthority
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication
+import org.springframework.test.context.TestPropertySource
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
@@ -42,6 +43,8 @@ import java.util.UUID
 
 @WebMvcTest(GoogleOidcController::class)
 @Import(SecurityConfiguration::class, LocaleNegotiationService::class, RegistrationHintsResolver::class)
+// A trailing slash, as an operator might write it; the redirect URI must still come out with a single one.
+@TestPropertySource(properties = ["tasker.app.base-url=http://localhost:5173/"])
 class GoogleOidcControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @MockitoBean lateinit var googleOidcService: GoogleOidcService
@@ -70,7 +73,7 @@ class GoogleOidcControllerTest(@Autowired val mockMvc: MockMvc) {
 
     private fun configured() {
         whenever(googleOidcService.isConfigured()).thenReturn(true)
-        whenever(googleOidcService.buildAuthorizationRequest(any()))
+        whenever(googleOidcService.buildAuthorizationRequest("http://localhost:5173/api/auth/google/callback"))
             .thenReturn(GoogleAuthorizationRequest(authzUrl, "ST", "VR"))
     }
 
