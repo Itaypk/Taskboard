@@ -1,7 +1,8 @@
-# Messaging quick-add channels: WhatsApp and Webex
+# Messaging quick-add channels: WhatsApp (and, deferred, Webex)
 
-Implementation plan for two new quick-add sources, WhatsApp (official Cloud API) and Cisco Webex
-(bot), and for the shared layer that the next chat channel (Slack, Teams, …) would reuse.
+Implementation plan for WhatsApp (official Cloud API) as a quick-add source, and for the shared
+layer that the next chat channel (Slack, Teams, …) would reuse. A Cisco Webex bot is designed
+here too, but **deferred, possibly for good** (see "Why Webex is deferred").
 
 Status: **plan, not built.** Written to be handed to an implementation agent. It builds on the
 exploration in `docs/WHATSAPP-CHANNEL.md` (issue #268) and takes its recommendation as settled:
@@ -15,7 +16,7 @@ In:
 - A linked user messages the bot (text, photo, voice note, PDF, text file) and gets the same
   quick-add capture Telegram has: draft card, Save / Adjust / Cancel, clarifying questions, and the
   "put it in this week's plan" offer. All of that is `QuickAddFlow`, unchanged.
-- Linking and unlinking a WhatsApp or Webex account from Settings.
+- Linking and unlinking a WhatsApp account from Settings.
 
 Out, on purpose:
 
@@ -29,6 +30,14 @@ Out, on purpose:
 - **Login.** A WhatsApp or Webex link is not a login method.
 - **Group conversations.** Direct (1:1) chats only.
 - **Migrating Telegram** onto the new shared layer. Possible later; not part of this work.
+
+## Why Webex is deferred
+
+Webex is only ever a work account, and a capture sends the message to the AI provider. Most
+enterprise AI-usage policies forbid exactly that, so the people who could use the channel are
+mostly not allowed to. Its design (section 6) and the platform research stay in this document so
+the work is not repeated if that changes, but nothing in the WhatsApp path depends on it, and no
+Webex code, configuration or UI should be built now.
 
 ## Current design, as it affects this work
 
@@ -119,7 +128,7 @@ A provider's controller turns a webhook into zero or more:
 
 ```kotlin
 data class InboundEvent(
-    val channel: ChannelType,          // WHATSAPP, WEBEX
+    val channel: ChannelType,          // WHATSAPP
     val eventId: String,               // provider message / action id, for dedup
     val senderId: String,              // BSUID, Webex personId
     val content: Content,              // Text | Selection(optionId) | MediaRef(caption)
@@ -157,7 +166,9 @@ a virtual thread and does, in order:
 7. Any exception: log (ids only), reply `command.handleUpdateFailed`, clear the state.
 
 State lives in a new `MessagingCaptureRegistry`, keyed by `(ChannelType, senderId)`, with the same
-15-minute TTL and `expired` metric as `QuickAddRegistry`. `boardId` is always null: these
+15-minute TTL and `expired` metric as `QuickAddRegistry`. It is a third small class beside
+`QuickAddRegistry` and `WebQuickAddRegistry`, on purpose: no caller is polymorphic over them
+(different keys, and the web one also holds a board), so a common interface would have no user. `boardId` is always null: these
 channels save to the default board, like Telegram.
 
 **Why no persistent queue, when inbound email has one.** An email sender gets no feedback and
@@ -168,7 +179,7 @@ crash mid-capture loses that one message.
 
 ### 2. Webhook endpoints and security
 
-- Paths: `GET|POST /webhooks/whatsapp`, `POST /webhooks/webex`.
+- Paths: `GET|POST /webhooks/whatsapp` (and `POST /webhooks/webex`, if Webex is ever built).
 - A new stateless filter chain, `webhookFilterChain`, matching `/webhooks/**`, placed after the
   calendar-feed chain (the session chain moves to `@Order(6)`). CSRF off, no session ever
   created, `permitAll` for exactly those methods and paths, everything else denied. Model it on
@@ -286,7 +297,9 @@ PDFs and voice inside `QuickAddFlow`, so nothing changes there.
   day and time-of-day labels) are ≤ 20 characters in **every** message bundle, so they render as
   buttons rather than degrading silently.
 
-### 6. Webex adapter (`channel/webex`)
+### 6. Webex adapter (`channel/webex`) — deferred
+
+Not scheduled; see "Why Webex is deferred". Kept as the design to start from.
 
 - `WebexProperties` (`tasker.webex.*`): `enabled`, `bot-token`, `webhook-secret`. Same
   conditional pattern.
@@ -312,7 +325,7 @@ PDFs and voice inside `QuickAddFlow`, so nothing changes there.
 
 ### 7. Cross-cutting
 
-- `ChannelType`: add `WHATSAPP("whatsapp")`, `WEBEX("webex")`.
+- `ChannelType`: add `WHATSAPP("whatsapp")`.
 - Metrics: `tasker.channel.inbound{channel,outcome}` with outcomes `captured`, `duplicate`,
   `unlinked`, `linked`, `ignored`, `ai_off`, `failed`; `tasker.channel.outbound{channel,outcome}`;
   `tasker.channel.link{channel,outcome}`. `QuickAddFlow`'s own counters stay as they are.
@@ -329,8 +342,8 @@ PDFs and voice inside `QuickAddFlow`, so nothing changes there.
 - Docs to update with the code: `CLAUDE.md` (seven filter chains; a short "Messaging channels"
   section with the invariants from sections 2 and 3), `docs/CONFIGURATION.md`,
   `docs/SELF-HOSTING.md` and `deploy/.env.example` (both channels optional and off by default),
-  `docs/SPEC.md` if it lists channels, and the Privacy / Terms content pages (Meta and Cisco
-  become processors of message content). Turn this file from a plan into the as-built note, and
+  `docs/SPEC.md` if it lists channels, and the Privacy / Terms content pages (Meta becomes a
+  processor of message content). Turn this file from a plan into the as-built note, and
   add a pointer at the top of `docs/WHATSAPP-CHANNEL.md`.
 
 ## Work packages
@@ -346,28 +359,26 @@ configured).
    expired card, AI off, unknown sender capped at one reply.
 2. **Settings UI.** The "Messaging apps" block, four locales, component tests. Shows nothing
    while no channel is enabled.
-3. **Webex adapter.** Needs only a bot token from developer.webex.com, so it is the fastest
-   end-to-end check of package 1. Resolve the "(verify)" items first, against the live API.
-4. **WhatsApp adapter.** Needs the owner prerequisites below, which have lead time; start them
+3. **WhatsApp adapter.** Needs the owner prerequisites below, which have lead time; start them
    during package 1.
-5. **Docs and policy pages.**
+4. **Docs and policy pages.**
 
-Packages 3 and 4 are independent of each other. If WhatsApp is the priority, swap them; nothing
-in 4 depends on 3.
+Deferred, not scheduled: the **Webex adapter** (section 6). If it is ever picked up, resolve the
+"(verify)" items against the live API first. Until then, add no `WEBEX` channel type, no
+`tasker.webex.*` configuration and no Webex row in Settings.
 
 Owner prerequisites (outside the repo):
 
 - WhatsApp: a Meta business portfolio and app, a WhatsApp Business Account, a dedicated number
   not in use on the consumer app, a system-user access token, the app secret, the webhook
   subscribed to the `messages` field. Re-read the AI-providers terms first.
-- Webex: create the bot, keep its token. Optionally list it nowhere: users reach it by address.
 - Ops repo: the new environment variables; body-size note for Nginx.
 
 ## Verification
 
 - Unit: signature helpers against known vectors; payload parsing against recorded fixtures
   (text, button reply, list reply, image with caption, voice note, status-only, BSUID-only
-  sender, batched POST; Webex message, own message, group message, card action); the channel
+  sender, batched POST); the channel
   adapters' splitting and button / list / fallback selection; button-label lengths per bundle.
 - Slice: each webhook controller with `@Import(SecurityConfiguration::class)`: no session
   cookie set, 401 unsigned, 200 signed, handshake echo, oversized body rejected.
