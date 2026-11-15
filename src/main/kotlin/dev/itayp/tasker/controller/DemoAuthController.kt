@@ -1,10 +1,14 @@
 package dev.itayp.tasker.controller
 
 import dev.itayp.tasker.crypto.UserCryptoService
+import dev.itayp.tasker.metrics.LoginMetrics
+import dev.itayp.tasker.metrics.LoginOutcome
+import dev.itayp.tasker.metrics.LoginProvider
 import dev.itayp.tasker.model.response.MeResponse
 import dev.itayp.tasker.model.response.toMeResponse
 import dev.itayp.tasker.security.SessionAuthenticator
 import dev.itayp.tasker.security.TaskerPrincipal
+import dev.itayp.tasker.service.RegistrationClosedException
 import dev.itayp.tasker.service.RegistrationHintsResolver
 import dev.itayp.tasker.service.UserAuthService
 import dev.itayp.tasker.service.UserSettingsService
@@ -24,6 +28,7 @@ class DemoAuthController(
     private val userCrypto: UserCryptoService,
     private val userSettingsService: UserSettingsService,
     private val registrationHintsResolver: RegistrationHintsResolver,
+    private val loginMetrics: LoginMetrics,
 ) {
 
     /**
@@ -45,8 +50,14 @@ class DemoAuthController(
         // header — otherwise picking Hebrew on an en-US browser yields a Hebrew page whose account
         // is English, and the UI snaps back to English the moment /me resolves.
         val hints = registrationHintsResolver.resolve(lang, request.getHeader("Accept-Language"), tz)
-        val user = userAuthService.createUnclaimedUser(hints)
+        val user = try {
+            userAuthService.createUnclaimedUser(hints)
+        } catch (e: RegistrationClosedException) {
+            loginMetrics.record(LoginProvider.DEMO, LoginOutcome.REJECTED)
+            throw e
+        }
         sessionAuthenticator.authenticate(TaskerPrincipal(user.id!!), request, response)
+        loginMetrics.record(LoginProvider.DEMO, LoginOutcome.SUCCESS)
         return ResponseEntity.ok(user.toMeResponse(userCrypto, userSettingsService.getPreferredLanguage(user.id!!)))
     }
 }

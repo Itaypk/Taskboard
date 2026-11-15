@@ -3,6 +3,10 @@ package dev.itayp.tasker.controller
 import dev.itayp.nescioquid.telegram.TelegramAuthException
 import dev.itayp.nescioquid.telegram.TelegramOidcService
 import dev.itayp.tasker.config.AppProperties
+import dev.itayp.tasker.metrics.LoginMetrics
+import dev.itayp.tasker.metrics.LoginMode
+import dev.itayp.tasker.metrics.LoginOutcome
+import dev.itayp.tasker.metrics.LoginProvider
 import dev.itayp.tasker.model.response.TelegramBotResponse
 import dev.itayp.tasker.security.SessionAuthenticator
 import dev.itayp.tasker.security.TaskerPrincipal
@@ -48,6 +52,7 @@ class TelegramOidcController(
     private val sessionAuthenticator: SessionAuthenticator,
     private val registrationHintsResolver: RegistrationHintsResolver,
     private val appProperties: AppProperties,
+    private val loginMetrics: LoginMetrics,
     @Value("\${tasker.telegram.bot-username}") private val botUsername: String,
 ) {
 
@@ -124,6 +129,9 @@ class TelegramOidcController(
         clearOauthAttributes(session)
 
         val isLink = mode == MODE_LINK
+        val metricMode = if (isLink) LoginMode.LINK else LoginMode.LOGIN
+        fun count(outcome: LoginOutcome) = loginMetrics.record(LoginProvider.TELEGRAM, outcome, metricMode)
+
         if (!error.isNullOrBlank() || code.isNullOrBlank() || state.isNullOrBlank() || verifier == null) {
             val missing = listOfNotNull(
                 "code".takeIf { code.isNullOrBlank() },
@@ -136,10 +144,12 @@ class TelegramOidcController(
                 "Telegram callback rejected (mode={}, signedIn={}): error={}, missing={}",
                 mode, principal != null, error, missing,
             )
+            count(LoginOutcome.REJECTED)
             return failureRedirect(isLink)
         }
         if (expectedState == null || state != expectedState) {
             logger.warn("Telegram callback state mismatch (mode={})", mode)
+            count(LoginOutcome.REJECTED)
             return failureRedirect(isLink)
         }
 
@@ -147,12 +157,19 @@ class TelegramOidcController(
             telegramOidcService.completeAuthorization(code, verifier, redirectUri())
         } catch (e: TelegramAuthException) {
             logger.warn("Telegram callback auth failed (mode={}): {}", mode, e.message)
+            count(LoginOutcome.ERROR)
             return failureRedirect(isLink)
         }
 
         if (isLink) {
-            if (principal == null) return redirect("/?telegramLink=expired")
-            return when (accountLinkService.linkTelegram(principal.userId, data)) {
+            if (principal == null) {
+                count(LoginOutcome.REJECTED)
+                return redirect("/?telegramLink=expired")
+            }
+            val result = accountLinkService.linkTelegram(principal.userId, data)
+            val linked = result == LinkResult.Success || result == LinkResult.AlreadyLinked
+            count(if (linked) LoginOutcome.SUCCESS else LoginOutcome.REJECTED)
+            return when (result) {
                 LinkResult.Success, LinkResult.AlreadyLinked -> redirect("/settings?telegramLink=success")
                 LinkResult.ConflictOwnedByAnother -> redirect("/settings?telegramLink=conflict")
                 LinkResult.AlreadyHasProvider -> redirect("/settings?telegramLink=exists")
@@ -166,9 +183,11 @@ class TelegramOidcController(
             userAuthService.loginOrRegisterByTelegram(data, hints)
         } catch (_: RegistrationClosedException) {
             logger.info("Telegram login refused: unknown identity and registration is closed")
+            count(LoginOutcome.REJECTED)
             return redirect("/?telegramLogin=closed")
         }
         sessionAuthenticator.authenticate(TaskerPrincipal(user.id!!), request, response)
+        count(LoginOutcome.SUCCESS)
         return redirect(localRedirect(next))
     }
 

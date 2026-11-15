@@ -13,6 +13,10 @@ import io.micrometer.core.instrument.MeterRegistry
  * Scoped to email on purpose (the `tasker.email.sent` metric is email-specific); it delegates
  * through the generic [OutboundChannel] interface only because that's what email senders
  * implement. The counter is incremented around the delegate; a failure is counted and re-thrown.
+ *
+ * Both outcomes are registered at zero up front: a counter created by its first increment starts
+ * at 1, and the alert's `increase()` can't see a rise from a sample that never existed, so the
+ * first failure after a deploy would otherwise go unnoticed.
  */
 class EmailMetricsOutboundChannel(
     private val delegate: OutboundChannel,
@@ -20,12 +24,15 @@ class EmailMetricsOutboundChannel(
     private val purpose: String,
 ) : OutboundChannel {
 
+    private val successes = meterRegistry.counter("tasker.email.sent", "purpose", purpose, "outcome", "success")
+    private val failures = meterRegistry.counter("tasker.email.sent", "purpose", purpose, "outcome", "failure")
+
     override fun send(message: OutboundMessage) {
         try {
             delegate.send(message)
-            meterRegistry.counter("tasker.email.sent", "purpose", purpose, "outcome", "success").increment()
+            successes.increment()
         } catch (e: Exception) {
-            meterRegistry.counter("tasker.email.sent", "purpose", purpose, "outcome", "failure").increment()
+            failures.increment()
             throw e
         }
     }

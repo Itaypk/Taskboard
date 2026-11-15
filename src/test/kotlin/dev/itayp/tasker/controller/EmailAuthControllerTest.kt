@@ -2,6 +2,9 @@ package dev.itayp.tasker.controller
 
 import dev.itayp.tasker.config.SecurityConfiguration
 import dev.itayp.tasker.jpa.UserEntity
+import dev.itayp.tasker.metrics.LoginMetrics
+import dev.itayp.tasker.metrics.LoginOutcome
+import dev.itayp.tasker.metrics.LoginProvider
 import dev.itayp.tasker.security.SessionAuthenticator
 import dev.itayp.tasker.service.EmailLoginResult
 import dev.itayp.tasker.service.EmailLoginService
@@ -35,6 +38,7 @@ class EmailAuthControllerTest(@Autowired val mockMvc: MockMvc) {
 
     @MockitoBean lateinit var emailLoginService: EmailLoginService
     @MockitoBean lateinit var sessionAuthenticator: SessionAuthenticator
+    @MockitoBean lateinit var loginMetrics: LoginMetrics
 
     private fun userEntity() = UserEntity().apply { id = UUID.randomUUID() }
 
@@ -53,6 +57,7 @@ class EmailAuthControllerTest(@Autowired val mockMvc: MockMvc) {
             .andExpect(jsonPath("$.outcome").value("success"))
 
         verify(sessionAuthenticator).authenticate(any(), any(), any())
+        verify(loginMetrics).record(LoginProvider.EMAIL, LoginOutcome.SUCCESS)
     }
 
     @Test
@@ -68,6 +73,7 @@ class EmailAuthControllerTest(@Autowired val mockMvc: MockMvc) {
             .andExpect(jsonPath("$.outcome").value("invalid"))
 
         verify(sessionAuthenticator, never()).authenticate(any(), any(), any())
+        verify(loginMetrics).record(LoginProvider.EMAIL, LoginOutcome.REJECTED)
     }
 
     @Test
