@@ -145,7 +145,8 @@ a virtual thread and does, in order:
    lost or late", which only happens while this instance is up. (Same single-instance assumption
    as issue #259.)
 2. **Serialize per conversation**: events of one `(channel, senderId)` run one at a time, in
-   arrival order (a keyed lock or a per-key queue). A capture takes seconds; without this, two
+   arrival order. Use `KeyedSerialExecutor` (`channel` package), which Telegram already uses to
+   order updates per chat (issue #382). A capture takes seconds; without this, two
    messages sent in a burst race on the stored state.
 3. **Resolve the link** to a user (section 3). Unknown sender: if the text is a link code,
    consume it and confirm; otherwise reply once with how to connect, **at most one reply per
