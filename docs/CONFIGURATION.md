@@ -8,7 +8,7 @@ name/default/provenance reference.
 ## Instance (`AppProperties`)
 
 - `TASKER_APP_BASE_URL` — the public URL users reach the instance at, e.g. `https://tasks.example.com`
-  (no trailing slash). Magic links, invitations, the Telegram redirect URI, the API catalog and CORS
+  (a trailing slash is ignored). Magic links, invitations, the Telegram redirect URI, the API catalog and CORS
   are all built from it. Defaults to `https://backlog.fyi` outside `prod`; **required under `prod`**,
   where `ProductionConfigValidator` refuses to start without a valid value.
 

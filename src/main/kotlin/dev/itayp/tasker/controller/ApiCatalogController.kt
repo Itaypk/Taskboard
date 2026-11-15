@@ -26,7 +26,7 @@ class ApiCatalogController(private val appProperties: AppProperties) {
 
     @GetMapping("/.well-known/api-catalog", produces = [LINKSET_JSON])
     fun apiCatalog(): Map<String, Any> {
-        val base = appProperties.baseUrl.trimEnd('/')
+        val base = appProperties.baseUrl
         val apiUrl = "$base/api/external/v1"
         return mapOf(
             "linkset" to listOf(

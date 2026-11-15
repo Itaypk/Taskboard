@@ -32,7 +32,7 @@ cp .env.example .env
 
 Edit `.env` and fill in at least:
 
-- `TASKER_APP_BASE_URL`: the public URL, e.g. `https://tasks.example.com` (no trailing slash).
+- `TASKER_APP_BASE_URL`: the public URL, e.g. `https://tasks.example.com` (a trailing slash is ignored).
 - `TASKBOARD_DOMAIN`: its host name, e.g. `tasks.example.com` (for Caddy's certificate).
 - `POSTGRES_PASSWORD`: any long random string.
 - `TASKER_DATA_KEK`: the key that encrypts task contents and other personal data. Generate it with

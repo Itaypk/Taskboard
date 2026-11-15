@@ -15,9 +15,16 @@ class ProductionConfigValidatorTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = ["", "  ", "tasks.example.com", "ftp://tasks.example.com", "https://tasks.example.com/", "\${TASKER_APP_BASE_URL}"])
-    fun `rejects blank, relative, non-http, trailing-slash and unresolved values`(url: String) {
+    @ValueSource(strings = ["", "  ", "tasks.example.com", "ftp://tasks.example.com", "\${TASKER_APP_BASE_URL}"])
+    fun `rejects blank, relative, non-http, and unresolved values`(url: String) {
         assertThat(ProductionConfigValidator.validateBaseUrl(url)).isNotNull()
+    }
+
+    @Test
+    fun `a trailing slash is normalized away rather than refused`() {
+        val properties = AppProperties(baseUrl = "https://tasks.example.com//")
+        assertThat(properties.baseUrl).isEqualTo("https://tasks.example.com")
+        ProductionConfigValidator(properties).afterPropertiesSet()
     }
 
     @Test

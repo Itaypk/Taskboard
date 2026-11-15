@@ -242,7 +242,7 @@ class UserAuthServiceTest {
 
     @Test
     fun `createUnclaimedUser refuses once the unclaimed-account cap is reached`() {
-        val cappedService = serviceWith(openRegistration, appProperties.copy(unclaimedAccountCap = 5))
+        val cappedService = serviceWith(openRegistration, AppProperties(unclaimedAccountCap = 5))
         whenever(userRepository.countByClaimed(false)).thenReturn(5L)
 
         assertThatThrownBy { cappedService.createUnclaimedUser() }

@@ -146,8 +146,7 @@ class GoogleOidcController(
         }
     }
 
-    // Trimmed: a base URL configured with a trailing slash would give Google "//api/...", which must match the registered URI exactly.
-    private fun redirectUri(): String = "${appProperties.baseUrl.trimEnd('/')}/api/auth/google/callback"
+    private fun redirectUri(): String = "${appProperties.baseUrl}/api/auth/google/callback"
 
     private fun failureRedirect(isLink: Boolean): ResponseEntity<Void> =
         redirect(if (isLink) "/settings?googleLink=failed" else "/?googleLogin=failed")

@@ -92,7 +92,7 @@ class CalendarFeedService(
 
     private fun CalendarFeedEntity.toLink(userId: UUID): CalendarFeedLink {
         val plainToken = checkNotNull(userCryptoService.decrypt(userId, token)) { "calendar feed token missing" }
-        val url = "${appProperties.baseUrl.trimEnd('/')}$PATH_PREFIX$plainToken$SUFFIX"
+        val url = "${appProperties.baseUrl}$PATH_PREFIX$plainToken$SUFFIX"
         val webcalUrl = url.replaceFirst(Regex("^https?://"), "webcal://")
         return CalendarFeedLink(
             url = url,
