@@ -111,13 +111,13 @@ class WebPlanningControllerTest(@Autowired val mockMvc: MockMvc) {
         stubWeekResolution()
         whenever(planningSessionService.findActiveSession(userId)).thenReturn(null)
         whenever(planningSessionService.findCurrentPlan(userId))
-            .thenReturn(session(PlanningSessionStatus.COMPLETED, summary = "Last week recap"))
+            // No week note: a plan stays revisable whether or not the assistant wrote one.
+            .thenReturn(session(PlanningSessionStatus.COMPLETED, weekNote = null))
         whenever(aiAccessService.isAiAvailableForUser(userId)).thenReturn(true)
         stubPlannableTasks()
 
         mockMvc.perform(get("/api/v1/planning/entry").with(authentication(auth)))
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.completedPlanSummary").value("Last week recap"))
             .andExpect(jsonPath("$.revisableSessionId").value(sessionId.toString()))
     }
 
@@ -175,7 +175,7 @@ class WebPlanningControllerTest(@Autowired val mockMvc: MockMvc) {
     @Test
     fun `transcript returns the reconstructed conversation`() {
         whenever(planningSessionService.findById(userId, sessionId))
-            .thenReturn(session(PlanningSessionStatus.ACTIVE, summary = null))
+            .thenReturn(session(PlanningSessionStatus.ACTIVE, weekNote = null))
         whenever(orchestrator.phase(sessionId)).thenReturn(WeeklyPlanningOrchestrator.Phase.CONVERSING)
         whenever(orchestrator.conversationId(sessionId)).thenReturn(UUID.randomUUID())
         whenever(transcriptService.reconstruct(any())).thenReturn(
@@ -197,7 +197,7 @@ class WebPlanningControllerTest(@Autowired val mockMvc: MockMvc) {
     @Test
     fun `transcript returns 409 when the session has no in-memory state`() {
         whenever(planningSessionService.findById(userId, sessionId))
-            .thenReturn(session(PlanningSessionStatus.ACTIVE, summary = null))
+            .thenReturn(session(PlanningSessionStatus.ACTIVE, weekNote = null))
         whenever(orchestrator.phase(sessionId)).thenReturn(null)
 
         mockMvc.perform(get("/api/v1/planning/$sessionId").with(authentication(auth)))
@@ -225,7 +225,7 @@ class WebPlanningControllerTest(@Autowired val mockMvc: MockMvc) {
     @Test
     fun `reply to a session with no in-memory state returns 409`() {
         whenever(planningSessionService.findById(userId, sessionId))
-            .thenReturn(session(PlanningSessionStatus.ACTIVE, summary = null))
+            .thenReturn(session(PlanningSessionStatus.ACTIVE, weekNote = null))
         whenever(orchestrator.phase(sessionId)).thenReturn(null)
 
         mockMvc.perform(
@@ -273,7 +273,7 @@ class WebPlanningControllerTest(@Autowired val mockMvc: MockMvc) {
         autoArchiveDays = null,
     )
 
-    private fun session(status: PlanningSessionStatus, summary: String?) = PlanningSession(
+    private fun session(status: PlanningSessionStatus, weekNote: String?) = PlanningSession(
         id = sessionId,
         userId = userId,
         conversationId = null,
@@ -281,6 +281,6 @@ class WebPlanningControllerTest(@Autowired val mockMvc: MockMvc) {
         startedAt = Instant.parse("2026-06-01T09:00:00Z"),
         weekStart = LocalDate.parse("2026-06-01"),
         endedAt = null,
-        summary = summary,
+        weekNote = weekNote,
     )
 }

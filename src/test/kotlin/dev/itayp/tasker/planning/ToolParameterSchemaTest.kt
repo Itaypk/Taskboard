@@ -214,14 +214,22 @@ class ToolParameterSchemaTest {
                         "required" to listOf("task_id", "title", "slots"),
                     ),
                 ),
-                "summary" to mapOf(
+                "week_note" to mapOf(
                     "type" to "string",
                     "description" to """
-                        A self-contained memory note for this week's plan, carried into future sessions.
-                        Recap what was scheduled, plus any context worth remembering next time (preferences,
-                        deferrals, what the user is juggling). Make it stand on its own — not a recap of the
-                        last turn. When revising an existing plan, return the COMPLETE updated note: merge the
-                        prior summary with what changed this session rather than replacing it with just the change.
+                        OPTIONAL, first planning session only. What you learned about this particular week that the
+                        schedule itself can't show: the stated capacity, why tasks were deferred or dropped, one-off
+                        constraints or circumstances. Do NOT list what was scheduled; the app keeps the schedule.
+                        Omit when there's nothing beyond the schedule. Ignored when revising a plan.
+                    """.trimIndent(),
+                ),
+                "revision_note" to mapOf(
+                    "type" to "string",
+                    "description" to """
+                        OPTIONAL, revise sessions only. One or two sentences on what changed in this revision and
+                        why, when the why is worth remembering. It is appended to the plan's notes; it never
+                        replaces the week note or earlier revision notes, so don't repeat them. Omit when the
+                        change speaks for itself. Ignored on a first planning session.
                     """.trimIndent(),
                 ),
                 "message" to mapOf(
@@ -244,11 +252,11 @@ class ToolParameterSchemaTest {
                         lasting that is NOT already covered by the user's context block above; omit the field
                         otherwise (most sessions won't need it). Phrase it as one concise first-person context
                         line in the user's language, e.g. "I prefer not to schedule work on Tuesday evenings."
-                        One fact only — not a recap of the week, not a task, not the plan summary.
+                        One fact only — not a recap of the week, not a task, not the week note.
                     """.trimIndent(),
                 ),
             ),
-            "required" to listOf("tasks", "summary", "message"),
+            "required" to listOf("tasks", "message"),
         )
         assertEquals(expected, tool.parameters)
     }

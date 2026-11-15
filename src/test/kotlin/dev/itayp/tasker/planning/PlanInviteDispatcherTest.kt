@@ -132,7 +132,7 @@ class PlanInviteDispatcherTest {
 
     private companion object { const val SEQUENCE = 42 }
 
-    private fun plan(vararg tasks: AgreedPlanTask) = AgreedPlan(tasks.toList(), summary = "Test summary")
+    private fun plan(vararg tasks: AgreedPlanTask) = AgreedPlan(tasks.toList(), weekNote = "Test summary")
 
     private fun task(id: UUID, title: String, vararg slots: AgreedTimeSlot) =
         AgreedPlanTask(taskId = id, title = title, slots = slots.toList())

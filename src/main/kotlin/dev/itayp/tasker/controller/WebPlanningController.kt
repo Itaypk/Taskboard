@@ -103,12 +103,11 @@ class WebPlanningController(
 
         val completedPlan = if (activeSession == null) {
             planningSessionService.findCurrentPlan(userId)
-                ?.takeIf { it.status == PlanningSessionStatus.COMPLETED && it.summary != null }
+                ?.takeIf { it.status == PlanningSessionStatus.COMPLETED }
         } else null
 
         return PlanningEntryResponse(
             activeSessionId = resumableSessionId,
-            completedPlanSummary = completedPlan?.summary,
             revisableSessionId = completedPlan?.id,
             thisWeek = weekOption(userId, WeekOffset.CURRENT),
             nextWeek = weekOption(userId, WeekOffset.NEXT),
@@ -215,7 +214,6 @@ data class WeekOption(val weekStart: String, val weekEnd: String)
 
 data class PlanningEntryResponse(
     val activeSessionId: UUID?,
-    val completedPlanSummary: String?,
     val revisableSessionId: UUID?,
     val thisWeek: WeekOption,
     val nextWeek: WeekOption,

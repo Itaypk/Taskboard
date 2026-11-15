@@ -1,5 +1,8 @@
 package dev.itayp.tasker.channel.telegram.commands
 
+import org.mockito.Mockito.lenient
+import dev.itayp.tasker.planning.PlanRecapRenderer
+import dev.itayp.tasker.channel.HtmlMessageFormatter
 import dev.itayp.tasker.calendar.CalendarDelivery
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ChoiceOption
@@ -38,6 +41,7 @@ class PlanBotCommandTest {
 
     @Mock private lateinit var orchestrator: WeeklyPlanningOrchestrator
     @Mock private lateinit var planningSessionService: PlanningSessionService
+    @Mock private lateinit var recapRenderer: PlanRecapRenderer
     @Mock private lateinit var userSettingsService: UserSettingsService
     @Mock private lateinit var channel: TelegramConversationChannel
     @Mock private lateinit var sessionRegistry: TelegramSessionRegistry
@@ -51,6 +55,7 @@ class PlanBotCommandTest {
         PlanBotCommand(
             orchestrator,
             planningSessionService,
+            recapRenderer,
             planConfirmationRegistry,
             userSettingsService,
             StaticMessageSource().also { src ->
@@ -83,6 +88,8 @@ class PlanBotCommandTest {
     @BeforeEach
     fun setUp() {
         whenever(userSettingsService.getLocale(userId)).thenReturn(Locale.ENGLISH)
+        lenient().`when`(channel.formatter).thenReturn(HtmlMessageFormatter)
+        lenient().`when`(recapRenderer.render(any(), any())).thenReturn("Week 20 plan summary")
     }
 
     private fun stubUserSettings(weekStartDay: String? = "MONDAY", timeZone: String = "UTC") {
@@ -117,7 +124,7 @@ class PlanBotCommandTest {
                 startedAt = Instant.parse("2026-05-11T10:00:00Z"),
                 weekStart = LocalDate.parse("2026-05-11"),
                 endedAt = null,
-                summary = null,
+                weekNote = null,
             )
         )
 
@@ -142,7 +149,7 @@ class PlanBotCommandTest {
     }
 
     @Test
-    fun `shows completed plan summary and registers confirmation when completed plan exists`() {
+    fun `shows the rendered completed plan and registers confirmation when completed plan exists`() {
         whenever(sessionRegistry.get(chatId)).thenReturn(null)
         val completedPlan = PlanningSession(
             id = UUID.randomUUID(),
@@ -152,7 +159,7 @@ class PlanBotCommandTest {
             startedAt = Instant.parse("2026-05-11T10:00:00Z"),
             weekStart = LocalDate.parse("2026-05-11"),
             endedAt = null,
-            summary = "Week 20 plan summary",
+            weekNote = "Week 20 plan summary",
         )
         whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(completedPlan)
 
@@ -203,7 +210,7 @@ class PlanBotCommandTest {
     }
 
     @Test
-    fun `prompts week picker when completed plan exists but has no summary`() {
+    fun `offers keep-revise-start-over for a completed plan without a week note`() {
         whenever(sessionRegistry.get(chatId)).thenReturn(null)
         val completedPlan = PlanningSession(
             id = UUID.randomUUID(),
@@ -213,22 +220,18 @@ class PlanBotCommandTest {
             startedAt = Instant.parse("2026-05-11T10:00:00Z"),
             weekStart = LocalDate.parse("2026-05-11"),
             endedAt = null,
-            summary = null,
+            weekNote = null,
         )
         whenever(planningSessionService.findCurrentPlan(userId)).thenReturn(completedPlan)
-        stubUserSettings()
 
         command.handle(context())
 
         val captor = argumentCaptor<ChannelMessage>()
         verify(channel).send(captor.capture())
         val msg = captor.firstValue as ChannelMessage.Choice
-        // No summary → fall through to the week picker rather than the keep/replan prompt
-        assertEquals("Which week?", msg.prompt)
-
-        val pending = planConfirmationRegistry.get(chatId)
-        assertNotNull(pending)
-        assertNull(pending.replanWeekStart)
+        // The note is optional: the plan is still the plan, so it stays revisable.
+        assertEquals("Current plan: Week 20 plan summary", msg.prompt)
+        assertEquals(completedPlan.id, planConfirmationRegistry.get(chatId)?.revisableSessionId)
     }
 
     @Test
@@ -311,7 +314,7 @@ class PlanBotCommandTest {
                 startedAt = Instant.parse("2026-05-11T10:00:00Z"),
                 weekStart = LocalDate.parse("2026-05-11"),
                 endedAt = null,
-                summary = "Week 20 plan summary",
+                weekNote = "Week 20 plan summary",
             )
         )
 
@@ -380,6 +383,6 @@ class PlanBotCommandTest {
         startedAt = Instant.parse("2026-05-11T10:00:00Z"),
         weekStart = LocalDate.parse("2026-05-11"),
         endedAt = null,
-        summary = "Week 20 plan summary",
+        weekNote = "Week 20 plan summary",
     )
 }

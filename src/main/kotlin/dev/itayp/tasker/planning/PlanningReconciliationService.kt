@@ -34,7 +34,7 @@ class PlanningReconciliationService(
     private val log = LoggerFactory.getLogger(PlanningReconciliationService::class.java)
 
     fun findUnfinishedTasks(userId: UUID, weekStart: LocalDate): List<UnfinishedPlannedTask> {
-        val previous = planningSessionService.findPreviousSummarizableSession(userId, weekStart)
+        val previous = planningSessionService.findPreviousPlan(userId, weekStart)
             ?: return emptyList()
         val planned = plannedTaskService.findForSession(userId, previous.id)
         if (planned.isEmpty()) return emptyList()

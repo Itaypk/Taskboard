@@ -9,6 +9,7 @@ import dev.itayp.tasker.service.UserPlanningScheduleChangedEvent
 import dev.itayp.tasker.service.UserSettingsService
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.event.ApplicationReadyEvent
+import org.springframework.context.MessageSource
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.scheduling.support.CronTrigger
@@ -44,6 +45,8 @@ class PlanningSessionScheduler(
     private val planningSessionService: PlanningSessionService,
     private val userSettingsService: UserSettingsService,
     private val channelResolver: ScheduledConversationChannelResolver,
+    private val recapRenderer: PlanRecapRenderer,
+    private val messageSource: MessageSource,
     private val aiProperties: AiProperties,
     private val clock: Clock,
 ) {
@@ -116,10 +119,11 @@ class PlanningSessionScheduler(
                     }
                     PlanningSessionStatus.COMPLETED -> {
                         // User pre-planned this week; surface the plan instead of starting fresh.
-                        val summary = existing.summary
-                        if (!summary.isNullOrBlank()) {
-                            channel.send(ChannelMessage.Text(summary))
-                        }
+                        val recap = recapRenderer.render(existing, channel.formatter)
+                        val locale = userSettingsService.getLocale(userId)
+                        channel.send(ChannelMessage.Text(
+                            messageSource.getMessage("planning.scheduled.already_planned", arrayOf<Any>(recap), locale),
+                        ))
                     }
                     PlanningSessionStatus.ABANDONED -> {
                         val sessionId = orchestrator.start(userId, channel, targetWeek)

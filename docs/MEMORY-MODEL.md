@@ -37,10 +37,11 @@ Free-text facts the user maintains via the web UI settings page. Already called 
 **Why a free-text blob and not structured fields?** Hobby project, low volume, and the LLM
 consumes it as prose anyway. Structure would be premature.
 
-### 2. Planning session + last-session summary (recent, LLM-authored)
+### 2. Planning session + last week's plan and notes (recent, partly LLM-authored)
 
-Each weekly planning conversation is a `PlanningSession` row. At the end of a session the LLM
-writes a short summary that the *next* session prepends to its system prompt.
+Each weekly planning conversation is a `PlanningSession` row. The *next* session's system prompt
+gets the previous week's plan, rendered from the data (each task, whether it got done, when it
+was scheduled), plus the notes the LLM wrote about that week.
 
 Sketch of the entity:
 
@@ -52,20 +53,28 @@ PlanningSession
   ended_at: timestamp?           -- null while active
   status: enum(ACTIVE, COMPLETED, ABANDONED)
   messages: jsonb                -- full transcript; conversations are short enough
-  summary: text?                 -- written at session end, ~1 short paragraph
+  week_note: text?               -- column `summary`; written once at finalization, optional
+  revision_notes: json?          -- append-only [{at, text}], one per revise session that left one
 ```
 
-What goes into a summary:
-- Tasks agreed to this week (and roughly when).
-- Tasks discussed but deferred, with the reason if the user gave one.
+The schedule itself is never stored as prose: it lives in `planned_task` and is rendered on
+demand (`PlanRecapRenderer` for the user, `WeeklyPlanningPromptAssembler` for the model), so it
+can't drift from what's actually scheduled.
+
+What goes into the week note (the model omits it when there's nothing):
+- The stated capacity and what shaped it.
+- Tasks discussed but deferred or dropped, with the reason if the user gave one.
 - Anything the user mentioned that affects next week ("traveling Mon–Wed", "have a deadline
   shifting on the X project").
 
+A revise session never rewrites the week note. It may append a revision note: what changed and
+why, when the why is worth keeping. This used to be one summary that each revision rewrote, and
+the model reliably dropped the earlier context when it did (GitHub issue #229).
+
 How it's used:
-- The next session loads only the *previous* session's summary — not a chain of summaries.
+- The next session loads only the *previous* week's plan and notes, not a chain of them.
   One hop back is enough at a weekly cadence; deeper history is reconstructible from task state.
-- If the previous session was `ABANDONED` (user dropped off mid-conversation), prefer the
-  one before it, or skip the summary entirely.
+- `ABANDONED` sessions are skipped; the previous plan is the most recent `COMPLETED` one.
 
 **Why store the full transcript too?** Debugging, and the option to re-summarize later if the
 prompt format changes. Cheap at this scale.
@@ -110,7 +119,7 @@ Pseudocode for the system/context portion of each turn:
 ```
 system_prompt = base_instructions
               + user_context_block(user)               // store 1
-              + previous_session_summary(user)         // store 2, may be empty
+              + previous_plan_and_notes(user)          // store 2, may be empty
               + serialize_backlog(user)                // store 3, lives in task fields
               + calendar_window_for_this_week(user)    // not memory; live read
 messages       = current_session.messages              // full transcript so far
@@ -142,17 +151,14 @@ is ordinary block text they can later edit or delete in Settings.
 - **A `memories` table** the LLM writes to via tool calls. Too easy to accumulate wrong/stale
   facts that the user never sees.
 - **Embedding search over past conversations.** Conversations are weekly and short; the
-  previous-summary hop covers what's needed.
-- **Cross-session conversation threading.** Each weekly session is its own thing. The summary
-  is the only thread.
+  previous-plan hop covers what's needed.
+- **Cross-session conversation threading.** Each weekly session is its own thing. The previous
+  plan and its notes are the only thread.
 - **Auto-extracted "user facts."** Same risk as the memories table, without even the LLM
   deciding when to write.
 
 ## Open questions to revisit when implementing
 
-- Where does the summary get written from — a final tool call the LLM makes, or a separate
-  post-session prompt? Leaning toward a separate post-session prompt so the planning prompt
-  stays focused.
 - Token budget for the user context block — soft cap in the UI (e.g. 2k chars) so it can't
   silently bloat the system prompt.
 - Retention: do we ever delete old `PlanningSession` rows? Probably not for v1 — they're small

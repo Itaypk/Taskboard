@@ -124,7 +124,7 @@ class CalendarDeliveryService(
         if (upcoming.planTasks.isNotEmpty()) {
             planInviteDispatcher.dispatch(
                 to.email, emailProperties.scheduling.from, emailProperties.scheduling.fromName,
-                AgreedPlan(upcoming.planTasks, summary = ""), to.locale, sequence,
+                AgreedPlan(upcoming.planTasks), to.locale, sequence,
             )
         }
         if (upcoming.oneOffEvents.isNotEmpty()) {

@@ -99,6 +99,11 @@ export interface PlanTask extends Task {
   planNotes?: string;
 }
 
+export interface RevisionNote {
+  at: string;
+  text: string;
+}
+
 export type PlanStatus = 'active' | 'completed' | 'abandoned';
 
 export interface CurrentPlan {
@@ -106,7 +111,10 @@ export interface CurrentPlan {
   status: PlanStatus;
   startedAt: string;
   endedAt?: string | null;
-  summary?: string | null;
+  /** What the assistant noted about the week when it was planned (capacity, deferrals, constraints). */
+  weekNote?: string | null;
+  /** Notes appended by revise sessions, oldest first. */
+  revisionNotes: RevisionNote[];
   tasks: PlanTask[];
   weekStart: string;
   weekEnd: string;

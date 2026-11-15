@@ -13,6 +13,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.Mockito
 import org.mockito.kotlin.eq
@@ -66,7 +67,7 @@ class PlanFinalizationServiceTest {
             AgreedPlanTask(taskId = taskId1, title = "Task A", slots = listOf(slot)),
             AgreedPlanTask(taskId = taskId2, title = "Task B", slots = listOf(slot)),
         ),
-        summary = "Agreed on A and B.",
+        weekNote = "Agreed on A and B.",
     )
 
     @BeforeEach
@@ -88,7 +89,7 @@ class PlanFinalizationServiceTest {
     // ── Session completion ───────────────────────────────────────────────────
 
     @Test
-    fun `complete delegates session finalization with correct summary`() {
+    fun `complete delegates session finalization with the week note`() {
         service.complete(userId, sessionId, planWithTasks)
 
         verify(planningSessionService).completeSession(userId, sessionId, "Agreed on A and B.")
@@ -153,11 +154,11 @@ class PlanFinalizationServiceTest {
     // ── revisePlan ───────────────────────────────────────────────────────────
 
     @Test
-    fun `revisePlan updates session summary without changing status`() {
-        service.revisePlan(userId, sessionId, planWithTasks)
+    fun `revisePlan appends the revision note and never rewrites the week note`() {
+        service.revisePlan(userId, sessionId, planWithTasks.copy(weekNote = "A rewritten week note", revisionNote = "Moved A."))
 
-        verify(planningSessionService).updateSummary(sessionId, "Agreed on A and B.")
-        verify(planningSessionService, never()).completeSession(any(), any(), any())
+        verify(planningSessionService).appendRevisionNote(userId, sessionId, "Moved A.")
+        verify(planningSessionService, never()).completeSession(any(), any(), anyOrNull())
     }
 
     @Test
@@ -237,7 +238,7 @@ class PlanFinalizationServiceTest {
         optInWithVerifiedEmail()
 
         // Drop Task B.
-        val trimmed = AgreedPlan(tasks = listOf(planWithTasks.tasks[0]), summary = "Just A.")
+        val trimmed = AgreedPlan(tasks = listOf(planWithTasks.tasks[0]), weekNote = "Just A.")
         service.revisePlan(userId, sessionId, trimmed)
 
         val captor = argumentCaptor<List<AgreedPlanTask>>()
@@ -255,7 +256,7 @@ class PlanFinalizationServiceTest {
 
         val renamed = AgreedPlan(
             tasks = listOf(AgreedPlanTask(taskId = taskId1, title = "Task A (renamed)", slots = listOf(slot))),
-            summary = "Renamed A.",
+            weekNote = "Renamed A.",
         )
         service.revisePlan(userId, sessionId, renamed)
 
@@ -275,7 +276,7 @@ class PlanFinalizationServiceTest {
         val movedSlot = AgreedTimeSlot("2026-05-13T14:00:00+02:00", "2026-05-13T16:00:00+02:00")
         val moved = AgreedPlan(
             tasks = listOf(AgreedPlanTask(taskId = taskId1, title = "Task A", slots = listOf(movedSlot))),
-            summary = "Moved A.",
+            weekNote = "Moved A.",
         )
         service.revisePlan(userId, sessionId, moved)
 
@@ -411,6 +412,6 @@ class PlanFinalizationServiceTest {
         startedAt = Instant.parse("2026-05-08T10:00:00Z"),
         weekStart = weekStart,
         endedAt = null,
-        summary = null,
+        weekNote = null,
     )
 }

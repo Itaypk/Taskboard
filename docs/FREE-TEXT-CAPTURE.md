@@ -109,7 +109,7 @@ branches on state and says the right thing for each:
 | state | what the user is offered |
 | --- | --- |
 | a live in-memory session | continue it / abandon and replan this week |
-| a COMPLETED plan for the week | keep it / revise it / start over (with the plan summary quoted back) |
+| a COMPLETED plan for the week | keep it / revise it / start over (with the plan quoted back) |
 | nothing yet | plan this week / plan next week (both dated) |
 
 So "revisit the plan" only ever appears when there *is* a plan, and "start from scratch" is worded

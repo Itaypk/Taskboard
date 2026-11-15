@@ -11,6 +11,7 @@ import dev.itayp.tasker.planning.PlannedTaskRepository
 import dev.itayp.tasker.planning.PlannedTaskSlotRepository
 import dev.itayp.tasker.planning.PlanFinalizationService
 import dev.itayp.tasker.planning.PlanningSession
+import dev.itayp.tasker.planning.RevisionNote
 import dev.itayp.tasker.planning.PlanningSessionService
 import dev.itayp.tasker.planning.PlanningSessionStatus
 import dev.itayp.tasker.planning.dto.AgreedPlanTask
@@ -87,7 +88,12 @@ class PlanningSessionControllerTest(@Autowired val mockMvc: MockMvc) {
         startedAt = Instant.parse("2026-05-01T12:00:00Z"),
         weekStart = LocalDate.parse("2026-04-27"),
         endedAt = if (status == PlanningSessionStatus.COMPLETED) Instant.parse("2026-05-01T13:00:00Z") else null,
-        summary = if (status == PlanningSessionStatus.COMPLETED) "Agreed plan summary." else null,
+        weekNote = if (status == PlanningSessionStatus.COMPLETED) "Heavy week." else null,
+        revisionNotes = if (status == PlanningSessionStatus.COMPLETED) {
+            listOf(RevisionNote(Instant.parse("2026-05-02T08:00:00Z"), "Moved the dentist."))
+        } else {
+            emptyList()
+        },
     )
 
     private fun aPlannedTaskEntity() = PlannedTaskEntity().apply {
@@ -166,7 +172,9 @@ class PlanningSessionControllerTest(@Autowired val mockMvc: MockMvc) {
         mockMvc.perform(get("/api/v1/plans/current").with(authentication(auth)))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.status").value("completed"))
-            .andExpect(jsonPath("$.summary").value("Agreed plan summary."))
+            .andExpect(jsonPath("$.weekNote").value("Heavy week."))
+            .andExpect(jsonPath("$.revisionNotes[0].at").value("2026-05-02T08:00:00Z"))
+            .andExpect(jsonPath("$.revisionNotes[0].text").value("Moved the dentist."))
             .andExpect(jsonPath("$.tasks").isArray)
             .andExpect(jsonPath("$.tasks").isEmpty)
     }
@@ -220,7 +228,6 @@ class PlanningSessionControllerTest(@Autowired val mockMvc: MockMvc) {
             .andExpect(jsonPath("$[0].weekEnd").value("2026-05-03"))
             .andExpect(jsonPath("$[0].status").value("completed"))
             .andExpect(jsonPath("$[0].taskCount").value(4))
-            .andExpect(jsonPath("$[0].hasSummary").value(true))
     }
 
     // ── POST /plans/current/tasks/{taskId} ───────────────────────────────────

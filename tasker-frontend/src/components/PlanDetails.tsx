@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { CurrentPlan } from '../types';
+import { formatDate } from '../i18n/format';
 import { formatRelative, formatTimeSlot } from '../utils';
 import styles from './PlanDetails.module.css';
 
@@ -9,9 +10,14 @@ interface PlanDetailsProps {
   onTaskContextMenu?: (e: React.MouseEvent, taskId: string) => void;
 }
 
-/** Read-only rendering of a finalized/active plan: status, summary, and scheduled tasks. */
+/**
+ * Read-only rendering of a finalized/active plan: status, scheduled tasks, then the assistant's notes
+ * on the week (only when there are any — the schedule itself is the plan's record).
+ */
 export function PlanDetails({ plan, onTaskClick, onTaskContextMenu }: PlanDetailsProps) {
   const { t } = useTranslation();
+  const weekNote = plan.weekNote?.trim() || null;
+  const hasNotes = weekNote !== null || plan.revisionNotes.length > 0;
   return (
     <>
       <div className={styles.metaRow}>
@@ -24,15 +30,6 @@ export function PlanDetails({ plan, onTaskClick, onTaskContextMenu }: PlanDetail
             : t('planDetails.timestampStarted', { started: formatRelative(plan.startedAt) })}
         </span>
       </div>
-
-      <section className={styles.section}>
-        <h4 className={styles.sectionLabel}>{t('planDetails.summaryHeading')}</h4>
-        {plan.summary && plan.summary.trim().length > 0 ? (
-          <p className={styles.summary}>{plan.summary}</p>
-        ) : (
-          <p className={styles.summaryMuted}>{t('planDetails.noSummary')}</p>
-        )}
-      </section>
 
       <section className={styles.section}>
         <h4 className={styles.sectionLabel}>{t('planDetails.tasksHeading', { count: plan.tasks.length })}</h4>
@@ -76,6 +73,24 @@ export function PlanDetails({ plan, onTaskClick, onTaskContextMenu }: PlanDetail
           </ul>
         )}
       </section>
+      {hasNotes && (
+        <section className={styles.section}>
+          <h4 className={styles.sectionLabel}>{t('planDetails.notesHeading')}</h4>
+          {weekNote && <p className={styles.summary}>{weekNote}</p>}
+          {plan.revisionNotes.length > 0 && (
+            <ul className={styles.revisionNotes}>
+              {plan.revisionNotes.map(note => (
+                <li key={note.at} className={styles.revisionNote}>
+                  <span className={styles.revisionDate}>
+                    {t('planDetails.revisedOn', { date: formatDate(new Date(note.at), { month: 'short', day: 'numeric' }) })}
+                  </span>
+                  <span className={styles.revisionText}>{note.text}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
     </>
   );
 }

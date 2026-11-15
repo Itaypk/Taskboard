@@ -9,6 +9,7 @@ import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Compa
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_REVISE
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.Companion.OPTION_THIS_WEEK
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry.PendingConfirmation
+import dev.itayp.tasker.planning.PlanRecapRenderer
 import dev.itayp.tasker.planning.PlanningSessionService
 import dev.itayp.tasker.planning.PlanningSessionStatus
 import dev.itayp.tasker.planning.WeekOffset
@@ -29,6 +30,7 @@ import java.util.Locale
 class PlanBotCommand(
     private val orchestrator: WeeklyPlanningOrchestrator,
     private val planningSessionService: PlanningSessionService,
+    private val recapRenderer: PlanRecapRenderer,
     private val planConfirmationRegistry: PlanConfirmationRegistry,
     private val userSettingsService: UserSettingsService,
     private val messageSource: MessageSource,
@@ -69,7 +71,7 @@ class PlanBotCommand(
 
         // Case 2: completed plan exists in DB — offer keep / revise / start-over for the same week
         val existingPlan = planningSessionService.findCurrentPlan(context.userId)
-        if (existingPlan?.status == PlanningSessionStatus.COMPLETED && existingPlan.summary != null) {
+        if (existingPlan?.status == PlanningSessionStatus.COMPLETED) {
             planConfirmationRegistry.set(
                 context.chatId,
                 PendingConfirmation(
@@ -83,7 +85,10 @@ class PlanBotCommand(
                 ),
             )
             context.channel.send(ChannelMessage.Choice(
-                prompt = prompt(context, locale, "planning.confirm.completed.prompt", existingPlan.summary),
+                prompt = prompt(
+                    context, locale, "planning.confirm.completed.prompt",
+                    recapRenderer.render(existingPlan, context.channel.formatter),
+                ),
                 options = options(
                     context, locale,
                     ChoiceOption(OPTION_KEEP, messageSource.getMessage("planning.confirm.completed.keep", null, locale)),

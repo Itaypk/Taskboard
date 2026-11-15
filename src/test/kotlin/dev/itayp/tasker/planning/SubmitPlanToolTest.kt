@@ -4,6 +4,7 @@ import dev.itayp.tasker.planning.dto.AgreedPlan
 import org.junit.jupiter.api.Test
 import tools.jackson.module.kotlin.jacksonObjectMapper
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -28,7 +29,8 @@ class SubmitPlanToolTest {
               ]
             }
           ],
-          "summary": "Agreed on writing the spec Monday morning."
+          "week_note": "Light week; the report waits for feedback.",
+          "revision_note": "Moved the spec to Monday."
         }
         """.trimIndent()
 
@@ -40,7 +42,8 @@ class SubmitPlanToolTest {
         val plan: AgreedPlan = drained.single()
         assertEquals(1, plan.tasks.size)
         assertEquals("Write spec", plan.tasks.single().title)
-        assertEquals("Agreed on writing the spec Monday morning.", plan.summary)
+        assertEquals("Light week; the report waits for feedback.", plan.weekNote)
+        assertEquals("Moved the spec to Monday.", plan.revisionNote)
     }
 
     @Test
@@ -57,7 +60,6 @@ class SubmitPlanToolTest {
               ]
             }
           ],
-          "summary": "Agreed on the spec.",
           "message": "All set — I've blocked Monday morning for the spec. Have a great week!"
         }
         """.trimIndent()
@@ -82,7 +84,6 @@ class SubmitPlanToolTest {
               ]
             }
           ],
-          "summary": "Agreed on the spec.",
           "message": "Done!",
           "context_suggestion": "I prefer not to schedule work on Tuesday evenings."
         }
@@ -107,8 +108,7 @@ class SubmitPlanToolTest {
                 {"start_iso": "2026-05-04T09:00:00+02:00", "end_iso": "2026-05-04T11:00:00+02:00"}
               ]
             }
-          ],
-          "summary": "Agreed on the spec."
+          ]
         }
         """.trimIndent()
 
@@ -137,8 +137,7 @@ class SubmitPlanToolTest {
                 {"start_iso": "2026-05-04T09:00:00+02:00", "end_iso": "2026-05-04T11:00:00+02:00"}
               ]
             }
-          ],
-          "summary": "Missing the id."
+          ]
         }
         """.trimIndent()
 
@@ -153,7 +152,8 @@ class SubmitPlanToolTest {
         @Suppress("UNCHECKED_CAST")
         val required = tool.parameters["required"] as List<String>
         assertTrue("tasks" in required)
-        assertTrue("summary" in required)
+        assertFalse("week_note" in required)
+        assertFalse("revision_note" in required)
         assertTrue("message" in required)
 
         @Suppress("UNCHECKED_CAST")

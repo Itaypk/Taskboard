@@ -1,5 +1,9 @@
 package dev.itayp.tasker.planning
 
+import org.mockito.kotlin.anyOrNull
+import java.util.Locale
+import org.springframework.context.support.StaticMessageSource
+import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.calendar.CalendarDelivery
 import dev.itayp.tasker.ai.AiProperties
 import dev.itayp.tasker.channel.ConversationChannel
@@ -40,6 +44,7 @@ class PlanningSessionSchedulerTest {
     @Mock lateinit var planningSessionService: PlanningSessionService
     @Mock lateinit var userSettingsService: UserSettingsService
     @Mock lateinit var channelResolver: ScheduledConversationChannelResolver
+    @Mock lateinit var recapRenderer: PlanRecapRenderer
 
     private val userId = UUID.randomUUID()
     // Fixed Wednesday 2026-05-13 UTC; Monday week-start → next week = 2026-05-18
@@ -50,7 +55,11 @@ class PlanningSessionSchedulerTest {
     private val scheduler by lazy {
         PlanningSessionScheduler(
             taskScheduler, settingsRepository, orchestrator,
-            planningSessionService, userSettingsService, channelResolver, aiProperties, clock,
+            planningSessionService, userSettingsService, channelResolver, recapRenderer,
+            StaticMessageSource().also {
+                it.addMessage("planning.scheduled.already_planned", Locale.ENGLISH, "Already planned:\n\n{0}")
+            },
+            aiProperties, clock,
         )
     }
 
@@ -195,7 +204,7 @@ class PlanningSessionSchedulerTest {
     }
 
     @Test
-    fun `runPlanningSession sends existing summary when completed session exists for target week`() {
+    fun `runPlanningSession sends the rendered plan when completed session exists for target week`() {
         val resolvedChannel = resolved()
         whenever(channelResolver.resolve(userId)).thenReturn(resolvedChannel)
         stubUserSettings()
@@ -208,14 +217,16 @@ class PlanningSessionSchedulerTest {
             startedAt = Instant.parse("2026-05-18T08:00:00Z"),
             weekStart = targetWeek,
             endedAt = null,
-            summary = "Pre-planned summary",
+            weekNote = "Pre-planned summary",
         )
         whenever(planningSessionService.findSessionForWeek(userId, targetWeek)).thenReturn(existing)
+        whenever(userSettingsService.getLocale(userId)).thenReturn(Locale.ENGLISH)
+        whenever(recapRenderer.render(eq(existing), anyOrNull())).thenReturn("▫️ Write the spec")
 
         scheduler.runPlanningSession(userId)
 
         verify(orchestrator, never()).start(any(), any(), any())
-        verify(resolvedChannel.channel).send(any())
+        verify(resolvedChannel.channel).send(ChannelMessage.Text("Already planned:\n\n▫️ Write the spec"))
     }
 
     @Test
@@ -232,7 +243,7 @@ class PlanningSessionSchedulerTest {
             startedAt = Instant.parse("2026-05-18T08:00:00Z"),
             weekStart = targetWeek,
             endedAt = null,
-            summary = null,
+            weekNote = null,
         )
         whenever(planningSessionService.findSessionForWeek(userId, targetWeek)).thenReturn(existing)
 

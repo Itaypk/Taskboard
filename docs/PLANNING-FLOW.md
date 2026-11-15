@@ -39,7 +39,7 @@ CONVERSING
 SUBMITTED
   └─► SubmitPlanTool parses payload, drops it in PlanSubmissionInbox
   └─► Orchestrator drains inbox after the AI turn finishes, calls
-      PlanningSessionService.completeSession(summary = plan.summary)
+      PlanFinalizationService.complete (week note stored) or .revisePlan (revision note appended)
   └─► If the plan carried a `context_suggestion`, the orchestrator renders the closing
       message and then AWAITING_CONTEXT_PROPOSAL_REPLY (see below); otherwise → DONE.
 AWAITING_CONTEXT_PROPOSAL_REPLY (only if submit_plan included a context_suggestion)
@@ -95,7 +95,7 @@ Recommended convention in the prompt: emit at most one `ask_choice` per turn unl
 follow-ups are independent (e.g. asking about Task A's slot, then Task B's slot, etc.).
 The orchestrator does not enforce this; ordering of the array is preserved.
 
-#### `submit_plan(tasks, summary, message, context_suggestion?)` — one-way, terminal
+#### `submit_plan(tasks, message, week_note?, revision_note?, context_suggestion?)` — one-way, terminal
 
 ```json
 {
@@ -107,18 +107,21 @@ The orchestrator does not enforce this; ordering of the array is preserved.
       "notes": "string (optional)"
     }
   ],
-  "summary": "human-readable recap stored as the session summary",
   "message": "user-facing closing farewell",
+  "week_note": "optional, first planning only: capacity, deferrals, one-off constraints",
+  "revision_note": "optional, revise only: what changed and why, appended to the plan's notes",
   "context_suggestion": "optional durable fact to propose adding to the user context block"
 }
 ```
 
 Drops the parsed payload into `PlanSubmissionInbox`. After the turn completes, the
-orchestrator calls `PlanningSessionService.completeSession(summary = plan.summary)`. If the
+orchestrator calls `PlanFinalizationService.complete` (which stores `week_note`) or, for a
+revise session, `revisePlan` (which appends `revision_note` and leaves the week note alone;
+GitHub issue #229). Neither note restates the schedule: that is persisted to `planned_task` and
+rendered from there wherever the plan is shown. If the
 model supplied a `context_suggestion`, the orchestrator asks the user to accept/reject it
 (the `AWAITING_CONTEXT_PROPOSAL_REPLY` step above) before reaching `DONE`; otherwise it goes
-straight to `DONE`. The structured task list lives in the conversation transcript; v1 does
-not add a new column for it.
+straight to `DONE`.
 
 A typical farewell turn looks like `submit_plan(...)` + `say("Have a great week!")` in
 the same `tool_calls` array — both run, no re-entry, session ends.
@@ -186,7 +189,7 @@ Order mirrors `MEMORY-MODEL.md`:
 ```
 system_prompt = base instructions (tone, output contract)
               + user context block        (UserSettings.contextBlock)
-              + previous session summary  (PlanningSessionService.findPreviousSummarizableSession)
+              + last week's plan + notes  (PlanningSessionService.findPreviousPlan + planned_task)
               + task change diff          (PlanningSessionService.diffSincePreviousSession)
               + backlog candidates        (PlannerTaskSelector → urgent + stale)
               + calendar window           (CalendarWindowProvider; stub returns "not connected")
@@ -231,7 +234,8 @@ Profile: `dev`. Endpoints under `/api/dev/planning/*`. Authenticate via the exis
    `ask_choice` calls outstanding), each inbound fills the next pending question's
    tool_result without invoking the model — the orchestrator only re-enters the model
    once the queue drains or the user picks an escape option. Phase flips to `DONE`;
-   `PlanningSessionEntity.summary` is populated.
+   the plan is written to `planned_task` (and `PlanningSessionEntity.weekNote`, if the model
+   wrote one).
 4. `GET /api/dev/planning/{sessionId}` — returns current phase plus any pending messages
    not yet drained.
 5. `POST /api/dev/planning/{sessionId}/abandon` — cancels the session.
@@ -245,7 +249,5 @@ OpenRouter as configured in `application.yaml`).
 - **Real (Google) calendar reads**: `OneOffEventCalendarWindowProvider` surfaces one-off
   events captured through `/add` with a "partial" caveat in the prompt; a Google Calendar
   implementation could replace or extend it behind the same `CalendarWindowProvider` interface.
-- **Post-session summarizer prompt**: today the `submit_plan.summary` is what we store.
-  A separate, focused summarization prompt could replace it later.
 - **Persisted orchestrator state**: in-memory; rebuild across pod restart will require
   pulling the last session/conversation back from the DB.

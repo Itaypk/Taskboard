@@ -60,6 +60,39 @@
   margin: 0;
 }
 
+.revisionNotes {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.summary + .revisionNotes {
+  margin-block-start: 10px;
+}
+
+.revisionNote {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.revisionDate {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--ink-ghost);
+}
+
+.revisionText {
+  font-family: var(--font-serif);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink);
+  white-space: pre-wrap;
+}
+
 .summaryMuted {
   font-family: var(--font-ui);
   font-size: 13px;

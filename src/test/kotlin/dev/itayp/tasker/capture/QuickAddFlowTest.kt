@@ -574,7 +574,7 @@ class QuickAddFlowTest {
                 startedAt = Instant.parse("2026-06-08T08:00:00Z"),
                 weekStart = weekStart,
                 endedAt = Instant.parse("2026-06-08T08:30:00Z"),
-                summary = "a plan",
+                weekNote = "a plan",
             ),
         )
     }

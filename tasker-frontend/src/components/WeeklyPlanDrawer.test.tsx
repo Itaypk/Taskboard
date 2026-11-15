@@ -27,7 +27,6 @@ vi.mock('../api', () => ({
 
 const entry = (plannableTaskCount: number) => ({
   activeSessionId: null,
-  completedPlanSummary: null,
   revisableSessionId: null,
   thisWeek: { weekStart: '2026-08-31', weekEnd: '2026-09-06' },
   nextWeek: { weekStart: '2026-09-07', weekEnd: '2026-09-13' },

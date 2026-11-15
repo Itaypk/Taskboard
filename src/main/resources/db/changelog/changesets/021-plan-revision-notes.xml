@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Append-only revision notes for a finalized plan (GitHub issue #229).
+
+        A revise session used to overwrite `summary` wholesale, so the model's rewrite silently
+        dropped the context written at planning time. Now `summary` holds the week note, written once
+        when the plan is finalized and never touched by a revision, and each revision appends one
+        `{at, text}` entry here. The column holds a JSON array encrypted under the user's DEK (as
+        `summary` is), so it is BYTEA on both H2 and Postgres.
+    -->
+    <changeSet id="021-1-plan-revision-notes" author="tasker">
+        <addColumn tableName="planning_session">
+            <column name="revision_notes" type="BYTEA"/>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>
