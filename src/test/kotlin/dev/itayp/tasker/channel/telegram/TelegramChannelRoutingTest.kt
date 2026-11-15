@@ -24,6 +24,7 @@ import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
+import org.mockito.kotlin.timeout
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.context.support.StaticMessageSource
@@ -208,6 +209,17 @@ class TelegramChannelRoutingTest {
 
         verify(quickAddFlow).beginUnprompted(eq(userId), any(), eq("call the plumber"), anyOrNull())
         verify(orchestrator, never()).handleInbound(any(), any(), any())
+    }
+
+    @Test
+    fun `a polled batch is handed off and handled off the polling thread`() {
+        whenever(quickAddFlow.beginUnprompted(eq(userId), any(), eq("call the plumber"), anyOrNull()))
+            .thenReturn(CaptureEntry.Captured(null))
+
+        channel.consume(listOf(textUpdate("call the plumber")))
+
+        verify(quickAddFlow, timeout(5_000)).beginUnprompted(eq(userId), any(), eq("call the plumber"), anyOrNull())
+        channel.close()
     }
 
     @Test

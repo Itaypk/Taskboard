@@ -6,6 +6,7 @@ import dev.itayp.tasker.capture.QuickAddFlow
 import dev.itayp.tasker.capture.QuickAddState
 import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.ChannelMessage
+import dev.itayp.tasker.channel.KeyedSerialExecutor
 import dev.itayp.tasker.channel.telegram.commands.BotCommandContext
 import dev.itayp.tasker.channel.telegram.commands.BotCommandDispatcher
 import dev.itayp.tasker.channel.telegram.commands.BotCommandHandler
@@ -32,7 +33,6 @@ import org.telegram.telegrambots.longpolling.BotSession
 import org.telegram.telegrambots.longpolling.interfaces.LongPollingUpdateConsumer
 import org.telegram.telegrambots.longpolling.starter.AfterBotRegistration
 import org.telegram.telegrambots.longpolling.starter.SpringLongPollingBot
-import org.telegram.telegrambots.longpolling.util.DefaultLongPollingUpdateConsumer
 import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands
 import org.telegram.telegrambots.meta.api.methods.groupadministration.LeaveChat
@@ -73,13 +73,29 @@ class TelegramChannel(
     private val messageSource: MessageSource,
     private val telegramClient: TelegramClient,
     private val clock: Clock,
-) : SpringLongPollingBot, DefaultLongPollingUpdateConsumer() {
+) : SpringLongPollingBot, LongPollingUpdateConsumer {
 
     override fun getBotToken(): String = botToken
 
     override fun getUpdatesConsumer(): LongPollingUpdateConsumer = this
 
-    override fun consume(update: Update) {
+    /**
+     * Updates run in parallel across chats and one at a time, in order, within a chat (issue
+     * #382). The library's `DefaultLongPollingUpdateConsumer` ran every update on a single thread,
+     * so one user's model call (seconds) stalled every other user's messages and button taps.
+     * Per-chat order still matters: the per-chat registries (quick-add drafts, planning sessions,
+     * plan confirmations) assume a chat's updates never overlap.
+     */
+    private val updateLanes = KeyedSerialExecutor<Long>()
+
+    override fun consume(updates: List<Update>) {
+        updates.forEach { update -> updateLanes.execute(laneKey(update)) { consume(update) } }
+    }
+
+    override fun close() = updateLanes.close()
+
+    /** Handles one update on the calling thread. Public for tests; production goes through the lanes. */
+    fun consume(update: Update) {
         try {
             if (fromNonPrivateChat(update)) return
             handleUpdate(update)
@@ -90,6 +106,18 @@ class TelegramChannel(
             notifyUpdateFailed(update)
         }
     }
+
+    /**
+     * The chat an update belongs to, which is what orders it. An update with no chat isn't acted
+     * on (see [fromNonPrivateChat]), so those share one lane rather than each getting their own.
+     */
+    private fun laneKey(update: Update): Long = when {
+        update.hasMessage() -> update.message.chatId
+        update.hasCallbackQuery() -> update.callbackQuery.message?.chatId
+        update.hasMyChatMember() -> update.myChatMember.chat?.id
+        update.hasChannelPost() -> update.channelPost.chatId
+        else -> null
+    } ?: NO_CHAT_LANE
 
     /**
      * The bot works in a user's private chat with it and nowhere else. Everything below assumes
@@ -541,5 +569,8 @@ class TelegramChannel(
 
         /** Marks the option the user chose on a collapsed card. A symbol, so it needs no locale. */
         private const val CHOSEN_MARK = "\u2713 "
+
+        /** Lane for updates without a chat. No real chat id is this low (group ids are negative, but far from it). */
+        private const val NO_CHAT_LANE = Long.MIN_VALUE
     }
 }
