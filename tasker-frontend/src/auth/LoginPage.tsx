@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { ApiError } from '../api';
@@ -110,7 +110,7 @@ export function LoginPage({ next }: { next?: string } = {}) {
                 </nav>
             </header>
 
-            <div className={styles.stage}>
+            <main className={styles.stage}>
                 <div className={styles.heroWrap}>
                     <div className={styles.heroSticky}>
                         <span className={styles.tape} style={{ top: -11, left: 70, transform: 'rotate(-7deg)' }} />
@@ -159,35 +159,37 @@ export function LoginPage({ next }: { next?: string } = {}) {
                                 </button>
                             )}
                         </div>
+                        {/* "Start now" can fail with the modal closed; the modal shows its own copy. */}
+                        {error && !modalOpen && <p className={`${styles.error} ${styles.heroError}`} role="alert">{error}</p>}
                     </div>
                 </div>
 
                 <div className={styles.satGrid}>
                     <div className={`${styles.sat} ${styles.satPink}`}>
                         <div className={styles.satTag}>{t('login.satellites.problemTag')}</div>
-                        <h3 className={styles.satH}>{t('login.satellites.problemTitle')}</h3>
+                        <h2 className={styles.satH}>{t('login.satellites.problemTitle')}</h2>
                     </div>
 
                     <div className={`${styles.sat} ${styles.satPeach}`}>
                         <span className={styles.tape} style={{ top: -9, left: 26, transform: 'rotate(-4deg)' }} />
                         <div className={styles.satTag}>{t('login.satellites.payoffTag')}</div>
-                        <h3 className={styles.satH}>{t('login.satellites.payoffTitle')}</h3>
+                        <h2 className={styles.satH}>{t('login.satellites.payoffTitle')}</h2>
                         <div className={styles.satMeta}>{t('login.satellites.payoffMeta')}</div>
                     </div>
 
                     <div className={`${styles.sat} ${styles.satBlue}`}>
                         <div className={styles.satTag}>{t('login.satellites.methodTag')}</div>
-                        <h3 className={styles.satH}>{t('login.satellites.methodTitle')}</h3>
+                        <h2 className={styles.satH}>{t('login.satellites.methodTitle')}</h2>
                         <div className={styles.satMeta}>{t('login.satellites.methodMeta')}</div>
                     </div>
 
                     <div className={`${styles.sat} ${styles.satMint}`}>
                         <span className={styles.tape} style={{ top: -9, right: 30, transform: 'rotate(5deg)' }} />
                         <div className={styles.satTag}>{t('login.satellites.privacyTag')}</div>
-                        <h3 className={styles.satH}>{t(config.aiZeroDataRetention ? 'login.satellites.privacyTitle' : 'login.satellites.privacyTitleNoZdr')}</h3>
+                        <h2 className={styles.satH}>{t(config.aiZeroDataRetention ? 'login.satellites.privacyTitle' : 'login.satellites.privacyTitleNoZdr')}</h2>
                     </div>
                 </div>
-            </div>
+            </main>
 
             {/* Confirmed LCP element on this page (measured via PerformanceObserver) — srcset trims
                 bytes on mobile, and fetchPriority="high" tells the browser not to defer the one
@@ -242,6 +244,37 @@ function LoginModal({
     const [emailBusy, setEmailBusy] = useState(false);
     const [emailErr, setEmailErr] = useState<string | null>(null);
 
+    // Keyboard and screen-reader users need focus to land in the dialog, stay there while it's
+    // open (the page behind it is still in the DOM), and return to whatever opened it on close.
+    const dialogRef = useRef<HTMLDivElement>(null);
+    // Captured during the first render: by the time an effect runs, autoFocus has already moved focus.
+    const [opener] = useState(() => (document.activeElement instanceof HTMLElement ? document.activeElement : null));
+    useEffect(() => {
+        const dialog = dialogRef.current;
+        if (dialog && !dialog.contains(document.activeElement)) {
+            (dialog.querySelector<HTMLElement>('input') ?? dialog).focus();
+        }
+        return () => opener?.focus();
+    }, [opener]);
+
+    const trapTab = (e: KeyboardEvent<HTMLDivElement>) => {
+        if (e.key !== 'Tab' || !dialogRef.current) return;
+        const focusables = dialogRef.current.querySelectorAll<HTMLElement>(
+            'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled)',
+        );
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        const active = document.activeElement;
+        if (e.shiftKey && (active === first || active === dialogRef.current)) {
+            e.preventDefault();
+            last.focus();
+        } else if (!e.shiftKey && active === last) {
+            e.preventDefault();
+            first.focus();
+        }
+    };
+
     const submitEmail = async (e: FormEvent) => {
         e.preventDefault();
         const trimmed = email.trim();
@@ -263,11 +296,20 @@ function LoginModal({
 
     return (
         <div className={styles.overlay} onClick={onClose}>
-            <div className={styles.modal} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            <div
+                ref={dialogRef}
+                className={styles.modal}
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={trapTab}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="login-modal-title"
+                tabIndex={-1}
+            >
                 <button type="button" className={styles.modalClose} onClick={onClose} aria-label={t('login.modal.close')}>✕</button>
 
                 <div className={styles.modalTag}>{t('login.modal.tag')}</div>
-                <h2 className={styles.modalH}>{t('login.modal.title')}</h2>
+                <h2 id="login-modal-title" className={styles.modalH}>{t('login.modal.title')}</h2>
                 <p className={styles.modalSub}>
                     {t(config.registrationOpen ? 'login.modal.sub' : 'login.modal.subClosed')}
                 </p>
@@ -291,7 +333,7 @@ function LoginModal({
                     </button> */}
 
                     {!config.login.email ? null : emailSent ? (
-                        <p className={styles.emailSent}>
+                        <p className={styles.emailSent} role="status">
                             <Trans
                                 i18nKey="login.modal.emailSent"
                                 values={{ email: email.trim() }}
@@ -304,6 +346,8 @@ function LoginModal({
                                 type="email"
                                 className={styles.emailInput}
                                 placeholder={t('login.modal.emailPlaceholder')}
+                                aria-label={t('login.modal.emailLabel')}
+                                autoComplete="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 autoFocus
@@ -316,7 +360,7 @@ function LoginModal({
                             >
                                 {emailBusy ? t('login.modal.sending') : t('login.modal.sendLink')}
                             </button>
-                            {emailErr && <p className={styles.error}>{emailErr}</p>}
+                            {emailErr && <p className={styles.error} role="alert">{emailErr}</p>}
                         </form>
                     ) : (
                         <button
@@ -363,7 +407,7 @@ function LoginModal({
                     </button>
                 )}
 
-                {error && <p className={styles.error}>{error}</p>}
+                {error && <p className={styles.error} role="alert">{error}</p>}
             </div>
         </div>
     );
@@ -424,7 +468,7 @@ function PasswordForm() {
             <button type="submit" className={`${styles.channelBtn} ${styles.chEmail}`} disabled={busy}>
                 {busy ? t('login.modal.signingIn') : t('login.modal.passwordSubmit')}
             </button>
-            {error && <p className={styles.error}>{error}</p>}
+            {error && <p className={styles.error} role="alert">{error}</p>}
         </form>
     );
 }

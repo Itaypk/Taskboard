@@ -1,8 +1,8 @@
 /* Site-wide footer. Deliberately the same visual stratum as `.show-archived-btn`
-   (small, ink-soft, half-opaque) so it reads as background chrome rather than
+   (small, ink-soft) so it reads as background chrome rather than
    navigation. Flows after the page content — never fixed. The board's archived
    toggle is centred over this same strip (see `.show-archived-wrap`), so the two
-   share one row. */
+   share one row. No opacity dimming: at 0.6 the links fell to ~2.4:1 contrast (WCAG AA wants 4.5). */
 .footer {
   display: flex;
   gap: 14px;
@@ -23,13 +23,11 @@
   font-size: 12px;
   color: var(--ink-soft);
   text-decoration: none;
-  opacity: 0.6;
-  transition: opacity 0.15s;
   white-space: nowrap;
 }
 
 .link:hover {
-  opacity: 1;
+  color: var(--ink);
   text-decoration: underline;
 }
 
@@ -47,12 +45,10 @@
   line-height: 21px;
   color: var(--ink-soft);
   cursor: pointer;
-  opacity: 0.6;
-  transition: opacity 0.15s;
 }
 
 .trigger:hover,
-.trigger[aria-expanded='true'] { opacity: 1; }
+.trigger[aria-expanded='true'] { color: var(--ink); }
 
 /* Opens upward — the footer is the last thing on the page — and always toward the
    viewport centre, since the trigger itself is pinned to the physical-left corner

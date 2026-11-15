@@ -3,14 +3,15 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PublicConfig } from '../publicConfig';
 
-const { passwordLogin, setUser } = vi.hoisted(() => ({
+const { demoLogin, passwordLogin, setUser } = vi.hoisted(() => ({
+    demoLogin: vi.fn(),
     passwordLogin: vi.fn(),
     setUser: vi.fn(),
 }));
 
 vi.mock('./authApi', async () => {
     const actual = await vi.importActual<typeof import('./authApi')>('./authApi');
-    return { ...actual, passwordLogin };
+    return { ...actual, demoLogin, passwordLogin };
 });
 
 vi.mock('./AuthContext', () => ({
@@ -124,8 +125,53 @@ describe('LoginPage', () => {
         fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'nope' } });
         fireEvent.submit(screen.getByLabelText('Password').closest('form')!);
 
-        expect(await screen.findByText('Wrong username or password.')).toBeInTheDocument();
+        expect(await screen.findByRole('alert')).toHaveTextContent('Wrong username or password.');
         expect(setUser).not.toHaveBeenCalled();
+    });
+
+    it('moves focus into the named dialog and back to the opener on Escape', async () => {
+        withInlineConfig(selfHosted);
+        renderPage();
+
+        const signIn = await screen.findByRole('button', { name: /^Sign in/ });
+        signIn.focus();
+        fireEvent.click(signIn);
+
+        const dialog = screen.getByRole('dialog', { name: 'Pick how you\'d like to continue' });
+        expect(dialog).toContainElement(document.activeElement as HTMLElement);
+
+        fireEvent.keyDown(window, { key: 'Escape' });
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        expect(signIn).toHaveFocus();
+    });
+
+    it('keeps Tab inside the dialog', async () => {
+        withInlineConfig(selfHosted);
+        renderPage();
+        fireEvent.click(await screen.findByRole('button', { name: /^Sign in/ }));
+
+        const dialog = screen.getByRole('dialog');
+        const close = screen.getByRole('button', { name: 'Close' });
+        const controls = dialog.querySelectorAll<HTMLElement>('a[href], button, input');
+        const last = controls[controls.length - 1];
+
+        last.focus();
+        fireEvent.keyDown(dialog, { key: 'Tab' });
+        expect(close).toHaveFocus();
+
+        fireEvent.keyDown(dialog, { key: 'Tab', shiftKey: true });
+        expect(last).toHaveFocus();
+    });
+
+    it('announces a failed sandbox start even with the dialog closed', async () => {
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        demoLogin.mockRejectedValue(new Error('boom'));
+        renderPage();
+
+        fireEvent.click(screen.getByRole('button', { name: /no sign-up/ }));
+
+        expect(await screen.findByRole('alert')).toBeInTheDocument();
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
 
     it('keeps the hosted landing page when there is no usable inline config', () => {
