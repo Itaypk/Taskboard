@@ -84,6 +84,8 @@ class TelegramChannelRoutingTest {
         addMessage("quickadd.in_session", Locale.ENGLISH, "We're planning right now")
         addMessage("command.start", Locale.ENGLISH, "Sign up at backlog.fyi")
         addMessage("command.link.welcome", Locale.ENGLISH, "Telegram is connected")
+        addMessage("command.unknown", Locale.ENGLISH, "Unknown command")
+        addMessage("command.unknown", Locale.forLanguageTag("he"), "פקודה לא מוכרת")
     }
 
     private val channel = TelegramChannel(
@@ -402,6 +404,16 @@ class TelegramChannelRoutingTest {
      * there. Answering them with the sign-up instructions sent them back to the step they had
      * already done, which is how the "chat not found" welcome failure left them stuck.
      */
+    @Test
+    fun `an unknown command is answered in the user's language`() {
+        whenever(userSettingsService.getLocale(userId)).thenReturn(Locale.forLanguageTag("he"))
+        whenever(commandDispatcher.dispatch(any(), any())).thenReturn(false)
+
+        channel.consume(textUpdate("/nope"))
+
+        assertEquals(listOf("פקודה לא מוכרת"), sentTexts())
+    }
+
     @Test
     fun `start from an already-linked account replies with the welcome, not the sign-up instructions`() {
         channel.consume(textUpdate("/start"))

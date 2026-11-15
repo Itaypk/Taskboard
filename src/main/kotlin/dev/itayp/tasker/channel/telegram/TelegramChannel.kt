@@ -266,7 +266,8 @@ class TelegramChannel(
             val context = BotCommandContext(userId, chatId, "", channel, sessionRegistry)
             val handled = commandDispatcher.dispatch(inbound.text, context)
             if (!handled) {
-                channel.send(ChannelMessage.Text("Unknown command. Send /help to see what I can do."))
+                val locale = userSettingsService.getLocale(userId)
+                channel.send(ChannelMessage.Text(messageSource.getMessage("command.unknown", null, locale)))
             }
             return
         }
