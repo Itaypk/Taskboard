@@ -7,6 +7,10 @@ Status: **exploration only** — feasibility, effort, and design tradeoffs, not 
 implementation should start from this document without a separate follow-up decision. Supersedes
 the earlier one-line idea ("WhatsApp as a communication channel support"), now tracked as issue #268.
 
+> **Build plan:** `docs/MESSAGING-CHANNELS.md` takes the recommendation below (Cloud API,
+> reactive-only) and plans it together with Webex. It supersedes this note on two points: how a
+> WhatsApp account is linked to a user, and what in-window replies cost.
+
 ## Correcting the starting premise: the phone is not the asset
 
 The natural worry — "the phone location is far off the server's location, so a WhatsApp-Web-style
