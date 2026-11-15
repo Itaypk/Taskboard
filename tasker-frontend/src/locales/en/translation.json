@@ -35,6 +35,7 @@
       "soon": "Soon",
       "emailSent": "Check your inbox — we sent a sign-in link to <strong>{{email}}</strong>. It expires in 30 minutes.",
       "emailPlaceholder": "you@example.com",
+      "emailLabel": "Email address",
       "sending": "Sending…",
       "sendLink": "Send sign-in link",
       "continueEmail": "Continue with email",

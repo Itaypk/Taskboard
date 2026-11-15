@@ -7,7 +7,7 @@
 .page {
   --cb-ink:      #2a1f14;
   --cb-ink-soft: #5a4a36;
-  --cb-ink-mute: #8a7a5d;
+  --cb-ink-mute: #706148; /* ≥4.5:1 on both the wall and the modal paper */
   --cb-paper:    #fbf6e3;
   --cb-rule:     #d6cbb0;
   --cb-telegram: #2aabee;
@@ -426,6 +426,7 @@
 .emailInput:focus {
   outline: none;
   border-color: var(--cb-ink);
+  box-shadow: 0 0 0 2px rgba(42,31,20,0.25);
 }
 
 .emailSent {
@@ -530,6 +531,10 @@
   font-size: 13px;
   margin: 10px 0 0;
 }
+.heroError { text-align: start; }
+
+/* The dialog itself only takes focus as a fallback landing spot; its controls show their own rings. */
+.modal:focus { outline: none; }
 
 /* ─── Responsive: collapse pinboard to a single column ───── */
 @media (max-width: 1099px) {

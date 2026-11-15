@@ -35,6 +35,7 @@
       "soon": "Скоро",
       "emailSent": "Проверьте почту — на <strong>{{email}}</strong> отправлена ссылка для входа. Она действует 30 минут.",
       "emailPlaceholder": "you@example.com",
+      "emailLabel": "Адрес электронной почты",
       "sending": "Отправка…",
       "sendLink": "Отправить ссылку для входа",
       "continueEmail": "Продолжить с email",

@@ -35,6 +35,7 @@
       "soon": "قريبًا",
       "emailSent": "يُرجى تفقّد البريد — تم إرسال رابط الدخول إلى <strong>{{email}}</strong>. صلاحيته 30 دقيقة.",
       "emailPlaceholder": "you@example.com",
+      "emailLabel": "عنوان البريد الإلكتروني",
       "sending": "جارٍ الإرسال…",
       "sendLink": "إرسال رابط الدخول",
       "continueEmail": "المتابعة عبر البريد الإلكتروني",
