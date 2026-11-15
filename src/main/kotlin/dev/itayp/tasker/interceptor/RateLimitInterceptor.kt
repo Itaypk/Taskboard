@@ -20,6 +20,8 @@ class RateLimitInterceptor(
     private val emailLoginLimiter: RateLimiter,
     /** Applied per token-authenticated user on the external API, which has its own tighter budget. */
     private val externalApiLimiter: RateLimiter,
+    /** Applied per client IP on the Google login endpoints, before a session exists. */
+    private val googleLoginLimiter: RateLimiter,
 ) : HandlerInterceptor {
 
     override fun preHandle(request: HttpServletRequest, response: HttpServletResponse, handler: Any): Boolean {
@@ -32,6 +34,10 @@ class RateLimitInterceptor(
         // never the bare prefix, so an exact-equality check would never fire.
         if (servletPath.startsWith(TELEGRAM_LOGIN_PREFIX)) {
             if (!telegramLoginLimiter.tryConsume(request.clientIp())) return reject(response)
+            return true
+        }
+        if (servletPath.startsWith(GOOGLE_LOGIN_PREFIX)) {
+            if (!googleLoginLimiter.tryConsume(request.clientIp())) return reject(response)
             return true
         }
         // Exact match, unlike Telegram above: only POST /api/auth/email actually sends mail. The
@@ -73,6 +79,7 @@ class RateLimitInterceptor(
     companion object {
         private const val DEMO_LOGIN_PATH = "/api/auth/demo-login"
         private const val TELEGRAM_LOGIN_PREFIX = "/api/auth/telegram"
+        private const val GOOGLE_LOGIN_PREFIX = "/api/auth/google/"
         private const val EMAIL_LOGIN_PATH = "/api/auth/email"
         private const val EXTERNAL_API_PREFIX = "/api/external/"
     }

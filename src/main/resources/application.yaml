@@ -106,6 +106,11 @@ tasker:
     # OIDC login (BotFather → Bot Settings → Web Login). Required for Telegram login in prod.
     client-id: ${TASKER_TELEGRAM_CLIENT_ID:}
     client-secret: ${TASKER_TELEGRAM_CLIENT_SECRET:}
+  google:
+    # "Sign in with Google" (Google Auth Platform → Clients → Web application; redirect URI
+    # <base-url>/api/auth/google/callback). Login is offered only when both are set.
+    client-id: ${TASKER_GOOGLE_CLIENT_ID:}
+    client-secret: ${TASKER_GOOGLE_CLIENT_SECRET:}
   auth:
     # open: anyone may create an account. closed: only existing accounts and the local users below.
     registration: ${TASKER_REGISTRATION:open}
@@ -151,6 +156,9 @@ tasker:
       limit: 5
       window-seconds: 3600
     telegram-login:
+      limit: 30
+      window-seconds: 60
+    google-login:
       limit: 30
       window-seconds: 60
     feedback:

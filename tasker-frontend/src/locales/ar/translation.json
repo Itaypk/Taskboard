@@ -55,6 +55,9 @@
     "notices": {
       "telegramFailed": "لم يكتمل الدخول عبر Telegram. يُرجى المحاولة مجددًا.",
       "telegramUnavailable": "الدخول عبر Telegram غير متاح مؤقتًا. تجربة طريقة أخرى.",
+      "googleFailed": "لم يكتمل تسجيل الدخول عبر Google. يُرجى المحاولة مرة أخرى.",
+      "googleUnavailable": "تسجيل الدخول عبر Google غير متاح مؤقتًا. يمكن استخدام طريقة أخرى.",
+      "googleEmailConflict": "يوجد بالفعل حساب بعنوان البريد الإلكتروني هذا. يُرجى تسجيل الدخول بالطريقة المعتادة، ثم ربط Google من الإعدادات.",
       "registrationClosed": "هذا الخادم لا يقبل حسابات جديدة. يُرجى تسجيل الدخول بحساب موجود."
     },
     "errors": {
@@ -185,6 +188,7 @@
     "unlink": "إلغاء الربط",
     "none": "لا توجد طرق دخول مرتبطة بعد.",
     "linkTelegram": "ربط Telegram",
+    "linkGoogle": "ربط Google",
     "linkAnotherFirst": "ربط طريقة أخرى أولًا قبل إزالة هذه",
     "telegramNextStep": "تم ربط Telegram. بقيت خطوة واحدة: فتح المحادثة مع البوت والضغط على Start — إذ لا يسمح Telegram له بإرسال الرسائل إلا بعد أول رسالة منك.",
     "openTelegramChat": "فتح المحادثة مع {{bot}}",
@@ -199,6 +203,13 @@
       "exists": "يوجد بالفعل حساب Telegram مرتبط.",
       "failed": "تعذّر ربط Telegram. يُرجى المحاولة مجددًا.",
       "unavailable": "ربط Telegram غير متاح مؤقتًا."
+    },
+    "googleLinkNotices": {
+      "success": "تم ربط Google. يمكن الآن تسجيل الدخول من خلاله.",
+      "conflict": "حساب Google هذا مرتبط بالفعل بحساب {{appName}} آخر.",
+      "exists": "يوجد حساب Google مرتبط بالفعل.",
+      "failed": "تعذّر ربط Google. يُرجى المحاولة مرة أخرى.",
+      "unavailable": "ربط Google غير متاح مؤقتًا."
     },
     "errors": {
       "lastMethod": "لا يمكن إزالة طريقة الدخول الوحيدة. ربط طريقة أخرى أولًا.",
@@ -323,6 +334,7 @@
     "close": "إغلاق",
     "intro": "يمكن إضافة طريقة دخول للعودة إلى هذه اللوحة من أي جهاز. تبقى المهام كما هي تمامًا.",
     "telegram": "المتابعة عبر Telegram",
+    "google": "المتابعة باستخدام Google",
     "email": "المتابعة عبر البريد الإلكتروني",
     "emailLabel": "عنوان البريد الإلكتروني",
     "emailPlaceholder": "you@example.com",

@@ -5,9 +5,9 @@ import io.micrometer.core.instrument.MeterRegistry
 import jakarta.annotation.PostConstruct
 import org.springframework.stereotype.Component
 
-enum class LoginProvider { TELEGRAM, EMAIL, LOCAL, DEMO }
+enum class LoginProvider { TELEGRAM, GOOGLE, EMAIL, LOCAL, DEMO }
 
-/** `link` is attaching a provider to a signed-in account; only Telegram has a link round-trip today. */
+/** `link` is attaching a provider to a signed-in account; Telegram and Google have a link round-trip. */
 enum class LoginMode { LOGIN, LINK }
 
 enum class LoginOutcome {
@@ -56,8 +56,10 @@ class LoginMetrics(private val meterRegistry: MeterRegistry) {
         const val NAME = "tasker.auth.login"
 
         private val EXPECTED: List<Triple<LoginProvider, LoginMode, LoginOutcome>> = buildList {
-            val telegram = listOf(LoginOutcome.SUCCESS, LoginOutcome.REJECTED, LoginOutcome.ERROR)
-            LoginMode.entries.forEach { mode -> telegram.forEach { add(Triple(LoginProvider.TELEGRAM, mode, it)) } }
+            val oauth = listOf(LoginOutcome.SUCCESS, LoginOutcome.REJECTED, LoginOutcome.ERROR)
+            listOf(LoginProvider.TELEGRAM, LoginProvider.GOOGLE).forEach { provider ->
+                LoginMode.entries.forEach { mode -> oauth.forEach { add(Triple(provider, mode, it)) } }
+            }
             listOf(LoginOutcome.SUCCESS, LoginOutcome.REJECTED)
                 .forEach { add(Triple(LoginProvider.EMAIL, LoginMode.LOGIN, it)) }
             listOf(LoginOutcome.SUCCESS, LoginOutcome.INVALID_CREDENTIALS, LoginOutcome.RATE_LIMITED)

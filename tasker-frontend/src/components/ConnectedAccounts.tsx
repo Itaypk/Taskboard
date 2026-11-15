@@ -6,11 +6,12 @@ import {
     fetchMe,
     fetchTelegramBot,
     unlinkIdentity,
+    GOOGLE_LINK_URL,
     TELEGRAM_LINK_URL,
     type LinkedIdentity,
 } from '../auth/authApi';
 import { ApiError } from '../api';
-import { useBranding } from '../publicConfig';
+import { useBranding, usePublicConfig } from '../publicConfig';
 
 const PROVIDER_LABEL_KEYS: Record<string, string> = {
     telegram: 'connectedAccounts.providers.telegram',
@@ -32,15 +33,31 @@ const LINK_ERROR_KEYS: Record<string, string> = {
     unavailable: 'connectedAccounts.linkNotices.unavailable',
 };
 
+// The same for the Google round-trip (/settings?googleLink=<code>); its `success` is a plain notice.
+const GOOGLE_LINK_KEYS: Record<string, string> = {
+    success: 'connectedAccounts.googleLinkNotices.success',
+    conflict: 'connectedAccounts.googleLinkNotices.conflict',
+    exists: 'connectedAccounts.googleLinkNotices.exists',
+    failed: 'connectedAccounts.googleLinkNotices.failed',
+    unavailable: 'connectedAccounts.googleLinkNotices.unavailable',
+};
+
+const LINK_PARAMS = ['telegramLink', 'googleLink'];
+
 function readLinkCode(): string | null {
     return new URLSearchParams(window.location.search).get('telegramLink');
+}
+
+function readGoogleLinkCode(): string | null {
+    return new URLSearchParams(window.location.search).get('googleLink');
 }
 
 /**
  * "Connected accounts" — the login methods linked to the current user. Lets the user link a
  * Telegram account (via the OIDC redirect flow) and unlink any method, guarded so they can't
  * remove their last way to sign in. Email is linked through the verify-email field above; it
- * appears here once verified. Provider-agnostic so a future Google method just shows up as a row.
+ * appears here once verified. Google links through the same kind of OIDC round-trip as Telegram,
+ * minus the bot-chat step.
  *
  * Linking Telegram needs one step the OIDC round-trip cannot do for the user: Telegram refuses to
  * let a bot message anyone who has not written to it first, so a linked-but-never-opened chat is
@@ -52,6 +69,7 @@ function readLinkCode(): string | null {
 export function ConnectedAccounts() {
     const { t } = useTranslation();
     const { name: appName } = useBranding();
+    const config = usePublicConfig();
     const { state: authState, setUser, refresh: refreshUser } = useAuth();
     const chatReady = authState.status === 'authenticated' && authState.user.telegramChatReady;
     const [identities, setIdentities] = useState<LinkedIdentity[] | null>(null);
@@ -62,7 +80,15 @@ export function ConnectedAccounts() {
     const [linkCode] = useState(readLinkCode);
     const justLinked = linkCode === 'success';
     const initialErrorKey = linkCode && !justLinked ? LINK_ERROR_KEYS[linkCode] ?? LINK_ERROR_KEYS.failed : null;
-    const [error, setError] = useState<string | null>(initialErrorKey ? t(initialErrorKey, { appName }) : null);
+    const [googleLinkCode] = useState(readGoogleLinkCode);
+    const googleJustLinked = googleLinkCode === 'success';
+    const googleErrorKey = googleLinkCode && !googleJustLinked
+        ? GOOGLE_LINK_KEYS[googleLinkCode] ?? GOOGLE_LINK_KEYS.failed
+        : null;
+    const [error, setError] = useState<string | null>(() => {
+        const key = initialErrorKey ?? googleErrorKey;
+        return key ? t(key, { appName }) : null;
+    });
 
     const refresh = useCallback(async () => {
         try {
@@ -81,14 +107,16 @@ export function ConnectedAccounts() {
         return () => { cancelled = true; };
     }, []);
 
-    // Drop the telegramLink notice from the URL so it doesn't survive a refresh.
+    // Drop the link notice from the URL so it doesn't survive a refresh.
     useEffect(() => {
-        if (new URLSearchParams(window.location.search).has('telegramLink')) {
+        const params = new URLSearchParams(window.location.search);
+        if (LINK_PARAMS.some(p => params.has(p))) {
             window.history.replaceState(null, '', window.location.pathname);
         }
     }, []);
 
     const hasTelegram = identities?.some(i => i.provider === 'telegram') ?? false;
+    const hasGoogle = identities?.some(i => i.provider === 'google') ?? false;
 
     // Only worth a request once there is a chat to point at — an email-only account never needs it.
     const needsBotHandle = justLinked || hasTelegram;
@@ -173,6 +201,16 @@ export function ConnectedAccounts() {
                 <a className="btn btn--ghost" href={TELEGRAM_LINK_URL}>
                     {t('connectedAccounts.linkTelegram')}
                 </a>
+            )}
+
+            {config.login.google && !hasGoogle && identities != null && (
+                <a className="btn btn--ghost" href={GOOGLE_LINK_URL}>
+                    {t('connectedAccounts.linkGoogle')}
+                </a>
+            )}
+
+            {googleJustLinked && (
+                <p className="settings-hint" role="status">{t(GOOGLE_LINK_KEYS.success)}</p>
             )}
 
             {needsChatOpened && (

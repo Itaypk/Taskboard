@@ -55,6 +55,12 @@ class WebConfiguration(
     )
 
     @Bean
+    fun googleLoginRateLimiter(): RateLimiter = InMemoryRateLimiter(
+        limit = rateLimitProperties.googleLogin.limit,
+        windowMillis = rateLimitProperties.googleLogin.windowSeconds * 1_000,
+    )
+
+    @Bean
     fun emailLoginRateLimiter(): RateLimiter = InMemoryRateLimiter(
         limit = rateLimitProperties.emailLogin.limit,
         windowMillis = rateLimitProperties.emailLogin.windowSeconds * 1_000,
@@ -144,6 +150,7 @@ class WebConfiguration(
                 telegramLoginRateLimiter(),
                 emailLoginRateLimiter(),
                 externalApiRateLimiter(),
+                googleLoginRateLimiter(),
             ),
         )
         activityTrackerProvider.ifAvailable { tracker ->

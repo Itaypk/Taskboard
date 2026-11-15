@@ -24,6 +24,7 @@ class RateLimitInterceptorTest {
             telegramLoginLimiter = generous,
             emailLoginLimiter = InMemoryRateLimiter(limit = emailLoginLimit, windowMillis = 60_000),
             externalApiLimiter = generous,
+            googleLoginLimiter = generous,
         )
     }
 

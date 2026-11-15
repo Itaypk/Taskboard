@@ -26,6 +26,7 @@ data class BrandingResponse(
 
 data class LoginMethodsResponse(
     val telegram: Boolean,
+    val google: Boolean,
     val email: Boolean,
     val password: Boolean,
     val demo: Boolean,

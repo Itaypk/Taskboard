@@ -1,6 +1,7 @@
 package dev.itayp.tasker.service
 
 import dev.itayp.tasker.channel.email.EmailProperties
+import dev.itayp.tasker.config.GoogleAuthProperties
 import dev.itayp.tasker.config.TelegramAuthProperties
 import org.springframework.stereotype.Component
 
@@ -12,11 +13,14 @@ import org.springframework.stereotype.Component
 @Component
 class LoginMethods(
     private val telegramAuthProperties: TelegramAuthProperties,
+    private val googleAuthProperties: GoogleAuthProperties,
     private val emailProperties: EmailProperties,
     private val localLoginService: LocalLoginService,
     private val registrationPolicy: RegistrationPolicy,
 ) {
     val telegram: Boolean get() = telegramAuthProperties.loginConfigured
+
+    val google: Boolean get() = googleAuthProperties.loginConfigured
 
     /** Magic links need a real sender; with email disabled the link would only reach a log line. */
     val email: Boolean get() = emailProperties.enabled

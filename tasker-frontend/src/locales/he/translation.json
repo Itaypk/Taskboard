@@ -55,6 +55,9 @@
     "notices": {
       "telegramFailed": "הכניסה דרך Telegram לא הושלמה. אפשר לנסות שוב.",
       "telegramUnavailable": "הכניסה דרך Telegram אינה זמינה כרגע. כדאי לנסות דרך אחרת.",
+      "googleFailed": "הכניסה דרך Google לא הושלמה. אפשר לנסות שוב.",
+      "googleUnavailable": "הכניסה דרך Google אינה זמינה כרגע. כדאי לנסות דרך אחרת.",
+      "googleEmailConflict": "כבר קיים חשבון עם כתובת האימייל הזו. יש להיכנס בדרך הרגילה ואז לקשר את Google בהגדרות.",
       "registrationClosed": "המופע הזה לא מקבל חשבונות חדשים. אפשר להיכנס עם חשבון קיים."
     },
     "errors": {
@@ -167,6 +170,7 @@
     "unlink": "ניתוק",
     "none": "עדיין לא קושרו שיטות כניסה.",
     "linkTelegram": "קישור Telegram",
+    "linkGoogle": "קישור Google",
     "linkAnotherFirst": "יש לקשר שיטה נוספת לפני הסרת זו",
     "telegramNextStep": "Telegram מחובר. נשאר שלב אחד: לפתוח את הצ׳אט עם הבוט וללחוץ על Start — Telegram מאפשר לו לשלוח הודעות רק אחרי הודעה ראשונה מהצד שלך.",
     "openTelegramChat": "פתיחת הצ׳אט עם {{bot}}",
@@ -181,6 +185,13 @@
       "exists": "כבר קיים חשבון Telegram מקושר.",
       "failed": "לא הצלחנו לקשר את Telegram. אפשר לנסות שוב.",
       "unavailable": "קישור Telegram אינו זמין כרגע."
+    },
+    "googleLinkNotices": {
+      "success": "Google מחובר. מעכשיו אפשר להיכנס דרכו.",
+      "conflict": "חשבון ה-Google הזה כבר מקושר לחשבון {{appName}} אחר.",
+      "exists": "כבר יש חשבון Google מקושר.",
+      "failed": "לא ניתן לקשר את Google. אפשר לנסות שוב.",
+      "unavailable": "קישור Google אינו זמין כרגע."
     },
     "errors": {
       "lastMethod": "אי אפשר להסיר את שיטת הכניסה היחידה. יש לקשר שיטה נוספת קודם.",
@@ -305,6 +316,7 @@
     "close": "סגירה",
     "intro": "אפשר להוסיף דרך כניסה כדי לחזור ללוח הזה מכל מכשיר. המשימות נשארות בדיוק כמו שהן.",
     "telegram": "המשך עם Telegram",
+    "google": "המשך עם Google",
     "email": "המשך עם אימייל",
     "emailLabel": "כתובת אימייל",
     "emailPlaceholder": "you@example.com",

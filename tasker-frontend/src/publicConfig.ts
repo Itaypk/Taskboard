@@ -11,6 +11,7 @@
 export interface PublicConfig {
     login: {
         telegram: boolean;
+        google: boolean;
         email: boolean;
         password: boolean;
         demo: boolean;
@@ -32,7 +33,7 @@ export interface PublicConfig {
 }
 
 export const DEFAULT_PUBLIC_CONFIG: PublicConfig = {
-    login: { telegram: true, email: true, password: false, demo: true },
+    login: { telegram: true, google: true, email: true, password: false, demo: true },
     registrationOpen: true,
     branding: {
         name: 'Backlog.fyi',

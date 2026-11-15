@@ -2,8 +2,8 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { ApiError, requestEmailVerification } from '../api';
 import { useAuth } from '../auth/AuthContext';
-import { TELEGRAM_LINK_URL } from '../auth/authApi';
-import { MailIcon, TelegramIcon } from '../auth/loginIcons';
+import { GOOGLE_LINK_URL, TELEGRAM_LINK_URL } from '../auth/authApi';
+import { GoogleIcon, MailIcon, TelegramIcon } from '../auth/loginIcons';
 import { usePublicConfig } from '../publicConfig';
 import styles from './SaveAccountModal.module.css';
 
@@ -30,6 +30,7 @@ function emailErrorKey(e: unknown): string {
  * the full settings page. It drives the same endpoints Settings uses:
  *  - Telegram: the OIDC link round-trip (`/api/auth/telegram/link/start`). That redirect lands on
  *    Settings, which is where the "open the bot chat" step lives, so we don't duplicate it here.
+ *  - Google: the same round-trip (`/api/auth/google/link/start`), also landing on Settings.
  *  - Email: requests a verification link; following it verifies the address, which claims the
  *    account and attaches an email login.
  *
@@ -90,7 +91,7 @@ export function SaveAccountModal({ open, onClose }: SaveAccountModalProps) {
     }
   };
 
-  const hasMethod = config.login.telegram || config.login.email;
+  const hasMethod = config.login.telegram || config.login.google || config.login.email;
 
   return (
     <div
@@ -125,6 +126,11 @@ export function SaveAccountModal({ open, onClose }: SaveAccountModalProps) {
             <>
               <p className={styles.lead}>{t('saveAccountModal.intro')}</p>
               <div className={styles.methods}>
+                {config.login.google && (
+                  <a className={`btn btn--ghost ${styles.method}`} href={GOOGLE_LINK_URL}>
+                    <GoogleIcon /> {t('saveAccountModal.google')}
+                  </a>
+                )}
                 {config.login.telegram && (
                   <a className={`btn btn--ghost ${styles.method}`} href={TELEGRAM_LINK_URL}>
                     <TelegramIcon /> {t('saveAccountModal.telegram')}

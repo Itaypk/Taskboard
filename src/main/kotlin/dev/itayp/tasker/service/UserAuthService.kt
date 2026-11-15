@@ -8,6 +8,7 @@ import dev.itayp.tasker.jpa.AuthProvider
 import dev.itayp.tasker.jpa.UserEntity
 import dev.itayp.tasker.repository.AuthIdentityRepository
 import dev.itayp.tasker.repository.UserRepository
+import dev.itayp.tasker.security.google.GoogleAuthData
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
@@ -143,6 +144,58 @@ class UserAuthService(
             hints = hints,
         )
         return EmailLoginOutcome.Success(user)
+    }
+
+    /**
+     * Logs in (or registers) with a validated Google id_token:
+     *  - a known Google account (`sub`) -> log into its user;
+     *  - a new one whose email an account already holds -> sign into that account and attach the
+     *    Google identity, but only if the account verified the address *and* Google's claim is
+     *    trustworthy ([GoogleAuthData.trustedEmail]); otherwise [GoogleLoginOutcome.EmailConflict];
+     *  - nobody holds the email -> register, storing a trusted email as the account's verified
+     *    address (and so as an email login method, as verifying in Settings would).
+     */
+    @Transactional
+    fun loginByGoogle(data: GoogleAuthData, hints: RegistrationHints = RegistrationHints.NONE): GoogleLoginOutcome {
+        if (authIdentityRepository.findByProviderAndProviderUserId(AuthProvider.GOOGLE, data.subject) != null) {
+            return GoogleLoginOutcome.Success(loginOrRegister(AuthProvider.GOOGLE, data.subject, true, {}, {}, hints))
+        }
+
+        val trustedEmail = data.trustedEmail
+        val anyEmail = data.email?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
+        val owner = anyEmail?.let { userRepository.findByEmailHash(EmailHasher.hash(it)) }
+        if (owner != null) {
+            val ownerHasGoogle = authIdentityRepository.findAllByUserId(owner.id!!).any { it.provider == AuthProvider.GOOGLE }
+            if (trustedEmail == null || owner.emailVerifiedAt == null || ownerHasGoogle) {
+                logger.info("Google login refused: its email belongs to account {} and can't be matched safely", owner.id)
+                return GoogleLoginOutcome.EmailConflict
+            }
+            val now = clock.instant()
+            attachIdentity(owner.id!!, AuthProvider.GOOGLE, data.subject, verified = true, now = now)
+            attachIdentityIfMissing(owner.id!!, AuthProvider.EMAIL, owner.emailHash!!, verified = true, now = now)
+            owner.claimed = true
+            owner.lastLoginAt = now
+            logger.info("Linked Google identity to user {} by verified email", owner.id)
+            return GoogleLoginOutcome.Success(userRepository.save(owner))
+        }
+
+        val emailHash = trustedEmail?.let(EmailHasher::hash)
+        val user = loginOrRegister(
+            provider = AuthProvider.GOOGLE,
+            providerUserId = data.subject,
+            verified = true,
+            onExisting = { /* unreachable: the identity lookup above was empty */ },
+            onCreate = { u ->
+                if (trustedEmail != null) {
+                    u.email = userCrypto.encrypt(u.id!!, trustedEmail)
+                    u.emailHash = emailHash
+                    u.emailVerifiedAt = clock.instant()
+                }
+            },
+            hints = hints,
+        )
+        if (emailHash != null) attachIdentityIfMissing(user.id!!, AuthProvider.EMAIL, emailHash, verified = true, now = clock.instant())
+        return GoogleLoginOutcome.Success(user)
     }
 
     /** Whether an account already holds [emailHash] — lets a closed instance skip mailing strangers. */

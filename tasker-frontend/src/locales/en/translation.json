@@ -55,6 +55,9 @@
     "notices": {
       "telegramFailed": "Telegram sign-in didn’t complete. Please try again.",
       "telegramUnavailable": "Telegram sign-in is temporarily unavailable. Try another method.",
+      "googleFailed": "Google sign-in didn’t complete. Please try again.",
+      "googleUnavailable": "Google sign-in is temporarily unavailable. Try another method.",
+      "googleEmailConflict": "An account with this email address already exists. Sign in the way you usually do, then connect Google in Settings.",
       "registrationClosed": "This instance isn’t accepting new accounts. Sign in with an existing one."
     },
     "errors": {
@@ -161,6 +164,7 @@
     "unlink": "Unlink",
     "none": "No login methods linked yet.",
     "linkTelegram": "Link Telegram",
+    "linkGoogle": "Link Google",
     "linkAnotherFirst": "Link another method before removing this one",
     "telegramNextStep": "Telegram is connected. One step left: open the chat with the bot and tap Start — Telegram only lets it message you once you’ve written to it first.",
     "openTelegramChat": "Open the chat with {{bot}}",
@@ -175,6 +179,13 @@
       "exists": "You already have a Telegram account linked.",
       "failed": "Could not link Telegram. Please try again.",
       "unavailable": "Telegram linking is temporarily unavailable."
+    },
+    "googleLinkNotices": {
+      "success": "Google is connected. You can now sign in with it.",
+      "conflict": "That Google account is already linked to a different {{appName}} account.",
+      "exists": "You already have a Google account linked.",
+      "failed": "Could not link Google. Please try again.",
+      "unavailable": "Google linking is temporarily unavailable."
     },
     "errors": {
       "lastMethod": "You can’t remove your only sign-in method. Link another first.",
@@ -299,6 +310,7 @@
     "close": "Close",
     "intro": "Add a way to sign in so you can get back to this board from any device. Your tasks stay exactly as they are.",
     "telegram": "Continue with Telegram",
+    "google": "Continue with Google",
     "email": "Continue with email",
     "emailLabel": "Email address",
     "emailPlaceholder": "you@example.com",
