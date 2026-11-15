@@ -28,10 +28,15 @@ import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.context.support.StaticMessageSource
 import org.telegram.telegrambots.meta.api.methods.botapimethods.BotApiMethod
+import org.telegram.telegrambots.meta.api.methods.groupadministration.LeaveChat
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery
 import org.telegram.telegrambots.meta.api.objects.Update
+import org.telegram.telegrambots.meta.api.objects.chat.Chat
+import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMember
+import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMemberUpdated
+import org.telegram.telegrambots.meta.api.objects.chatmember.MemberStatus
 import org.telegram.telegrambots.meta.api.objects.User as TelegramUser
 import org.telegram.telegrambots.meta.api.objects.message.MaybeInaccessibleMessage
 import org.telegram.telegrambots.meta.api.objects.message.Message
@@ -104,8 +109,11 @@ class TelegramChannelRoutingTest {
     )
 
     private val userId = UUID.randomUUID()
-    private val chatId = 42L
     private val telegramUserId = 7L
+
+    /** The user's private chat with the bot, whose id Telegram makes equal to the user's own. */
+    private val chatId = telegramUserId
+    private val groupChatId = -100123L
 
     /** Everything the bot handed to Telegram, in order — see [collapseEdits]. */
     private val executed = mutableListOf<Any?>()
@@ -126,14 +134,19 @@ class TelegramChannelRoutingTest {
         whenever(aiAccessService.isAiAvailableForUser(userId)).thenReturn(true)
     }
 
-    /** [chat] defaults to a group-ish chat id; pass [telegramUserId] for the user's private chat. */
-    private fun textUpdate(text: String, chat: Long = chatId): Update {
+    private fun chat(id: Long, type: String = "private"): Chat = Chat.builder().id(id).type(type).build()
+
+    private fun groupChat(): Chat = chat(groupChatId, "supergroup")
+
+    /** [chat] defaults to the user's private chat. */
+    private fun textUpdate(text: String, chat: Chat = chat(chatId)): Update {
         val from: TelegramUser = mock()
         whenever(from.id).thenReturn(telegramUserId)
         val message: Message = mock()
         whenever(message.hasText()).thenReturn(true)
         whenever(message.text).thenReturn(text)
-        whenever(message.chatId).thenReturn(chat)
+        whenever(message.chatId).thenReturn(chat.id)
+        whenever(message.chat).thenReturn(chat)
         whenever(message.from).thenReturn(from)
         val update: Update = mock()
         whenever(update.hasMessage()).thenReturn(true)
@@ -165,7 +178,12 @@ class TelegramChannelRoutingTest {
         return callbackUpdate(data, message)
     }
 
-    private fun callbackUpdate(data: String, message: MaybeInaccessibleMessage): Update {
+    private fun callbackUpdate(
+        data: String,
+        message: MaybeInaccessibleMessage,
+        chat: Chat = chat(chatId),
+    ): Update {
+        whenever(message.chat).thenReturn(chat)
         val from: TelegramUser = mock()
         whenever(from.id).thenReturn(telegramUserId)
         val callback: CallbackQuery = mock()
@@ -413,7 +431,7 @@ class TelegramChannelRoutingTest {
      */
     @Test
     fun `a message from the user's private chat marks it reachable`() {
-        channel.consume(textUpdate("/start", chat = telegramUserId))
+        channel.consume(textUpdate("/start"))
 
         verify(reachability).markReachable(userId)
     }
@@ -428,15 +446,80 @@ class TelegramChannelRoutingTest {
             },
         )
 
-        channel.consume(textUpdate("/start", chat = telegramUserId))
+        channel.consume(textUpdate("/start"))
 
         verify(reachability, never()).markReachable(any())
     }
 
-    @Test
-    fun `a message from a group chat says nothing about the private one`() {
-        channel.consume(textUpdate("/start"))
+    private fun leftChats(): List<String> = executed.filterIsInstance<LeaveChat>().map { it.chatId }
 
+    @Test
+    fun `a command sent in a group is dropped unread and the bot leaves the group`() {
+        // In a group, /current would post the sender's plan for every member to read.
+        channel.consume(textUpdate("/current", chat = groupChat()))
+
+        verify(userRepository, never()).findByTelegramId(any())
+        verify(commandDispatcher, never()).dispatch(any(), any())
         verify(reachability, never()).markReachable(any())
+        assertTrue(sentTexts().isEmpty())
+        assertEquals(listOf(groupChatId.toString()), leftChats())
+    }
+
+    @Test
+    fun `a tap on a card in a group never reaches the capture flow`() {
+        // Draft state is keyed by chat id while the account comes from whoever tapped, so in a group
+        // another member's Save would land one member's draft on the other's board.
+        val message: Message = mock()
+        whenever(message.chatId).thenReturn(groupChatId)
+
+        channel.consume(callbackUpdate("qa:save", message, chat = groupChat()))
+
+        verify(quickAddRegistry, never()).get(any())
+        verify(quickAddFlow, never()).handleInbound(any(), any(), any(), any(), anyOrNull())
+        assertTrue(collapseEdits().isEmpty())
+        assertEquals(listOf(groupChatId.toString()), leftChats())
+    }
+
+    private fun myChatMemberUpdate(chat: Chat, newStatus: String): Update {
+        val member: ChatMember = mock()
+        whenever(member.status).thenReturn(newStatus)
+        val change: ChatMemberUpdated = mock()
+        whenever(change.chat).thenReturn(chat)
+        whenever(change.newChatMember).thenReturn(member)
+        val update: Update = mock()
+        whenever(update.hasMyChatMember()).thenReturn(true)
+        whenever(update.myChatMember).thenReturn(change)
+        return update
+    }
+
+    @Test
+    fun `being added to a group makes the bot leave before any message arrives`() {
+        channel.consume(myChatMemberUpdate(groupChat(), MemberStatus.MEMBER))
+
+        assertEquals(listOf(groupChatId.toString()), leftChats())
+    }
+
+    @Test
+    fun `being added to a channel makes the bot leave too`() {
+        channel.consume(myChatMemberUpdate(chat(-100999L, "channel"), MemberStatus.ADMINISTRATOR))
+
+        assertEquals(listOf("-100999"), leftChats())
+    }
+
+    @Test
+    fun `the update announcing the bot has left does not trigger another leave`() {
+        channel.consume(myChatMemberUpdate(groupChat(), MemberStatus.LEFT))
+        channel.consume(myChatMemberUpdate(groupChat(), MemberStatus.KICKED))
+
+        assertTrue(leftChats().isEmpty())
+    }
+
+    @Test
+    fun `a membership change in the private chat is not treated as a group`() {
+        // A user blocking the bot arrives as a my_chat_member update on their private chat.
+        channel.consume(myChatMemberUpdate(chat(chatId), MemberStatus.KICKED))
+
+        assertTrue(leftChats().isEmpty())
+        assertTrue(executed.isEmpty())
     }
 }
