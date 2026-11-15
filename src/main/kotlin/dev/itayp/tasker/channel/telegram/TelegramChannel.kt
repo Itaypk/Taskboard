@@ -35,10 +35,13 @@ import org.telegram.telegrambots.longpolling.starter.SpringLongPollingBot
 import org.telegram.telegrambots.longpolling.util.DefaultLongPollingUpdateConsumer
 import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands
+import org.telegram.telegrambots.meta.api.methods.groupadministration.LeaveChat
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery
 import org.telegram.telegrambots.meta.api.objects.Update
+import org.telegram.telegrambots.meta.api.objects.chat.Chat
+import org.telegram.telegrambots.meta.api.objects.chatmember.MemberStatus
 import org.telegram.telegrambots.meta.api.objects.commands.BotCommand
 import org.telegram.telegrambots.meta.api.objects.message.Message
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException
@@ -78,6 +81,7 @@ class TelegramChannel(
 
     override fun consume(update: Update) {
         try {
+            if (fromNonPrivateChat(update)) return
             handleUpdate(update)
         } catch (e: TelegramApiException) {
             logger.error("Telegram API error handling update {}: {}", update.updateId, e.message, e)
@@ -85,6 +89,41 @@ class TelegramChannel(
             logger.error("Unhandled error handling update {}", update.updateId, e)
             notifyUpdateFailed(update)
         }
+    }
+
+    /**
+     * The bot works in a user's private chat with it and nowhere else. Everything below assumes
+     * that: per-chat state (a quick-add draft, a planning session) is keyed by chat id, while the
+     * account is resolved from whoever sent the update. In a group the two come apart — one
+     * member's `/current` posts their plan for everyone to read, and another member tapping Save
+     * on that member's draft card saves it to their own board. So an update from any other kind of
+     * chat (a group, a supergroup, a channel) is dropped unread, and the bot leaves that chat.
+     *
+     * A `my_chat_member` update — the bot being added somewhere — is the earliest sign, and leaving
+     * then means it never sees a single message. Leaving produces another one (status `left`),
+     * which must not trigger a second leave. Returns true when [update] is dropped.
+     */
+    private fun fromNonPrivateChat(update: Update): Boolean {
+        val chat: Chat? = when {
+            update.hasMessage() -> update.message.chat
+            update.hasCallbackQuery() -> update.callbackQuery.message?.chat
+            update.hasMyChatMember() -> update.myChatMember.chat
+            update.hasChannelPost() -> update.channelPost.chat
+            // No other update type is acted on, so there is nothing to guard.
+            else -> return false
+        }
+        if (chat?.isUserChat == true) return false
+        // Without a chat there's nothing to leave; still drop it rather than guess.
+        if (chat == null) return true
+        val status = if (update.hasMyChatMember()) update.myChatMember.newChatMember?.status else null
+        if (status == MemberStatus.LEFT || status == MemberStatus.KICKED) return true
+        try {
+            telegramClient.execute(LeaveChat.builder().chatId(chat.id).build())
+            logger.info("Left {} chat {}: the bot only works in private chats", chat.type, chat.id)
+        } catch (e: TelegramApiException) {
+            logger.warn("Could not leave {} chat {}: {}", chat.type, chat.id, e.message)
+        }
+        return true
     }
 
     private fun notifyUpdateFailed(update: Update) {
