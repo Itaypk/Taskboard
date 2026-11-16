@@ -43,9 +43,12 @@ class ExternalBoardController(
     ): ResponseEntity<ExternalMeResponse> {
         val userId = principal.userId
         val settings = userSettingsService.getOrCreate(userId)
-        val scope = if (
-            authentication.authorities.any { it.authority == ApiTokenAuthenticationFilter.EXTERNAL_WRITE }
-        ) ApiTokenScope.WRITE else ApiTokenScope.READ
+        val authorities = authentication.authorities.map { it.authority }.toSet()
+        val scope = when {
+            ApiTokenAuthenticationFilter.EXTERNAL_PLAN in authorities -> ApiTokenScope.PLAN
+            ApiTokenAuthenticationFilter.EXTERNAL_WRITE in authorities -> ApiTokenScope.WRITE
+            else -> ApiTokenScope.READ
+        }
 
         return ResponseEntity.ok(
             ExternalMeResponse(

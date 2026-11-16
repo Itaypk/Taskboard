@@ -26,7 +26,7 @@ import java.util.UUID
  * Pins the isolation between the two authentication surfaces. The valuable assertions here are
  * the negative ones: a session cookie must not work on the `/api/external` chain, and a bearer
  * token must not work on `/api/v1`. Those two properties are what keep a leaked token's blast
- * radius bounded to task content.
+ * radius bounded to task content and the weekly plan.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestRestTemplate
@@ -181,6 +181,73 @@ class ExternalApiSecurityIntegrationTest(
             String::class.java,
         )
         assertThat(write.statusCode).isEqualTo(HttpStatus.FORBIDDEN)
+    }
+
+    @Test
+    fun `a write token may read plans but not change them, and is told which scope would`() {
+        val headers = bearer(mintToken(ApiTokenScope.WRITE)).apply { contentType = MediaType.APPLICATION_JSON }
+
+        assertThat(get("/api/external/v1/plans/week/current", headers).statusCode).isEqualTo(HttpStatus.OK)
+
+        val put = rest.exchange(
+            "/api/external/v1/plans/week/next", HttpMethod.PUT,
+            HttpEntity("""{"tasks":[]}""", headers), String::class.java,
+        )
+        assertThat(put.statusCode).isEqualTo(HttpStatus.FORBIDDEN)
+        assertThat(put.body).contains("scope: plan")
+
+        val cancel = rest.exchange(
+            "/api/external/v1/events/${UUID.randomUUID()}/cancel", HttpMethod.POST,
+            HttpEntity<Void>(headers), String::class.java,
+        )
+        assertThat(cancel.statusCode).isEqualTo(HttpStatus.FORBIDDEN)
+    }
+
+    @Test
+    fun `a read token may read plans`() {
+        assertThat(get("/api/external/v1/plans/week/current", bearer(mintToken(ApiTokenScope.READ))).statusCode)
+            .isEqualTo(HttpStatus.OK)
+    }
+
+    @Test
+    fun `a plan token includes write and can submit a plan end to end`() {
+        val headers = bearer(mintToken(ApiTokenScope.PLAN)).apply { contentType = MediaType.APPLICATION_JSON }
+        assertThat(get("/api/external/v1/me", headers).body).contains("\"tokenScope\":\"plan\"")
+
+        val created = rest.exchange(
+            "/api/external/v1/tasks", HttpMethod.POST,
+            HttpEntity("""{"title":"Planned from outside"}""", headers), String::class.java,
+        )
+        assertThat(created.statusCode).isEqualTo(HttpStatus.CREATED)
+        val taskId = Regex("\"id\":\"([0-9a-f-]{36})\"").find(created.body!!)!!.groupValues[1]
+
+        // "next" keeps this test off the current week, which other dev-profile tests may read.
+        val week = get("/api/external/v1/plans/week/next", headers).body!!
+        val weekStart = Regex("\"weekStart\":\"([0-9-]{10})\"").find(week)!!.groupValues[1]
+        val zone = java.time.ZoneId.of(Regex("\"timeZone\":\"([^\"]+)\"").find(week)!!.groupValues[1])
+        val start = java.time.LocalDate.parse(weekStart).atTime(10, 0).atZone(zone).toOffsetDateTime()
+
+        val put = rest.exchange(
+            "/api/external/v1/plans/week/$weekStart", HttpMethod.PUT,
+            HttpEntity(
+                """{"tasks":[{"taskId":"$taskId","slots":[{"start":"$start","end":"${start.plusHours(1)}"}]}],"note":"Test week"}""",
+                headers,
+            ),
+            String::class.java,
+        )
+        assertThat(put.statusCode).isIn(HttpStatus.CREATED, HttpStatus.OK)
+        assertThat(put.body).contains("Planned from outside").contains("\"weekNote\"")
+
+        val read = get("/api/external/v1/plans/week/$weekStart", headers)
+        assertThat(read.body).contains(taskId)
+
+        // Clearing the plan again also exercises the revise path.
+        val cleared = rest.exchange(
+            "/api/external/v1/plans/week/$weekStart", HttpMethod.PUT,
+            HttpEntity("""{"tasks":[]}""", headers), String::class.java,
+        )
+        assertThat(cleared.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(cleared.body).doesNotContain(taskId)
     }
 
     @Test

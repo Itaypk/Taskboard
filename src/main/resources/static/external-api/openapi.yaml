@@ -3,13 +3,16 @@ info:
   title: Backlog.fyi External API
   version: "1.0"
   description: |
-    Task API for anything outside the web app — scripts, automations, AI assistants —
-    authenticated with a long-lived personal API token. Create one in the app under
+    Task and weekly-plan API for anything outside the web app — scripts, automations, AI
+    assistants — authenticated with a long-lived personal API token. Create one in the app under
     Settings -> Integrations.
 
-    This is a narrower surface than the web app's own API: it covers task content only. It
-    cannot reach account settings, planning sessions, board administration, or token
-    management.
+    This is a narrower surface than the web app's own API: it covers task content and the weekly
+    plan. It cannot reach account settings, the in-app planning conversation, board
+    administration, or token management.
+
+    Token scopes, each including the one before: `read` (GET only), `write` (task changes) and
+    `plan` (plan changes, which send calendar invitations).
 
     All bodies are JSON. Errors are RFC 7807 `application/problem+json`; the `detail` field
     names what was wrong and, where relevant, the allowed values.
@@ -27,6 +30,10 @@ tags:
     description: Read and modify backlog tasks.
   - name: reference
     description: Boards, categories and tags — the values a write call may refer to.
+  - name: plans
+    description: |
+      The weekly plan: which tasks get which time blocks. You do the planning; a submit replaces
+      the week's plan and the app delivers it to the user's calendar.
 
 paths:
   /api/external/v1/me:
@@ -151,7 +158,11 @@ paths:
     get:
       tags: [tasks]
       summary: Fetch one task
-      description: Finds the task on whichever of the caller's boards it lives on.
+      description: |
+        Finds the task on whichever of the caller's boards it lives on. A task the user hid from
+        the assistant answers 404 unless `includeHidden=true`.
+      parameters:
+        - { name: includeHidden, in: query, schema: { type: boolean, default: false } }
       responses:
         "200":
           description: OK
@@ -225,6 +236,89 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /api/external/v1/plans/week/{week}:
+    parameters:
+      - name: week
+        in: path
+        required: true
+        schema: { type: string }
+        description: "`current`, `next`, or the week's first day as YYYY-MM-DD (it must fall on the user's week-start day)."
+      - name: includeHidden
+        in: query
+        schema: { type: boolean, default: false }
+        description: Show planned tasks the user hid from the assistant. Their count is in `plan.hiddenTasksOmitted` otherwise.
+    get:
+      tags: [plans]
+      summary: Read a week's plan and events
+      description: |
+        The finalized plan for the week (null if the week was never planned), the week's one-off
+        calendar events, and what you need to write a plan: the week's bounds, the user's time
+        zone, and where plan changes are delivered (`calendarDelivery`). Any token may read.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WeekPlan" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    put:
+      tags: [plans]
+      summary: Replace a week's plan
+      description: |
+        Submits the whole plan for the week. A task left out comes off the plan and its calendar
+        invitations are cancelled, with one exception: tasks the user hid from the assistant that
+        are already planned stay as they are unless you list them. Changed slots are re-sent and
+        new ones invited, the same way the app's own planner does it. An empty `tasks` list
+        clears the plan.
+
+        Only the current week or a later one can be planned. Done or archived tasks may stay in
+        the plan unchanged but can't be added or moved. Requires a `plan`-scoped token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SubmitPlanRequest" }
+      responses:
+        "200":
+          description: The existing plan was revised. Body is the week as it now stands.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WeekPlan" }
+        "201":
+          description: The week's first plan was created. Body is the week as it now stands.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WeekPlan" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409":
+          description: |
+            A planning conversation for this week is in progress in the app. Ask the user to
+            finish or abandon it, then submit again.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+
+  /api/external/v1/events/{eventId}/cancel:
+    parameters:
+      - { name: eventId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [plans]
+      summary: Cancel a one-off event
+      description: |
+        Cancels a one-off event before it starts and sends a calendar cancellation. Cancelling an
+        already-cancelled event succeeds. Requires a `plan`-scoped token.
+      responses:
+        "204": { description: Cancelled. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { description: No such event among the user's events., content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } } }
+        "409": { description: The event has already started., content: { application/problem+json: { schema: { $ref: "#/components/schemas/Problem" } } } }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -233,7 +327,8 @@ components:
       description: |
         `Authorization: Bearer blf_...`. Tokens are created in the app under
         Settings -> Integrations and shown exactly once. A read-scoped token may call GET
-        endpoints only; anything else needs a write-scoped token.
+        endpoints only; task changes need a write- or plan-scoped token, and plan changes a
+        plan-scoped one.
 
   responses:
     BadRequest:
@@ -248,8 +343,8 @@ components:
       description: Missing, unknown, revoked or expired token.
     Forbidden:
       description: |
-        The token's scope does not permit this operation, or the task belongs to a board the
-        caller is not a member of. The two are not distinguished.
+        The token's scope does not permit this operation (`detail` names the scope that would),
+        or the task belongs to a board the caller is not a member of.
       content:
         application/problem+json:
           schema: { $ref: "#/components/schemas/Problem" }
@@ -290,8 +385,8 @@ components:
           description: The board write calls target when none is named.
         tokenScope:
           type: string
-          enum: [read, write]
-          description: What this token may do. Check before attempting a write.
+          enum: [read, write, plan]
+          description: What this token may do; each scope includes the previous. Check before attempting a write.
 
     Board:
       type: object
@@ -418,3 +513,103 @@ components:
             type: string
             enum: [description, url, priority, deadline, estimatedMinutes, relevantFrom, tags]
           description: 'Fields to unset, e.g. {"clear": ["deadline"]}.'
+
+    WeekPlan:
+      type: object
+      required: [weekStart, weekEnd, timeZone, calendarDelivery, events]
+      properties:
+        weekStart: { type: string, description: "YYYY-MM-DD, the week's first day." }
+        weekEnd: { type: string, description: "YYYY-MM-DD, the week's last day (inclusive)." }
+        timeZone: { type: string, description: The user's IANA zone. Write slots in it. }
+        calendarDelivery:
+          type: string
+          enum: [email, feed, none]
+          description: |
+            Where plan changes go: `email` (calendar invitations), `feed` (the user's calendar
+            subscription) or `none` (the plan stays in the app). Tell the user when it's `none`.
+        plan:
+          oneOf:
+            - { $ref: "#/components/schemas/Plan" }
+            - { type: "null" }
+        events:
+          type: array
+          items: { $ref: "#/components/schemas/Event" }
+
+    Plan:
+      type: object
+      required: [id, revisionNotes, tasks, hiddenTasksOmitted]
+      properties:
+        id: { type: string, format: uuid }
+        finalizedAt: { type: [string, "null"], format: date-time }
+        weekNote: { type: [string, "null"], description: Context about the week written when it was first planned. }
+        revisionNotes:
+          type: array
+          items:
+            type: object
+            required: [at, text]
+            properties:
+              at: { type: string, format: date-time }
+              text: { type: string }
+        tasks:
+          type: array
+          items: { $ref: "#/components/schemas/PlanTask" }
+        hiddenTasksOmitted:
+          type: integer
+          description: Planned tasks left out because the user hid them from the assistant. A submit keeps them.
+
+    PlanTask:
+      type: object
+      required: [task, slots]
+      properties:
+        task: { $ref: "#/components/schemas/Task" }
+        slots:
+          type: array
+          items: { $ref: "#/components/schemas/Slot" }
+        notes: { type: [string, "null"] }
+
+    Slot:
+      type: object
+      required: [start, end]
+      properties:
+        start: { type: string, format: date-time, description: "ISO-8601 with an offset, e.g. 2026-11-17T09:00+02:00." }
+        end: { type: string, format: date-time }
+        label: { type: [string, "null"], maxLength: 200 }
+
+    Event:
+      type: object
+      required: [id, title, start, end]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        start: { type: string, format: date-time }
+        end: { type: string, format: date-time }
+        location: { type: [string, "null"] }
+        notes: { type: [string, "null"] }
+
+    SubmitPlanRequest:
+      type: object
+      required: [tasks]
+      properties:
+        tasks:
+          type: array
+          maxItems: 100
+          description: The whole plan. Each task once, with all of its slots.
+          items:
+            type: object
+            required: [taskId, slots]
+            properties:
+              taskId: { type: string, format: uuid }
+              slots:
+                type: array
+                minItems: 1
+                maxItems: 21
+                description: Each starts inside the week, ends after it starts, and lasts at most 24 hours.
+                items: { $ref: "#/components/schemas/Slot" }
+              notes: { type: string, maxLength: 1000, description: "Replaces the task's plan notes; omit to clear them." }
+        note:
+          type: string
+          maxLength: 2000
+          description: |
+            What you learned about this week that the schedule can't show (capacity, why
+            something was deferred). Stored as the week note on a week's first plan; appended as a
+            revision note on later submits.

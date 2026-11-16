@@ -2,15 +2,17 @@
 name: backlog-fyi
 description: >-
   Read and manage tasks in a Backlog.fyi backlog — search or list tasks, add a task, update one,
-  mark it done, or archive it. Use when the user asks about their backlog, task list, or to-dos in
-  Backlog.fyi, or asks to capture a task there.
+  mark it done, or archive it — and plan the user's week, putting tasks on their calendar. Use when
+  the user asks about their backlog, task list, to-dos or weekly plan in Backlog.fyi, asks to
+  capture a task there, or asks to plan their week with it.
 ---
 
 # Backlog.fyi task API
 
 Backlog.fyi is a weekly planner: a task backlog plus an AI planning conversation that blocks time
-for agreed tasks on the user's calendar. This skill covers the backlog half — reading and editing
-tasks from outside the app.
+for agreed tasks on the user's calendar. This skill covers reading and editing tasks from outside
+the app, and planning the week yourself: you work out the plan with the user, and Backlog shows it
+and delivers it to their calendar.
 
 ## Setup
 
@@ -21,9 +23,10 @@ export BACKLOG_TOKEN=blf_...
 export BACKLOG_URL=https://backlog.fyi
 ```
 
-Every request sends `Authorization: Bearer $BACKLOG_TOKEN`. A **read**-scoped token may call GET
-endpoints only; writes need a **write**-scoped token. If a write returns 403, say so — the fix is
-a new token, and you cannot widen an existing one.
+Every request sends `Authorization: Bearer $BACKLOG_TOKEN`. Scopes, each including the one before:
+**read** (GET endpoints only), **write** (task changes) and **plan** (plan changes, which send
+calendar invitations). If a call returns 403, its `detail` names the scope it needs; tell the user,
+since the fix is a new token and you cannot widen an existing one.
 
 A 401 means the token is missing, revoked or expired — the three are not distinguished. Don't
 retry; tell the user their token stopped working and ask them to create a new one.
@@ -60,6 +63,9 @@ The full contract is at `/external-api/openapi.yaml` if you need exact schemas.
 | `GET /api/external/v1/boards` | boards; the first is the default |
 | `GET /api/external/v1/categories` | categories (`?board=` to narrow) |
 | `GET /api/external/v1/tags` | tags (`?board=` to narrow) |
+| `GET /api/external/v1/plans/week/{week}` | a week's plan and one-off events (`current`, `next` or a date) |
+| `PUT /api/external/v1/plans/week/{week}` | replace a week's plan (**plan** scope) |
+| `POST /api/external/v1/events/{id}/cancel` | cancel a one-off event (**plan** scope) |
 
 ### Dates and time zone
 
@@ -70,7 +76,7 @@ Friday" into a date, get the zone:
 ```bash
 curl -sH "Authorization: Bearer $BACKLOG_TOKEN" "$BACKLOG_URL/api/external/v1/me"
 # {"userId":"…","displayName":"Itay","timeZone":"Asia/Jerusalem",
-#  "preferredLanguage":"en","defaultBoardId":"…","tokenScope":"write"}
+#  "preferredLanguage":"en","defaultBoardId":"…","tokenScope":"write"}  # read | write | plan
 ```
 
 `/me` is also the cheapest way to check a token works and whether it may write.
@@ -138,10 +144,43 @@ curl -sX POST "$BACKLOG_URL/api/external/v1/tasks/$ID/complete" \
   -H "Authorization: Bearer $BACKLOG_TOKEN"
 ```
 
+### Planning the week
+
+You do the planning conversation; Backlog stores the result and puts it on the user's calendar.
+There is no draft: agree on the plan with the user first, then submit it once.
+
+1. **Read the week.** `GET /plans/week/current` (or `next`, or the week's first day as
+   `YYYY-MM-DD`) returns the existing plan (`plan` is null if there is none), the week's one-off
+   events, the week's bounds, the user's `timeZone`, and `calendarDelivery`.
+2. **Pick tasks** from `GET /tasks`, and agree on times with the user. Keep clear of the events.
+3. **Submit the whole plan.** It replaces the week's plan: a planned task you leave out comes off
+   the plan and its calendar invitation is cancelled. To change one slot, send everything back with
+   that one slot changed.
+
+```bash
+curl -sX PUT "$BACKLOG_URL/api/external/v1/plans/week/next" \
+  -H "Authorization: Bearer $BACKLOG_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"tasks":[{"taskId":"…","slots":[{"start":"2026-11-24T09:00+02:00","end":"2026-11-24T10:30+02:00"}]}],
+       "note":"Short week: Thursday is a holiday."}'
+```
+
+- Slots are ISO-8601 date-times **with an offset**, in the user's time zone, starting inside the
+  week. A task can have several slots; each lasts at most 24 hours.
+- `note` is for what the schedule can't show (capacity, why something was deferred), not a recap.
+- Done or archived tasks can stay in the plan unchanged, but can't be added or moved.
+- Only the current week or a later one can be planned.
+- A 409 means the user has a planning conversation open in the app for that week. Ask them to
+  finish or abandon it there.
+- Check `calendarDelivery` in the response: `email` sent invitations, `feed` updates their calendar
+  subscription, and `none` means the plan stays in the app. Tell the user which.
+- Planned tasks the user hid from the assistant aren't shown (`plan.hiddenTasksOmitted` counts
+  them) and a submit keeps them as they are. You don't need to do anything about them.
+
 ## Working well with this API
 
 - **Confirm before destructive or bulk writes.** Completing or archiving several tasks at once is
-  worth a quick check with the user first. A single task they explicitly named is not.
+  worth a quick check with the user first. A single task they explicitly named is not. A plan
+  submit sends calendar invitations, so show the user the plan and get their OK before sending it.
 - **Search before creating**, when the user's phrasing suggests the task may already exist —
   duplicates in a backlog are worse than a redundant lookup.
 - **Read errors.** Responses are RFC 7807 and the `detail` field says exactly what was wrong,

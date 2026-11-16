@@ -18,7 +18,8 @@ import org.springframework.web.filter.OncePerRequestFilter
  * `BoardMembershipService.requireMember` check and the per-user rate limiter keep working
  * unchanged — a token-authenticated request is indistinguishable from a session one below the
  * security layer. What differs is the granted authorities: every valid token gets `EXTERNAL_READ`,
- * and only a write-scoped one additionally gets `EXTERNAL_WRITE`.
+ * a write- or plan-scoped one adds `EXTERNAL_WRITE`, and only a plan-scoped one adds `EXTERNAL_PLAN`
+ * (see [ApiTokenScope]).
  *
  * An absent or unusable token leaves the context empty; the chain's entry point turns that into
  * a 401. We never distinguish unknown / revoked / expired to the caller.
@@ -44,7 +45,10 @@ class ApiTokenAuthenticationFilter(
                 val authorities = buildList {
                     add(SimpleGrantedAuthority("ROLE_USER"))
                     add(SimpleGrantedAuthority(EXTERNAL_READ))
-                    if (resolved.scope == ApiTokenScope.WRITE) add(SimpleGrantedAuthority(EXTERNAL_WRITE))
+                    if (resolved.scope == ApiTokenScope.WRITE || resolved.scope == ApiTokenScope.PLAN) {
+                        add(SimpleGrantedAuthority(EXTERNAL_WRITE))
+                    }
+                    if (resolved.scope == ApiTokenScope.PLAN) add(SimpleGrantedAuthority(EXTERNAL_PLAN))
                 }
                 val authentication = UsernamePasswordAuthenticationToken(
                     TaskerPrincipal(resolved.userId), null, authorities,
@@ -77,5 +81,6 @@ class ApiTokenAuthenticationFilter(
 
         const val EXTERNAL_READ = "EXTERNAL_READ"
         const val EXTERNAL_WRITE = "EXTERNAL_WRITE"
+        const val EXTERNAL_PLAN = "EXTERNAL_PLAN"
     }
 }

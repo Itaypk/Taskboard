@@ -79,7 +79,7 @@ Session chain details:
 
 ## External API (`/api/external/v1`)
 
-A token-authenticated task API for scripts, automations, and AI assistants. Full design note:
+A token-authenticated task and weekly-plan API for scripts, automations, and AI assistants. Full design note:
 `docs/EXTERNAL-API.md`. Contract and skill are served publicly from `/external-api/openapi.yaml`
 and `/external-api/SKILL.md` (that path prefix, not `/api/...`, so the `/api/**` authenticated
 rule doesn't hide them).
@@ -96,12 +96,16 @@ rule doesn't hide them).
   is a **full replace** — omitted fields reset to defaults, so a partial write silently destroys
   description, tags, deadline and priority. The external API exists partly to give unattended
   callers a real `PATCH`. Keeping the surfaces separate also bounds a leaked token's blast
-  radius to task content (no account deletion, settings, planning, or board admin).
+  radius to task content and the weekly plan (no account deletion, settings, planning conversation, or board admin).
 - **`ApiTokenAuthenticationFilter` installs the same `TaskerPrincipal` as the session flows.**
   This is load-bearing: below the security layer a token request is indistinguishable from a
   session one, so `BoardMembershipService.requireMember` and the per-user rate limiter work
-  unchanged. Only the authorities differ (`EXTERNAL_READ` / `EXTERNAL_WRITE`, from the token's
-  scope column, enforced on the filter chain rather than in controllers).
+  unchanged. Only the authorities differ (`EXTERNAL_READ` / `EXTERNAL_WRITE` / `EXTERNAL_PLAN`, from
+  the token's `read` ⊂ `write` ⊂ `plan` scope, enforced on the filter chain rather than in controllers).
+  `plan` gates anything that reaches the user's calendar.
+- **Plans are written only through `DirectPlanService`** → `PlanFinalizationService`, the built-in
+  planner's own path, so invitations, the feed and reminders follow the slot diff. A `PUT` replaces
+  the week's plan but keeps already-planned assistant-hidden tasks it doesn't list.
 - **Isolation, both pinned by `ExternalApiSecurityIntegrationTest`**: a `SESSION` cookie cannot
   authenticate `/api/external/**` (`STATELESS` ⇒ `RequestAttributeSecurityContextRepository`,
   which never reads the session), and a token cannot authenticate `/api/v1/**` (the filter is on

@@ -579,7 +579,7 @@ export const importAccount = (payload: unknown): Promise<ImportSummary> =>
 
 // --- Agent API tokens ---
 
-export type ApiTokenScope = 'read' | 'write';
+export type ApiTokenScope = 'read' | 'write' | 'plan';
 
 export interface ApiToken {
     id: string;

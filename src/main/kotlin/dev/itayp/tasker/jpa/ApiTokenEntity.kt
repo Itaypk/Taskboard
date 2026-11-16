@@ -60,12 +60,15 @@ class ApiTokenEntity {
 }
 
 /**
- * Token scopes. [WRITE] implies [READ] — the external filter chain grants `EXTERNAL_READ` to every
- * valid token and adds `EXTERNAL_WRITE` only for write-scoped ones.
+ * Token scopes, each including the one before it: [PLAN] ⊃ [WRITE] ⊃ [READ]. The external filter
+ * chain grants `EXTERNAL_READ` to every valid token, `EXTERNAL_WRITE` to write- and plan-scoped
+ * ones, and `EXTERNAL_PLAN` only to plan-scoped ones. [PLAN] is separate from [WRITE] because a
+ * plan change reaches outside the app: it sends (or cancels) calendar invitations.
  */
 object ApiTokenScope {
     const val READ = "read"
     const val WRITE = "write"
+    const val PLAN = "plan"
 
-    val allowedValues = setOf(READ, WRITE)
+    val allowedValues = setOf(READ, WRITE, PLAN)
 }

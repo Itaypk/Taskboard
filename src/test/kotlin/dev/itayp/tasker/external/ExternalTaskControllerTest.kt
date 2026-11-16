@@ -203,6 +203,20 @@ class ExternalTaskControllerTest(@Autowired val mockMvc: MockMvc) {
     }
 
     @Test
+    fun `GET a hidden task by id is a 404 saying why unless includeHidden is set`() {
+        stubBoards()
+        whenever(backlogTaskService.findTask(userId, taskId)).thenReturn(aTask().copy(hiddenFromAssistant = true))
+
+        mockMvc.perform(get("$basePath/$taskId").with(authentication(auth)))
+            .andExpect(status().isNotFound)
+            .andExpect(jsonPath("$.detail").value(containsString("includeHidden=true")))
+
+        mockMvc.perform(get("$basePath/$taskId").param("includeHidden", "true").with(authentication(auth)))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.hiddenFromAssistant").value(true))
+    }
+
+    @Test
     fun `GET an unknown task is a 404 carrying a problem detail`() {
         whenever(backlogTaskService.findTask(userId, taskId)).thenReturn(null)
 
