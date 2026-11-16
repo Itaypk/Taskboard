@@ -59,7 +59,11 @@ class OneOffEventService(
     private fun dispatchCancellation(userId: UUID, event: OneOffEvent) {
         val ctx = inviteDeliveryResolver.resolveEmailContext(userId)
         if (ctx == null) {
-            log.debug("Skipping one-off event cancellation email for user {}: no eligible email channel", userId)
+            if (inviteDeliveryResolver.deliversToFeed(userId)) {
+                log.debug("No one-off event cancellation email for user {}: the subscription feed drops the event", userId)
+            } else {
+                log.debug("Skipping one-off event cancellation email for user {}: invitations off or no verified email", userId)
+            }
             return
         }
         val zone = runCatching { ZoneId.of(userSettingsService.getOrCreate(userId).timeZone) }
@@ -106,7 +110,11 @@ class OneOffEventService(
             // The subscription feed serves the event as soon as it's saved: nothing to send, but it
             // does reach the calendar, so the caller mustn't say "no invite was sent".
             val viaFeed = inviteDeliveryResolver.deliversToFeed(userId)
-            log.debug("No one-off event invites for user {}: no eligible email channel (feed: {})", userId, viaFeed)
+            if (viaFeed) {
+                log.debug("No one-off event invites for user {}: served by the subscription feed instead", userId)
+            } else {
+                log.debug("No one-off event invites for user {}: invitations off or no verified email", userId)
+            }
             return viaFeed
         }
         val zone = runCatching { ZoneId.of(userSettingsService.getOrCreate(userId).timeZone) }

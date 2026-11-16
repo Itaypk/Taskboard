@@ -9,6 +9,7 @@ import {
 } from '../api';
 import { ApiError } from '../api';
 import styles from './ApiTokens.module.css';
+import { HelpTip } from './HelpTip';
 
 const MAX_TOKENS = 5;
 
@@ -119,8 +120,10 @@ export function ApiTokens() {
 
     return (
         <div className="field">
-            <label className="field__label">{t('apiTokens.label')}</label>
-            <p className="settings-hint">{t('apiTokens.hint')}</p>
+            <label className="field__label">
+                {t('apiTokens.label')}
+                <HelpTip text={`${t('apiTokens.hint')} ${t('apiTokens.docsHint')}`} />
+            </label>
 
             {freshSecret && (
                 <div className={styles.reveal}>
@@ -212,8 +215,6 @@ export function ApiTokens() {
                     {t('apiTokens.create')}
                 </button>
             </div>
-
-            <p className="settings-hint">{t('apiTokens.docsHint')}</p>
 
             {error && <p className="settings-error">{error}</p>}
         </div>

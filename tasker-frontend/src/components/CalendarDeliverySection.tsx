@@ -10,6 +10,7 @@ import {
     type CalendarDeliveryState,
 } from '../api';
 import { formatRelative } from '../utils';
+import { HelpTip } from './HelpTip';
 import styles from './CalendarDeliverySection.module.css';
 
 const OPTIONS: CalendarDelivery[] = ['NONE', 'EMAIL', 'FEED'];
@@ -95,11 +96,16 @@ export function CalendarDeliverySection({ onVerifyEmail }: Props) {
 
     return (
         <div className="field">
-            <label className="field__label">{t('calendarDelivery.label')}</label>
-            <p className="settings-hint">{t('calendarDelivery.hint')}</p>
+            <label className="field__label">
+                {t('calendarDelivery.label')}
+                <HelpTip text={t('calendarDelivery.hint')} />
+            </label>
 
             <section className={styles.card} aria-labelledby="calendar-outgoing-title">
-                <h3 id="calendar-outgoing-title" className={styles.title}>{t('calendarDelivery.outgoing.title')}</h3>
+                <h3 id="calendar-outgoing-title" className={styles.title}>
+                    {t('calendarDelivery.outgoing.title')}
+                    {state && <HelpTip text={t(`calendarDelivery.outgoing.modeHelp.${state.delivery}`)} />}
+                </h3>
 
                 {state && (
                     <>
@@ -137,16 +143,8 @@ export function CalendarDeliverySection({ onVerifyEmail }: Props) {
                             </p>
                         )}
 
-                        {state.delivery === 'NONE' && (
-                            <p className="settings-hint">{t('calendarDelivery.outgoing.noneHint')}</p>
-                        )}
-                        {state.delivery === 'EMAIL' && (
-                            <p className="settings-hint">{t('calendarDelivery.outgoing.emailHint')}</p>
-                        )}
-
                         {state.delivery === 'FEED' && feed && (
                             <>
-                                <p className="settings-hint">{t('calendarDelivery.outgoing.feedHint')}</p>
                                 <div className={styles.actions}>
                                     <a className="btn btn--primary" href={feed.googleUrl} target="_blank" rel="noopener noreferrer">
                                         {t('calendarDelivery.feed.google')}
@@ -166,10 +164,10 @@ export function CalendarDeliverySection({ onVerifyEmail }: Props) {
                                         : t('calendarDelivery.feed.neverFetched')}
                                 </p>
                                 <div className={styles.secret}>
-                                    <p className="settings-hint">{t('calendarDelivery.feed.secretHint')}</p>
                                     <button type="button" className="btn btn--ghost" onClick={handleRotate} disabled={busy}>
                                         {t('calendarDelivery.feed.rotate')}
                                     </button>
+                                    <HelpTip text={t('calendarDelivery.feed.secretHint')} />
                                 </div>
                             </>
                         )}
