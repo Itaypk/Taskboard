@@ -1,6 +1,8 @@
 package dev.itayp.tasker.channel.telegram
 
+import dev.itayp.tasker.capture.QuickAddMetrics
 import dev.itayp.tasker.capture.QuickAddState
+import dev.itayp.tasker.channel.ChannelType
 import io.micrometer.core.instrument.MeterRegistry
 import org.springframework.stereotype.Component
 import java.time.Clock
@@ -29,7 +31,7 @@ class QuickAddRegistry(
         val state = pending[chatId] ?: return null
         if (Duration.between(state.createdAt, clock.instant()) > TTL) {
             pending.remove(chatId)
-            meterRegistry.counter("tasker.quickadd.outcome", "result", "expired").increment()
+            QuickAddMetrics.countOutcome(meterRegistry, "expired", ChannelType.TELEGRAM.metricTag)
             return null
         }
         return state

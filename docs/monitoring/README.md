@@ -24,16 +24,18 @@ pools, GC, CPU internals, DB pool, and per-endpoint HTTP stats.
   block on the OpenRouter call (see "Excluding AI latency" below).
 - **AI usage**: requests/min by model & outcome, tokens/min by type (prompt,
   completion, and — when the provider reports prompt caching — cached and
-  cache_write), 24h token totals, and active conversations. The `outcome` tag on
+  cache_write), 24h token totals, and the share of users with AI enabled (claimed and all). The `outcome` tag on
   `tasker.ai.requests` has three values: `success`, `error` (the call failed) and
   `empty` (the call returned 200 but the model produced neither content nor tool
   calls — a provider-side failure OpenRouter reported as a success). `empty` is
   worth alerting on; it is invisible in latency and error-rate panels.
 - **Current totals**: users, users by type (claimed / unclaimed-idle /
-  unclaimed-engaged), total tasks, tasks by status, planning sessions by status.
+  unclaimed-engaged), total tasks, tasks by status, planning sessions by status,
+  sign-ins over the time range by method (email / Telegram / Google) & outcome, and
+  feature opt-in among claimed users (weekly planning scheduled, daily digest on).
 - **Email delivery & quick add**: emails sent/min by sender purpose (auth vs
-  scheduling) & outcome (success vs failure), and the Telegram quick-capture
-  funnel (saved vs. cancelled vs. expired).
+  scheduling) & outcome (success vs failure), and the quick-capture funnel
+  (saved vs. cancelled vs. expired) per channel (telegram, web, email).
 - **Background jobs & logs** (collapsed): scheduled-task run rate by outcome
   (auto-archive, unclaimed-account cleanup, conversation cleanup, usage-metrics
   refresh) and warn/error log rate.
@@ -47,13 +49,15 @@ datasource and your Loki datasource when prompted (the dashboard exposes
 latter defaults to `grafanacloud-itaypk-logs`).
 
 The custom application metrics are defined in
-`dev.itayp.tasker.metrics.UsageMetrics` (gauges — users/tasks/planning-sessions),
+`dev.itayp.tasker.metrics.UsageMetrics` (gauges — users/tasks/planning-sessions, and
+`tasker.users.ai_enabled` / `planning_scheduled` / `daily_digest_enabled`, each split by
+`claimed`),
 `dev.itayp.tasker.ai.usage.AiUsageTracker` (AI request/token counters),
 `dev.itayp.tasker.channel.email.EmailMetricsOutboundChannel` (`tasker.email.sent`
 counter — one final outcome per email, after the scheduling sender's retries;
 `RetryingOutboundChannel` counts the retries themselves on `tasker.email.retries`), and `dev.itayp.tasker.capture.QuickAddFlow` /
-`dev.itayp.tasker.channel.telegram.QuickAddRegistry` (`tasker.quickadd.outcome`
-counter), and `dev.itayp.tasker.metrics.LoginMetrics` (`tasker.auth.login{provider,
+`dev.itayp.tasker.channel.telegram.QuickAddRegistry` (`tasker.quickadd.outcome{result,
+channel}` counter, via `QuickAddMetrics`), and `dev.itayp.tasker.metrics.LoginMetrics` (`tasker.auth.login{provider,
 mode, outcome}` — one count per sign-in attempt; `outcome="error"` means the
 provider exchange or verification failed, e.g. Telegram's token endpoint or JWKS,
 and is the one worth alerting on). They are scraped from `/actuator/prometheus` (HTTP Basic auth — see

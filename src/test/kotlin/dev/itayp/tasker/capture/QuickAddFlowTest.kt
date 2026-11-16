@@ -219,7 +219,7 @@ class QuickAddFlowTest {
             assertEquals(1, it.size)
             assertEquals("Parent-teacher conference", it[0].title)
         })
-        assertEquals(1.0, meterRegistry.counter("tasker.quickadd.outcome", "result", "saved").count())
+        assertEquals(1.0, meterRegistry.counter("tasker.quickadd.outcome", "result", "saved", "channel", "dev").count())
         val sent = channel.drain()
         // One "Added: ..." message; no invite-skipped warning when invitesScheduled is true.
         assertEquals(1, sent.size)
@@ -278,7 +278,7 @@ class QuickAddFlowTest {
         assertNull(next)
         verify(backlogTaskService, never()).createTask(any(), any(), any())
         verify(oneOffEventService, never()).createEvents(any(), any(), any())
-        assertEquals(1.0, meterRegistry.counter("tasker.quickadd.outcome", "result", "cancelled").count())
+        assertEquals(1.0, meterRegistry.counter("tasker.quickadd.outcome", "result", "cancelled", "channel", "dev").count())
     }
 
     @Test
@@ -496,7 +496,7 @@ class QuickAddFlowTest {
         // The channel decides what to say for a routed message; the flow says nothing.
         assertTrue(channel.drain().isEmpty())
         assertEquals(1.0, meterRegistry.counter("tasker.quickadd.route", "intent", "current").count())
-        assertEquals(1.0, meterRegistry.counter("tasker.quickadd.outcome", "result", "not_a_capture").count())
+        assertEquals(1.0, meterRegistry.counter("tasker.quickadd.outcome", "result", "not_a_capture", "channel", "dev").count())
     }
 
     @Test
@@ -545,7 +545,7 @@ class QuickAddFlowTest {
         assertNull(assertIs<CaptureEntry.Captured>(entry).state)
         assertIs<ChannelMessage.Text>(channel.drain().single())
         verify(suggestionAgent, never()).quickAddDraft(any(), any(), any(), any(), any(), anyOrNull())
-        assertEquals(1.0, meterRegistry.counter("tasker.quickadd.outcome", "result", "rate_limited").count())
+        assertEquals(1.0, meterRegistry.counter("tasker.quickadd.outcome", "result", "rate_limited", "channel", "dev").count())
     }
 
     @Test
@@ -588,6 +588,7 @@ class QuickAddFlowTest {
         assertEquals(listOf("Call the plumber"), saved?.titles)
         assertEquals(listOf(taskId), saved?.taskIds)
         assertEquals(boardId, saved?.boardId)
+        assertEquals(1.0, meterRegistry.counter("tasker.quickadd.outcome", "result", "saved", "channel", "email").count())
         verify(backlogTaskService).createTask(eq(userId), eq(boardId), check {
             assertEquals(categoryId.toString(), it.categoryId)
             assertNull(it.priority)
