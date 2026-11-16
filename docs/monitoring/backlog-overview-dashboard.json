@@ -482,40 +482,29 @@
       ]
     },
     {
-      "type": "stat",
-      "title": "Total tasks",
+      "type": "bargauge",
+      "title": "Tasks (total & by status)",
+      "description": "The top bar is the total across all statuses; the bars below it share its scale, so each reads as a share of the total.",
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "gridPos": { "h": 6, "w": 4, "x": 8, "y": 33 },
-      "id": 43,
-      "fieldConfig": {
-        "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "blue" } },
-        "overrides": []
-      },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "none", "textMode": "value" },
-      "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(tasker_tasks{application=\"$application\"})" }
-      ]
-    },
-    {
-      "type": "bargauge",
-      "title": "Tasks by status",
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 6, "w": 4, "x": 12, "y": 33 },
       "id": 44,
       "fieldConfig": {
         "defaults": { "unit": "short", "color": { "mode": "palette-classic" } },
-        "overrides": []
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "total" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } } ] }
+        ]
       },
       "options": { "displayMode": "gradient", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"] }, "showUnfilled": true },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "max by (status) (tasker_tasks{application=\"$application\"})", "legendFormat": "{{status}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(tasker_tasks{application=\"$application\"})", "legendFormat": "total" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "max by (status) (tasker_tasks{application=\"$application\"})", "legendFormat": "{{status}}" }
       ]
     },
     {
       "type": "bargauge",
       "title": "Planning sessions by status",
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 6, "w": 4, "x": 16, "y": 33 },
+      "gridPos": { "h": 6, "w": 4, "x": 12, "y": 33 },
       "id": 45,
       "fieldConfig": {
         "defaults": { "unit": "short", "color": { "mode": "palette-classic" } },
@@ -531,7 +520,7 @@
       "title": "Logins by method & outcome",
       "description": "Sign-in attempts over the dashboard's time range, by provider and outcome (tasker.auth.login, mode=login; account linking is left out). Zero rows are hidden. error = the provider exchange or verification failed; rejected = cancelled, replayed or refused by policy.",
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 6, "w": 4, "x": 20, "y": 33 },
+      "gridPos": { "h": 6, "w": 4, "x": 16, "y": 33 },
       "id": 73,
       "fieldConfig": {
         "defaults": { "unit": "short", "decimals": 0, "color": { "mode": "palette-classic" } },
@@ -550,7 +539,7 @@
       "title": "Feature opt-in (claimed users)",
       "description": "Share of claimed accounts with a weekly planning schedule set, and with the daily digest switched on. A planning schedule only runs where a channel can reach the user (Telegram today). The digest is on by default, so a drop means opt-outs. Unclaimed demo accounts are left out: they keep the defaults.",
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 39 },
+      "gridPos": { "h": 6, "w": 4, "x": 20, "y": 33 },
       "id": 74,
       "fieldConfig": {
         "defaults": { "unit": "percentunit", "min": 0, "max": 1, "decimals": 0, "color": { "mode": "palette-classic" } },
@@ -566,7 +555,7 @@
       "type": "row",
       "title": "Email delivery & quick add",
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 45 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 39 },
       "id": 60,
       "panels": []
     },
@@ -575,7 +564,7 @@
       "title": "Emails sent / min by purpose & outcome",
       "description": "Auth sender (login / register / verification magic links) vs. scheduling sender (calendar invites). A rise in outcome=failure on purpose=auth means users can't log in — see EmailMetricsOutboundChannel.",
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 46 },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 40 },
       "id": 61,
       "fieldConfig": {
         "defaults": {
@@ -596,7 +585,7 @@
       "title": "Quick-add outcomes / min",
       "description": "Quick-capture funnel per channel (telegram, web, email): saved vs. cancelled vs. expired (timed out waiting on the user). A rise in expired relative to saved means people are abandoning the flow — see QuickAddFlow / QuickAddRegistry.",
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 46 },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 40 },
       "id": 63,
       "fieldConfig": {
         "defaults": {
@@ -617,7 +606,7 @@
       "type": "row",
       "title": "Background jobs & logs",
       "collapsed": true,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 54 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 48 },
       "id": 50,
       "panels": [
         {
@@ -625,7 +614,7 @@
           "title": "Scheduled task runs / min by outcome",
           "description": "Auto-archive, unclaimed-account cleanup, conversation cleanup, usage-metrics refresh. A rise in non-SUCCESS outcomes means a background job is failing.",
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 55 },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 49 },
           "id": 51,
           "fieldConfig": {
             "defaults": { "unit": "short", "custom": { "drawStyle": "bars", "fillOpacity": 60, "lineWidth": 0, "showPoints": "never" } },
@@ -640,7 +629,7 @@
           "type": "timeseries",
           "title": "Log events / min by level",
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 55 },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 49 },
           "id": 52,
           "fieldConfig": {
             "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 1, "showPoints": "never" } },
@@ -660,7 +649,7 @@
       "type": "row",
       "title": "Request logs (Loki)",
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 63 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 57 },
       "id": 70,
       "panels": []
     },
@@ -669,7 +658,7 @@
       "title": "Recent application logs",
       "description": "Live tail of the most recent structured log lines for the service.",
       "datasource": { "type": "loki", "uid": "${logs_datasource}" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 64 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 58 },
       "id": 72,
       "options": {
         "showTime": true,
