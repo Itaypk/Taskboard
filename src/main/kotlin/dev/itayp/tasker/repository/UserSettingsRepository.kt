@@ -25,4 +25,22 @@ interface UserSettingsRepository : JpaRepository<UserSettingsEntity, UUID> {
         """,
     )
     fun countAiEnabled(@Param("claimed") claimed: Boolean, @Param("noneTier") noneTier: String): Long
+
+    /** Backs the `tasker.users.planning_scheduled` gauge. */
+    @Query(
+        """
+        SELECT COUNT(s) FROM UserSettingsEntity s JOIN UserEntity u ON u.id = s.userId
+        WHERE u.claimed = :claimed AND s.planningCron IS NOT NULL
+        """,
+    )
+    fun countPlanningScheduled(@Param("claimed") claimed: Boolean): Long
+
+    /** Backs the `tasker.users.daily_digest_enabled` gauge. */
+    @Query(
+        """
+        SELECT COUNT(s) FROM UserSettingsEntity s JOIN UserEntity u ON u.id = s.userId
+        WHERE u.claimed = :claimed AND s.dailyDigestEnabled = true
+        """,
+    )
+    fun countDailyDigestEnabled(@Param("claimed") claimed: Boolean): Long
 }

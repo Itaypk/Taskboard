@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * Application-level usage gauges (users, AI opt-in, tasks, planning sessions) exposed to
+ * Application-level usage gauges (users, feature opt-in, tasks, planning sessions) exposed to
  * Prometheus alongside the framework defaults. Counts are read from the DB on a fixed schedule into
  * in-memory holders; the gauges read the holders, so a scrape never hits the database and a query
  * failure never breaks scraping. Refresh cadence is coarse on purpose — these are slow-moving totals.
@@ -41,7 +41,24 @@ class UsageMetrics(
     private val activeUsers = AtomicLong(0)
     private val tasksByStatus = TaskStatus.entries.associateWith { AtomicLong(0) }
     private val sessionsByStatus = PlanningSessionStatus.entries.associateWith { AtomicLong(0) }
-    private val aiEnabledUsers = listOf(true, false).associateWith { AtomicLong(0) }
+
+    /** A user count split by `claimed`, so demo accounts (which keep the defaults) don't drown out real users. */
+    private class ClaimedSplitGauge(val name: String, val description: String, val count: (claimed: Boolean) -> Long) {
+        val holders = listOf(true, false).associateWith { AtomicLong(0) }
+    }
+
+    private val claimedSplitGauges = listOf(
+        ClaimedSplitGauge("tasker.users.ai_enabled", "Users with AI switched on in their settings and a tier that grants it") {
+            userSettingsRepository.countAiEnabled(it, AiTier.NONE.tierName)
+        },
+        ClaimedSplitGauge(
+            "tasker.users.planning_scheduled",
+            "Users with a weekly planning schedule set (it only runs where a channel can reach them)",
+        ) { userSettingsRepository.countPlanningScheduled(it) },
+        ClaimedSplitGauge("tasker.users.daily_digest_enabled", "Users with the daily digest switched on") {
+            userSettingsRepository.countDailyDigestEnabled(it)
+        },
+    )
 
     @PostConstruct
     fun bind() {
@@ -69,11 +86,13 @@ class UsageMetrics(
                 .tag("status", status.name.lowercase())
                 .register(meterRegistry)
         }
-        aiEnabledUsers.forEach { (claimed, holder) ->
-            Gauge.builder("tasker.users.ai_enabled", holder) { it.get().toDouble() }
-                .description("Users with AI switched on in their settings and a tier that grants it")
-                .tag("claimed", claimed.toString())
-                .register(meterRegistry)
+        claimedSplitGauges.forEach { gauge ->
+            gauge.holders.forEach { (claimed, holder) ->
+                Gauge.builder(gauge.name, holder) { it.get().toDouble() }
+                    .description(gauge.description)
+                    .tag("claimed", claimed.toString())
+                    .register(meterRegistry)
+            }
         }
 
         // Populate immediately so the first scrape after startup isn't all zeros.
@@ -89,8 +108,8 @@ class UsageMetrics(
             activeUsers.set(userRepository.countByClaimedAndLastActiveAtAfter(true, clock.instant().minus(Duration.ofDays(ACTIVE_WINDOW_DAYS))))
             tasksByStatus.forEach { (status, holder) -> holder.set(backlogTaskRepository.countByStatus(status)) }
             sessionsByStatus.forEach { (status, holder) -> holder.set(planningSessionRepository.countByStatus(status)) }
-            aiEnabledUsers.forEach { (claimed, holder) ->
-                holder.set(userSettingsRepository.countAiEnabled(claimed, AiTier.NONE.tierName))
+            claimedSplitGauges.forEach { gauge ->
+                gauge.holders.forEach { (claimed, holder) -> holder.set(gauge.count(claimed)) }
             }
         } catch (e: Exception) {
             log.warn("Failed to refresh usage metrics", e)

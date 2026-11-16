@@ -31,7 +31,8 @@ pools, GC, CPU internals, DB pool, and per-endpoint HTTP stats.
   worth alerting on; it is invisible in latency and error-rate panels.
 - **Current totals**: users, users by type (claimed / unclaimed-idle /
   unclaimed-engaged), total tasks, tasks by status, planning sessions by status,
-  and sign-ins over the time range by method (email / Telegram / Google) & outcome.
+  sign-ins over the time range by method (email / Telegram / Google) & outcome, and
+  feature opt-in among claimed users (weekly planning scheduled, daily digest on).
 - **Email delivery & quick add**: emails sent/min by sender purpose (auth vs
   scheduling) & outcome (success vs failure), and the quick-capture funnel
   (saved vs. cancelled vs. expired) per channel (telegram, web, email).
@@ -49,7 +50,8 @@ latter defaults to `grafanacloud-itaypk-logs`).
 
 The custom application metrics are defined in
 `dev.itayp.tasker.metrics.UsageMetrics` (gauges — users/tasks/planning-sessions, and
-`tasker.users.ai_enabled{claimed}`),
+`tasker.users.ai_enabled` / `planning_scheduled` / `daily_digest_enabled`, each split by
+`claimed`),
 `dev.itayp.tasker.ai.usage.AiUsageTracker` (AI request/token counters),
 `dev.itayp.tasker.channel.email.EmailMetricsOutboundChannel` (`tasker.email.sent`
 counter — one final outcome per email, after the scheduling sender's retries;
