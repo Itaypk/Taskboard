@@ -213,6 +213,9 @@ class SecurityConfiguration(
                 // (/api/auth/telegram/link/start) is NOT listed, so it stays authenticated.
                 authorize("/api/auth/telegram/start", permitAll)
                 authorize("/api/auth/telegram/callback", permitAll)
+                // Same shape for Google: /api/auth/google/link/start stays authenticated.
+                authorize("/api/auth/google/start", permitAll)
+                authorize("/api/auth/google/callback", permitAll)
                 authorize("/api/auth/dev-login", permitAll)
                 authorize("/api/auth/demo-login", permitAll)
                 authorize("/api/auth/email", permitAll)

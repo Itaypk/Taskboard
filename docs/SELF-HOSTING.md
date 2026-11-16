@@ -32,7 +32,7 @@ cp .env.example .env
 
 Edit `.env` and fill in at least:
 
-- `TASKER_APP_BASE_URL`: the public URL, e.g. `https://tasks.example.com` (no trailing slash).
+- `TASKER_APP_BASE_URL`: the public URL, e.g. `https://tasks.example.com` (a trailing slash is ignored).
 - `TASKBOARD_DOMAIN`: its host name, e.g. `tasks.example.com` (for Caddy's certificate).
 - `POSTGRES_PASSWORD`: any long random string.
 - `TASKER_DATA_KEK`: the key that encrypts task contents and other personal data. Generate it with
@@ -79,6 +79,9 @@ Other ways in, which can be combined:
 - **Telegram** (`TASKER_TELEGRAM_CLIENT_ID` / `TASKER_TELEGRAM_CLIENT_SECRET`): set your instance's
   domain under BotFather → Bot Settings → Web Login. The bot itself (`TASKER_TELEGRAM_BOT_TOKEN`)
   runs the planning conversation and quick-add.
+- **Google** (`TASKER_GOOGLE_CLIENT_ID` / `TASKER_GOOGLE_CLIENT_SECRET`): a "Web application"
+  OAuth client in your own Google Cloud project, with `https://<your domain>/api/auth/google/callback`
+  as its redirect URI. See [CONFIGURATION.md](CONFIGURATION.md#google-sign-in-googleauthproperties).
 - **Open registration** (`TASKER_REGISTRATION=open`, optionally `TASKER_DEMO_ENABLED=true`): for a
   public instance. Mind the AI costs: every account can use the assistant within its token budget.
 

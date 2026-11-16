@@ -18,7 +18,6 @@ import dev.itayp.tasker.service.UserAuthService
 import dev.itayp.tasker.util.localRedirect
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
-import jakarta.servlet.http.HttpSession
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.ResponseEntity
@@ -27,7 +26,6 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
-import java.net.URI
 
 /**
  * Telegram login via the OIDC Authorization Code + PKCE redirect flow. Replaces the legacy
@@ -78,17 +76,13 @@ class TelegramOidcController(
         if (!telegramOidcService.isConfigured()) return redirect("/?telegramLogin=unavailable")
         val authz = telegramOidcService.buildAuthorizationRequest(redirectUri())
         // Only the explicit pick and the zone: the header is read at the callback, from the same browser.
+        // The callback is a redirect from Telegram, so the visitor's language pick and browser zone can
+        // only reach it via the session. Validated here, so nothing unchecked is stored.
         val hints = registrationHintsResolver.resolve(lang, null, tz)
-        request.session.apply {
-            setAttribute(ATTR_STATE, authz.state)
-            setAttribute(ATTR_VERIFIER, authz.codeVerifier)
-            setAttribute(ATTR_MODE, MODE_LOGIN)
-            setAttribute(ATTR_NEXT, localRedirect(next))
-            // The callback is a redirect from Telegram, so the visitor's language pick and browser zone
-            // can only reach it via the session. Validated here, so nothing unchecked is stored.
-            setAttribute(ATTR_LANGUAGE, hints.language)
-            setAttribute(ATTR_TIME_ZONE, hints.timeZone)
-        }
+        roundTrip.begin(
+            request.session, authz.state, authz.codeVerifier, OAuthMode.LOGIN,
+            next = localRedirect(next), language = hints.language, timeZone = hints.timeZone,
+        )
         return redirect(authz.authorizationUrl)
     }
 
@@ -99,11 +93,7 @@ class TelegramOidcController(
     ): ResponseEntity<Void> {
         if (!telegramOidcService.isConfigured()) return redirect("/settings?telegramLink=unavailable")
         val authz = telegramOidcService.buildAuthorizationRequest(redirectUri())
-        request.session.apply {
-            setAttribute(ATTR_STATE, authz.state)
-            setAttribute(ATTR_VERIFIER, authz.codeVerifier)
-            setAttribute(ATTR_MODE, MODE_LINK)
-        }
+        roundTrip.begin(request.session, authz.state, authz.codeVerifier, OAuthMode.LINK)
         return redirect(authz.authorizationUrl)
     }
 
@@ -116,47 +106,25 @@ class TelegramOidcController(
         request: HttpServletRequest,
         response: HttpServletResponse,
     ): ResponseEntity<Void> {
-        val session = request.session
-        // No stored mode means this browser never ran /start or /link/start (or already used the
-        // callback once). A signed-in user can only have been linking: the SPA offers login only to
-        // signed-out visitors, and a login failure notice on "/" would never render behind the board.
-        val mode = session.getAttribute(ATTR_MODE) as? String ?: if (principal != null) MODE_LINK else MODE_LOGIN
-        val expectedState = session.getAttribute(ATTR_STATE) as? String
-        val verifier = session.getAttribute(ATTR_VERIFIER) as? String
-        val next = session.getAttribute(ATTR_NEXT) as? String ?: "/"
-        val language = session.getAttribute(ATTR_LANGUAGE) as? String
-        val timeZone = session.getAttribute(ATTR_TIME_ZONE) as? String
-        clearOauthAttributes(session)
-
-        val isLink = mode == MODE_LINK
+        val pending = roundTrip.consume(request.session, signedIn = principal != null)
+        val isLink = pending.mode == OAuthMode.LINK
         val metricMode = if (isLink) LoginMode.LINK else LoginMode.LOGIN
         fun count(outcome: LoginOutcome) = loginMetrics.record(LoginProvider.TELEGRAM, outcome, metricMode)
 
-        if (!error.isNullOrBlank() || code.isNullOrBlank() || state.isNullOrBlank() || verifier == null) {
-            val missing = listOfNotNull(
-                "code".takeIf { code.isNullOrBlank() },
-                "state".takeIf { state.isNullOrBlank() },
-                "verifier".takeIf { verifier == null },
-            )
-            // A missing verifier with code+state present means the session that ran /start isn't the one
-            // that came back, e.g. Telegram reopened the callback in another browser or cookie jar.
+        val rejection = pending.rejection(code, state, error)
+        if (rejection != null) {
             logger.warn(
-                "Telegram callback rejected (mode={}, signedIn={}): error={}, missing={}",
-                mode, principal != null, error, missing,
+                "Telegram callback rejected (mode={}, signedIn={}): {}",
+                pending.mode.value, principal != null, rejection,
             )
-            count(LoginOutcome.REJECTED)
-            return failureRedirect(isLink)
-        }
-        if (expectedState == null || state != expectedState) {
-            logger.warn("Telegram callback state mismatch (mode={})", mode)
             count(LoginOutcome.REJECTED)
             return failureRedirect(isLink)
         }
 
         val data = try {
-            telegramOidcService.completeAuthorization(code, verifier, redirectUri())
+            telegramOidcService.completeAuthorization(code!!, pending.codeVerifier!!, redirectUri())
         } catch (e: TelegramAuthException) {
-            logger.warn("Telegram callback auth failed (mode={}): {}", mode, e.message)
+            logger.warn("Telegram callback auth failed (mode={}): {}", pending.mode.value, e.message)
             count(LoginOutcome.ERROR)
             return failureRedirect(isLink)
         }
@@ -178,7 +146,7 @@ class TelegramOidcController(
 
         // Registration seeds the language and time zone from the browser that ran the OAuth round-trip;
         // an existing user's stored settings are untouched (the hints are ignored on login).
-        val hints = registrationHintsResolver.resolve(language, request.getHeader("Accept-Language"), timeZone)
+        val hints = registrationHintsResolver.resolve(pending.language, request.getHeader("Accept-Language"), pending.timeZone)
         val user = try {
             userAuthService.loginOrRegisterByTelegram(data, hints)
         } catch (_: RegistrationClosedException) {
@@ -188,7 +156,7 @@ class TelegramOidcController(
         }
         sessionAuthenticator.authenticate(TaskerPrincipal(user.id!!), request, response)
         count(LoginOutcome.SUCCESS)
-        return redirect(localRedirect(next))
+        return redirect(localRedirect(pending.next))
     }
 
     private fun redirectUri(): String = "${appProperties.baseUrl}/api/auth/telegram/callback"
@@ -196,25 +164,10 @@ class TelegramOidcController(
     private fun failureRedirect(isLink: Boolean): ResponseEntity<Void> =
         redirect(if (isLink) "/settings?telegramLink=failed" else "/?telegramLogin=failed")
 
-    // Authorization URLs are absolute (Telegram); SPA notices are same-origin paths run through localRedirect.
-    private fun redirect(target: String): ResponseEntity<Void> {
-        val location = if (target.startsWith("http")) target else localRedirect(target)
-        return ResponseEntity.status(302).location(URI.create(location)).build()
-    }
-
-    private fun clearOauthAttributes(session: HttpSession) {
-        listOf(ATTR_STATE, ATTR_VERIFIER, ATTR_MODE, ATTR_NEXT, ATTR_LANGUAGE, ATTR_TIME_ZONE).forEach(session::removeAttribute)
-    }
+    private fun redirect(target: String): ResponseEntity<Void> = OAuthRoundTrip.redirect(target)
 
     companion object {
         private val logger = LoggerFactory.getLogger(TelegramOidcController::class.java)
-        private const val ATTR_STATE = "tgOauthState"
-        private const val ATTR_VERIFIER = "tgOauthVerifier"
-        private const val ATTR_MODE = "tgOauthMode"
-        private const val ATTR_NEXT = "tgOauthNext"
-        private const val ATTR_LANGUAGE = "tgOauthLanguage"
-        private const val ATTR_TIME_ZONE = "tgOauthTimeZone"
-        private const val MODE_LOGIN = "login"
-        private const val MODE_LINK = "link"
+        private val roundTrip = OAuthRoundTrip("tgOauth")
     }
 }

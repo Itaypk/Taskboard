@@ -23,7 +23,7 @@ import { resetPublicConfigForTests } from '../publicConfig';
 import { LoginPage } from './LoginPage';
 
 const selfHosted: PublicConfig = {
-    login: { telegram: false, email: false, password: true, demo: false },
+    login: { telegram: false, google: false, email: false, password: true, demo: false },
     registrationOpen: false,
     branding: { name: 'Acme Tasks', supportEmail: 'help@acme.test', abuseEmail: 'abuse@acme.test' },
     ai: false,
@@ -73,8 +73,28 @@ describe('LoginPage', () => {
         expect(screen.getByLabelText('Username')).toBeInTheDocument();
         expect(screen.getByLabelText('Password')).toBeInTheDocument();
         expect(screen.queryByRole('link', { name: /Telegram/ })).not.toBeInTheDocument();
+        expect(screen.queryByRole('link', { name: /Google/ })).not.toBeInTheDocument();
         expect(screen.queryByRole('button', { name: /Continue with email/ })).not.toBeInTheDocument();
         expect(screen.getByText('Sign in with an existing account.')).toBeInTheDocument();
+    });
+
+    it('offers Google sign-in when configured, carrying the registration hints', async () => {
+        withInlineConfig({ ...selfHosted, login: { ...selfHosted.login, google: true } });
+        renderPage();
+
+        fireEvent.click(await screen.findByRole('button', { name: /^Sign in/ }));
+
+        const google = screen.getByRole('link', { name: 'Continue with Google' });
+        expect(google.getAttribute('href')).toMatch(/^\/api\/auth\/google\/start\?.*lang=en/);
+    });
+
+    it('opens with the notice when Google sign-in hit an existing email', () => {
+        window.history.replaceState(null, '', '/?googleLogin=emailConflict');
+        withInlineConfig(selfHosted);
+        renderPage();
+
+        expect(screen.getByRole('alert')).toHaveTextContent('An account with this email address already exists.');
+        expect(window.location.search).toBe('');
     });
 
     it('shows the instance name from the first render', () => {

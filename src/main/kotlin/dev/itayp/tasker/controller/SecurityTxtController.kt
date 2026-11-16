@@ -29,7 +29,7 @@ class SecurityTxtController(
 
     @GetMapping("/.well-known/security.txt", produces = ["text/plain;charset=UTF-8"])
     fun securityTxt(): String {
-        val base = appProperties.baseUrl.trimEnd('/')
+        val base = appProperties.baseUrl
         val expires = clock.instant().truncatedTo(ChronoUnit.DAYS).plus(EXPIRY)
         return """
             |Contact: $GITHUB_ADVISORY_URL

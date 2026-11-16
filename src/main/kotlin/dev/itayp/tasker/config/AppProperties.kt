@@ -2,9 +2,10 @@ package dev.itayp.tasker.config
 
 import org.springframework.boot.context.properties.ConfigurationProperties
 
+/** Not a data class: [baseUrl] is normalized on the way in, which a data class's constructor properties can't do. */
 @ConfigurationProperties("tasker.app")
-data class AppProperties(
-    val baseUrl: String = "https://backlog.fyi",
+class AppProperties(
+    baseUrl: String = "https://backlog.fyi",
     /**
      * Product name shown to users: emails, Telegram messages, the web UI and the assistant's
      * persona. Operator-configured, so it's trusted, but it's inserted into HTML emails and into
@@ -24,6 +25,13 @@ data class AppProperties(
      */
     val unclaimedAccountCap: Int = 1000,
 ) {
+    /**
+     * The public URL, always without a trailing slash, so `"$baseUrl/path"` is safe everywhere. An
+     * operator writing `https://tasks.example.com/` would otherwise get `//path` links, which OAuth
+     * providers reject outright (redirect URIs are matched exactly).
+     */
+    val baseUrl: String = baseUrl.trimEnd('/')
+
     init {
         require(name.isNotBlank() && name.length <= 64) { "TASKER_APP_NAME must be 1-64 characters" }
         require(name.none { it in NAME_FORBIDDEN }) {

@@ -8,7 +8,7 @@ name/default/provenance reference.
 ## Instance (`AppProperties`)
 
 - `TASKER_APP_BASE_URL` — the public URL users reach the instance at, e.g. `https://tasks.example.com`
-  (no trailing slash). Magic links, invitations, the Telegram redirect URI, the API catalog and CORS
+  (a trailing slash is ignored). Magic links, invitations, the Telegram redirect URI, the API catalog and CORS
   are all built from it. Defaults to `https://backlog.fyi` outside `prod`; **required under `prod`**,
   where `ProductionConfigValidator` refuses to start without a valid value.
 
@@ -77,6 +77,23 @@ Both halves are optional; an instance without Telegram runs web-only.
 - `TASKER_TELEGRAM_BOT_USERNAME` — cosmetic / future use.
 
 Telegram *login* is offered only when both the client id and secret are set.
+
+## Google sign-in (`GoogleAuthProperties`)
+
+Optional; offered only when both are set.
+
+- `TASKER_GOOGLE_CLIENT_ID` — OAuth client id; also the expected `aud` of the id_token.
+- `TASKER_GOOGLE_CLIENT_SECRET` — OAuth client secret (sent in the token-exchange form).
+
+Both come from a Google Cloud project: Google Auth Platform → Clients → Create client, type
+"Web application", with `<TASKER_APP_BASE_URL>/api/auth/google/callback` as an authorized redirect
+URI (no JavaScript origins needed). The app requests only the non-sensitive `openid email` scopes,
+so the consent screen needs no Google review, but it has to be **published** (Audience → Publish):
+in "Testing" only the listed test users can sign in.
+
+A new Google account whose email already belongs to an account is signed into that account only
+when Google vouches for the address (a Gmail address or a Workspace account) and the account has
+verified it; otherwise the user is told to sign in their usual way and connect Google in Settings.
 
 ## AI
 

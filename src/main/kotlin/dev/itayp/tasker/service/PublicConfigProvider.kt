@@ -24,6 +24,7 @@ class PublicConfigProvider(
     fun config(): PublicConfigResponse = PublicConfigResponse(
         login = LoginMethodsResponse(
             telegram = loginMethods.telegram,
+            google = loginMethods.google,
             email = loginMethods.email,
             password = loginMethods.password,
             demo = loginMethods.demo,

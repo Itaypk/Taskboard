@@ -6,12 +6,16 @@ import dev.itayp.tasker.jpa.AuthIdentityEntity
 import dev.itayp.tasker.jpa.AuthProvider
 import dev.itayp.tasker.repository.AuthIdentityRepository
 import dev.itayp.tasker.repository.UserRepository
+import dev.itayp.tasker.security.google.GoogleAuthData
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
+import java.time.Instant
 import java.util.UUID
+import kotlin.uuid.Uuid
+import kotlin.uuid.toJavaUuid
 
 /**
  * Attaches additional login methods to an already-authenticated account ("connected accounts").
@@ -74,6 +78,55 @@ class AccountLinkService(
         log.info("Linked telegram identity to user {}", userId)
         return LinkResult.Success
     }
+
+    /**
+     * Attaches a Google account to the signed-in user. If the user has no email on file yet and
+     * Google's claim is trustworthy ([GoogleAuthData.trustedEmail]) and unowned, it becomes their
+     * verified address and email login, as verifying it in Settings would.
+     */
+    @Transactional
+    fun linkGoogle(userId: UUID, data: GoogleAuthData): LinkResult {
+        val existing = authIdentityRepository.findByProviderAndProviderUserId(AuthProvider.GOOGLE, data.subject)
+        if (existing != null) {
+            return if (existing.userId == userId) LinkResult.AlreadyLinked else LinkResult.ConflictOwnedByAnother
+        }
+        val identities = authIdentityRepository.findAllByUserId(userId)
+        if (identities.any { it.provider == AuthProvider.GOOGLE }) return LinkResult.AlreadyHasProvider
+        val user = userRepository.findById(userId).orElseThrow { NoSuchElementException("User not found") }
+
+        val now = clock.instant()
+        authIdentityRepository.save(newIdentity(userId, AuthProvider.GOOGLE, data.subject, now))
+        val email = data.trustedEmail
+        if (email != null && user.emailHash == null) {
+            val emailHash = EmailHasher.hash(email)
+            val unowned = userRepository.findByEmailHash(emailHash) == null &&
+                authIdentityRepository.findByProviderAndProviderUserId(AuthProvider.EMAIL, emailHash) == null
+            if (unowned) {
+                user.email = userCrypto.encrypt(userId, email)
+                user.emailHash = emailHash
+                user.emailVerifiedAt = now
+                authIdentityRepository.save(newIdentity(userId, AuthProvider.EMAIL, emailHash, now))
+                log.debug("Adopted the Google account's email for user {}", userId)
+            }
+        }
+        // Linking a login method claims the account (one-way latch), exempting it from cleanup.
+        user.claimed = true
+        userRepository.save(user)
+        userSettingsService.upgradeToStandardOnClaim(userId)
+        log.info("Linked google identity to user {}", userId)
+        return LinkResult.Success
+    }
+
+    private fun newIdentity(userId: UUID, provider: String, providerUserId: String, now: Instant) =
+        AuthIdentityEntity().apply {
+            id = Uuid.generateV7().toJavaUuid()
+            this.userId = userId
+            this.provider = provider
+            this.providerUserId = providerUserId
+            verifiedAt = now
+            createdAt = now
+            lastLoginAt = now
+        }
 
     @Transactional
     fun unlink(userId: UUID, provider: String): UnlinkResult {

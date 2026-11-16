@@ -22,19 +22,23 @@ export interface AuthUser {
 export const fetchMe = (): Promise<AuthUser | null> =>
     request<AuthUser | null>('/api/auth/me');
 
-// Telegram login/link use the OIDC redirect flow: navigate the browser to these backend
-// endpoints, which 302 to Telegram and (on the callback) back to the SPA. No fetch/JSON.
+// Telegram and Google login/link use the OIDC redirect flow: navigate the browser to these backend
+// endpoints, which 302 to the provider and (on the callback) back to the SPA. No fetch/JSON.
 // Login can register an account, so it carries the same hints as withRegistrationHints.
-export const telegramLoginUrl = (next?: string): string => {
+const oauthLoginUrl = (provider: 'telegram' | 'google', next?: string): string => {
     const params = new URLSearchParams();
     if (next && next !== '/') params.set('next', next);
     params.set('lang', getActiveLocale());
     const timeZone = browserTimeZone();
     if (timeZone) params.set('tz', timeZone);
-    return `/api/auth/telegram/start?${params}`;
+    return `/api/auth/${provider}/start?${params}`;
 };
 
+export const telegramLoginUrl = (next?: string): string => oauthLoginUrl('telegram', next);
+export const googleLoginUrl = (next?: string): string => oauthLoginUrl('google', next);
+
 export const TELEGRAM_LINK_URL = '/api/auth/telegram/link/start';
+export const GOOGLE_LINK_URL = '/api/auth/google/link/start';
 
 /** The messaging bot's handle, or null when the deployment runs no bot. */
 export interface TelegramBotInfo {

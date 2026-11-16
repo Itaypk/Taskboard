@@ -32,9 +32,6 @@ class ProductionConfigValidator(private val appProperties: AppProperties) : Init
             if (uri == null || uri.scheme !in setOf("http", "https") || uri.host.isNullOrBlank()) {
                 return "TASKER_APP_BASE_URL must be an absolute http(s) URL, e.g. https://tasks.example.com; got '$baseUrl'"
             }
-            if (baseUrl.endsWith("/")) {
-                return "TASKER_APP_BASE_URL must not end with '/'; got '$baseUrl'"
-            }
             return null
         }
     }

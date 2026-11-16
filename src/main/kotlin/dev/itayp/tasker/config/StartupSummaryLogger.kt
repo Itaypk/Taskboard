@@ -39,6 +39,7 @@ class StartupSummaryLogger(
             if (loginMethods.password) add("password (${localLoginService.userCount} user(s))")
             if (loginMethods.email) add("email")
             if (loginMethods.telegram) add("telegram")
+            if (loginMethods.google) add("google")
             if (loginMethods.demo) add("demo")
         }
         log.info(
@@ -56,7 +57,7 @@ class StartupSummaryLogger(
         if (signIn.isEmpty()) {
             log.warn(
                 "No sign-in method is available, so nobody can log in. Set TASKER_LOCAL_USERS, " +
-                    "enable email (TASKER_EMAIL_ENABLED + SMTP settings) or configure Telegram login.",
+                    "enable email (TASKER_EMAIL_ENABLED + SMTP settings) or configure Telegram or Google login.",
             )
         }
         if (inboundMailProperties.enabled && !inboundMailProperties.active) {

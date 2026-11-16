@@ -30,3 +30,12 @@
   flex-direction: column;
   gap: 8px;
 }
+
+/* Google's light theme for a custom sign-in button (identity/branding-guidelines): the "G" must sit on
+   white, so this one can't use the transparent ghost style of its neighbours. */
+.googleMethod,
+.googleMethod:hover {
+  background: #fff;
+  color: #1f1f1f;
+  border: 1px solid #747775;
+}

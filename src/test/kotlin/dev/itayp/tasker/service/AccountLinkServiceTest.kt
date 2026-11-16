@@ -7,6 +7,7 @@ import dev.itayp.tasker.jpa.AuthProvider
 import dev.itayp.tasker.jpa.UserEntity
 import dev.itayp.tasker.repository.AuthIdentityRepository
 import dev.itayp.tasker.repository.UserRepository
+import dev.itayp.tasker.security.google.GoogleAuthData
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -170,5 +171,65 @@ class AccountLinkServiceTest {
 
         assertThat(result).isEqualTo(UnlinkResult.NotLinked)
         verify(authIdentityRepository, never()).delete(any<AuthIdentityEntity>())
+    }
+
+    private fun googleData(email: String? = "bob@gmail.com") =
+        GoogleAuthData(subject = "g-1", email = email, emailVerified = true, hostedDomain = null)
+
+    @Test
+    fun `linkGoogle attaches the identity, claims the account and adopts an unowned trusted email`() {
+        crypto.ensureUserKey(userId)
+        val user = UserEntity().apply { id = userId; claimed = false }
+        val hash = EmailHasher.hash("bob@gmail.com")
+        whenever(authIdentityRepository.findByProviderAndProviderUserId(any(), any())).thenReturn(null)
+        whenever(authIdentityRepository.findAllByUserId(userId)).thenReturn(emptyList())
+        whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
+        whenever(userRepository.findByEmailHash(hash)).thenReturn(null)
+        whenever(userRepository.save(any<UserEntity>())).thenAnswer { it.arguments[0] as UserEntity }
+
+        val result = service.linkGoogle(userId, googleData())
+
+        assertThat(result).isEqualTo(LinkResult.Success)
+        assertThat(user.claimed).isTrue()
+        assertThat(user.emailHash).isEqualTo(hash)
+        assertThat(user.emailVerifiedAt).isEqualTo(fixedNow)
+        assertThat(crypto.decrypt(userId, user.email)).isEqualTo("bob@gmail.com")
+        val identities = argumentCaptor<AuthIdentityEntity>()
+        verify(authIdentityRepository, times(2)).save(identities.capture())
+        assertThat(identities.allValues.map { it.provider to it.providerUserId })
+            .containsExactly(AuthProvider.GOOGLE to "g-1", AuthProvider.EMAIL to hash)
+        verify(userSettingsService).upgradeToStandardOnClaim(userId)
+    }
+
+    @Test
+    fun `linkGoogle leaves an existing email alone`() {
+        val user = UserEntity().apply { id = userId; emailHash = "existing"; claimed = true }
+        whenever(authIdentityRepository.findByProviderAndProviderUserId(AuthProvider.GOOGLE, "g-1")).thenReturn(null)
+        whenever(authIdentityRepository.findAllByUserId(userId)).thenReturn(emptyList())
+        whenever(userRepository.findById(userId)).thenReturn(Optional.of(user))
+        whenever(userRepository.save(any<UserEntity>())).thenAnswer { it.arguments[0] as UserEntity }
+
+        assertThat(service.linkGoogle(userId, googleData())).isEqualTo(LinkResult.Success)
+        assertThat(user.emailHash).isEqualTo("existing")
+        verify(authIdentityRepository, times(1)).save(any<AuthIdentityEntity>())
+    }
+
+    @Test
+    fun `linkGoogle refuses a Google account owned by someone else`() {
+        whenever(authIdentityRepository.findByProviderAndProviderUserId(AuthProvider.GOOGLE, "g-1"))
+            .thenReturn(AuthIdentityEntity().apply { this.userId = UUID.randomUUID() })
+
+        assertThat(service.linkGoogle(userId, googleData())).isEqualTo(LinkResult.ConflictOwnedByAnother)
+        verify(authIdentityRepository, never()).save(any<AuthIdentityEntity>())
+    }
+
+    @Test
+    fun `linkGoogle refuses a second Google account`() {
+        whenever(authIdentityRepository.findByProviderAndProviderUserId(AuthProvider.GOOGLE, "g-1")).thenReturn(null)
+        whenever(authIdentityRepository.findAllByUserId(userId))
+            .thenReturn(listOf(AuthIdentityEntity().apply { provider = AuthProvider.GOOGLE; providerUserId = "g-0" }))
+
+        assertThat(service.linkGoogle(userId, googleData())).isEqualTo(LinkResult.AlreadyHasProvider)
+        verify(authIdentityRepository, never()).save(any<AuthIdentityEntity>())
     }
 }
