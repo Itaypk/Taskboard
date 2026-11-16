@@ -959,9 +959,11 @@
         "EMAIL": "Instant, one email per change",
         "FEED": "No emails; updates when your calendar app checks"
       },
-      "noneHint": "Your plan stays in the app and in your reminders. Pick a way to also see it in your calendar.",
-      "emailHint": "Each block arrives as an invitation to your verified email address and shows up right away. Every change to your plan sends another email.",
-      "feedHint": "Your blocks live in their own calendar, separate from your other events. Subscribe once; after that, changes show up the next time your calendar app checks for updates. That's usually within the hour, but some apps take longer.",
+      "modeHelp": {
+        "NONE": "Your plan stays in the app and in your reminders. Pick a way to also see it in your calendar.",
+        "EMAIL": "Each block arrives as an invitation to your verified email address and shows up right away. Every change to your plan sends another email.",
+        "FEED": "Your blocks live in their own calendar, separate from your other events. Subscribe once; after that, changes show up the next time your calendar app checks for updates. Apple Calendar checks about every hour; Google Calendar only every few hours, sometimes up to a day."
+      },
       "emailUnavailable": "Email invitations need a verified email address.",
       "verifyEmail": "Verify your email"
     },

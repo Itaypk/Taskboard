@@ -8,6 +8,7 @@ import {
     type InboundMailAddress as InboundMailAddressData,
 } from '../api';
 import styles from './InboundMailAddress.module.css';
+import { HelpTip } from './HelpTip';
 
 /**
  * The user's personal inbound email address: mail sent or forwarded there becomes a task.
@@ -75,8 +76,10 @@ export function InboundMailAddress() {
 
     return (
         <div className="field">
-            <label className="field__label">{t('inboundMail.label')}</label>
-            <p className="settings-hint">{t('inboundMail.hint')}</p>
+            <label className="field__label">
+                {t('inboundMail.label')}
+                <HelpTip text={t('inboundMail.hint')} />
+            </label>
 
             {data?.address ? (
                 <>
@@ -91,8 +94,8 @@ export function InboundMailAddress() {
                         <button type="button" className="btn btn--ghost" onClick={handleTurnOff} disabled={busy}>
                             {t('inboundMail.turnOff')}
                         </button>
+                        <HelpTip text={t('inboundMail.secretHint')} />
                     </div>
-                    <p className="settings-hint">{t('inboundMail.secretHint')}</p>
                 </>
             ) : (
                 data && (
