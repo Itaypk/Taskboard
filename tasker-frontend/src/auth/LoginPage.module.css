@@ -392,7 +392,8 @@
 }
 .chTelegram { background: #fff; color: var(--cb-ink); border: 1.5px solid var(--cb-telegram); }
 .chTelegram:hover { background: rgba(42,171,238,0.06); }
-.chGoogle { background: #fff; color: #2a1f14; border: 1.5px solid rgba(60,40,15,0.2); }
+/* Google's light theme for a custom sign-in button (identity/branding-guidelines): the colours are fixed. */
+.chGoogle { background: #fff; color: #1f1f1f; border: 1px solid #747775; }
 .chEmail  { background: transparent; color: var(--cb-ink); border: 1.5px solid var(--cb-ink); }
 .channelBtn:disabled { opacity: 0.55; cursor: not-allowed; }
 
