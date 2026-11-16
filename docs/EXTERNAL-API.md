@@ -1,6 +1,6 @@
 # External API
 
-`/api/external/v1` is a token-authenticated task API for anything outside the web app —
+`/api/external/v1` is a token-authenticated task and weekly-plan API for anything outside the web app —
 scripts, automations, and AI assistants. It sits alongside the SPA's session-authenticated
 `/api/v1` rather than replacing it.
 
@@ -25,7 +25,7 @@ trap for anything else. The external API offers a genuine `PATCH`, plus the endp
 never needed: get-by-id, complete, archive, and free-text search.
 
 **2. Blast radius.** A token scoped to `/api/external/**` cannot reach account deletion,
-settings, planning sessions, board administration, or token minting. Adding bearer auth to
+settings, the in-app planning conversation, board administration, or token minting. Adding bearer auth to
 `/api/v1` would have handed every token the full account.
 
 ## Token model
@@ -38,8 +38,12 @@ Unsalted SHA-256 is the right choice here, unlike for a password: the input is 2
 uniform entropy, so there is no dictionary to run, and a fast digest is what makes an indexed
 single-row lookup viable on the authentication hot path.
 
-Scope is `read` or `write`, enforced as Spring authorities (`EXTERNAL_READ` / `EXTERNAL_WRITE`)
-on the filter chain rather than in controller code. `last_used_at` is written at most once a
+Scope is `read`, `write` or `plan`, each including the one before, enforced as Spring authorities
+(`EXTERNAL_READ` / `EXTERNAL_WRITE` / `EXTERNAL_PLAN`) on the filter chain rather than in controller
+code. `plan` is separate from `write` because a plan change reaches outside the app: it sends or
+cancels calendar invitations. A token whose scope falls short gets a 403 whose `detail` names the
+scope it needs (`ExternalScopeDeniedHandler`). The scope column is a plain string, so the third
+scope needed no migration. `last_used_at` is written at most once a
 minute per token, guarded by an in-process map, so reads don't become writes.
 
 Tokens can expire. Settings offers 30 days, 90 days (the default), a year, or no expiration;
@@ -80,6 +84,30 @@ opens with `requireMember`. Do not reimplement access checks here.
 Error responses are RFC 7807. Write `detail` for a model to read: name what was wrong and what
 the allowed values are, so an agent can self-correct without a human.
 
+## Weekly plans (issue #377)
+
+`GET|PUT /plans/week/{week}` and `POST /events/{id}/cancel` (`ExternalPlanController`). The caller
+does its own planning; there is no conversation and no draft. A `PUT` is the finished plan for the
+week and replaces it.
+
+- **One write path.** `DirectPlanService` validates and hands the plan to `PlanFinalizationService`:
+  `complete` for a week's first plan (in a fresh session, `openSessionForDirectPlan`, never an
+  ACTIVE one an in-app conversation owns), `revisePlan` after. So the slot diff, invitations or the
+  feed, slot reminders and reschedule counts behave as they do for the built-in planner.
+- **The caller's data is checked, not trusted.** Every task must resolve through the
+  membership-scoped `findTasksAcrossBoards`. Titles come from the stored plan or the task, never
+  from the request (the invitations print them). Slots must start inside the week in the user's
+  zone. Done or archived tasks may stay as they were but not be added or moved. Past weeks are
+  refused, so we never email invitations for them.
+- **Stored slot strings are reused for the same instant**, because `PlanSlotDiffer` keys on the
+  start string: an agent echoing `09:00+02:00` for a stored `07:00Z` must not cancel and re-invite.
+- **Assistant-hidden tasks.** Reads hide them unless `includeHidden=true` (and say how many were
+  left out). A submit keeps already-planned hidden tasks it doesn't list: the caller never saw
+  them, and dropping them would cancel their invitations.
+- **409 while an in-app conversation can still finalize the same week**
+  (`WeeklyPlanningOrchestrator.hasLiveConversation`), or it would later overwrite the external plan.
+- Not built: optimistic concurrency (`If-Match`) on a plan, and creating one-off events.
+
 ## Discoverability
 
 The contract and the skill are served from `/external-api/` (that prefix, not `/api/...`, so the
@@ -109,8 +137,9 @@ sunset in 2024.
 ## Deliberate omissions
 
 - **No hard delete.** `POST /{id}/archive` is the reversible equivalent.
-- **`hiddenFromAssistant` is respected by default.** That flag is the user's explicit
-  "not for the AI" marker; `?includeHidden=true` opts back in.
+- **`hiddenFromAssistant` is respected by default** on every read (task list, task by id, plans).
+  That flag is the user's explicit "not for the AI" marker; `?includeHidden=true` opts back in.
+  Writes by id still reach a hidden task: the caller can only hold its id after opting in.
 - **No OpenAPI generation.** springdoc pulls swagger-core (Jackson 2) into a Jackson 3
   application, and its Spring Boot 4 line is new. The spec is hand-authored instead. Revisit if
   the surface outgrows ~20 endpoints.

@@ -49,6 +49,20 @@ class PlanningSessionService(
         }).toDomain(userCrypto)
     }
 
+    /**
+     * Opens a fresh session for a plan submitted whole by an outside caller (the external API), to be
+     * finalized immediately by [PlanFinalizationService.complete]. Unlike [startSession] it never
+     * reuses an ACTIVE session: that one belongs to an in-app conversation.
+     */
+    @Transactional
+    fun openSessionForDirectPlan(userId: UUID, weekStart: LocalDate): PlanningSession =
+        planningSessionRepository.save(PlanningSessionEntity().apply {
+            this.userId = userId
+            this.status = PlanningSessionStatus.ACTIVE
+            this.startedAt = clock.instant()
+            this.weekStart = weekStart
+        }).toDomain(userCrypto)
+
     @Transactional(readOnly = true)
     fun findSessionForWeek(userId: UUID, weekStart: LocalDate): PlanningSession? =
         planningSessionRepository

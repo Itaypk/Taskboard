@@ -19,6 +19,7 @@ import org.springframework.security.core.userdetails.User
 import org.springframework.security.core.userdetails.UserDetailsService
 import org.springframework.security.provisioning.InMemoryUserDetailsManager
 import dev.itayp.tasker.security.ApiTokenAuthenticationFilter
+import dev.itayp.tasker.security.ExternalScopeDeniedHandler
 import dev.itayp.tasker.service.ApiTokenService
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.security.web.SecurityFilterChain
@@ -117,8 +118,11 @@ class SecurityConfiguration(
         http {
             securityMatcher("/api/external/**")
             authorizeHttpRequests {
-                // Reads need any valid token; every mutation needs a write-scoped one.
+                // Reads need any valid token. A mutation that reaches the user's calendar (writing a
+                // plan, cancelling an event) needs a plan-scoped one; every other mutation, write.
                 authorize(HttpMethod.GET, "/api/external/**", hasAuthority(ApiTokenAuthenticationFilter.EXTERNAL_READ))
+                authorize("/api/external/v1/plans/**", hasAuthority(ApiTokenAuthenticationFilter.EXTERNAL_PLAN))
+                authorize("/api/external/v1/events/**", hasAuthority(ApiTokenAuthenticationFilter.EXTERNAL_PLAN))
                 authorize(anyRequest, hasAuthority(ApiTokenAuthenticationFilter.EXTERNAL_WRITE))
             }
             if (tokenFilter != null) addFilterBefore<UsernamePasswordAuthenticationFilter>(tokenFilter)
@@ -132,6 +136,7 @@ class SecurityConfiguration(
             }
             exceptionHandling {
                 authenticationEntryPoint = HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)
+                accessDeniedHandler = ExternalScopeDeniedHandler()
             }
         }
         return http.build()

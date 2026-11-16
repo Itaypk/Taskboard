@@ -69,7 +69,7 @@ data class ExternalMeResponse(
     val timeZone: String,
     val preferredLanguage: String,
     val defaultBoardId: String?,
-    /** What this token may do: `read` or `write`. Lets a caller check before attempting a write. */
+    /** What this token may do: `read`, `write` or `plan` (each includes the previous). Lets a caller check before attempting a write. */
     val tokenScope: String,
 )
 

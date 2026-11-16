@@ -126,13 +126,25 @@ class ExternalTaskController(
         )
     }
 
+    /**
+     * Like the list, hides assistant-hidden tasks unless `includeHidden=true`, so the flag means the
+     * same on every read. The 404 says why, so a caller holding the id (from a plan read with
+     * `includeHidden`) knows how to get it.
+     */
     @GetMapping("/{id}")
     fun getTask(
         @AuthenticationPrincipal principal: TaskerPrincipal,
         @PathVariable id: UUID,
+        @RequestParam(required = false, defaultValue = "false") includeHidden: Boolean,
     ): ResponseEntity<*> {
         val task = backlogTaskService.findTask(principal.userId, id)
             ?: return taskNotFound(id)
+        if (task.hiddenFromAssistant && !includeHidden) {
+            return problem(
+                HttpStatus.NOT_FOUND,
+                "Task $id is hidden from assistants by the user. Pass includeHidden=true only if the user asked you to work with it.",
+            )
+        }
         return ResponseEntity.ok(task.toExternalResponse(boardNames(principal.userId)[task.boardId] ?: ""))
     }
 

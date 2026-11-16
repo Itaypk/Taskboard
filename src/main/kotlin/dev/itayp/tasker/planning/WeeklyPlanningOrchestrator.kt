@@ -191,6 +191,18 @@ class WeeklyPlanningOrchestrator(
 
     fun phase(sessionId: UUID): Phase? = state[sessionId]?.phase
 
+    /**
+     * True while a conversation on [sessionId] can still submit a plan: from the capacity question
+     * until `submit_plan` lands. Not after (a pending context proposal no longer touches the plan),
+     * and not for a session this instance holds no state for (after a restart, its conversation can
+     * never finalize — [finalizeSubmission] needs that state).
+     */
+    fun hasLiveConversation(sessionId: UUID): Boolean =
+        when (state[sessionId]?.phase) {
+            null, Phase.DONE, Phase.AWAITING_CONTEXT_PROPOSAL_REPLY -> false
+            else -> true
+        }
+
     /** The AI conversation backing this session, or null before the capacity reply creates one. */
     fun conversationId(sessionId: UUID): UUID? = state[sessionId]?.conversationId
 

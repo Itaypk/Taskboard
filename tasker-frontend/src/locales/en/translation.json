@@ -221,7 +221,8 @@
     "docsHint": "Point your assistant at /external-api/SKILL.md to teach it how to use these.",
     "scopes": {
       "read": "Read only",
-      "write": "Read and write"
+      "write": "Read and write",
+      "plan": "Read, write and plan"
     },
     "errors": {
       "limit": "You can have at most {{max}} active tokens. Revoke one first.",

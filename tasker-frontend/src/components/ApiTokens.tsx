@@ -188,6 +188,7 @@ export function ApiTokens() {
                     disabled={busy || atLimit}
                     aria-label={t('apiTokens.scopeLabel')}
                 >
+                    <option value="plan">{t('apiTokens.scopes.plan')}</option>
                     <option value="write">{t('apiTokens.scopes.write')}</option>
                     <option value="read">{t('apiTokens.scopes.read')}</option>
                 </select>
