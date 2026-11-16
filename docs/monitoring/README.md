@@ -30,7 +30,7 @@ pools, GC, CPU internals, DB pool, and per-endpoint HTTP stats.
   calls — a provider-side failure OpenRouter reported as a success). `empty` is
   worth alerting on; it is invisible in latency and error-rate panels.
 - **Current totals**: users, users by type (claimed / unclaimed-idle /
-  unclaimed-engaged), total tasks, tasks by status, planning sessions by status,
+  unclaimed-engaged), tasks (total and by status), planning sessions by status,
   sign-ins over the time range by method (email / Telegram / Google) & outcome, and
   feature opt-in among claimed users (weekly planning scheduled, daily digest on).
 - **Email delivery & quick add**: emails sent/min by sender purpose (auth vs
