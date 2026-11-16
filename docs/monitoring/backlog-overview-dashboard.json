@@ -424,17 +424,19 @@
     },
     {
       "type": "stat",
-      "title": "Active AI conversations",
+      "title": "Users with AI enabled",
+      "description": "Share of users with AI switched on in their settings (and a tier that grants it). New accounts start with it on, so this mostly shows opt-outs; the claimed figure is the meaningful one.",
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "gridPos": { "h": 8, "w": 4, "x": 20, "y": 24 },
       "id": 34,
       "fieldConfig": {
-        "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "blue" } },
+        "defaults": { "unit": "percentunit", "min": 0, "max": 1, "decimals": 0, "color": { "mode": "fixed", "fixedColor": "blue" } },
         "overrides": []
       },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area", "textMode": "value" },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "none", "textMode": "value_and_name" },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "max(tasker_ai_conversations_active{application=\"$application\"})" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "max(tasker_users_ai_enabled{application=\"$application\", claimed=\"true\"}) / (max(tasker_users{application=\"$application\"}) - max(tasker_users_unclaimed{application=\"$application\"}))", "legendFormat": "claimed" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(max by (claimed) (tasker_users_ai_enabled{application=\"$application\"})) / max(tasker_users{application=\"$application\"})", "legendFormat": "all users" }
       ]
     },
     {
@@ -498,7 +500,7 @@
       "type": "bargauge",
       "title": "Tasks by status",
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 33 },
+      "gridPos": { "h": 6, "w": 4, "x": 12, "y": 33 },
       "id": 44,
       "fieldConfig": {
         "defaults": { "unit": "short", "color": { "mode": "palette-classic" } },
@@ -513,7 +515,7 @@
       "type": "bargauge",
       "title": "Planning sessions by status",
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 33 },
+      "gridPos": { "h": 6, "w": 4, "x": 16, "y": 33 },
       "id": 45,
       "fieldConfig": {
         "defaults": { "unit": "short", "color": { "mode": "palette-classic" } },
@@ -522,6 +524,25 @@
       "options": { "displayMode": "gradient", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"] }, "showUnfilled": true },
       "targets": [
         { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "max by (status) (tasker_planning_sessions{application=\"$application\"})", "legendFormat": "{{status}}" }
+      ]
+    },
+    {
+      "type": "bargauge",
+      "title": "Logins by method & outcome",
+      "description": "Sign-in attempts over the dashboard's time range, by provider and outcome (tasker.auth.login, mode=login; account linking is left out). Zero rows are hidden. error = the provider exchange or verification failed; rejected = cancelled, replayed or refused by policy.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 6, "w": 4, "x": 20, "y": 33 },
+      "id": 73,
+      "fieldConfig": {
+        "defaults": { "unit": "short", "decimals": 0, "color": { "mode": "palette-classic" } },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": "/error/" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] },
+          { "matcher": { "id": "byRegexp", "options": "/rejected/" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } } ] }
+        ]
+      },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"] }, "showUnfilled": true },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by (provider, outcome) (round(increase(tasker_auth_login_total{application=\"$application\", mode=\"login\", provider=~\"email|telegram|google\"}[$__range]))) > 0", "instant": true, "legendFormat": "{{provider}} — {{outcome}}" }
       ]
     },
     {
@@ -556,7 +577,7 @@
     {
       "type": "timeseries",
       "title": "Quick-add outcomes / min",
-      "description": "Telegram quick-capture funnel: saved vs. cancelled vs. expired (timed out waiting on the user). A rise in expired relative to saved means people are abandoning the flow — see QuickAddFlow / QuickAddRegistry.",
+      "description": "Quick-capture funnel per channel (telegram, web, email): saved vs. cancelled vs. expired (timed out waiting on the user). A rise in expired relative to saved means people are abandoning the flow — see QuickAddFlow / QuickAddRegistry.",
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "gridPos": { "h": 8, "w": 8, "x": 8, "y": 40 },
       "id": 63,
@@ -566,13 +587,13 @@
           "custom": { "drawStyle": "bars", "fillOpacity": 60, "lineWidth": 0, "showPoints": "never" }
         },
         "overrides": [
-          { "matcher": { "id": "byName", "options": "saved" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] },
-          { "matcher": { "id": "byName", "options": "expired" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } } ] }
+          { "matcher": { "id": "byRegexp", "options": "/saved$/" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] },
+          { "matcher": { "id": "byRegexp", "options": "/expired$/" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } } ] }
         ]
       },
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by (result) (rate(tasker_quickadd_outcome_total{application=\"$application\"}[$__rate_interval])) * 60", "legendFormat": "{{result}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by (channel, result) (rate(tasker_quickadd_outcome_total{application=\"$application\"}[$__rate_interval])) * 60", "legendFormat": "{{channel}} — {{result}}" }
       ]
     },
     {

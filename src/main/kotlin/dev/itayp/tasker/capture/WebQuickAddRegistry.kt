@@ -1,5 +1,6 @@
 package dev.itayp.tasker.capture
 
+import dev.itayp.tasker.channel.ChannelType
 import io.micrometer.core.instrument.MeterRegistry
 import org.springframework.stereotype.Component
 import java.time.Clock
@@ -29,7 +30,7 @@ class WebQuickAddRegistry(
         val capture = pending[userId] ?: return null
         if (Duration.between(capture.state.createdAt, clock.instant()) > TTL) {
             pending.remove(userId)
-            meterRegistry.counter("tasker.quickadd.outcome", "result", "expired").increment()
+            QuickAddMetrics.countOutcome(meterRegistry, "expired", ChannelType.WEB.metricTag)
             return null
         }
         return capture

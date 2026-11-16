@@ -269,7 +269,7 @@ class QuickAddFlow(
             return when (inbound.optionId) {
                 OPTION_SAVE -> saveAndOffer(userId, channel, state, boardId)
                 OPTION_CANCEL -> {
-                    count("cancelled")
+                    count("cancelled", channel)
                     channel.send(ChannelMessage.Text(msg(userId, "quickadd.cancelled")))
                     null
                 }
@@ -400,13 +400,13 @@ class QuickAddFlow(
         // Only reachable from an unprompted entry — the shape isn't offered otherwise, so the
         // in-flow callers below can safely unwrap this as a plain state.
         is SuggestionOutcome.NotACapture -> {
-            count("not_a_capture")
+            count("not_a_capture", channel)
             meterRegistry.counter("tasker.quickadd.route", "intent", outcome.intent.name.lowercase()).increment()
             log.debug("unprompted message routed as {}", outcome.intent)
             CaptureEntry.Routed(outcome.intent, op.originalRequest)
         }
         is SuggestionOutcome.Unparseable -> {
-            count("failed")
+            count("failed", channel)
             channel.send(ChannelMessage.Text(msg(userId, unparseableKey(channel))))
             CaptureEntry.Captured(null)
         }
@@ -430,7 +430,7 @@ class QuickAddFlow(
         val result = runCatching { persist(userId, boardId, tasks, events) }
 
         result.onSuccess { saved ->
-            count("saved")
+            count("saved", channel)
             log.debug("quick-add created {} item(s)", saved.titles.size)
             val joined = saved.titles.joinToString(", ") { channel.formatter.escape(it) }
             channel.send(ChannelMessage.Text(msg(userId, "quickadd.saved", joined)))
@@ -458,7 +458,7 @@ class QuickAddFlow(
         if (tasks.isEmpty() && events.isEmpty()) return null
         check(tasks.none { it.categoryId.isNullOrBlank() }) { "a task draft had no category" }
         return persist(userId, boardId = null, tasks, events).also {
-            count("saved")
+            countOutcome("saved", QuickAddMetrics.CHANNEL_EMAIL)
             log.debug("quick-add created {} item(s) without confirmation", it.titles.size)
         }
     }
@@ -905,8 +905,11 @@ class QuickAddFlow(
         meterRegistry.counter("tasker.quickadd.media", "kind", kind, "result", result).increment()
     }
 
-    private fun count(result: String) =
-        meterRegistry.counter("tasker.quickadd.outcome", "result", result).increment()
+    private fun count(result: String, channel: ConversationChannel) =
+        countOutcome(result, channel.type.metricTag)
+
+    private fun countOutcome(result: String, channel: String) =
+        QuickAddMetrics.countOutcome(meterRegistry, result, channel)
 
     private fun countEntry(source: String) =
         meterRegistry.counter("tasker.quickadd.entry", "source", source).increment()
@@ -918,7 +921,7 @@ class QuickAddFlow(
      */
     private fun allow(userId: UUID, channel: ConversationChannel): Boolean {
         if (rateLimiter.tryConsume(userId.toString())) return true
-        count("rate_limited")
+        count("rate_limited", channel)
         log.info("quick-add rate limit reached for user {}", userId)
         channel.send(ChannelMessage.Text(msg(userId, "quickadd.rate_limited")))
         return false
