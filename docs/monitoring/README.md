@@ -106,9 +106,10 @@ will silently start polluting "general" latency again).
 
 `http_server_requests_seconds` is exported with explicit SLO buckets
 (`management.metrics.distribution.slo.http.server.requests` in `application.yaml`:
-25ms … 30s, 10 buckets plus `+Inf`), so `http_server_requests_seconds_bucket` exists and
+100ms, 500ms, 2.5s, 10s plus `+Inf`), so `http_server_requests_seconds_bucket` exists and
 `histogram_quantile(0.95, sum by (le) (rate(..._bucket[$__rate_interval])))` works.
-Explicit buckets rather than `percentiles-histogram: true` bound cardinality to ~11 series
-per uri/method/status combination instead of ~70. Quantiles are interpolated within a
-bucket, so read them as "which bucket", not to the millisecond; and at low request volume a
+Explicit buckets rather than `percentiles-histogram: true` bound cardinality to 5 series
+per uri/method/status combination instead of ~70; the list was cut from 10 buckets to stay
+well inside Grafana Cloud's free-tier series cap. Quantiles are interpolated within a
+bucket, and the buckets are coarse, so read them as "which bucket", not to the millisecond; and at low request volume a
 single slow AI-backed request still dominates p95 — filter those endpoints out as above.
