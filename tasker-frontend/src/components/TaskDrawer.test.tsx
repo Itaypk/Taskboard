@@ -163,3 +163,53 @@ describe('TaskDrawer auto-save on dismiss', () => {
     expect(onSave).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('TaskDrawer quick add', () => {
+  afterEach(cleanup);
+
+  const plain: Task = { ...rent, recurrence: null };
+
+  it('pins a new task on Enter in the title', async () => {
+    const onSave = renderDrawer(rent, vi.fn(), { isNew: true, task: null });
+
+    const title = screen.getByLabelText(i18n.t('taskDrawer.titleLabel'));
+    fireEvent.change(title, { target: { value: 'Buy milk' } });
+    fireEvent.keyDown(title, { key: 'Enter' });
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect((onSave.mock.calls[0][0] as Task).title).toBe('Buy milk');
+  });
+
+  it('keeps the rarely used fields folded until asked', () => {
+    renderDrawer(plain);
+
+    const toggle = screen.getByRole('button', { name: new RegExp(i18n.t('taskDrawer.moreOptions')) });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByPlaceholderText(i18n.t('taskDrawer.urlPlaceholder'))).not.toBeInTheDocument();
+
+    fireEvent.click(toggle);
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByPlaceholderText(i18n.t('taskDrawer.urlPlaceholder'))).toBeInTheDocument();
+  });
+
+  it('saves the picked priority and time estimate', async () => {
+    const onSave = renderDrawer(plain);
+
+    fireEvent.click(screen.getByRole('radio', { name: i18n.t('taskDrawer.priorityHigh') }));
+    fireEvent.click(screen.getByRole('button', { name: '1h' }));
+    fireEvent.click(screen.getByRole('button', { name: i18n.t('taskDrawer.save') }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    const saved = onSave.mock.calls[0][0] as Task;
+    expect(saved.priority).toBe('high');
+    expect(saved.estimatedMinutes).toBe(60);
+  });
+
+  it('shows a custom estimate in the minutes field', () => {
+    renderDrawer({ ...plain, estimatedMinutes: 90 });
+
+    expect(screen.getByRole('button', { name: i18n.t('taskDrawer.timeCustom') })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByLabelText(i18n.t('taskDrawer.timeMinutesPlaceholder'))).toHaveValue(90);
+  });
+});

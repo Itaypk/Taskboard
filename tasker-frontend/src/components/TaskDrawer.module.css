@@ -1,0 +1,220 @@
+/* ─── Header: status action, delete, close ───────────────── */
+.header { align-items: center; }
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.iconBtn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r);
+  color: var(--ink-soft);
+  transition: background var(--t), color var(--t);
+}
+.iconBtn:hover { background: rgba(184, 51, 27, 0.08); color: var(--stamp); }
+.iconBtn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* ─── Title: the one required field, so it reads as a field ─ */
+.titleLabel { color: var(--ink); }
+.titleInput {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid var(--paper-border-2);
+  border-radius: var(--r-lg);
+  padding: 10px 14px;
+  outline: none;
+  font-family: var(--font-serif);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  color: var(--ink);
+  transition: border-color var(--t), box-shadow var(--t);
+}
+.titleInput:focus {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px var(--accent-paper);
+}
+.titleInput::placeholder {
+  color: var(--ink-ghost);
+  font-weight: 400;
+  font-style: italic;
+}
+.titleHint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+/* ─── Category: an even grid, however long the names (#348) ─ */
+.catGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.cat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 46px;
+  padding-block: 6px;
+  padding-inline: 10px;
+  border: 1px solid var(--paper-border);
+  border-radius: var(--r);
+  background: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  text-align: start;
+  transition: border-color var(--t), background var(--t);
+}
+.cat:hover { border-color: var(--paper-border-2); background: rgba(255, 255, 255, 0.85); }
+.cat:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.catSelected,
+.catSelected:hover {
+  border-color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink);
+}
+.catSwatch {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border: 1px solid;
+  border-radius: 2px;
+}
+/* Long names wrap to a second line rather than widening the cell; a third line is clipped. */
+.catLabel {
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  color: var(--ink);
+  overflow-wrap: break-word;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+/* ─── Priority: four options, one tap ────────────────────── */
+.segmented {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid var(--paper-border);
+  border-radius: var(--r);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.55);
+}
+.segment {
+  padding-block: 9px;
+  border-inline-start: 1px solid var(--paper-border);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background var(--t), color var(--t);
+}
+.segment:first-child { border-inline-start: none; }
+.segment:hover { background: rgba(255, 255, 255, 0.9); }
+.segment:focus-visible { outline: 2px solid var(--ink); outline-offset: -3px; }
+.segment[aria-checked='true'] { background: var(--ink); color: var(--paper-surface); }
+
+/* ─── Deadline + time needed ─────────────────────────────── */
+.whenRow {
+  display: grid;
+  /* The pills keep one row; the date input takes what's left. */
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: 14px;
+  align-items: start;
+}
+.pills { display: flex; flex-wrap: wrap; gap: 5px; max-width: 100%; }
+.pill {
+  min-width: 36px;
+  padding-block: 7px;
+  padding-inline: 9px;
+  border: 1px solid var(--paper-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background var(--t), color var(--t), border-color var(--t);
+}
+.pill:hover { border-color: var(--paper-border-2); background: rgba(255, 255, 255, 0.9); }
+.pill:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.pill[aria-pressed='true'] { background: var(--ink); border-color: var(--ink); color: var(--paper-surface); }
+.repeatSummary {
+  padding-block: 9px;
+  padding-inline: 12px;
+  border: 1px solid var(--paper-border);
+  border-radius: var(--r);
+  background: rgba(255, 255, 255, 0.55);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: start;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+/* ─── More options: the rarely-used fields, folded ───────── */
+.more { display: flex; flex-direction: column; gap: 18px; }
+.moreToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding-block: 11px;
+  padding-inline: 14px;
+  border: 1px dashed var(--paper-border-2);
+  border-radius: var(--r);
+  text-align: start;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background var(--t);
+}
+.moreToggle:hover { background: rgba(255, 255, 255, 0.5); }
+.moreToggle:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.moreText { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.moreTitle { font-family: var(--font-ui); font-size: 14px; font-weight: 600; color: var(--ink); }
+.moreSummary { font-family: var(--font-ui); font-size: 12px; color: var(--ink-soft); }
+.moreSummarySet { font-weight: 700; color: var(--ink); }
+.moreChevron { flex-shrink: 0; transition: transform var(--t); }
+.moreToggle[aria-expanded='true'] .moreChevron { transform: rotate(180deg); }
+.moreBody { display: flex; flex-direction: column; gap: 20px; min-width: 0; margin: 0; padding: 0; border: 0; }
+
+/* ─── Footer ─────────────────────────────────────────────── */
+.timestamps {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  color: var(--ink-soft);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+}
+
+@media (max-width: 480px) {
+  .whenRow { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* On a phone the drawer is a bottom sheet whose torn edge is at the top, so the wide inline-start
+   gutter that clears the desktop torn edge only costs the category grid its room. */
+@media (max-width: 600px) {
+  .drawer :global(.drawer__header),
+  .drawer :global(.drawer__body),
+  .drawer :global(.drawer__footer) { padding-inline: 20px; }
+}
