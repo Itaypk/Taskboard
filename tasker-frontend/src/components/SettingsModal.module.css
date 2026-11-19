@@ -1,65 +1,205 @@
-.archiveDaysInput {
-  width: 80px;
+/* Settings: a section rail beside the open section on wider screens; on a phone, a section list
+   and the open section take turns. */
+.modal {
+  /* A fixed height, so moving between sections of different lengths doesn't resize the dialog. */
+  height: min(640px, 86vh);
 }
 
-/* The AI-gated fields share the dialog's inter-field rhythm; a bare <fieldset> has no gap of its
-   own, so without this its children would collapse against each other. Greys out when AI is off. */
-.aiFieldset {
-  border: none;
-  padding: 0;
-  margin: 0;
+.wide {
+  width: 800px;
+}
+
+.split {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  border-block-start: 1px solid var(--paper-border);
+}
+
+/* ── Rail: a ruled ledger; the open section's label is marked with a highlighter stroke,
+   the same mark the board uses for sub-task progress. ── */
+.rail {
+  inline-size: 220px;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  padding-block: 10px;
+  padding-inline: 20px 16px;
+  border-inline-end: 1px solid var(--paper-border);
+  overflow-y: auto;
 }
 
-.aiFieldset:disabled {
-  opacity: 0.55;
-}
-
-.planningRow {
+.railItem {
   display: flex;
-  gap: 8px;
   align-items: center;
-  flex-wrap: wrap;
-  margin-top: 10px;
-}
-
-/* The day/time controls size to content rather than filling the row. */
-.planningRow select,
-.planningRow input {
-  width: auto;
-}
-
-/* Daily-digest day picker: one pressable chip per weekday. */
-.dayChips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.dayChip {
+  gap: 10px;
+  padding-block: 9px;
+  padding-inline: 2px;
+  border: none;
+  border-block-end: 1px solid rgba(120, 100, 60, 0.16);
+  background: none;
   font-family: var(--font-ui);
-  font-size: 12px;
-  min-inline-size: 40px;
-  padding-block: 5px;
-  padding-inline: 8px;
-  border: 1px solid var(--paper-border);
-  border-radius: var(--r-sm);
-  background: var(--paper-surface);
+  font-size: 14px;
   color: var(--ink-soft);
+  text-align: start;
   cursor: pointer;
-  transition: background var(--t), border-color var(--t), color var(--t);
+  transition: color var(--t);
 }
 
-.dayChipSelected {
-  background: var(--accent-paper);
-  border-color: var(--accent-edge);
-  color: var(--accent-ink);
+.railItem:hover,
+.railItemActive {
+  color: var(--ink);
+}
+
+.railItem:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.railIcon {
+  inline-size: 16px;
+  block-size: 16px;
+  flex-shrink: 0;
+}
+
+.railLabel {
+  position: relative;
+  isolation: isolate;
+}
+
+.railItemActive .railLabel {
   font-weight: 600;
 }
 
-/* The last selected day can't be cleared; keep it looking selected rather than greyed out. */
-.dayChip:disabled {
-  cursor: default;
+/* The ragged radii and tilt keep it reading as a marker on paper rather than a selection pill. */
+.railItemActive .railLabel::before {
+  content: "";
+  position: absolute;
+  inset-block: 3px -1px;
+  inset-inline: -4px;
+  z-index: -1;
+  background-color: #f0c85a;
+  border-radius: 2px 7px 3px 9px / 5px 3px 6px 2px;
+  opacity: 0.55;
+  mix-blend-mode: multiply;
+  transform: rotate(-0.6deg);
+}
+
+.paneScroll {
+  flex: 1;
+  min-inline-size: 0;
+  overflow-y: auto;
+}
+
+.pane {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding-block: 18px 28px;
+  padding-inline: 24px;
+}
+
+.modal :global(.modal__body) .pane {
+  padding: 0;
+}
+
+.paneHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.paneTitle {
+  margin: 0;
+}
+
+.saveStatus {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.saveStatusError {
+  color: var(--stamp);
+}
+
+/* ── Phone: section list ── */
+.list {
+  gap: 0;
+}
+
+.listItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-block: 11px;
+  padding-inline: 2px;
+  border: none;
+  border-block-end: 1px solid rgba(120, 100, 60, 0.16);
+  background: none;
+  text-align: start;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.listIcon {
+  inline-size: 18px;
+  block-size: 18px;
+  flex-shrink: 0;
+  color: var(--ink-soft);
+}
+
+.listText {
+  flex: 1;
+  min-inline-size: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.listTitle {
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.listSummary {
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chevron {
+  color: var(--ink-ghost);
+  font-size: 18px;
+}
+
+/* Points back toward the list, so it flips with the reading direction. */
+:global([dir='rtl']) .chevron,
+:global([dir='rtl']) .back span {
+  display: inline-block;
+  transform: scaleX(-1);
+}
+
+.back {
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.listItem:last-child {
+  border-block-end: none;
 }

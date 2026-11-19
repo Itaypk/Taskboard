@@ -36,7 +36,7 @@ You can still use the application as your todo list, without the weekly planning
 ## Does it connect to my calendar?
 
 Partly. The tasks you commit to in planning can land in your calendar as real time blocks, in one of
-two ways (Settings › Integrations › Calendar):
+two ways (Settings › Calendar):
 
 * **Subscribed calendar:** you subscribe once to a private link, and your planned blocks show up as a
   calendar of their own in Google Calendar, Apple Calendar, Outlook or any app that takes an iCal
@@ -77,7 +77,7 @@ their own policies. The [Privacy Policy](/privacy) is the full version.
 
 ## How do I delete my account?
 
-From Settings → General, at any time. It removes your tasks and account data, and the same screen
+From Settings → Your data, at any time. It removes your tasks and account data, and the same screen
 can export everything first if you want a copy. If anything is unclear, write to
 [{{SUPPORT_EMAIL}}](mailto:{{SUPPORT_EMAIL}}).
 

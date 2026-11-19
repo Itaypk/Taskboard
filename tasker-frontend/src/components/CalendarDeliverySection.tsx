@@ -16,19 +16,21 @@ import styles from './CalendarDeliverySection.module.css';
 const OPTIONS: CalendarDelivery[] = ['NONE', 'EMAIL', 'FEED'];
 
 interface Props {
-    /** Opens the General tab, where the email address is verified. */
+    /** Opens the section where the email address is verified. */
     onVerifyEmail: () => void;
+    /** Hears the current mode once loaded and after every switch, for the section list's summary. */
+    onDeliveryChange?: (delivery: CalendarDelivery) => void;
 }
 
 /**
- * Settings › Integrations › Calendar (GitHub issue #346): how planned blocks reach the user's
+ * Settings › Calendar (GitHub issue #346): how planned blocks reach the user's
  * calendar. Off, emailed invitations, or a subscribed calendar (the secret feed).
  *
- * Saves on its own, outside the settings form's Save button: a switch cancels or sends
+ * Saves through its own endpoint rather than the settings form: a switch cancels or sends
  * invitations, so it's confirmed with the real count first and then applied at once.
  * A second card, "Let the planner see my calendar" (#347), is meant to sit beside this one.
  */
-export function CalendarDeliverySection({ onVerifyEmail }: Props) {
+export function CalendarDeliverySection({ onVerifyEmail, onDeliveryChange }: Props) {
     const { t } = useTranslation();
     const [state, setState] = useState<CalendarDeliveryState | null>(null);
     const [busy, setBusy] = useState(false);
@@ -42,6 +44,11 @@ export function CalendarDeliverySection({ onVerifyEmail }: Props) {
             .catch(e => console.error('Failed to load calendar delivery', e));
         return () => { cancelled = true; };
     }, []);
+
+    const delivery = state?.delivery;
+    useEffect(() => {
+        if (delivery) onDeliveryChange?.(delivery);
+    }, [delivery, onDeliveryChange]);
 
     const run = async (action: () => Promise<CalendarDeliveryState | null>) => {
         setBusy(true);
@@ -96,10 +103,7 @@ export function CalendarDeliverySection({ onVerifyEmail }: Props) {
 
     return (
         <div className="field">
-            <label className="field__label">
-                {t('calendarDelivery.label')}
-                <HelpTip text={t('calendarDelivery.hint')} />
-            </label>
+            <p className="settings-hint">{t('calendarDelivery.hint')}</p>
 
             <section className={styles.card} aria-labelledby="calendar-outgoing-title">
                 <h3 id="calendar-outgoing-title" className={styles.title}>

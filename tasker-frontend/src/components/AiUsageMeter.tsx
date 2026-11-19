@@ -6,7 +6,7 @@ import { fetchAiUsage } from '../api';
 
 /**
  * AI budget meter for the settings dialog: how much of the tier's rolling-window token allowance
- * is left. Self-fetches on mount (only mounted while the Assistant tab is open). Unlimited tiers
+ * is left. Self-fetches on mount (only mounted while the AI assistant section is open). Unlimited tiers
  * collapse to a quiet badge — no bar to fill. An account whose tier doesn't grant access
  * (`grantsAccess: false`) shows a quiet note instead — there is no self-serve way to request one.
  */

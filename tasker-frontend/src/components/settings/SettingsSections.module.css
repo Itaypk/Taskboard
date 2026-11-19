@@ -1,0 +1,88 @@
+/* Shared layout for the settings sections' fields. */
+.row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.archiveDaysInput {
+  inline-size: 80px;
+}
+
+/* A bare <fieldset> has no gap of its own; this keeps the section's field rhythm. Greys out when
+   AI is off. */
+.fieldset {
+  border: none;
+  padding: 0;
+  margin: 0;
+  min-inline-size: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.fieldset:disabled {
+  opacity: 0.55;
+}
+
+.inlineRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* The day/time controls size to content rather than filling the row. */
+.inlineRow select,
+.inlineRow input {
+  inline-size: auto;
+}
+
+/* Settings that belong to the toggle above, lined up with its label (the toggle's track is 36px
+   wide, plus a 10px gap). */
+.indented {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-inline-start: 46px;
+  margin: 0;
+}
+
+.toggleWithHelp {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Daily-digest day picker: one pressable chip per weekday. */
+.dayChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.dayChip {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  min-inline-size: 40px;
+  padding-block: 5px;
+  padding-inline: 8px;
+  border: 1px solid var(--paper-border);
+  border-radius: var(--r-sm);
+  background: var(--paper-surface);
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background var(--t), border-color var(--t), color var(--t);
+}
+
+.dayChipSelected {
+  background: var(--accent-paper);
+  border-color: var(--accent-edge);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+/* The last selected day can't be cleared; keep it looking selected rather than greyed out. */
+.dayChip:disabled {
+  cursor: default;
+}

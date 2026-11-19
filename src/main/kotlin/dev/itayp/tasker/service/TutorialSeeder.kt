@@ -88,7 +88,7 @@ class TutorialSeeder(
         private val CARD_KEYS = listOf(
             "welcome" to null,
             "save_tasks" to "app:save-account",
-            "assistant" to "/settings/assistant",
+            "assistant" to "/settings/planning",
             // "Add your own task" sits late on purpose: the planner ignores tutorial cards, so the
             // planning card below only pays off once the user has real tasks to plan.
             "add_task" to null,

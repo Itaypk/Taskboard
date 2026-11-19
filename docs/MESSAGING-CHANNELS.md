@@ -247,7 +247,7 @@ API, on the session chain with CSRF, under `/api/v1/channel-links`: `GET` (which
 instance offers, and the user's links), `POST /{channel}/token`, `DELETE /{channel}`. Which
 channels are on comes from this authenticated endpoint, not from the public config.
 
-SPA: a "Messaging apps" block in Settings → Integrations, next to `InboundMailAddress.tsx`,
+SPA: a "Messaging apps" block in Settings → Connections, next to `InboundMailAddress.tsx`,
 one row per offered channel: not connected (Connect → shows the link / QR / code and polls
 `GET` until linked or expired) or connected (masked identifier, Disconnect). All four UI
 languages; logical CSS properties.
