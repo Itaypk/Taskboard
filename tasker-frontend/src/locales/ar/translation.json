@@ -650,11 +650,6 @@
   "settingsModal": {
     "title": "الإعدادات",
     "close": "إغلاق الإعدادات",
-    "tabs": {
-      "general": "عام",
-      "assistant": "المساعد",
-      "integrations": "التكاملات"
-    },
     "days": {
       "monday": "الاثنين",
       "tuesday": "الثلاثاء",
@@ -679,9 +674,6 @@
       "autoArchive": "أرشفة المهام المُنجزة تلقائيًا",
       "autoArchiveHelp": "تُؤرشَف المهام المُنجزة بعد هذا العدد من الأيام. ترك الحقل فارغًا للتعطيل.",
       "autoArchivePlaceholder": "7",
-      "notifications": "الإشعارات",
-      "appReminders": "تذكيرات داخل التطبيق قبل بدء مهمة مخطَّطة",
-      "sentOverTelegram": "(تُرسَل عبر Telegram إن كان متصلًا)",
       "dailyDigest": "الملخص اليومي",
       "dailyDigestHelp": "رسالة يومية عبر Telegram بما هو مخطط لليوم، إضافةً إلى المهام المستحقة غير المدرجة في الخطة. لا تُرسَل رسالة في الأيام التي لا جديد فيها.",
       "dailyDigestToggle": "إرسال ملخص يومي",
@@ -707,9 +699,7 @@
       "deleting": "جارٍ الحذف…",
       "confirmDelete": "نعم، حذف كل شيء",
       "cancel": "إلغاء",
-      "deleteAccount": "حذف الحساب",
-      "calendarMovedPrefix": "انتقلت إعدادات التقويم إلى تبويب",
-      "calendarMovedLink": "التكاملات"
+      "deleteAccount": "حذف الحساب"
     },
     "assistant": {
       "aiAccess": "وصول الذكاء الاصطناعي",
@@ -719,7 +709,7 @@
       "aiPlanHelp": "ميزانية الرموز لميزات الذكاء الاصطناعي على مدى نافذة متحركة مدتها 30 يومًا.",
       "weeklyPlanning": "جلسة التخطيط الأسبوعية",
       "weeklyPlanningHelp": "ستبدأ محادثة التخطيط عبر Telegram في هذا الوقت كل أسبوع.",
-      "weeklyPlanningUnreachable": "لا يستطيع البوت إرسال الرسائل عبر Telegram بعد، لذا لن تبدأ هذه المحادثة تلقائيًا. يُرجى ربط Telegram من تبويب «عام» ثم فتح المحادثة مع البوت.",
+      "weeklyPlanningUnreachable": "لا يستطيع البوت إرسال الرسائل عبر Telegram بعد، لذا لن تبدأ هذه المحادثة تلقائيًا. يُرجى ربط Telegram من قسم «تسجيل الدخول والأجهزة» ثم فتح المحادثة مع البوت.",
       "weeklyPlanningToggle": "بدء جلسة تخطيط أسبوعية",
       "planningDay": "يوم التخطيط",
       "planningTime": "وقت التخطيط",
@@ -733,10 +723,49 @@
       "personalContextHelp": "حقائق يستخدمها المخطِّط الذكي عند جدولة الأسبوع — تفضيلات، التزامات متكررة، أنماط الطاقة.",
       "personalContextPlaceholder": "مثال: المهام الصعبة يُفضَّل جدولتها صباحًا…"
     },
-    "footer": {
-      "cancel": "إلغاء",
+    "sections": {
+      "general": "عام",
+      "signin": "تسجيل الدخول والأجهزة",
+      "planning": "التخطيط الأسبوعي",
+      "reminders": "التذكيرات والملخص",
+      "calendar": "التقويم",
+      "ai": "مساعد الذكاء الاصطناعي",
+      "connections": "الاتصالات",
+      "data": "بياناتك"
+    },
+    "status": {
       "saving": "جارٍ الحفظ…",
-      "save": "حفظ"
+      "saved": "تم الحفظ",
+      "error": "لم يُحفَظ"
+    },
+    "summary": {
+      "signin": "طرق تسجيل الدخول والأجهزة",
+      "signinNone": "لا توجد طريقة لتسجيل الدخول بعد",
+      "planningOff": "متوقف",
+      "planningOn": "{{day}} الساعة {{time}}",
+      "remindersOn": "التذكيرات مفعّلة",
+      "remindersOff": "التذكيرات متوقفة",
+      "digestOn": "الملخص الساعة {{time}}",
+      "digestOff": "بلا ملخص يومي",
+      "aiOn": "مفعّل",
+      "aiOff": "متوقف",
+      "connections": "عنوان البريد إلى مهام، رموز API",
+      "connectionsApiOnly": "رموز API",
+      "data": "تصدير الحساب أو استيراده أو حذفه"
+    },
+    "planning": {
+      "aiOff": "تتطلب هذه الإعدادات وصول الذكاء الاصطناعي، وهو متوقف حاليًا.",
+      "aiOffLink": "تفعيله"
+    },
+    "reminders": {
+      "beforeTask": "قبل بدء مهمة مخطَّطة",
+      "sendReminder": "إرسال تذكير",
+      "sentOverTelegram": "يُرسَل عبر Telegram إن كان مربوطًا.",
+      "mutedPrompt": "هل تم كتم تذكيرات مهام من الملخص؟"
+    },
+    "data": {
+      "exportImport": "التصدير والاستيراد",
+      "exportImportHint": "يُنزّل التصدير بياناتك في ملف، ويعيد الاستيراد تحميل ملف كهذا."
     }
   },
   "taskDrawer": {

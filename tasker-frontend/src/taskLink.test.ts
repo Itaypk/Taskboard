@@ -1,5 +1,5 @@
 import { describe, expect, it, afterAll } from 'vitest';
-import { linkLabel, resolveTaskLink } from './taskLink';
+import { linkLabel, resolveTaskLink, settingsSectionFromLocation } from './taskLink';
 import { applyLocale } from './i18n';
 
 describe('resolveTaskLink', () => {
@@ -56,5 +56,30 @@ describe('linkLabel', () => {
 
     it('has no label for an unresolvable url', () => {
         expect(linkLabel(null)).toBe('');
+    });
+});
+
+describe('settingsSectionFromLocation', () => {
+    it('reads the section from the path', () => {
+        expect(settingsSectionFromLocation('/settings/reminders')).toBe('reminders');
+        expect(settingsSectionFromLocation('/settings/Calendar/')).toBe('calendar');
+    });
+
+    it('is null for bare or unknown settings paths', () => {
+        expect(settingsSectionFromLocation('/settings')).toBeNull();
+        expect(settingsSectionFromLocation('/settings/nope')).toBeNull();
+    });
+
+    // Tutorial cards and bookmarks still carry the old tab names.
+    it('maps the old tab routes onto their new sections', () => {
+        expect(settingsSectionFromLocation('/settings/assistant')).toBe('planning');
+        expect(settingsSectionFromLocation('/settings/integrations')).toBe('calendar');
+        expect(settingsSectionFromLocation('/settings/general')).toBe('general');
+    });
+
+    // The Telegram/Google link round-trips land on bare /settings with their outcome in the query.
+    it('opens sign-in for an account-link callback', () => {
+        expect(settingsSectionFromLocation('/settings', '?telegramLink=success')).toBe('signin');
+        expect(settingsSectionFromLocation('/settings', '?googleLink=conflict')).toBe('signin');
     });
 });

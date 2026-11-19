@@ -156,7 +156,7 @@ export interface UserSettings {
   contextBlock: string;
   timeZone: string;
   preferredLanguage: string;
-  /** Read-only here: changed through `updateCalendarDelivery` (Settings › Integrations › Calendar). */
+  /** Read-only here: changed through `updateCalendarDelivery` (Settings › Calendar). */
   calendarDelivery: 'NONE' | 'EMAIL' | 'FEED';
   /** Opt-in for app-driven reminders (Telegram). Only delivered to users with a push channel. */
   appReminders: boolean;

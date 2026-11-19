@@ -192,7 +192,7 @@ the full log to stdout instead and write no file — what `docker logs` and log 
 ## Inbound email (`InboundMailProperties`)
 
 Personal inbound addresses, `tasks.<token>@<domain>`: mail sent there becomes a task. Users create,
-change and turn off their address in Settings → Integrations. Design: `docs/INBOUND-EMAIL.md`.
+change and turn off their address in Settings → Connections. Design: `docs/INBOUND-EMAIL.md`.
 
 - `TASKER_INBOUND_MAIL_ENABLED` — toggle the feature (default: `false`).
 - `TASKER_INBOUND_MAIL_DOMAIN` — the domain the addresses live on, e.g. `m.example.com`. Needs an

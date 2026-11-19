@@ -58,7 +58,7 @@ const SORT_MODE_KEY = 'backlog.sortMode:';
 // Board vs. compact view is likewise a per-board, per-device preference.
 const VIEW_MODE_KEY = 'backlog.viewMode:';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { resolveTaskLink, settingsTabFromPath, type BoardSettingsTab } from './taskLink';
+import { resolveTaskLink, settingsSectionFromLocation, type BoardSettingsTab, type SettingsSection } from './taskLink';
 import { useAuth } from './auth/AuthContext';
 import { mascotFor } from './mascots';
 import BalloonCelebration from './components/BalloonCelebration';
@@ -101,11 +101,16 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
   const { state: authState } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  // Settings is a URL-driven modal: `/settings[/<tab>]` opens it on the matching tab, so deep links
-  // (e.g. from a tutorial task's link) are shareable and refresh-safe.
+  // Settings is a URL-driven modal: `/settings[/<section>]` opens it on the matching section, so deep
+  // links (e.g. from a tutorial task's link) are shareable and refresh-safe, and a phone's back
+  // button goes from a section back to the section list.
   const settingsOpen = location.pathname.startsWith('/settings');
-  const settingsTab = settingsTabFromPath(location.pathname);
+  const settingsSection = settingsSectionFromLocation(location.pathname, location.search);
   const closeSettings = useCallback(() => navigate('/'), [navigate]);
+  const navigateSettings = useCallback(
+    (section: SettingsSection | null) => navigate(section ? `/settings/${section}` : '/settings'),
+    [navigate],
+  );
   const currentUserId = authState.status === 'authenticated' ? authState.user.id : null;
   // Unclaimed = zero-registration account with no login identity yet; nudge them to save it.
   const claimed = authState.status === 'authenticated' ? authState.user.claimed : true;
@@ -138,6 +143,11 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
   const [tasks, setTasks]             = useState<Task[]>([]);
   const [tags, setTags]               = useState<Tag[]>([]);
   const [settings, setSettings]       = useState<UserSettings>({ ...DEFAULT_SETTINGS, categories: [] });
+  // The settings modal saves as fields change; each accepted save is merged in here.
+  const applySettingsChange = useCallback(
+    (patch: Partial<UserSettings>) => setSettings(prev => ({ ...prev, ...patch })),
+    [],
+  );
   const [selectedId, setSelectedId]   = useState<string | null>(null);
   const [isCreating, setIsCreating]   = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
@@ -1055,9 +1065,10 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
       <SettingsModal
         settings={settings}
         open={settingsOpen}
-        initialTab={settingsTab}
+        section={settingsSection}
+        onNavigate={navigateSettings}
         onClose={closeSettings}
-        onSave={setSettings}
+        onSave={applySettingsChange}
         onAccountDeleted={() => { void onSignOut(); }}
       />
 

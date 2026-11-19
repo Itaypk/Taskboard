@@ -590,11 +590,6 @@
   "settingsModal": {
     "title": "Settings",
     "close": "Close settings",
-    "tabs": {
-      "general": "General",
-      "assistant": "Assistant",
-      "integrations": "Integrations"
-    },
     "days": {
       "monday": "Monday",
       "tuesday": "Tuesday",
@@ -619,9 +614,6 @@
       "autoArchive": "Auto-archive done tasks",
       "autoArchiveHelp": "Done tasks are archived after this many days. Leave blank to disable.",
       "autoArchivePlaceholder": "7",
-      "notifications": "Notifications",
-      "appReminders": "In-app reminders before a planned task starts",
-      "sentOverTelegram": "(sent over Telegram, if connected)",
       "dailyDigest": "Daily digest",
       "dailyDigestHelp": "A daily Telegram message with what’s planned for today, plus tasks that are due but not in your plan. Nothing is sent on days with nothing to report.",
       "dailyDigestToggle": "Send a daily digest",
@@ -647,9 +639,7 @@
       "deleting": "Deleting…",
       "confirmDelete": "Yes, delete everything",
       "cancel": "Cancel",
-      "deleteAccount": "Delete account",
-      "calendarMovedPrefix": "Calendar delivery now lives in",
-      "calendarMovedLink": "Integrations"
+      "deleteAccount": "Delete account"
     },
     "assistant": {
       "aiAccess": "AI access",
@@ -659,7 +649,7 @@
       "aiPlanHelp": "Your token budget for AI-driven features over a rolling 30-day window.",
       "weeklyPlanning": "Weekly planning session",
       "weeklyPlanningHelp": "We'll start your planning conversation via Telegram at this time each week.",
-      "weeklyPlanningUnreachable": "Telegram can’t reach you yet, so this conversation won’t start on its own. Connect Telegram under General, then open the chat with the bot.",
+      "weeklyPlanningUnreachable": "Telegram can’t reach you yet, so this conversation won’t start on its own. Connect Telegram under Sign-in & devices, then open the chat with the bot.",
       "weeklyPlanningToggle": "Start a weekly planning session",
       "planningDay": "Planning day",
       "planningTime": "Planning time",
@@ -673,10 +663,49 @@
       "personalContextHelp": "Facts the AI planner will use when scheduling your week — preferences, recurring commitments, energy patterns.",
       "personalContextPlaceholder": "e.g. I prefer deep work in the morning…"
     },
-    "footer": {
-      "cancel": "Cancel",
+    "sections": {
+      "general": "General",
+      "signin": "Sign-in & devices",
+      "planning": "Weekly planning",
+      "reminders": "Reminders & digest",
+      "calendar": "Calendar",
+      "ai": "AI assistant",
+      "connections": "Connections",
+      "data": "Your data"
+    },
+    "status": {
       "saving": "Saving…",
-      "save": "Save"
+      "saved": "Saved",
+      "error": "Not saved"
+    },
+    "summary": {
+      "signin": "Sign-in methods and devices",
+      "signinNone": "No sign-in method yet",
+      "planningOff": "Off",
+      "planningOn": "{{day}} at {{time}}",
+      "remindersOn": "Reminders on",
+      "remindersOff": "Reminders off",
+      "digestOn": "digest at {{time}}",
+      "digestOff": "no daily digest",
+      "aiOn": "On",
+      "aiOff": "Off",
+      "connections": "Email-to-task address, API tokens",
+      "connectionsApiOnly": "API tokens",
+      "data": "Export, import or delete your account"
+    },
+    "planning": {
+      "aiOff": "These need AI access, which is turned off.",
+      "aiOffLink": "Turn it on"
+    },
+    "reminders": {
+      "beforeTask": "Before a planned task starts",
+      "sendReminder": "Send me a reminder",
+      "sentOverTelegram": "Sent over Telegram, if connected.",
+      "mutedPrompt": "Muted some due tasks from a digest?"
+    },
+    "data": {
+      "exportImport": "Export and import",
+      "exportImportHint": "Export downloads your data as a file; import brings such a file back in."
     }
   },
   "taskDrawer": {

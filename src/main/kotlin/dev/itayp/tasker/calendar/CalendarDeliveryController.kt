@@ -30,7 +30,7 @@ data class UpdateCalendarDeliveryRequest(val delivery: CalendarDelivery)
 data class CalendarDeliverySwitchPreviewResponse(val invitationsToCancel: Int, val invitationsToSend: Int)
 
 /**
- * The calendar card in Settings › Integrations (GitHub issue #346). On the session chain, with
+ * The calendar card in Settings › Calendar (GitHub issue #346). On the session chain, with
  * CSRF. Saves on its own rather than through the settings form, because a switch has side effects
  * (cancelling or sending invitations) that the UI confirms first.
  */

@@ -49,7 +49,7 @@ You can:
 ### How to delete your data
 
 1. Sign in at [{{APP_URL}}]({{APP_URL}}).
-2. Open **Settings → General**.
+2. Open **Settings → Your data**.
 3. Under **Danger zone**, choose **Delete account** and confirm. You can choose **Export my data** first if you want a copy.
 
 This permanently deletes your account right away, along with your tasks, categories, tags, plans, assistant conversations, connected login methods, and anything received through connected channels. Boards you share with other people stay for the remaining members; only your membership is removed.

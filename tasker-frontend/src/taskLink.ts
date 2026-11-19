@@ -63,14 +63,34 @@ function prettifyUrl(href: string, maxLen = 28): string {
   return stripped.length > maxLen ? stripped.slice(0, maxLen - 1) + '…' : stripped;
 }
 
-export type SettingsTab = 'general' | 'assistant' | 'integrations';
+/** The settings dialog's sections, in display order; each one is a `/settings/<section>` route. */
+export const SETTINGS_SECTIONS = [
+  'general', 'signin', 'planning', 'reminders', 'calendar', 'ai', 'connections', 'data',
+] as const;
+export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 
-const SETTINGS_TABS: readonly SettingsTab[] = ['general', 'assistant', 'integrations'];
+// Routes from the old three-tab layout, still reachable from tutorial cards and bookmarks. The
+// "assistant" tutorial card asks the user to tell the assistant about themselves, which now
+// lives with the weekly planning session.
+const LEGACY_SETTINGS_TABS: Record<string, SettingsSection> = {
+  assistant: 'planning',
+  integrations: 'calendar',
+};
 
-/** Maps a `/settings[/<tab>]` pathname to a settings tab; bare `/settings` or unknown → 'general'. */
-export function settingsTabFromPath(pathname: string): SettingsTab {
-  const segment = pathname.replace(/^\/settings\/?/, '').split('/')[0]?.toLowerCase();
-  return SETTINGS_TABS.find(t => t === segment) ?? 'general';
+// The Telegram/Google link round-trips land on bare `/settings?<param>=<code>`, and the notice
+// they carry is shown by the connected-accounts list on the sign-in section.
+const SIGN_IN_PARAMS = ['telegramLink', 'googleLink'];
+
+/**
+ * Maps a `/settings[/<section>]` location to a section, or null for bare `/settings` (the
+ * section list on a phone, the first section on a wider screen). An unknown section is null too.
+ */
+export function settingsSectionFromLocation(pathname: string, search = ''): SettingsSection | null {
+  const segment = pathname.replace(/^\/settings\/?/, '').split('/')[0]?.toLowerCase() ?? '';
+  const section = SETTINGS_SECTIONS.find(s => s === segment) ?? LEGACY_SETTINGS_TABS[segment];
+  if (section) return section;
+  const params = new URLSearchParams(search);
+  return SIGN_IN_PARAMS.some(p => params.has(p)) ? 'signin' : null;
 }
 
 // Board settings has no deep-linked route (it's plain modal state, not URL-driven), so this tab
