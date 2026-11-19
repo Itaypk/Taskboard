@@ -778,8 +778,6 @@
     "moreOptions": "خيارات إضافية",
     "tags": "الوسوم",
     "tagsCount": "({{count}}/3)",
-    "noTagsYet": "لا توجد وسوم بعد",
-    "addFromYourTags": "إضافة من الوسوم الحالية",
     "addTagAria": "إضافة الوسم {{label}}",
     "addTagTitle": "إضافة {{label}}",
     "showLess": "عرض أقل",

@@ -748,8 +748,6 @@
     "moreOptions": "Дополнительно",
     "tags": "Теги",
     "tagsCount": "({{count}}/3)",
-    "noTagsYet": "Пока нет тегов",
-    "addFromYourTags": "Добавить из имеющихся тегов",
     "addTagAria": "Добавить тег {{label}}",
     "addTagTitle": "Добавить {{label}}",
     "showLess": "Свернуть",

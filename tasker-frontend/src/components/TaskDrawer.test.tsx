@@ -180,17 +180,49 @@ describe('TaskDrawer quick add', () => {
     expect((onSave.mock.calls[0][0] as Task).title).toBe('Buy milk');
   });
 
-  it('keeps the rarely used fields folded until asked', () => {
+  it('keeps the rarely used fields folded until asked, but not the link', () => {
     renderDrawer(plain);
 
     const toggle = screen.getByRole('button', { name: new RegExp(i18n.t('taskDrawer.moreOptions')) });
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByPlaceholderText(i18n.t('taskDrawer.urlPlaceholder'))).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText(i18n.t('taskDrawer.urlPlaceholder'))).toBeInTheDocument();
+    expect(screen.queryByLabelText(i18n.t('recurrence.repeatsToggle'))).not.toBeInTheDocument();
 
     fireEvent.click(toggle);
 
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByPlaceholderText(i18n.t('taskDrawer.urlPlaceholder'))).toBeInTheDocument();
+    expect(screen.getByLabelText(i18n.t('recurrence.repeatsToggle'))).toBeInTheDocument();
+  });
+
+  it('focuses the title when opened for a new task, not for an existing one', () => {
+    const props = { categories: [{ id: 'c1', label: 'Home', swatchId: 'mint' as const }] };
+    const { rerender } = render(
+      <TaskDrawer task={null} isNew open={false} {...props} availableTags={[]} defaultCategoryId="c1" members={[]}
+        currentUserId="u1" aiEnabled={false} onClose={vi.fn()} onSave={vi.fn()} onDelete={vi.fn()} onMarkDone={vi.fn()}
+        onMarkTodo={vi.fn()} onSetAssignee={vi.fn()} />,
+    );
+    expect(document.activeElement).not.toBe(screen.getByPlaceholderText(i18n.t('taskDrawer.titlePlaceholder')));
+
+    rerender(
+      <TaskDrawer task={null} isNew open {...props} availableTags={[]} defaultCategoryId="c1" members={[]}
+        currentUserId="u1" aiEnabled={false} onClose={vi.fn()} onSave={vi.fn()} onDelete={vi.fn()} onMarkDone={vi.fn()}
+        onMarkTodo={vi.fn()} onSetAssignee={vi.fn()} />,
+    );
+    expect(document.activeElement).toBe(screen.getByLabelText(i18n.t('taskDrawer.titleLabel')));
+
+    cleanup();
+    renderDrawer(plain);
+    expect(document.activeElement).not.toBe(screen.getByLabelText(i18n.t('taskDrawer.titleLabel')));
+  });
+
+  it('adds a suggested board tag in one tap', async () => {
+    const onSave = renderDrawer(plain, vi.fn(), { availableTags: [{ id: 'g1', label: 'Kids', colorId: 'violet' }] });
+
+    fireEvent.click(screen.getByRole('button', { name: i18n.t('taskDrawer.addTagAria', { label: 'Kids' }) }));
+    fireEvent.click(screen.getByRole('button', { name: i18n.t('taskDrawer.save') }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect((onSave.mock.calls[0][0] as Task).tags).toEqual([{ id: 'g1', label: 'Kids', colorId: 'violet' }]);
   });
 
   it('saves the picked priority and time estimate', async () => {

@@ -718,8 +718,6 @@
     "moreOptions": "More options",
     "tags": "Tags",
     "tagsCount": "({{count}}/3)",
-    "noTagsYet": "No tags yet",
-    "addFromYourTags": "Add from your tags",
     "addTagAria": "Add tag {{label}}",
     "addTagTitle": "Add {{label}}",
     "showLess": "Show less",

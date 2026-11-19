@@ -176,6 +176,7 @@ export function TaskDrawer({
   // Dismissing and the Save button can race (a double-click on ×); one save at a time.
   const savingRef = useRef(false);
   const titleId = useId();
+  const titleRef = useRef<HTMLInputElement>(null);
   const moreId = useId();
 
   const targetKey = open ? (task?.id ?? '__new__') : null;
@@ -194,6 +195,13 @@ export function TaskDrawer({
       setTagsExpanded(false);
     }
   }
+
+  // A new task starts at its title: that is all a quick add needs. (`autoFocus` can't do this: the
+  // drawer stays mounted while closed, so the input mounts long before it is shown.) Editing an
+  // existing task leaves focus alone, so opening one to read it doesn't pop a phone keyboard.
+  useEffect(() => {
+    if (open && isNew) titleRef.current?.focus({ preventScroll: true });
+  }, [open, isNew]);
 
   useEffect(() => {
     // The tag-edit modal owns Escape while it's open, so the drawer doesn't close out from under it.
@@ -223,8 +231,8 @@ export function TaskDrawer({
     const found = validate(form, task?.url);
     if (found.title || found.url || found.description || found.recurrence) {
       setErrors(found);
-      // Those two fields live in the folded section; don't report an error the user can't see.
-      if (found.url || found.recurrence) setMoreOpen(true);
+      // The rule lives in the folded section; don't report an error the user can't see.
+      if (found.recurrence) setMoreOpen(true);
       return false;
     }
     if (savingRef.current) return false;
@@ -242,7 +250,6 @@ export function TaskDrawer({
       const mapped = serverFieldErrors(e);
       if (mapped) {
         setErrors(mapped);
-        if (mapped.url) setMoreOpen(true);
       } else {
         setFormError(e instanceof ApiError ? e.userMessage : t('taskDrawer.saveError'));
       }
@@ -358,12 +365,6 @@ export function TaskDrawer({
 
   // What the folded section holds; filled-in fields are emphasised so nothing set there is out of sight.
   const moreSummary: { key: string; label: string; set: boolean }[] = [
-    {
-      key: 'tags',
-      label: form.tags.length > 0 ? `${t('taskDrawer.tags')} ${t('taskDrawer.tagsCount', { count: form.tags.length })}` : t('taskDrawer.tags'),
-      set: form.tags.length > 0,
-    },
-    ...(!readOnly ? [{ key: 'link', label: t('taskDrawer.link'), set: !!form.url?.trim() }] : []),
     { key: 'repeat', label: t('recurrence.repeats'), set: form.recurrence != null },
     ...(form.recurrence ? [] : [{ key: 'from', label: t('taskDrawer.availableFrom'), set: !!form.relevantFrom }]),
     ...(aiEnabled ? [{ key: 'hidden', label: t('taskDrawer.hideFromAssistant'), set: !!form.hiddenFromAssistant }] : []),
@@ -435,8 +436,8 @@ export function TaskDrawer({
                 // Enter saves: the title is all a quick add needs. Not mid-composition (IME).
                 if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); void handleSave(); }
               }}
+              ref={titleRef}
               placeholder={t('taskDrawer.titlePlaceholder')}
-              autoFocus={isNew}
               aria-invalid={errors.title ? true : undefined}
             />
             {errors.title
@@ -522,6 +523,22 @@ export function TaskDrawer({
             {errors.description && <p className="field__error">{errors.description}</p>}
           </div>
 
+          {!readOnly && (
+            <div className="field">
+              <label className="field__label" htmlFor={`${titleId}-url`}>{t('taskDrawer.link')}</label>
+              <input
+                id={`${titleId}-url`}
+                className={`field__input${errors.url ? ' field__input--error' : ''}`}
+                type="url"
+                value={form.url}
+                onChange={e => { setForm(f => ({ ...f, url: e.target.value })); clearError('url'); }}
+                placeholder={t('taskDrawer.urlPlaceholder')}
+                aria-invalid={errors.url ? true : undefined}
+              />
+              {errors.url && <p className="field__error">{errors.url}</p>}
+            </div>
+          )}
+
           {readOnly && taskLink && (
             <div className="field">
               <label className="field__label">{t('taskDrawer.link')}</label>
@@ -604,144 +621,56 @@ export function TaskDrawer({
               )}
             </div>
           </div>
-          </fieldset>
-
-          <div className={styles.more}>
-            <button
-              type="button"
-              className={styles.moreToggle}
-              aria-expanded={moreOpen}
-              aria-controls={moreId}
-              onClick={() => setMoreOpen(v => !v)}
-            >
-              <span className={styles.moreText}>
-                <span className={styles.moreTitle}>{t('taskDrawer.moreOptions')}</span>
-                {!moreOpen && (
-                  <span className={styles.moreSummary}>
-                    {moreSummary.map((item, i) => (
-                      <span key={item.key}>
-                        {i > 0 && ' · '}
-                        <span className={item.set ? styles.moreSummarySet : undefined}>{item.label}</span>
-                      </span>
-                    ))}
-                  </span>
-                )}
-              </span>
-              <svg className={styles.moreChevron} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                <path d="M6 9l6 6 6-6" />
-              </svg>
-            </button>
-
-            {moreOpen && (
-          <fieldset id={moreId} className={styles.moreBody} disabled={readOnly}>
-          {!readOnly && (
-            <div className="field">
-              <label className="field__label" htmlFor={`${titleId}-url`}>{t('taskDrawer.link')}</label>
-              <input
-                id={`${titleId}-url`}
-                className={`field__input${errors.url ? ' field__input--error' : ''}`}
-                type="url"
-                value={form.url}
-                onChange={e => { setForm(f => ({ ...f, url: e.target.value })); clearError('url'); }}
-                placeholder={t('taskDrawer.urlPlaceholder')}
-                aria-invalid={errors.url ? true : undefined}
-              />
-              {errors.url && <p className="field__error">{errors.url}</p>}
-            </div>
-          )}
 
           <div className="field">
-            <Toggle
-              checked={form.recurrence != null}
-              onChange={setRepeats}
-              label={t('recurrence.repeatsToggle')}
-            />
-          </div>
-
-          {form.recurrence ? (
-            <RecurrenceFields
-              recurrence={form.recurrence}
-              relevantFrom={form.relevantFrom ?? ''}
-              error={errors.recurrence}
-              onChange={next => {
-                clearError('recurrence');
-                setForm(f => ({ ...f, recurrence: next.recurrence, relevantFrom: next.relevantFrom }));
-              }}
-            />
-          ) : (
-            <div className="field">
-              <label className="field__label" htmlFor={`${titleId}-from`}>{t('taskDrawer.availableFrom')}</label>
-              <input
-                id={`${titleId}-from`}
-                className="field__input"
-                type="date"
-                value={form.relevantFrom}
-                onChange={e => setForm(f => ({ ...f, relevantFrom: e.target.value }))}
-              />
-            </div>
-          )}
-          <div className="field">
-            <label className="field__label">
+            <span className="field__label" id={`${titleId}-tags`}>
               {t('taskDrawer.tags')}{' '}
               <span className="field__label-hint">{t('taskDrawer.tagsCount', { count: form.tags.length })}</span>
-            </label>
-            <div className="tape-editor">
-              <div className="tape-editor__preview">
-                {form.tags.map((tag, i) => (
-                  <WashiTape
-                    key={i}
-                    tag={tag}
-                    index={i}
-                    idSeed={'draft-' + tag.label + i}
-                    onRemove={() => removeTag(i)}
-                    onClick={readOnly ? undefined : () => setEditingTagIndex(i)}
-                  />
-                ))}
-                {form.tags.length === 0 && !showTagForm && (
-                  <span className="tape-editor__hint">{t('taskDrawer.noTagsYet')}</span>
-                )}
-              </div>
-
-              {form.tags.length < 3 && !showTagForm && tagSuggestions.length > 0 && (
-                <div className="tape-quickadd">
-                  <span className="tape-quickadd__label">{t('taskDrawer.addFromYourTags')}</span>
-                  <div className="tape-quickadd__row">
-                    {(tagsExpanded ? tagSuggestions : tagSuggestions.slice(0, 3)).map(tag => (
-                      <button
-                        key={tag.id}
-                        type="button"
-                        className="tape-quickadd__chip"
-                        onClick={() => addExistingTag(tag)}
-                        aria-label={t('taskDrawer.addTagAria', { label: tag.label })}
-                        title={t('taskDrawer.addTagTitle', { label: tag.label })}
-                      >
-                        <WashiTape tag={tag} idSeed={'sugg-' + tag.id} />
-                      </button>
-                    ))}
-                    {tagSuggestions.length > 3 && (
-                      <button
-                        type="button"
-                        className="tape-quickadd__more"
-                        onClick={() => setTagsExpanded(v => !v)}
-                        aria-expanded={tagsExpanded}
-                      >
-                        {tagsExpanded ? t('taskDrawer.showLess') : t('taskDrawer.moreTags', { count: tagSuggestions.length - 3 })}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-
+            </span>
+            {/* One row: the applied tapes, then (faded) the board's most-used tags one tap away, then
+                the way to type a new one. */}
+            <div className={styles.tagRow} role="group" aria-labelledby={`${titleId}-tags`}>
+              {form.tags.map((tag, i) => (
+                <WashiTape
+                  key={i}
+                  tag={tag}
+                  index={i}
+                  idSeed={'draft-' + tag.label + i}
+                  onRemove={() => removeTag(i)}
+                  onClick={readOnly ? undefined : () => setEditingTagIndex(i)}
+                />
+              ))}
               {form.tags.length < 3 && !showTagForm && (
-                <button
-                  type="button"
-                  className="btn btn--ghost btn--sm"
-                  onClick={() => setShowTagForm(true)}
-                >
-                  {t('taskDrawer.addTag')}
-                </button>
+                <>
+                  {form.tags.length > 0 && tagSuggestions.length > 0 && <span className={styles.tagDivider} aria-hidden="true" />}
+                  {(tagsExpanded ? tagSuggestions : tagSuggestions.slice(0, 3)).map(tag => (
+                    <button
+                      key={tag.id}
+                      type="button"
+                      className="tape-quickadd__chip"
+                      onClick={() => addExistingTag(tag)}
+                      aria-label={t('taskDrawer.addTagAria', { label: tag.label })}
+                      title={t('taskDrawer.addTagTitle', { label: tag.label })}
+                    >
+                      <WashiTape tag={tag} idSeed={'sugg-' + tag.id} />
+                    </button>
+                  ))}
+                  {tagSuggestions.length > 3 && (
+                    <button
+                      type="button"
+                      className="tape-quickadd__more"
+                      onClick={() => setTagsExpanded(v => !v)}
+                      aria-expanded={tagsExpanded}
+                    >
+                      {tagsExpanded ? t('taskDrawer.showLess') : t('taskDrawer.moreTags', { count: tagSuggestions.length - 3 })}
+                    </button>
+                  )}
+                  <button type="button" className={styles.newTag} onClick={() => setShowTagForm(true)}>
+                    {t('taskDrawer.addTag')}
+                  </button>
+                </>
               )}
-
+            </div>
               {showTagForm && (() => {
                 const isExisting = tagId !== null || availableTags.some(tag => tag.label.toLowerCase() === tagLabel.trim().toLowerCase());
                 return (
@@ -808,9 +737,68 @@ export function TaskDrawer({
                 </div>
                 );
               })()}
-            </div>
           </div>
 
+          </fieldset>
+
+          <div className={styles.more}>
+            <button
+              type="button"
+              className={styles.moreToggle}
+              aria-expanded={moreOpen}
+              aria-controls={moreId}
+              onClick={() => setMoreOpen(v => !v)}
+            >
+              <span className={styles.moreText}>
+                <span className={styles.moreTitle}>{t('taskDrawer.moreOptions')}</span>
+                {!moreOpen && (
+                  <span className={styles.moreSummary}>
+                    {moreSummary.map((item, i) => (
+                      <span key={item.key}>
+                        {i > 0 && ' · '}
+                        <span className={item.set ? styles.moreSummarySet : undefined}>{item.label}</span>
+                      </span>
+                    ))}
+                  </span>
+                )}
+              </span>
+              <svg className={styles.moreChevron} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </button>
+
+            {moreOpen && (
+          <fieldset id={moreId} className={styles.moreBody} disabled={readOnly}>
+          <div className="field">
+            <Toggle
+              checked={form.recurrence != null}
+              onChange={setRepeats}
+              label={t('recurrence.repeatsToggle')}
+            />
+          </div>
+
+          {form.recurrence ? (
+            <RecurrenceFields
+              recurrence={form.recurrence}
+              relevantFrom={form.relevantFrom ?? ''}
+              error={errors.recurrence}
+              onChange={next => {
+                clearError('recurrence');
+                setForm(f => ({ ...f, recurrence: next.recurrence, relevantFrom: next.relevantFrom }));
+              }}
+            />
+          ) : (
+            <div className="field">
+              <label className="field__label" htmlFor={`${titleId}-from`}>{t('taskDrawer.availableFrom')}</label>
+              <input
+                id={`${titleId}-from`}
+                className="field__input"
+                type="date"
+                value={form.relevantFrom}
+                onChange={e => setForm(f => ({ ...f, relevantFrom: e.target.value }))}
+              />
+            </div>
+          )}
           {aiEnabled && (
             <div className="field">
               <label className="field__label">

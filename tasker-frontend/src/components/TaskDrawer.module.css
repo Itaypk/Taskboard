@@ -218,3 +218,40 @@
   .drawer :global(.drawer__body),
   .drawer :global(.drawer__footer) { padding-inline: 20px; }
 }
+
+/* ─── Tags: applied tapes, one-tap suggestions and "add" in one row ─ */
+.tagRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  min-height: 30px;
+}
+/* The shared tape caps itself at 80% of its parent, which inside a shrink-to-fit button resolves
+   against the tape's own width and clips even short labels ("INF…"). Here every tape sizes to its label. */
+.tagRow :global(.washi) {
+  flex-shrink: 0;
+  max-width: 100%;
+}
+.tagRow :global(.tape-quickadd__chip) { max-width: 100%; }
+.tagRow :global(.tape-quickadd__chip .washi) { max-width: none; }
+.tagDivider {
+  align-self: stretch;
+  width: 0;
+  border-inline-start: 1px dashed var(--paper-border-2);
+  margin-inline: 2px;
+}
+.newTag {
+  padding-block: 4px;
+  padding-inline: 10px;
+  border: 1px dashed var(--paper-border-2);
+  border-radius: 999px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: color var(--t), border-color var(--t), background var(--t);
+}
+.newTag:hover { color: var(--ink); border-color: var(--ink-soft); background: rgba(255, 255, 255, 0.6); }
+.newTag:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }

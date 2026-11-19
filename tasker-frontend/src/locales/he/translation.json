@@ -733,8 +733,6 @@
     "moreOptions": "אפשרויות נוספות",
     "tags": "תגיות",
     "tagsCount": "({{count}}/3)",
-    "noTagsYet": "אין עדיין תגיות",
-    "addFromYourTags": "הוספה מהתגיות שלך",
     "addTagAria": "הוספת התגית {{label}}",
     "addTagTitle": "הוספת {{label}}",
     "showLess": "הצגה מקוצרת",
