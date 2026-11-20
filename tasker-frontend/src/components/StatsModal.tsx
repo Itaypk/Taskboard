@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import styles from './StatsModal.module.css';
 import { fetchStats } from '../api';
 import { formatDate } from '../i18n/format';
@@ -23,7 +24,7 @@ function isEmpty(s: Stats): boolean {
   return s.openTasks === 0 && s.completedTasks === 0 && s.planningSessions === 0 && s.avgTasksCreatedPerWeek === 0;
 }
 
-function formatCompletion(seconds: number | null, t: (key: string, opts?: Record<string, unknown>) => string): string {
+function formatCompletion(seconds: number | null, t: TFunction): string {
   if (seconds == null) return t('statsModal.notEnoughData');
   const hours = seconds / 3600;
   return hours >= 24
