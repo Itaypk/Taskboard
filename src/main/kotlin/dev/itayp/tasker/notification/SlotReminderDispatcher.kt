@@ -38,6 +38,7 @@ class SlotReminderDispatcher(
     private val backlogTaskService: BacklogTaskService,
     private val reminderMessageAgent: ReminderMessageAgent,
     private val aiAccessService: AiAccessService,
+    private val snoozeRelevanceCheck: SnoozeRelevanceCheck,
     private val messageSource: MessageSource,
     private val meterRegistry: MeterRegistry,
     private val clock: Clock,
@@ -65,6 +66,12 @@ class SlotReminderDispatcher(
             ?: return skip(notification, "not eligible", channel = null)
         val task = backlogTaskService.findTask(event.userId, event.backlogTaskId)
             ?: return skip(notification, "task no longer exists", ctx.channel)
+        // A snooze outlives its slot, so it is dropped (quietly) once it no longer matches the plan:
+        // the task was done/archived, its slot was removed, or it was rescheduled into a later plan.
+        if (notification.snoozed) {
+            snoozeRelevanceCheck.staleReason(notification, task)
+                ?.let { return skip(notification, "snooze outdated: $it", ctx.channel) }
+        }
 
         // AI copy only when the user is opted in AND the task's board permits AI (a shared-board
         // co-member opt-out vetoes it). Any failure falls through to the static template below.
