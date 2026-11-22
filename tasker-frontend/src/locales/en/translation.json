@@ -961,6 +961,11 @@
     "turnFailed": "That didn't go through. Please try again.",
     "expired": "This draft is no longer available. Please start again."
   },
+  "quickAddModal": {
+    "title": "Add your existing tasks",
+    "prompt": "Paste the list you keep in another app or a note. For a long list, add it in a few rounds.",
+    "close": "Close"
+  },
   "footer": {
     "about": "About",
     "faq": "FAQ",
@@ -974,7 +979,8 @@
     "openSettings": "Open settings",
     "open": "Open",
     "clearTutorial": "Clear tutorial tasks",
-    "openPlanner": "Open planner"
+    "openPlanner": "Open planner",
+    "quickAdd": "Add tasks"
   },
   "calendarDelivery": {
     "label": "Calendar",

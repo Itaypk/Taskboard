@@ -55,7 +55,11 @@ class TutorialSeeder(
         val now = clock.instant()
         val locale = localeNegotiationService.resolveLocale(localeHint)
 
-        val cardKeys = if (aiProperties.enabled) CARD_KEYS else CARD_KEYS.filterNot { (key, _) -> key in AI_CARD_KEYS }
+        val cardKeys = if (aiProperties.enabled) {
+            CARD_KEYS.map { card -> if (card.first == ADD_TASK_KEY) QUICK_ADD_CARD else card }
+        } else {
+            CARD_KEYS.filterNot { (key, _) -> key in AI_CARD_KEYS }
+        }
         val cards = cardKeys.map { (key, url) ->
             TutorialCard(
                 title = messageSource.getMessage("tutorial.$key.title", null, locale),
@@ -91,10 +95,19 @@ class TutorialSeeder(
             "assistant" to "/settings/planning",
             // "Add your own task" sits late on purpose: the planner ignores tutorial cards, so the
             // planning card below only pays off once the user has real tasks to plan.
-            "add_task" to null,
+            ADD_TASK_KEY to null,
             "plan_session" to "app:open-planner",
             "clear" to "app:clear-tutorial",
         )
+
+        private const val ADD_TASK_KEY = "add_task"
+
+        /**
+         * Stands in for "add your own task" when the instance has AI: instead of pointing at the +
+         * button, it opens the quick-add dialog, where a new user can paste the list they already
+         * keep elsewhere and get it back as tasks.
+         */
+        private val QUICK_ADD_CARD = "quick_add" to "app:quick-add"
 
         /** Cards that only lead somewhere when the instance has AI; the SPA hides both destinations without it. */
         private val AI_CARD_KEYS = setOf("assistant", "plan_session")

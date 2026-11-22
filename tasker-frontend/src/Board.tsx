@@ -42,6 +42,7 @@ import { UserMenu } from './components/UserMenu';
 import { StatsModal } from './components/StatsModal';
 import { FeedbackModal } from './components/FeedbackModal';
 import { SaveAccountModal } from './components/SaveAccountModal';
+import { QuickAddModal } from './components/QuickAddModal';
 import { BoardSettingsModal } from './components/BoardSettingsModal';
 import { DEFAULT_SETTINGS } from './data';
 import { fetchBoards, createBoard, duplicateBoard, fetchTasks, fetchCategories, fetchUserSettings, fetchTags, updateTag, fetchCurrentPlan, fetchSync, createTask, updateTask, deleteTask, duplicateTask, moveTaskToBoard, reorderTask, removeTaskFromPlan, clearTutorialTasks, addTaskToPlan, changeTaskSlot, notifyError, fetchMembers, setTaskAssignee, type TaskStatusFilter, type Board, type BoardMember } from './api';
@@ -153,6 +154,9 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
   const [statsOpen, setStatsOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [saveAccountOpen, setSaveAccountOpen] = useState(false);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  // The user's own AI switch and the instance's; quick-add and the drawer's AI actions need both.
+  const aiAvailable = settings.aiEnabled && instanceAi;
   // Keyed to its board so a stale fetch from a previous board is ignored without a synchronous reset.
   const [memberData, setMemberData]   = useState<{ boardId: string; members: BoardMember[] } | null>(null);
   const [leavingId, setLeavingId]     = useState<string | null>(null);
@@ -511,6 +515,14 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
     setPlanDrawerOpen(true);
   }, []);
 
+  /** Pull tasks and tags again after something outside the drawer wrote to the board (quick-add). */
+  const refreshTasksAndTags = useCallback(() => {
+    if (!activeBoardId) return;
+    Promise.all([fetchTasks(activeBoardId, fetchStatus), fetchTags(activeBoardId)])
+      .then(([freshTasks, freshTags]) => { setTasks(freshTasks); setTags(freshTags); })
+      .catch(e => console.error('Failed to refetch tasks after quick-add', e));
+  }, [activeBoardId, fetchStatus]);
+
   const followTaskLink = useCallback((task: Task) => {
     const link = resolveTaskLink(task.url);
     if (!link) return;
@@ -525,12 +537,15 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
         switch (link.action) {
           case 'clear-tutorial': void handleClearTutorial(); break;
           case 'open-planner': openPlanDrawer(); break;
+          // Quick-add needs the assistant; without it, fall back to the plain new-task drawer,
+          // which is what this card taught before it opened quick-add.
+          case 'quick-add': if (aiAvailable) setQuickAddOpen(true); else setIsCreating(true); break;
           // Once claimed there's nothing left to save; the card then points at connected accounts.
           case 'save-account': if (claimed) navigate('/settings/general'); else setSaveAccountOpen(true); break;
         }
         break;
     }
-  }, [navigate, handleClearTutorial, openPlanDrawer, claimed]);
+  }, [navigate, handleClearTutorial, openPlanDrawer, claimed, aiAvailable]);
 
   // `latest` comes from a drawer that just saved edits: `tasks` in this closure predates that save,
   // and the PUT is a full replace, so building on the stale copy would undo the edits.
@@ -1022,7 +1037,7 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
         defaultCategoryId={defaultCategoryId}
         members={members}
         currentUserId={currentUserId}
-        aiEnabled={settings.aiEnabled && instanceAi}
+        aiEnabled={aiAvailable}
         onClose={closeDrawer}
         onSave={handleSave}
         onDelete={requestDelete}
@@ -1077,6 +1092,13 @@ export default function Board({ onSignOut }: { onSignOut: () => Promise<void> })
       <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
 
       <SaveAccountModal open={saveAccountOpen} onClose={() => setSaveAccountOpen(false)} />
+
+      <QuickAddModal
+        open={quickAddOpen}
+        boardId={activeBoardId}
+        onClose={() => setQuickAddOpen(false)}
+        onBoardChanged={refreshTasksAndTags}
+      />
 
       <BoardSettingsModal
         open={boardSettingsOpen}
