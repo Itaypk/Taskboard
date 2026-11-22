@@ -97,10 +97,17 @@ verified it; otherwise the user is told to sign in their usual way and connect G
 
 ## AI
 
-- `TASKER_AI_API_KEY` — OpenRouter API key. Without it the app runs, but the weekly planning
-  assistant and AI capture are unavailable (a warning is logged at startup).
-- `TASKER_AI_PLANNING_MODEL` — OpenRouter model slug for the weekly planning conversation; default
-  `google/gemini-3.5-flash-lite` (rationale in `application.yaml`).
+- `TASKER_AI_PROVIDER` — `openrouter` (default) or `openai-compatible`: any server that speaks the
+  OpenAI chat-completions API, such as OpenAI, a provider's own OpenAI-compatible endpoint, or
+  self-hosted inference (vLLM, Ollama, llama.cpp). See [OpenAI-compatible servers](#openai-compatible-servers).
+- `TASKER_AI_API_KEY` — the API key. Required for OpenRouter: without it the app runs, but the weekly
+  planning assistant and AI capture are unavailable (a warning is logged at startup). Optional for an
+  OpenAI-compatible server that needs none.
+- `TASKER_AI_BASE_URL` — the API's base URL. Blank means OpenRouter's; required for
+  `openai-compatible` (e.g. `http://ollama:11434/v1`), which stays off without it.
+- `TASKER_AI_PLANNING_MODEL` — model for the weekly planning conversation; default
+  `google/gemini-3.5-flash-lite` (an OpenRouter slug, rationale in `application.yaml`). With
+  `openai-compatible`, set it to a model your server serves (a startup warning says so otherwise).
 - `TASKER_AI_TASK_ASSISTANT_MODEL` — model for the planner's task search/suggestion sub-agents and
   reminders; defaults to the planning model.
 - `TASKER_AI_VISION_MODEL` — model slug for captures that carry images or PDFs (Telegram, inbound
@@ -108,21 +115,44 @@ verified it; otherwise the user is told to sign in their usual way and connect G
   input, and PDFs unless it takes `file` input natively (OpenRouter's PDF parsers run outside zero
   data retention, so they are never used).
   `TASKER_AI_MULTIMODAL_MODEL` is its deprecated old name (still read, with a startup warning).
-- `TASKER_AI_TRANSCRIPTION_MODEL` — speech-to-text model for voice notes and audio files, e.g.
+- `TASKER_AI_TRANSCRIPTION_MODEL` — OpenRouter only for now. Speech-to-text model for voice notes and audio files, e.g.
   `openai/whisper-large-v3`; the transcript is then captured like typed text by the task-assistant
   model. No default: unset, voice capture is declined. Transcription is billed by audio duration
   and doesn't count against the AI tier's token budget. See `docs/MULTIMODAL-CAPTURE.md`.
-- `TASKER_AI_ZERO_DATA_RETENTION` — `true` (default) sends every LLM call with OpenRouter's
+- `TASKER_AI_OPENROUTER_ZERO_DATA_RETENTION` — OpenRouter only. `true` (default) sends every LLM call with OpenRouter's
   `provider.zdr`, so it is only routed to endpoints that retain no prompt data (set on every request
   by `ReasoningAwareAiClient`; `false` explicitly lifts it, since the client library defaults to on). Every configured model needs a ZDR endpoint — check
   `https://openrouter.ai/api/v1/endpoints/zdr`; `:free` variants generally have none — or its calls
   fail. The client library's `ModelCapabilityService` looks the configured models up there at startup and **fails
   startup** naming any that have none (a failed lookup is only logged, so an OpenRouter outage doesn't block a deploy). The login page, the landing fallback and the privacy policy only promise zero data retention
-  while it is on (and AI is configured), via `aiZeroDataRetention` in the inline public config.
+  while it is on (and AI is configured on OpenRouter), via `aiZeroDataRetention` in the inline public config.
+  It was `TASKER_AI_ZERO_DATA_RETENTION` before #331; the old name is no longer read (a startup warning
+  says so if it is still set).
 - `TASKER_AI_TIER_CAP_MAX_GRANTED_USERS` — hard cap (default `50`) on claimed accounts holding the
   full `standard`/`unlimited` grant at once; a budget safety valve while the app runs on a prepaid,
   budget-limited OpenRouter key. Enforced in `UserSettingsService.initializeForNewUser` and
   `upgradeToStandardOnClaim`. Read via `AiProperties.tierCap` / `AiTierCapProperties`.
+
+### OpenAI-compatible servers
+
+With `TASKER_AI_PROVIDER=openai-compatible`, requests go to `TASKER_AI_BASE_URL` without OpenRouter's
+extensions (provider routing, zero data retention, PDF-parser plugins), and reasoning goes out as
+`reasoning_effort`. Such a server doesn't describe its models the way OpenRouter does, so the app
+assumes nothing it isn't told:
+
+- `TASKER_AI_OPENAI_COMPATIBLE_REASONING` — `true` if the configured models accept `reasoning_effort`;
+  only then are the `TASKER_AI_REASONING_*` levels sent. Default `false`.
+- `TASKER_AI_OPENAI_COMPATIBLE_VISION_INPUTS` — what the vision model (`TASKER_AI_VISION_MODEL`, or the
+  task-assistant model) reads besides text: `image` and/or `pdf`, comma-separated. Empty (default)
+  declines image and PDF captures with a "describe it in text" reply.
+
+What doesn't apply there:
+
+- **Zero data retention can't be requested or checked.** Whether prompts are kept is the arrangement
+  between the operator and that server, so the login page and privacy policy never promise it.
+- **Voice capture stays declined**: the server's `/audio/transcriptions` takes multipart, which the
+  client doesn't speak yet.
+- **No key-usage metrics**: the `tasker_openrouter_key_*` gauges stay NaN.
 
 ## Database (required under the `prod` profile)
 

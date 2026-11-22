@@ -56,7 +56,8 @@ ever reaches the model.
 ### D2. Capability-gated, failing closed
 
 `InputModalitySupport` asks the library's `ModelCapabilityService` whether the model each kind goes
-to can take it (from OpenRouter's `architecture`, prefetched at startup): the vision model must
+to can take it (from OpenRouter's `architecture`, prefetched at startup, or, with an OpenAI-compatible
+provider, from `TASKER_AI_OPENAI_COMPATIBLE_VISION_INPUTS`): the vision model must
 advertise `image` input for images and `file` input for PDFs, and the transcription model must be a
 speech-to-text model (`transcription` output). OpenRouter *rejects* an unsupported modality rather
 than ignoring it, so an ungated attach is a 400 in the user's face.

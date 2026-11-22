@@ -7,8 +7,9 @@ import dev.itayp.nescioquid.openrouter.AiClientProperties
 import dev.itayp.nescioquid.openrouter.AiRequest
 import dev.itayp.nescioquid.openrouter.AiResponse
 import dev.itayp.nescioquid.openrouter.ApiKeyClient
-import dev.itayp.nescioquid.openrouter.OpenRouterTransport
+import dev.itayp.nescioquid.openrouter.AiTransport
 import dev.itayp.tasker.ai.AiProperties
+import dev.itayp.tasker.ai.AiProvider
 import io.micrometer.prometheusmetrics.PrometheusConfig
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import org.junit.jupiter.api.Test
@@ -96,17 +97,27 @@ class OpenRouterKeyMetricsTest {
         server.verify() // no request expected, so any call would fail here
     }
 
+    @Test
+    fun `an instance on another provider never polls`() {
+        val properties = AiProperties(provider = AiProvider.OPENAI_COMPATIBLE, baseUrl = "http://localhost:11434/v1")
+        val other = OpenRouterKeyMetrics(PrometheusMeterRegistry(PrometheusConfig.DEFAULT), ApiKeyClient(transport()), properties)
+
+        other.refresh()
+
+        server.verify()
+    }
+
     private fun respond(body: String) {
         server.expect(requestTo("https://openrouter.ai/api/v1/key")).andRespond(withSuccess(body, MediaType.APPLICATION_JSON))
     }
 
-    private fun transport(): OpenRouterTransport {
+    private fun transport(): AiTransport {
         val properties = AiClientProperties(apiKey = "k", baseUrl = "https://openrouter.ai/api/v1", configuredModels = emptySet())
         val noGate = AiCallGate { _, _ -> }
         val noListener = object : AiCallListener {
             override fun recordSuccess(context: AiCallContext, request: AiRequest, response: AiResponse) = Unit
             override fun recordFailure(context: AiCallContext, request: AiRequest) = Unit
         }
-        return OpenRouterTransport(properties, noGate, noListener, builder)
+        return AiTransport(properties, noGate, noListener, builder)
     }
 }

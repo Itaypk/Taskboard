@@ -42,7 +42,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     // Extracted libraries (JitPack). Multi-module repo github.com/Itaypk/Nescioquid; JVM 25.
     implementation("com.github.Itaypk.Nescioquid:envelope-crypto:0.16.0")
-    implementation("com.github.Itaypk.Nescioquid:openrouter-client:0.16.0")
+    implementation("com.github.Itaypk.Nescioquid:openrouter-client:0.17.0")
     implementation("com.github.Itaypk.Nescioquid:telegram-oidc-login:0.16.0")
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
