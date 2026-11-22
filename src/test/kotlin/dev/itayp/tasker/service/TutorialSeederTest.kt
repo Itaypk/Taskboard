@@ -100,14 +100,17 @@ class TutorialSeederTest {
         assertEquals("/settings/planning", byTitleUrl["Set your assistant preferences"])
         assertEquals("app:open-planner", byTitleUrl["Now try your first planning session"])
         assertEquals("app:clear-tutorial", byTitleUrl["Clear these tutorial tasks when you\u2019re ready"])
+        // With AI on, "add your own task" becomes "bring over the tasks you already have".
+        assertEquals("app:quick-add", byTitleUrl["Bring over the tasks you already have"])
+        assertNull(byTitleUrl["Add your own task"])
 
-        // The two intro cards carry no link.
-        assertEquals(2, tasks.count { it.url == null })
+        // Only the welcome card carries no link.
+        assertEquals(1, tasks.count { it.url == null })
 
         // Board order is the lesson order, and it matters: the planner ignores tutorial cards, so
-        // "try a planning session" only pays off once "add your own task" has been done first.
+        // "try a planning session" only pays off once the user has added tasks of their own.
         assertEquals(
-            listOf(null, "app:save-account", "/settings/planning", null, "app:open-planner", "app:clear-tutorial"),
+            listOf(null, "app:save-account", "/settings/planning", "app:quick-add", "app:open-planner", "app:clear-tutorial"),
             tasks.sortedBy { it.sortKey }.map { it.url },
         )
 
@@ -128,7 +131,7 @@ class TutorialSeederTest {
         // Not asserting exact translations (they can be reworded); asserting the cards actually
         // came out of the Hebrew bundle rather than falling through to English.
         val titles = tasks.map { it.title() }
-        assertTrue(titles.none { it == "Add your own task" }, "expected Hebrew cards, got: $titles")
+        assertTrue(titles.none { it == "Bring over the tasks you already have" }, "expected Hebrew cards, got: $titles")
         assertTrue(titles.any { it.any { ch -> ch in '\u0590'..'\u05FF' } }, "expected Hebrew script in: $titles")
     }
 
@@ -138,16 +141,17 @@ class TutorialSeederTest {
 
         val tasks = seedAndCapture(categories, localeHint = "de-DE,de;q=0.9")
 
-        assertTrue(tasks.map { it.title() }.contains("Add your own task"))
+        assertTrue(tasks.map { it.title() }.contains("Bring over the tasks you already have"))
     }
 
     @Test
-    fun `leaves out the assistant and planning cards when the instance has no AI`() {
+    fun `leaves out the AI cards and keeps the plain add-task card when the instance has no AI`() {
         aiProperties = AiProperties(apiKey = "")
         val categories = CategoryColor.entries.take(6).map(::category)
 
         val tasks = seedAndCapture(categories)
 
+        assertTrue(tasks.map { it.title() }.contains("Add your own task"))
         assertEquals(
             listOf(null, "app:save-account", null, "app:clear-tutorial"),
             tasks.sortedBy { it.sortKey }.map { it.url },
