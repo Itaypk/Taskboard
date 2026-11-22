@@ -1,6 +1,7 @@
 package dev.itayp.tasker.controller
 
 import dev.itayp.tasker.ai.AiProperties
+import dev.itayp.tasker.ai.OpenRouterAiProperties
 import dev.itayp.tasker.config.AppProperties
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -16,7 +17,7 @@ class ContentPageRendererTest {
         abuseEmail = "abuse@acme.test",
     )
 
-    private val renderer = ContentPageRenderer(appProperties, AiProperties(apiKey = "key", zeroDataRetention = true))
+    private val renderer = ContentPageRenderer(appProperties, AiProperties(apiKey = "key", openrouter = OpenRouterAiProperties(zeroDataRetention = true)))
 
     @Test
     fun `fills in the instance's name, URL and contact addresses`() {
@@ -37,8 +38,8 @@ class ContentPageRendererTest {
     fun `the privacy policy promises zero data retention only while it is enforced`() {
         assertThat(renderer.renderBody(ContentPage.PRIVACY)).contains(AI_RETENTION_NOTE)
 
-        val withoutZdr = ContentPageRenderer(appProperties, AiProperties(apiKey = "key", zeroDataRetention = false))
-        val withoutAi = ContentPageRenderer(appProperties, AiProperties(apiKey = "", zeroDataRetention = true))
+        val withoutZdr = ContentPageRenderer(appProperties, AiProperties(apiKey = "key", openrouter = OpenRouterAiProperties(zeroDataRetention = false)))
+        val withoutAi = ContentPageRenderer(appProperties, AiProperties(apiKey = "", openrouter = OpenRouterAiProperties(zeroDataRetention = true)))
         assertThat(withoutZdr.renderBody(ContentPage.PRIVACY)).doesNotContain("zero-data-retention", "{{")
         assertThat(withoutAi.renderBody(ContentPage.PRIVACY)).doesNotContain("zero-data-retention", "{{")
     }

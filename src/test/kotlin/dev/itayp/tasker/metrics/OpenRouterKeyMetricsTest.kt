@@ -9,6 +9,7 @@ import dev.itayp.nescioquid.openrouter.AiResponse
 import dev.itayp.nescioquid.openrouter.ApiKeyClient
 import dev.itayp.nescioquid.openrouter.OpenRouterTransport
 import dev.itayp.tasker.ai.AiProperties
+import dev.itayp.tasker.ai.AiProvider
 import io.micrometer.prometheusmetrics.PrometheusConfig
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import org.junit.jupiter.api.Test
@@ -94,6 +95,16 @@ class OpenRouterKeyMetricsTest {
         dark.refresh()
 
         server.verify() // no request expected, so any call would fail here
+    }
+
+    @Test
+    fun `an instance on another provider never polls`() {
+        val properties = AiProperties(provider = AiProvider.OPENAI_COMPATIBLE, baseUrl = "http://localhost:11434/v1")
+        val other = OpenRouterKeyMetrics(PrometheusMeterRegistry(PrometheusConfig.DEFAULT), ApiKeyClient(transport()), properties)
+
+        other.refresh()
+
+        server.verify()
     }
 
     private fun respond(body: String) {

@@ -26,7 +26,7 @@ class AudioTranscriberTest {
 
     private fun transcriber(zeroDataRetention: Boolean = true, transcriptionModel: String = "stt-model") = AudioTranscriber(
         client,
-        AiProperties(apiKey = "key", transcriptionModel = transcriptionModel, zeroDataRetention = zeroDataRetention),
+        AiProperties(apiKey = "key", transcriptionModel = transcriptionModel, openrouter = OpenRouterAiProperties(zeroDataRetention = zeroDataRetention)),
     )
 
     @Test

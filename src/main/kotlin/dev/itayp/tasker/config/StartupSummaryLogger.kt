@@ -1,6 +1,7 @@
 package dev.itayp.tasker.config
 
 import dev.itayp.tasker.ai.AiProperties
+import dev.itayp.tasker.ai.AiProvider
 import dev.itayp.tasker.channel.email.EmailProperties
 import dev.itayp.tasker.channel.telegram.OnTelegramBotCondition
 import dev.itayp.tasker.service.LocalLoginService
@@ -49,7 +50,7 @@ class StartupSummaryLogger(
             if (loginMethods.registrationOpen) "open" else "closed",
             onOff(emailProperties.enabled),
             onOff(telegramBot),
-            onOff(aiProperties.apiKey.isNotBlank()),
+            if (aiProperties.enabled) aiProperties.provider.name.lowercase().replace('_', '-') else "off",
             onOff(inboundMailProperties.active),
             onOff(prometheusAuthProperties.configured),
         )
@@ -66,9 +67,7 @@ class StartupSummaryLogger(
                     "(at least ${InboundMailProperties.MIN_DELIVERY_TOKEN_LENGTH} characters) is not: inbound email stays off.",
             )
         }
-        if (aiProperties.apiKey.isBlank()) {
-            log.warn("TASKER_AI_API_KEY is not set: the weekly planning assistant and AI capture are unavailable.")
-        }
+        warnAboutAiConfiguration()
         if (environment.containsProperty(LEGACY_MULTIMODAL_MODEL)) {
             log.warn(
                 "$LEGACY_MULTIMODAL_MODEL is deprecated and only sets TASKER_AI_VISION_MODEL now; voice notes need " +
@@ -77,10 +76,44 @@ class StartupSummaryLogger(
         }
     }
 
+    private fun warnAboutAiConfiguration() {
+        if (!aiProperties.enabled) {
+            val missing = if (aiProperties.provider == AiProvider.OPENROUTER) "TASKER_AI_API_KEY" else "TASKER_AI_BASE_URL"
+            log.warn("$missing is not set: the weekly planning assistant and AI capture are unavailable.")
+        }
+        if (environment.containsProperty(LEGACY_ZERO_DATA_RETENTION)) {
+            log.warn(
+                "$LEGACY_ZERO_DATA_RETENTION is no longer read: it only ever applied to OpenRouter, and is now " +
+                    "TASKER_AI_OPENROUTER_ZERO_DATA_RETENTION (default true).",
+            )
+        }
+        if (aiProperties.provider != AiProvider.OPENAI_COMPATIBLE || !aiProperties.enabled) return
+        if (!environment.containsProperty(PLANNING_MODEL)) {
+            log.warn(
+                "TASKER_AI_PROVIDER is openai-compatible but $PLANNING_MODEL is not set, so the default OpenRouter " +
+                    "model slug is sent to {}. Set it to a model that server serves.",
+                aiProperties.apiBaseUrl,
+            )
+        }
+        if (aiProperties.transcriptionModel.isNotBlank()) {
+            log.warn("TASKER_AI_TRANSCRIPTION_MODEL is set, but transcription is OpenRouter-only for now: voice captures stay declined.")
+        }
+        log.info(
+            "AI calls go to an OpenAI-compatible server at {}. Zero data retention isn't requested or checked there: " +
+                "whether prompts are kept is up to that server's operator.",
+            aiProperties.apiBaseUrl,
+        )
+    }
+
     private fun onOff(value: Boolean) = if (value) "on" else "off"
 
     private companion object {
         /** Replaced by TASKER_AI_VISION_MODEL and TASKER_AI_TRANSCRIPTION_MODEL (GitHub issue #362). */
         const val LEGACY_MULTIMODAL_MODEL = "TASKER_AI_MULTIMODAL_MODEL"
+
+        /** Renamed to TASKER_AI_OPENROUTER_ZERO_DATA_RETENTION (GitHub issue #331). */
+        const val LEGACY_ZERO_DATA_RETENTION = "TASKER_AI_ZERO_DATA_RETENTION"
+
+        const val PLANNING_MODEL = "TASKER_AI_PLANNING_MODEL"
     }
 }

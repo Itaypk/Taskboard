@@ -3,6 +3,7 @@ package dev.itayp.tasker.metrics
 import dev.itayp.nescioquid.openrouter.ApiKeyClient
 import dev.itayp.nescioquid.openrouter.ApiKeyInfo
 import dev.itayp.tasker.ai.AiProperties
+import dev.itayp.tasker.ai.AiProvider
 import io.micrometer.core.instrument.Gauge
 import io.micrometer.core.instrument.MeterRegistry
 import org.slf4j.LoggerFactory
@@ -35,8 +36,8 @@ import java.util.concurrent.atomic.AtomicInteger
  * key or an OpenRouter that keeps refusing. A run rather than a counter, because "several in a row"
  * is the signal — one blip a day is not — and a counter's `increase()` can't say that.
  *
- * On an instance without an AI key there is nothing to poll: the gauges stay NaN and the failure run
- * at 0, rather than counting a self-hoster's deliberate choice as an outage.
+ * On an instance without an AI key, or on another provider, there is nothing to poll: the gauges stay
+ * NaN and the failure run at 0, rather than counting a self-hoster's deliberate choice as an outage.
  */
 @Component
 class OpenRouterKeyMetrics(
@@ -69,7 +70,7 @@ class OpenRouterKeyMetrics(
     // a deploy rather than fifteen minutes after it.
     @Scheduled(fixedDelay = 15, timeUnit = TimeUnit.MINUTES)
     fun refresh() {
-        if (!aiProperties.enabled) return
+        if (!aiProperties.enabled || aiProperties.provider != AiProvider.OPENROUTER) return
         latest = try {
             keys.currentKey().also { consecutiveFailures.set(0) }
         } catch (e: Exception) {

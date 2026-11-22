@@ -26,7 +26,7 @@ export interface PublicConfig {
     };
     /** The instance has an AI provider configured; without one, planning and other AI features are hidden. */
     ai: boolean;
-    /** AI is on and every AI call goes only to zero-data-retention endpoints (`TASKER_AI_ZERO_DATA_RETENTION`). */
+    /** AI is on and every AI call goes only to zero-data-retention endpoints (`TASKER_AI_OPENROUTER_ZERO_DATA_RETENTION`; never for an OpenAI-compatible provider). */
     aiZeroDataRetention: boolean;
     /** Users can get a personal inbound email address that turns mail into tasks (`TASKER_INBOUND_MAIL_*`). */
     inboundMail: boolean;

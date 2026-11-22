@@ -16,7 +16,7 @@ Optional integrations, all off unless configured:
 
 | Feature | Needs |
 |---|---|
-| Weekly planning assistant, AI capture | An [OpenRouter](https://openrouter.ai) API key |
+| Weekly planning assistant, AI capture | An [OpenRouter](https://openrouter.ai) API key, or any OpenAI-compatible server (including your own) |
 | Magic-link sign-in, calendar invitations | SMTP accounts |
 | Telegram sign-in and bot | A bot from [@BotFather](https://t.me/BotFather) |
 

@@ -24,7 +24,7 @@ class ReasoningAwareAiClientTest {
 
     private fun sentRequest(zeroDataRetention: Boolean, request: ChatRequest = this.request): ChatRequest {
         whenever(aiClient.chat(any(), any())).thenReturn(ChatResponse(id = "resp-1", choices = emptyList(), usage = null, model = "resolved/model", provider = "Google"))
-        ReasoningAwareAiClient(aiClient, reasoningResolver, AiProperties(zeroDataRetention = zeroDataRetention))
+        ReasoningAwareAiClient(aiClient, reasoningResolver, AiProperties(openrouter = OpenRouterAiProperties(zeroDataRetention = zeroDataRetention)))
             .chat(request, context)
         val captor = argumentCaptor<ChatRequest>()
         verify(aiClient).chat(captor.capture(), any())
