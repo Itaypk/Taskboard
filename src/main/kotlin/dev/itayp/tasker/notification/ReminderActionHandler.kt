@@ -25,6 +25,7 @@ class ReminderActionHandler(
     private val repository: ScheduledNotificationRepository,
     private val slotReminderService: SlotReminderService,
     private val backlogTaskService: BacklogTaskService,
+    private val snoozeRelevanceCheck: SnoozeRelevanceCheck,
     private val userSettingsService: UserSettingsService,
     private val messageSource: MessageSource,
     private val meterRegistry: MeterRegistry,
@@ -84,16 +85,8 @@ class ReminderActionHandler(
                 channel.send(ChannelMessage.Text(msg("notification.ack.confirmed", locale)))
                 count(action, "ok", channel)
             }
-            ReminderAction.SNOOZE_HOUR -> {
-                slotReminderService.snooze(notification, Duration.ofHours(1))
-                channel.send(ChannelMessage.Text(msg("notification.snooze.hour.confirmed", locale)))
-                count(action, "ok", channel)
-            }
-            ReminderAction.SNOOZE_DAY -> {
-                slotReminderService.snooze(notification, Duration.ofDays(1))
-                channel.send(ChannelMessage.Text(msg("notification.snooze.day.confirmed", locale)))
-                count(action, "ok", channel)
-            }
+            ReminderAction.SNOOZE_HOUR -> snooze(ready, userId, channel, Duration.ofHours(1), "notification.snooze.hour.confirmed")
+            ReminderAction.SNOOZE_DAY -> snooze(ready, userId, channel, Duration.ofDays(1), "notification.snooze.day.confirmed")
             ReminderAction.MARK_DONE -> {
                 val task = backlogTaskService.markDone(userId, notification.backlogTaskId!!)
                 if (task == null) {
@@ -107,6 +100,32 @@ class ReminderActionHandler(
             }
         }
         log.debug("Handled reminder action {} for notification {}", action, notification.id)
+    }
+
+    /**
+     * Re-queues the reminder, unless it no longer matches the task's plan (issue #401): a snooze
+     * tapped on an old message after the task was rescheduled, done or archived would otherwise
+     * bring back a reminder for a block that no longer exists. That tap gets the "expired" reply.
+     */
+    private fun snooze(
+        ready: ParsedReminder.Ready,
+        userId: UUID,
+        channel: ConversationChannel,
+        delay: Duration,
+        confirmationKey: String,
+    ) {
+        val (action, notification, locale) = ready
+        val task = backlogTaskService.findTask(userId, notification.backlogTaskId!!)
+        val staleReason = if (task == null) "task no longer exists" else snoozeRelevanceCheck.staleReason(notification, task)
+        if (staleReason != null) {
+            log.debug("Refused snooze of notification {}: {}", notification.id, staleReason)
+            channel.send(ChannelMessage.Text(msg("notification.action.expired", locale)))
+            count(action, "stale", channel)
+            return
+        }
+        slotReminderService.snooze(notification, delay)
+        channel.send(ChannelMessage.Text(msg(confirmationKey, locale)))
+        count(action, "ok", channel)
     }
 
     private fun msg(key: String, locale: Locale): String = messageSource.getMessage(key, null, locale)

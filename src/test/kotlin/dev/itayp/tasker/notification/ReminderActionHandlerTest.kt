@@ -40,12 +40,13 @@ class ReminderActionHandlerTest {
     @Mock lateinit var repository: ScheduledNotificationRepository
     @Mock lateinit var slotReminderService: SlotReminderService
     @Mock lateinit var backlogTaskService: BacklogTaskService
+    @Mock lateinit var snoozeRelevanceCheck: SnoozeRelevanceCheck
     @Mock lateinit var userSettingsService: UserSettingsService
     @Mock lateinit var messageSource: MessageSource
 
     private val meterRegistry = SimpleMeterRegistry()
     private val handler by lazy {
-        ReminderActionHandler(repository, slotReminderService, backlogTaskService, userSettingsService, messageSource, meterRegistry)
+        ReminderActionHandler(repository, slotReminderService, backlogTaskService, snoozeRelevanceCheck, userSettingsService, messageSource, meterRegistry)
     }
 
     private val userId: UUID = UUID.randomUUID()
@@ -112,6 +113,7 @@ class ReminderActionHandlerTest {
         stubLocaleAndMessages()
         val row = row()
         whenever(repository.findById(notificationId)).thenReturn(Optional.of(row))
+        whenever(backlogTaskService.findTask(userId, taskId)).thenReturn(task())
 
         handler.processReminderResponse(userId, channel(), ReminderAction.SNOOZE_HOUR.callbackData(notificationId))
 
@@ -123,10 +125,40 @@ class ReminderActionHandlerTest {
         stubLocaleAndMessages()
         val row = row()
         whenever(repository.findById(notificationId)).thenReturn(Optional.of(row))
+        whenever(backlogTaskService.findTask(userId, taskId)).thenReturn(task())
 
         handler.processReminderResponse(userId, channel(), ReminderAction.SNOOZE_DAY.callbackData(notificationId))
 
         verify(slotReminderService).snooze(eq(row), eq(Duration.ofDays(1)))
+    }
+
+    @Test
+    fun `snooze of an outdated reminder is refused with the expired reply`() {
+        stubLocaleAndMessages()
+        val row = row()
+        val task = task()
+        whenever(repository.findById(notificationId)).thenReturn(Optional.of(row))
+        whenever(backlogTaskService.findTask(userId, taskId)).thenReturn(task)
+        whenever(snoozeRelevanceCheck.staleReason(row, task)).thenReturn("task rescheduled in a later plan")
+        val channel = channel()
+
+        handler.processReminderResponse(userId, channel, ReminderAction.SNOOZE_DAY.callbackData(notificationId))
+
+        verify(slotReminderService, never()).snooze(any(), any())
+        verify(messageSource).getMessage(eq("notification.action.expired"), anyOrNull(), any<Locale>())
+        verify(channel).send(any<ChannelMessage.Text>())
+    }
+
+    @Test
+    fun `snooze of a deleted task is refused`() {
+        stubLocaleAndMessages()
+        whenever(repository.findById(notificationId)).thenReturn(Optional.of(row()))
+        whenever(backlogTaskService.findTask(userId, taskId)).thenReturn(null)
+
+        handler.processReminderResponse(userId, channel(), ReminderAction.SNOOZE_HOUR.callbackData(notificationId))
+
+        verify(slotReminderService, never()).snooze(any(), any())
+        verify(snoozeRelevanceCheck, never()).staleReason(any(), any())
     }
 
     @Test

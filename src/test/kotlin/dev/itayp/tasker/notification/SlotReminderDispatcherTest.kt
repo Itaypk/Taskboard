@@ -44,6 +44,7 @@ class SlotReminderDispatcherTest {
     @Mock lateinit var backlogTaskService: BacklogTaskService
     @Mock lateinit var reminderMessageAgent: ReminderMessageAgent
     @Mock lateinit var aiAccessService: AiAccessService
+    @Mock lateinit var snoozeRelevanceCheck: SnoozeRelevanceCheck
     @Mock lateinit var messageSource: MessageSource
 
     private val meterRegistry = SimpleMeterRegistry()
@@ -51,7 +52,7 @@ class SlotReminderDispatcherTest {
     private val dispatcher by lazy {
         SlotReminderDispatcher(
             repository, deliveryResolver, backlogTaskService, reminderMessageAgent,
-            aiAccessService, messageSource, meterRegistry, clock,
+            aiAccessService, snoozeRelevanceCheck, messageSource, meterRegistry, clock,
         )
     }
 
@@ -225,6 +226,42 @@ class SlotReminderDispatcherTest {
         dispatcher.on(event(slotStartIso = "2026-05-13T09:30:00Z"))
 
         verify(channel).send(any())
+        assertEquals(NotificationStatus.SENT, row.status)
+    }
+
+    @Test
+    fun `outdated snoozed reminder is skipped quietly`() {
+        val row = pendingRow().apply { snoozed = true }
+        // Not mockChannel(): nothing is formatted on this path, so its formatter stub would be unused.
+        val channel = mock<ConversationChannel>()
+        whenever(channel.type).thenReturn(ChannelType.TELEGRAM)
+        val task = task("Buy milk")
+        whenever(repository.findById(notificationId)).thenReturn(Optional.of(row))
+        whenever(deliveryResolver.resolve(userId)).thenReturn(context(channel))
+        whenever(backlogTaskService.findTask(userId, taskId)).thenReturn(task)
+        whenever(snoozeRelevanceCheck.staleReason(row, task)).thenReturn("task rescheduled in a later plan")
+
+        dispatcher.on(event(slotStartIso = "2026-05-13T09:30:00Z"))
+
+        verify(channel, never()).send(any())
+        assertEquals(NotificationStatus.SKIPPED, row.status)
+        assertEquals(1.0, counter("skipped", "none"))
+    }
+
+    @Test
+    fun `relevance is not checked for a regular reminder`() {
+        val row = pendingRow()
+        val channel = mockChannel()
+        whenever(repository.findById(notificationId)).thenReturn(Optional.of(row))
+        whenever(deliveryResolver.resolve(userId)).thenReturn(context(channel))
+        whenever(backlogTaskService.findTask(userId, taskId)).thenReturn(task("Buy milk"))
+        whenever(messageSource.getMessage(eq("notification.slot_reminder"), any(), any<Locale>()))
+            .thenReturn("Reminder: Buy milk")
+        whenever(messageSource.getMessage(any<String>(), eq(null), any<Locale>())).thenReturn("label")
+
+        dispatcher.on(event())
+
+        verify(snoozeRelevanceCheck, never()).staleReason(any(), any())
         assertEquals(NotificationStatus.SENT, row.status)
     }
 
