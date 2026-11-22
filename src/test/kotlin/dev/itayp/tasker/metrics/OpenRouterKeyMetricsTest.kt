@@ -7,7 +7,7 @@ import dev.itayp.nescioquid.openrouter.AiClientProperties
 import dev.itayp.nescioquid.openrouter.AiRequest
 import dev.itayp.nescioquid.openrouter.AiResponse
 import dev.itayp.nescioquid.openrouter.ApiKeyClient
-import dev.itayp.nescioquid.openrouter.OpenRouterTransport
+import dev.itayp.nescioquid.openrouter.AiTransport
 import dev.itayp.tasker.ai.AiProperties
 import dev.itayp.tasker.ai.AiProvider
 import io.micrometer.prometheusmetrics.PrometheusConfig
@@ -111,13 +111,13 @@ class OpenRouterKeyMetricsTest {
         server.expect(requestTo("https://openrouter.ai/api/v1/key")).andRespond(withSuccess(body, MediaType.APPLICATION_JSON))
     }
 
-    private fun transport(): OpenRouterTransport {
+    private fun transport(): AiTransport {
         val properties = AiClientProperties(apiKey = "k", baseUrl = "https://openrouter.ai/api/v1", configuredModels = emptySet())
         val noGate = AiCallGate { _, _ -> }
         val noListener = object : AiCallListener {
             override fun recordSuccess(context: AiCallContext, request: AiRequest, response: AiResponse) = Unit
             override fun recordFailure(context: AiCallContext, request: AiRequest) = Unit
         }
-        return OpenRouterTransport(properties, noGate, noListener, builder)
+        return AiTransport(properties, noGate, noListener, builder)
     }
 }
