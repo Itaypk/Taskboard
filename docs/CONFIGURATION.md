@@ -115,8 +115,8 @@ verified it; otherwise the user is told to sign in their usual way and connect G
   input, and PDFs unless it takes `file` input natively (OpenRouter's PDF parsers run outside zero
   data retention, so they are never used).
   `TASKER_AI_MULTIMODAL_MODEL` is its deprecated old name (still read, with a startup warning).
-- `TASKER_AI_TRANSCRIPTION_MODEL` — OpenRouter only for now. Speech-to-text model for voice notes and audio files, e.g.
-  `openai/whisper-large-v3`; the transcript is then captured like typed text by the task-assistant
+- `TASKER_AI_TRANSCRIPTION_MODEL` — Speech-to-text model for voice notes and audio files, e.g.
+  `openai/whisper-large-v3` (on an OpenAI-compatible server, its own name, e.g. `whisper-1`); the transcript is then captured like typed text by the task-assistant
   model. No default: unset, voice capture is declined. Transcription is billed by audio duration
   and doesn't count against the AI tier's token budget. See `docs/MULTIMODAL-CAPTURE.md`.
 - `TASKER_AI_OPENROUTER_ZERO_DATA_RETENTION` — OpenRouter only. `true` (default) sends every LLM call with OpenRouter's
@@ -142,16 +142,26 @@ assumes nothing it isn't told:
 
 - `TASKER_AI_OPENAI_COMPATIBLE_REASONING` — `true` if the configured models accept `reasoning_effort`;
   only then are the `TASKER_AI_REASONING_*` levels sent. Default `false`.
+- `TASKER_AI_REASONING_DEFAULT` — the level for every AI call without one of its own: quick-add, the
+  task assistant, and any `TASKER_AI_REASONING_*` level set to blank. Blank (default) sends none.
+  Applies on OpenRouter too, but is mainly for OpenAI's newer reasoning models (e.g. `gpt-6-luna`):
+  on `/chat/completions` they refuse function tools unless the effort is `none`. For those, set
+  `TASKER_AI_OPENAI_COMPATIBLE_REASONING=true`, `TASKER_AI_REASONING_DEFAULT=none`, and
+  `TASKER_AI_REASONING_WEEKLY_PLANNING` / `_TASK_SEARCH` / `_TASK_SUGGESTION` / `_SLOT_REMINDER`
+  to `none` as well, since those have non-blank defaults. Reasoning is then off everywhere;
+  combining it with tools on those models would need OpenAI's Responses API, which isn't supported.
 - `TASKER_AI_OPENAI_COMPATIBLE_VISION_INPUTS` — what the vision model (`TASKER_AI_VISION_MODEL`, or the
   task-assistant model) reads besides text: `image` and/or `pdf`, comma-separated. Empty (default)
   declines image and PDF captures with a "describe it in text" reply.
+- `TASKER_AI_TRANSCRIPTION_MODEL` works there too: setting it turns voice capture on, with the clip
+  sent to the same server's `/audio/transcriptions` as a multipart upload (what OpenAI and
+  self-hosted Whisper servers such as speaches take). A server without speech-to-text answers with
+  an error, so leave it unset there.
 
 What doesn't apply there:
 
 - **Zero data retention can't be requested or checked.** Whether prompts are kept is the arrangement
   between the operator and that server, so the login page and privacy policy never promise it.
-- **Voice capture stays declined**: the server's `/audio/transcriptions` takes multipart, which the
-  client doesn't speak yet.
 - **No key-usage metrics**: the `tasker_openrouter_key_*` gauges stay NaN.
 
 ## Database (required under the `prod` profile)

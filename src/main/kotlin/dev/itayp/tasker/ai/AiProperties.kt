@@ -22,10 +22,9 @@ data class AiProperties(
      */
     val visionModel: String = "",
     /**
-     * Speech-to-text model slug for voice notes and audio files, sent to OpenRouter's
-     * `/audio/transcriptions`. The transcript then runs the normal text capture against
-     * [taskAssistantModel]. No fallback: blank declines audio capture. OpenRouter only for now: an
-     * OpenAI-compatible `/audio/transcriptions` takes multipart, which the client doesn't speak yet.
+     * Speech-to-text model slug for voice notes and audio files, sent to the provider's
+     * `/audio/transcriptions` (as multipart on an OpenAI-compatible server). The transcript then runs
+     * the normal text capture against [taskAssistantModel]. No fallback: blank declines audio capture.
      */
     val transcriptionModel: String = "",
     /** Settings that only apply with [AiProvider.OPENROUTER]. */
@@ -107,12 +106,18 @@ data class OpenAiCompatibleAiProperties(
 )
 
 /**
- * Reasoning effort per functionality. Each value is an OpenRouter effort level
- * (`minimal|low|medium|high`) or null/blank for "no reasoning override" (default). Keyed by the
+ * Reasoning effort per functionality. Each value is an effort level (`none|minimal|low|medium|high`)
+ * or null/blank for "no reasoning override" (default). Keyed by the
  * [dev.itayp.tasker.ai.client.AiConversationType] functionalities; resolved in
  * [dev.itayp.tasker.ai.ReasoningResolver].
+ *
+ * [default] applies to every functionality without a level of its own, including the ones with no
+ * setting here (quick-add, the task assistant, …). Blank by default, so those send no reasoning
+ * field. It exists for models that need one on every call: OpenAI's newer reasoning models refuse
+ * function tools on `/chat/completions` unless the effort is `none`.
  */
 data class AiReasoningProperties(
+    val default: String? = null,
     val weeklyPlanning: String? = null,
     val taskSearch: String? = null,
     val taskSuggestion: String? = null,

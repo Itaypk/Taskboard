@@ -13,11 +13,15 @@ class AiPropertiesReasoningEffortSource(
     private val properties: AiProperties,
 ) {
 
-    fun effortFor(conversationType: String): String? = when (conversationType) {
-        AiConversationType.WEEKLY_PLANNING -> properties.reasoning.weeklyPlanning
-        AiConversationType.TASK_SEARCH -> properties.reasoning.taskSearch
-        AiConversationType.TASK_SUGGESTION -> properties.reasoning.taskSuggestion
-        AiConversationType.SLOT_REMINDER -> properties.reasoning.slotReminder
-        else -> null
+    /** The functionality's own level, or [AiReasoningProperties.default] when it has none (or it's blank). */
+    fun effortFor(conversationType: String): String? {
+        val own = when (conversationType) {
+            AiConversationType.WEEKLY_PLANNING -> properties.reasoning.weeklyPlanning
+            AiConversationType.TASK_SEARCH -> properties.reasoning.taskSearch
+            AiConversationType.TASK_SUGGESTION -> properties.reasoning.taskSuggestion
+            AiConversationType.SLOT_REMINDER -> properties.reasoning.slotReminder
+            else -> null
+        }
+        return own?.takeIf { it.isNotBlank() } ?: properties.reasoning.default
     }
 }

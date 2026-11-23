@@ -33,18 +33,27 @@ class AiClientConfigurationTest {
 
         assertEquals(ApiDialect.OPENAI_COMPATIBLE, client.dialect)
         assertEquals(false, client.zeroDataRetention)
-        assertEquals(setOf("big", "small"), client.declaredCapabilities.keys) // never the transcription model
-        client.declaredCapabilities.values.forEach {
+        assertEquals(setOf("big", "small", "whisper"), client.declaredCapabilities.keys)
+        (client.declaredCapabilities - "whisper").values.forEach {
             assertEquals(false, it.supportsReasoning)
             assertEquals(listOf("text"), it.inputModalities)
         }
     }
 
     @Test
+    fun `the transcription model is declared as speech-to-text, so voice capture turns on`() {
+        val whisper = AiClientConfiguration.declaredCapabilities(compatible(reasoning = true)).getValue("whisper")
+
+        assertEquals(listOf("transcription"), whisper.outputModalities)
+        assertEquals(listOf("audio"), whisper.inputModalities)
+        assertEquals(false, whisper.supportsReasoning)
+    }
+
+    @Test
     fun `the operator's reasoning and vision inputs reach the right models`() {
         val declared = AiClientConfiguration.declaredCapabilities(compatible(reasoning = true, visionInputs = setOf("image", " PDF ", "video")))
 
-        assertTrue(declared.values.all { it.supportsReasoning })
+        assertTrue((declared - "whisper").values.all { it.supportsReasoning })
         // The vision model falls back to the task-assistant model; an unknown input is ignored.
         assertEquals(listOf("text", "image", "file"), declared.getValue("small").inputModalities)
         assertEquals(listOf("text"), declared.getValue("big").inputModalities)
