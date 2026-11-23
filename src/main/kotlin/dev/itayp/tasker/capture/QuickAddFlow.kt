@@ -906,7 +906,7 @@ class QuickAddFlow(
     ) {
         val kinds = attachments.map { it.kind }
         val key = when {
-            AttachmentKind.AUDIO in kinds -> "quickadd.media.heard"
+            AttachmentKind.AUDIO in kinds -> "voice.heard"
             AttachmentKind.IMAGE in kinds -> "quickadd.media.read"
             else -> "quickadd.media.read_file"
         }

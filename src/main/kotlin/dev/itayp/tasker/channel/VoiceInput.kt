@@ -56,7 +56,7 @@ class VoiceInput(
         }
         count(context, "transcribed")
         log.debug("voice reply transcribed into {} chars, context={}", transcript.length, context)
-        channel.send(ChannelMessage.Text(msg(userId, "quickadd.media.heard", channel.formatter.escape(preview(transcript)))))
+        channel.send(ChannelMessage.Text(msg(userId, "voice.heard", channel.formatter.escape(preview(transcript)))))
         val caption = media.caption?.trim().orEmpty()
         return ChannelInbound.Text(listOf(caption, transcript).filter { it.isNotBlank() }.joinToString("\n\n"))
     }
