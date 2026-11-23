@@ -47,6 +47,8 @@ class ReasoningResolver(
 
     companion object {
         // Fallback effort set used only when a reasoning model doesn't advertise supported_efforts.
-        private val DEFAULT_EFFORTS = setOf("minimal", "low", "medium", "high")
+        // `none` turns reasoning off on a model that reasons by default (OpenAI's newer models need it
+        // to accept function tools on /chat/completions).
+        private val DEFAULT_EFFORTS = setOf("none", "minimal", "low", "medium", "high")
     }
 }

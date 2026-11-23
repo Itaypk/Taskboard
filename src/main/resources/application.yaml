@@ -103,11 +103,13 @@ tasker:
       reasoning: ${TASKER_AI_OPENAI_COMPATIBLE_REASONING:false}
       # What the vision model reads besides text: image and/or pdf, comma-separated.
       vision-inputs: ${TASKER_AI_OPENAI_COMPATIBLE_VISION_INPUTS:}
-    # Reasoning/effort level per functionality. Value: minimal|low|medium|high, or blank (default)
+    # Reasoning/effort level per functionality. Value: none|minimal|low|medium|high, or blank (default)
     # for no reasoning override. Only sent to models whose capabilities (fetched at startup from
     # OpenRouter, or openai-compatible.reasoning) report reasoning support, so a level set here on a
-    # non-reasoning model is silently skipped.
+    # non-reasoning model is silently skipped. `default` covers every functionality without a level
+    # of its own (including the unlisted ones, like quick-add and the task assistant).
     reasoning:
+      default: ${TASKER_AI_REASONING_DEFAULT:}
       weekly-planning: ${TASKER_AI_REASONING_WEEKLY_PLANNING:low}
       task-search: ${TASKER_AI_REASONING_TASK_SEARCH:low}
       task-suggestion: ${TASKER_AI_REASONING_TASK_SUGGESTION:medium}

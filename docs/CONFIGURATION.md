@@ -142,6 +142,14 @@ assumes nothing it isn't told:
 
 - `TASKER_AI_OPENAI_COMPATIBLE_REASONING` — `true` if the configured models accept `reasoning_effort`;
   only then are the `TASKER_AI_REASONING_*` levels sent. Default `false`.
+- `TASKER_AI_REASONING_DEFAULT` — the level for every AI call without one of its own: quick-add, the
+  task assistant, and any `TASKER_AI_REASONING_*` level set to blank. Blank (default) sends none.
+  Applies on OpenRouter too, but is mainly for OpenAI's newer reasoning models (e.g. `gpt-6-luna`):
+  on `/chat/completions` they refuse function tools unless the effort is `none`. For those, set
+  `TASKER_AI_OPENAI_COMPATIBLE_REASONING=true`, `TASKER_AI_REASONING_DEFAULT=none`, and
+  `TASKER_AI_REASONING_WEEKLY_PLANNING` / `_TASK_SEARCH` / `_TASK_SUGGESTION` / `_SLOT_REMINDER`
+  to `none` as well, since those have non-blank defaults. Reasoning is then off everywhere;
+  combining it with tools on those models would need OpenAI's Responses API, which isn't supported.
 - `TASKER_AI_OPENAI_COMPATIBLE_VISION_INPUTS` — what the vision model (`TASKER_AI_VISION_MODEL`, or the
   task-assistant model) reads besides text: `image` and/or `pdf`, comma-separated. Empty (default)
   declines image and PDF captures with a "describe it in text" reply.
