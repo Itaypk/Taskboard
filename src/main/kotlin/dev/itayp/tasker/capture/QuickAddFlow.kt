@@ -7,6 +7,7 @@ import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ChoiceOption
 import dev.itayp.tasker.channel.ConversationChannel
+import dev.itayp.tasker.channel.VoiceInput
 import dev.itayp.tasker.model.BacklogTaskCategory
 import dev.itayp.tasker.model.TaskPriority
 import dev.itayp.tasker.oneoff.OneOffEventDraft
@@ -73,6 +74,7 @@ class QuickAddFlow(
     private val meterRegistry: MeterRegistry,
     @Qualifier("quickAddRateLimiter") private val rateLimiter: RateLimiter,
     private val clock: Clock,
+    private val voiceInput: VoiceInput,
 ) {
     private val log = LoggerFactory.getLogger(QuickAddFlow::class.java)
 
@@ -221,6 +223,29 @@ class QuickAddFlow(
         state: QuickAddState,
         inbound: ChannelInbound,
         boardId: UUID? = null,
+    ): CaptureEntry {
+        // A voice note answering the flow's question is that answer, spoken rather than typed
+        // (GitHub issue #233). Only a description opens a capture from it — drafting straight from
+        // the transcript, below — and the plan offer lapses on it as it does on text.
+        if (inbound is ChannelInbound.Media && state.awaitsTypedReply() && voiceInput.isVoice(inbound)) {
+            val spoken = voiceInput.toText(userId, channel, inbound, VoiceInput.CONTEXT_QUICK_ADD)
+                ?: return CaptureEntry.Captured(state)
+            return handleInbound(userId, channel, state, spoken, boardId)
+        }
+        return dispatch(userId, channel, state, inbound, boardId)
+    }
+
+    private fun QuickAddState.awaitsTypedReply(): Boolean =
+        this is QuickAddState.AwaitingConfirmation ||
+            this is QuickAddState.AwaitingAdjustment ||
+            this is QuickAddState.AwaitingClarification
+
+    private fun dispatch(
+        userId: UUID,
+        channel: ConversationChannel,
+        state: QuickAddState,
+        inbound: ChannelInbound,
+        boardId: UUID?,
     ): CaptureEntry = when (state) {
         is QuickAddState.AwaitingPlanDay ->
             (inbound as? ChannelInbound.Selection)?.let { onPlanDay(userId, channel, state, it) }
@@ -230,8 +255,9 @@ class QuickAddFlow(
                 ?: lapseOffer(userId, channel, inbound, boardId)
         else -> CaptureEntry.Captured(
             if (inbound is ChannelInbound.Media) {
-                // Media always (re)starts the capture from the attachment: it carries far more than
-                // the typed line it replaces, so folding it into a half-built draft would be wrong.
+                // Other media (re)starts the capture from the attachment: a photo or a file carries
+                // far more than the typed line it replaces, so folding it into a half-built draft
+                // would be wrong.
                 beginFromMedia(userId, channel, inbound.attachments, inbound.caption, boardId)
             } else when (state) {
                 is QuickAddState.AwaitingDescription -> onDescription(userId, channel, inbound, boardId)
@@ -316,8 +342,9 @@ class QuickAddFlow(
                 state.options.firstOrNull { it.id == inbound.optionId }?.label ?: inbound.optionId
             }
             is ChannelInbound.Text -> inbound.text.trim()
-            // Unreachable: handleInbound routes media to a fresh capture before any state handler
-            // sees it. Kept so this stays exhaustive rather than silently answering with an else.
+            // Unreachable: handleInbound turns a voice note into text and routes other media to a
+            // fresh capture before any state handler sees it. Kept so this stays exhaustive rather
+            // than silently answering with an else.
             is ChannelInbound.Media -> inbound.caption.orEmpty()
         }
         if (answer.isBlank()) return state

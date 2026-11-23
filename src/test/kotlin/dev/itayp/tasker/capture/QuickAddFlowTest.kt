@@ -1,11 +1,14 @@
 package dev.itayp.tasker.capture
 
 import dev.itayp.tasker.calendar.CalendarDelivery
+import dev.itayp.tasker.ai.AudioTranscriber
+import dev.itayp.tasker.ai.InputModalitySupport
 import dev.itayp.tasker.channel.AttachmentKind
 import dev.itayp.tasker.channel.BufferedConversationChannel
 import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.InboundAttachment
+import dev.itayp.tasker.channel.VoiceInput
 import dev.itayp.tasker.channel.MarkdownMessageFormatter
 import dev.itayp.tasker.model.BacklogTask
 import dev.itayp.tasker.model.BacklogTaskCategory
@@ -43,6 +46,7 @@ import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.check
 import org.mockito.kotlin.eq
+import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.times
@@ -82,10 +86,16 @@ class QuickAddFlowTest {
     private val planningSessionService: PlanningSessionService = mock()
     private val planFinalizationService: PlanFinalizationService = mock()
 
+    private val transcriber: AudioTranscriber = mock()
+    private val modalitySupport: InputModalitySupport = mock {
+        on { supports(AttachmentKind.AUDIO) } doReturn true
+    }
+    private val voiceInput = VoiceInput(transcriber, modalitySupport, userSettingsService, messageSource, meterRegistry)
+
     private val flow = QuickAddFlow(
         suggestionAgent, backlogTaskService, oneOffEventService, boardMembershipService, categoryService,
         userSettingsService, planningSessionService, planFinalizationService, messageSource, meterRegistry,
-        { key -> rateLimiter.tryConsume(key) }, clock,
+        { key -> rateLimiter.tryConsume(key) }, clock, voiceInput,
     )
 
     /** Most tests only care about the state a round produced; the routing cases unwrap it themselves. */
@@ -93,6 +103,7 @@ class QuickAddFlowTest {
         flow.handleInbound(userId, channel, state, inbound).stateOrNull()
 
     private val userId = UUID.randomUUID()
+    private val voiceNote = InboundAttachment(AttachmentKind.AUDIO, byteArrayOf(9), "audio/ogg", format = "ogg")
     private val boardId = UUID.randomUUID()
     private val categoryId = UUID.randomUUID()
 
@@ -426,6 +437,101 @@ class QuickAddFlowTest {
 
         assertEquals("Party at 4pm", assertIs<QuickAddState.AwaitingConfirmation>(next).originalRequest)
         verify(suggestionAgent, never()).quickAddRevise(any(), any(), any(), any(), any(), any(), anyOrNull())
+    }
+
+    @Test
+    fun `a voice note answering a clarifying question is that answer`() {
+        val state = QuickAddState.AwaitingClarification(
+            op = PendingOp.Draft("fix it", emptyList()),
+            question = "Which area?",
+            options = listOf(ClarifyOption("o0", "Home")),
+            rounds = 1,
+            createdAt = clock.instant(),
+        )
+        whenever(transcriber.transcribe(eq(voiceNote), any())).thenReturn("the kitchen sink")
+        whenever(suggestionAgent.quickAddDraft(eq(userId), eq("fix it"), any(), any(), eq(false), anyOrNull()))
+            .thenReturn(SuggestionOutcome.Draft(listOf(taskItem("Fix the kitchen sink"))))
+        val channel = channel()
+
+        val next = advance(state, ChannelInbound.Media(listOf(voiceNote)), channel)
+
+        assertIs<QuickAddState.AwaitingConfirmation>(next)
+        verify(suggestionAgent).quickAddDraft(
+            eq(userId), eq("fix it"), eq(listOf(ClarificationExchange("Which area?", "the kitchen sink"))),
+            any(), eq(false), anyOrNull(),
+        )
+        verify(suggestionAgent, never()).quickAddDraftFromMedia(any(), any(), anyOrNull(), any())
+        val heard = assertIs<ChannelMessage.Text>(channel.drain().first())
+        assertTrue(heard.text.contains("the kitchen sink"))
+    }
+
+    @Test
+    fun `a voice note at the adjust prompt revises the draft instead of starting over`() {
+        val state = QuickAddState.AwaitingAdjustment(
+            items = listOf(taskItem()),
+            originalRequest = "buy milk",
+            clarifications = emptyList(),
+            createdAt = clock.instant(),
+        )
+        whenever(transcriber.transcribe(eq(voiceNote), any())).thenReturn("make it oat milk")
+        whenever(suggestionAgent.quickAddRevise(any(), any(), any(), any(), any(), any(), anyOrNull()))
+            .thenReturn(SuggestionOutcome.Draft(listOf(taskItem("Buy oat milk"))))
+
+        val next = advance(state, ChannelInbound.Media(listOf(voiceNote), caption = "also"), channel())
+
+        assertEquals("buy milk", assertIs<QuickAddState.AwaitingConfirmation>(next).originalRequest)
+        verify(suggestionAgent).quickAddRevise(
+            eq(userId), eq("buy milk"), any(), eq("also\n\nmake it oat milk"), any(), eq(false), anyOrNull(),
+        )
+        verify(suggestionAgent, never()).quickAddDraftFromMedia(any(), any(), anyOrNull(), any())
+    }
+
+    @Test
+    fun `a voice answer with no transcription model keeps the question open and asks to type`() {
+        whenever(modalitySupport.supports(AttachmentKind.AUDIO)).thenReturn(false)
+        val state = QuickAddState.AwaitingAdjustment(
+            items = listOf(taskItem()),
+            originalRequest = "buy milk",
+            clarifications = emptyList(),
+            createdAt = clock.instant(),
+        )
+        val channel = channel()
+
+        val next = advance(state, ChannelInbound.Media(listOf(voiceNote)), channel)
+
+        assertEquals(state, next)
+        assertEquals("I can't listen to voice messages yet. Please type it instead.", assertIs<ChannelMessage.Text>(channel.drain().single()).text)
+        verify(transcriber, never()).transcribe(any(), any())
+        verify(suggestionAgent, never()).quickAddRevise(any(), any(), any(), any(), any(), any(), anyOrNull())
+    }
+
+    @Test
+    fun `a voice note that is all silence keeps the question open`() {
+        val state = QuickAddState.AwaitingAdjustment(
+            items = listOf(taskItem()),
+            originalRequest = "buy milk",
+            clarifications = emptyList(),
+            createdAt = clock.instant(),
+        )
+        whenever(transcriber.transcribe(any(), any())).thenReturn("")
+        val channel = channel()
+
+        val next = advance(state, ChannelInbound.Media(listOf(voiceNote)), channel)
+
+        assertEquals(state, next)
+        assertEquals("I couldn't make out that voice message. Try recording it again, or type it.", assertIs<ChannelMessage.Text>(channel.drain().single()).text)
+        verify(suggestionAgent, never()).quickAddRevise(any(), any(), any(), any(), any(), any(), anyOrNull())
+    }
+
+    @Test
+    fun `a voice note as the description still drafts from the transcript in one call`() {
+        whenever(suggestionAgent.quickAddDraftFromMedia(eq(userId), eq(listOf(voiceNote)), anyOrNull(), eq(false)))
+            .thenReturn(SuggestionOutcome.Draft(listOf(taskItem("Call the plumber")), sourceText = "call the plumber"))
+
+        val next = advance(QuickAddState.AwaitingDescription(clock.instant()), ChannelInbound.Media(listOf(voiceNote)), channel())
+
+        assertIs<QuickAddState.AwaitingConfirmation>(next)
+        verify(transcriber, never()).transcribe(any(), any())
     }
 
     @Test

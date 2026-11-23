@@ -7,6 +7,7 @@ import dev.itayp.tasker.capture.QuickAddState
 import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.KeyedSerialExecutor
+import dev.itayp.tasker.channel.VoiceInput
 import dev.itayp.tasker.channel.telegram.commands.BotCommandContext
 import dev.itayp.tasker.channel.telegram.commands.BotCommandDispatcher
 import dev.itayp.tasker.channel.telegram.commands.BotCommandHandler
@@ -65,6 +66,7 @@ class TelegramChannel(
     private val quickAddRegistry: QuickAddRegistry,
     private val quickAddFlow: QuickAddFlow,
     private val mediaExtractor: TelegramMediaExtractor,
+    private val voiceInput: VoiceInput,
     private val reminderActionHandler: ReminderActionHandler,
     private val digestActionHandler: DailyDigestActionHandler,
     private val aiAccessService: AiAccessService,
@@ -487,12 +489,14 @@ class TelegramChannel(
         }
         val quickAddState = quickAddRegistry.get(chatId)
         // Mid-planning, an attachment can't open a capture for the same reason `/add` can't: the
-        // planner has its own way to add a task, and the conversation shouldn't fork. Unlike text,
-        // media can't simply be handed to the orchestrator — it takes no attachments
-        // (`docs/MULTIMODAL-CAPTURE.md` D7) — so it gets the same redirect `/add` gets. Checked
-        // ahead of the download, so a message we won't capture costs no `getFile` round-trip.
+        // planner has its own way to add a task, and the conversation shouldn't fork. The planner
+        // takes no attachments (`docs/MULTIMODAL-CAPTURE.md` D7, GitHub issue #408), so a photo or
+        // a file gets the same redirect `/add` gets, checked ahead of the download so it costs no
+        // `getFile` round-trip. A voice note is the exception: it's typing by another means, so it
+        // is transcribed and the planner gets the text (GitHub issue #233).
         val sessionId = sessionRegistry.get(chatId)
-        if (quickAddState == null && sessionId != null && orchestrator.phase(sessionId) != null) {
+        val inSession = quickAddState == null && sessionId != null && orchestrator.phase(sessionId) != null
+        if (inSession && !(message.hasVoice() || message.hasAudio())) {
             channel.send(ChannelMessage.Text(messageSource.getMessage("quickadd.in_session", null, locale)))
             return
         }
@@ -503,6 +507,18 @@ class TelegramChannel(
                 return
             }
             TelegramMediaExtractor.Extraction.None -> return
+        }
+        if (inSession) {
+            if (!voiceInput.isVoice(inbound)) {
+                channel.send(ChannelMessage.Text(messageSource.getMessage("quickadd.in_session", null, locale)))
+                return
+            }
+            val spoken = voiceInput.toText(userId, channel, inbound, VoiceInput.CONTEXT_PLANNING) ?: return
+            orchestrator.handleInbound(sessionId!!, spoken, channel)
+            if (orchestrator.phase(sessionId) == Phase.DONE) {
+                sessionRegistry.remove(chatId)
+            }
+            return
         }
         if (quickAddState != null) {
             applyEntry(userId, chatId, channel, quickAddFlow.handleInbound(userId, channel, quickAddState, inbound))
