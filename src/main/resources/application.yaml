@@ -88,7 +88,7 @@ tasker:
     # TASKER_AI_MULTIMODAL_MODEL is its deprecated old name.
     vision-model: ${TASKER_AI_VISION_MODEL:${TASKER_AI_MULTIMODAL_MODEL:}}
     # Speech-to-text model for voice notes and audio files (e.g. openai/whisper-large-v3); the
-    # transcript is then captured like typed text. Unset declines audio captures. OpenRouter only.
+    # transcript is then captured like typed text. Unset declines audio captures.
     transcription-model: ${TASKER_AI_TRANSCRIPTION_MODEL:}
     openrouter:
       # Send every call only to provider endpoints that retain no prompt data (OpenRouter `provider.zdr`).

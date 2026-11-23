@@ -90,8 +90,8 @@ politely declines them, which is also the safe state for cost.
 ### D4. Audio is transcribed, then captured as text
 
 **Revised by GitHub issue #362; this used to send audio to the chat model as an `input_audio` part.**
-A voice note goes to OpenRouter's `/audio/transcriptions` (the library's `TranscriptionClient`,
-wrapped by `AudioTranscriber`), and the transcript is then drafted from exactly like typed text, by
+A voice note goes to the provider's `/audio/transcriptions` (the library's `TranscriptionClient`,
+wrapped by `AudioTranscriber`; JSON on OpenRouter, a multipart upload on an OpenAI-compatible server), and the transcript is then drafted from exactly like typed text, by
 the task-assistant model. Audio is out of chat-model capability routing entirely, so the text model
 can be text-and-vision only. The transcript is the capture's `source_text`: what the user is shown
 as "I heard", and its `originalRequest` from there on. The drafting prompt is told the text is a

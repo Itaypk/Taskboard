@@ -41,22 +41,31 @@ class AiClientConfiguration {
         /**
          * What the operator says the models on an OpenAI-compatible server can do, which is all the
          * library knows about them there (OpenRouter's are fetched instead). The transcription model
-         * gets nothing, so voice capture stays declined: the client can't transcribe there yet.
+         * is declared as one (audio in, `transcription` out), which is what turns voice capture on.
          */
         fun declaredCapabilities(properties: AiProperties): Map<String, ModelCapabilities> {
             if (properties.provider != AiProvider.OPENAI_COMPATIBLE) return emptyMap()
             val compatible = properties.openaiCompatible
             val visionModel = properties.visionModel.ifBlank { properties.taskAssistantModel }
             val visionModalities = compatible.visionInputs.mapNotNull { VISION_INPUT_MODALITIES[it.trim().lowercase()] }
-            return (properties.configuredModels - properties.transcriptionModel).associateWith { model ->
+            val chatModels = (properties.configuredModels - properties.transcriptionModel).associateWith { model ->
                 ModelCapabilities(
                     supportsReasoning = compatible.reasoning,
                     inputModalities = listOf("text") + if (model == visionModel) visionModalities else emptyList(),
                 )
             }
+            val transcriptionModel = properties.transcriptionModel.takeIf { it.isNotBlank() }
+                ?.let { mapOf(it to TRANSCRIPTION_CAPABILITIES) }.orEmpty()
+            return chatModels + transcriptionModel
         }
 
         /** `TASKER_AI_OPENAI_COMPATIBLE_VISION_INPUTS` values, to the modality names the capture code checks. */
         private val VISION_INPUT_MODALITIES = mapOf("image" to "image", "pdf" to "file")
+
+        private val TRANSCRIPTION_CAPABILITIES = ModelCapabilities(
+            supportsReasoning = false,
+            inputModalities = listOf("audio"),
+            outputModalities = listOf("transcription"),
+        )
     }
 }

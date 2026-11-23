@@ -95,9 +95,6 @@ class StartupSummaryLogger(
                 aiProperties.apiBaseUrl,
             )
         }
-        if (aiProperties.transcriptionModel.isNotBlank()) {
-            log.warn("TASKER_AI_TRANSCRIPTION_MODEL is set, but transcription is OpenRouter-only for now: voice captures stay declined.")
-        }
         log.info(
             "AI calls go to an OpenAI-compatible server at {}. Zero data retention isn't requested or checked there: " +
                 "whether prompts are kept is up to that server's operator.",

@@ -22,10 +22,9 @@ data class AiProperties(
      */
     val visionModel: String = "",
     /**
-     * Speech-to-text model slug for voice notes and audio files, sent to OpenRouter's
-     * `/audio/transcriptions`. The transcript then runs the normal text capture against
-     * [taskAssistantModel]. No fallback: blank declines audio capture. OpenRouter only for now: an
-     * OpenAI-compatible `/audio/transcriptions` takes multipart, which the client doesn't speak yet.
+     * Speech-to-text model slug for voice notes and audio files, sent to the provider's
+     * `/audio/transcriptions` (as multipart on an OpenAI-compatible server). The transcript then runs
+     * the normal text capture against [taskAssistantModel]. No fallback: blank declines audio capture.
      */
     val transcriptionModel: String = "",
     /** Settings that only apply with [AiProvider.OPENROUTER]. */
