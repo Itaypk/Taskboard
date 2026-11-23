@@ -127,15 +127,39 @@ sits next to `Text` and `Selection`, so `QuickAddFlow` stays channel-agnostic an
 drag-and-drop reuses it whole. Only `TelegramMediaExtractor` knows about `PhotoSize`, `Voice`, and
 `getFile`.
 
-### D7. Not during a planning session
+### D7. Not during a planning session — except a voice note
 
 The planner takes no attachments: it would need its own reading of one (its own model call, its own
-prompt surface). It never sees them either: `TelegramChannel.handleMedia` answers an attachment sent
-mid-session with the same redirect `/add` gets there, ahead of the download. The orchestrator's
-`ChannelInbound` branches degrade to the caption defensively; they are not a path the channel takes.
+prompt surface; GitHub issue #408 parks that question). It never sees them either:
+`TelegramChannel.handleMedia` answers a photo or a file sent mid-session with the same redirect
+`/add` gets there, ahead of the download. The orchestrator's `ChannelInbound` branches degrade to
+the caption defensively; they are not a path the channel takes.
 
 That gate used to be a side effect of D8's stricter one. Now that an unprompted attachment does open
 a capture, it is explicit — losing it would fork the conversation the planner is in the middle of.
+
+**A voice note is not an attachment there** (GitHub issue #233). Telegram's record button is
+typing by another means, so a voice note sent mid-session is transcribed and the planner gets the
+text, as if it had been typed. See D9.
+
+### D9. A voice note answering the bot is the answer
+
+Wherever the bot is waiting for a typed reply, a voice note is that reply spoken (GitHub issue
+#233): an answer in the planning conversation, a quick-add clarifying question, the Adjust prompt,
+or a message sent while the draft card is up (where typed text is an adjustment, so voice is too).
+`VoiceInput` transcribes it with the same `AudioTranscriber` as D4, echoes "🗣 I heard: …", and hands
+on a plain `ChannelInbound.Text` (caption first, when there is one). The state machines never see the
+audio.
+
+This replaced "media always restarts the capture" for voice. That rule is still right for a photo or
+a file, which carries far more than the typed line it replaces, but a spoken "make it Thursday" in
+answer to the card is an adjustment, not a new task.
+
+Where a voice note *opens* a capture (the description after `/add`, or one sent on its own), D4 still
+applies: one call drafts straight from the transcript and the prompt is told it's reading one.
+
+Without a transcription model, or when the transcript is empty, the user is asked to type instead
+and the question stays open: the state is left as it was, so a typed answer still lands.
 
 ### D8. An attachment must land inside a quick-add, not start one
 
@@ -200,6 +224,9 @@ subject to the usual encryption of task content once saved.
 alongside the existing `tasker.quickadd.outcome`. `unsupported` climbing means the configured model
 can't do what users are trying to send. `routed` is an unprompted voice note the model decided
 wasn't a capture at all (`docs/FREE-TEXT-CAPTURE.md` D7); it can only appear for audio.
+
+`tasker.voice.reply{context=planning|quickadd, result=transcribed|empty|unsupported}` counts voice
+notes taken as a typed reply (D9).
 
 ## Deliberately out of scope
 

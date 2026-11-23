@@ -4,7 +4,10 @@ import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.capture.CaptureEntry
 import dev.itayp.tasker.capture.QuickAddFlow
 import dev.itayp.tasker.capture.QuickAddState
+import dev.itayp.tasker.channel.AttachmentKind
 import dev.itayp.tasker.channel.ChannelInbound
+import dev.itayp.tasker.channel.InboundAttachment
+import dev.itayp.tasker.channel.VoiceInput
 import dev.itayp.tasker.channel.telegram.commands.BotCommandContext
 import dev.itayp.tasker.channel.telegram.commands.BotCommandDispatcher
 import dev.itayp.tasker.channel.telegram.commands.PlanConfirmationRegistry
@@ -71,6 +74,7 @@ class TelegramChannelRoutingTest {
     private val quickAddRegistry: QuickAddRegistry = mock()
     private val quickAddFlow: QuickAddFlow = mock()
     private val mediaExtractor: TelegramMediaExtractor = mock()
+    private val voiceInput: VoiceInput = mock()
     private val reminderActionHandler: ReminderActionHandler = mock()
     private val digestActionHandler: DailyDigestActionHandler = mock {
         on { handle(any(), any(), any()) } doReturn DailyDigestActionHandler.Result.NotOurs
@@ -101,6 +105,7 @@ class TelegramChannelRoutingTest {
         quickAddRegistry = quickAddRegistry,
         quickAddFlow = quickAddFlow,
         mediaExtractor = mediaExtractor,
+        voiceInput = voiceInput,
         reminderActionHandler = reminderActionHandler,
         digestActionHandler = digestActionHandler,
         aiAccessService = aiAccessService,
@@ -151,6 +156,24 @@ class TelegramChannelRoutingTest {
         whenever(message.chatId).thenReturn(chat.id)
         whenever(message.chat).thenReturn(chat)
         whenever(message.from).thenReturn(from)
+        val update: Update = mock()
+        whenever(update.hasMessage()).thenReturn(true)
+        whenever(update.message).thenReturn(message)
+        return update
+    }
+
+    /** A voice note, or (with [voice] false) a photo, sent from the user's private chat. */
+    private fun mediaUpdate(voice: Boolean): Update {
+        val from: TelegramUser = mock()
+        whenever(from.id).thenReturn(telegramUserId)
+        val message: Message = mock()
+        whenever(message.hasText()).thenReturn(false)
+        whenever(message.hasVoice()).thenReturn(voice)
+        whenever(message.hasPhoto()).thenReturn(!voice)
+        whenever(message.chatId).thenReturn(chatId)
+        whenever(message.chat).thenReturn(chat(chatId))
+        whenever(message.from).thenReturn(from)
+        whenever(mediaExtractor.carriesMedia(message)).thenReturn(true)
         val update: Update = mock()
         whenever(update.hasMessage()).thenReturn(true)
         whenever(update.message).thenReturn(message)
@@ -234,6 +257,52 @@ class TelegramChannelRoutingTest {
 
         verify(orchestrator).handleInbound(eq(sessionId), eq(ChannelInbound.Text("actually, make that Thursday")), any())
         verify(quickAddFlow, never()).beginUnprompted(any(), any(), any(), anyOrNull())
+    }
+
+    @Test
+    fun `a voice note during a live planning session reaches the orchestrator as what was said`() {
+        val sessionId = UUID.randomUUID()
+        whenever(sessionRegistry.get(chatId)).thenReturn(sessionId)
+        whenever(orchestrator.phase(sessionId)).thenReturn(WeeklyPlanningOrchestrator.Phase.CONVERSING)
+        val media = ChannelInbound.Media(listOf(InboundAttachment(AttachmentKind.AUDIO, byteArrayOf(1), "audio/ogg", "ogg")))
+        whenever(mediaExtractor.extract(any())).thenReturn(TelegramMediaExtractor.Extraction.Media(media))
+        whenever(voiceInput.isVoice(media)).thenReturn(true)
+        whenever(voiceInput.toText(eq(userId), any(), eq(media), eq(VoiceInput.CONTEXT_PLANNING)))
+            .thenReturn(ChannelInbound.Text("move the gym to Friday"))
+
+        channel.consume(mediaUpdate(voice = true))
+
+        verify(orchestrator).handleInbound(eq(sessionId), eq(ChannelInbound.Text("move the gym to Friday")), any())
+        verify(quickAddFlow, never()).beginUnpromptedFromMedia(any(), any(), any(), anyOrNull(), anyOrNull())
+    }
+
+    @Test
+    fun `a voice note that could not be transcribed leaves the planning session waiting`() {
+        val sessionId = UUID.randomUUID()
+        whenever(sessionRegistry.get(chatId)).thenReturn(sessionId)
+        whenever(orchestrator.phase(sessionId)).thenReturn(WeeklyPlanningOrchestrator.Phase.CONVERSING)
+        val media = ChannelInbound.Media(listOf(InboundAttachment(AttachmentKind.AUDIO, byteArrayOf(1), "audio/ogg", "ogg")))
+        whenever(mediaExtractor.extract(any())).thenReturn(TelegramMediaExtractor.Extraction.Media(media))
+        whenever(voiceInput.isVoice(media)).thenReturn(true)
+        whenever(voiceInput.toText(any(), any(), any(), any())).thenReturn(null)
+
+        channel.consume(mediaUpdate(voice = true))
+
+        verify(orchestrator, never()).handleInbound(any(), any(), any())
+        verify(sessionRegistry, never()).remove(chatId)
+    }
+
+    @Test
+    fun `a photo during a live planning session is redirected without being downloaded`() {
+        val sessionId = UUID.randomUUID()
+        whenever(sessionRegistry.get(chatId)).thenReturn(sessionId)
+        whenever(orchestrator.phase(sessionId)).thenReturn(WeeklyPlanningOrchestrator.Phase.CONVERSING)
+
+        channel.consume(mediaUpdate(voice = false))
+
+        assertEquals(listOf("We're planning right now"), sentTexts())
+        verify(mediaExtractor, never()).extract(any())
+        verify(orchestrator, never()).handleInbound(any(), any(), any())
     }
 
     @Test
