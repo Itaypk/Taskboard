@@ -210,6 +210,17 @@ tasker:
     delivery-token: ${TASKER_INBOUND_MAIL_DELIVERY_TOKEN:}
     # authserv-id of the Authentication-Results header the MTA adds; defaults to the domain.
     authserv-id: ${TASKER_INBOUND_MAIL_AUTHSERV_ID:}
+  whatsapp:
+    # WhatsApp Cloud API webhook (/webhooks/whatsapp). Log-only for now; off unless both secrets are set.
+    enabled: ${TASKER_WHATSAPP_ENABLED:false}
+    # The token typed into the Meta app's webhook settings (sent back in the subscription handshake).
+    verify-token: ${TASKER_WHATSAPP_VERIFY_TOKEN:}
+    # The Meta app secret: the HMAC key of each delivery's X-Hub-Signature-256.
+    app-secret: ${TASKER_WHATSAPP_APP_SECRET:}
+    # Our business phone number id; deliveries for other numbers are logged as foreign.
+    phone-number-id: ${TASKER_WHATSAPP_PHONE_NUMBER_ID:}
+    # Log full delivery bodies (phone numbers, message text). Testing aid only.
+    log-payloads: ${TASKER_WHATSAPP_LOG_PAYLOADS:false}
   feedback:
     # Mailbox that in-app feedback is forwarded to (via the auth email sender). When blank,
     # falls back to the auth sender's own `from` address.

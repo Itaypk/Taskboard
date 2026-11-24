@@ -195,8 +195,36 @@ class SecurityConfiguration(
         return http.build()
     }
 
+    /**
+     * Inbound chat-platform webhooks (`docs/MESSAGING-CHANNELS.md`, section 2): today only
+     * `/webhooks/whatsapp` (`WhatsAppWebhookController`). The provider can't hold a session, so the
+     * HMAC signature over the body is the authentication, checked in the controller. Stateless, so
+     * a delivery never creates a session or sets a cookie; no CSRF (no cookie to ride). Only the
+     * exact methods and paths in use are open; everything else under the prefix is denied.
+     */
     @Bean
     @Order(5)
+    fun webhookFilterChain(http: HttpSecurity): SecurityFilterChain {
+        http {
+            securityMatcher("/webhooks/**")
+            authorizeHttpRequests {
+                authorize(HttpMethod.GET, "/webhooks/whatsapp", permitAll)
+                authorize(HttpMethod.POST, "/webhooks/whatsapp", permitAll)
+                authorize(anyRequest, denyAll)
+            }
+            sessionManagement {
+                sessionCreationPolicy = SessionCreationPolicy.STATELESS
+            }
+            csrf { disable() }
+            headers {
+                cacheControl { disable() }
+            }
+        }
+        return http.build()
+    }
+
+    @Bean
+    @Order(6)
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
         http {
             authorizeHttpRequests {

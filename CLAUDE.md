@@ -47,14 +47,15 @@ Frontend (run from `tasker-frontend/`, only needed for fast iteration with HMR):
 
 ## Auth model (important — affects every new endpoint)
 
-There are six independent `SecurityFilterChain` beans:
+There are seven independent `SecurityFilterChain` beans:
 
 1. **`h2ConsoleFilterChain` (`@Order(0)`)** - applies for the `dev` profile only; allows full access to the `/h2-console` endpoint.
 2. **`prometheusFilterChain` (`@Order(1)`)** — matches only `/actuator/prometheus`. Stateless HTTP Basic Auth; credentials come from `PrometheusAuthProperties` (`TASKER_PROMETHEUS_USERNAME` / `TASKER_PROMETHEUS_PASSWORD`). CSRF disabled.
 3. **`externalApiFilterChain` (`@Order(2)`)** — matches `/api/external/**`. Stateless bearer-token auth for the external API (see below). CSRF disabled.
 4. **`internalFilterChain` (`@Order(3)`)** — matches only `/internal/inbound-mail`, where the MTA delivers inbound email. Stateless, CSRF disabled, `permitAll`: the shared delivery token is checked in `InboundMailController` (constant time). Must stay unreachable from outside (the hosted Nginx 404s `/internal/`). See `docs/INBOUND-EMAIL.md`.
 5. **`calendarFeedFilterChain` (`@Order(4)`)** — matches `/calendar/**`, the calendar subscription feed (`GET /calendar/<token>.ics`, `CalendarFeedController`). Stateless (a poll never creates a session or sets a cookie), CSRF disabled, GET/HEAD `permitAll`: the 256-bit token in the path is the authentication, checked in the controller. See "Calendar delivery" below.
-6. **`securityFilterChain` (`@Order(5)`)** — everything else. Session-based with a `SameSite=Lax`, `HttpOnly`, `Secure` (prod) cookie (`SESSION`), 30-day rolling timeout. 
+6. **`webhookFilterChain` (`@Order(5)`)** — matches `/webhooks/**`, inbound chat-platform webhooks (today `GET|POST /webhooks/whatsapp`, `WhatsAppWebhookController`; everything else under the prefix is denied). Stateless, CSRF disabled, `permitAll` on exactly those methods and paths: the provider's HMAC over the raw body (`WebhookSignatures`) is the authentication, checked in the controller in constant time. A signed delivery always answers 200, since anything else makes Meta redeliver for a week. Log-only for now (issue #410); never log bodies, phone numbers or message text outside the `TASKER_WHATSAPP_LOG_PAYLOADS` testing aid. Plan: `docs/MESSAGING-CHANNELS.md`.
+7. **`securityFilterChain` (`@Order(6)`)** — everything else. Session-based with a `SameSite=Lax`, `HttpOnly`, `Secure` (prod) cookie (`SESSION`), 30-day rolling timeout. 
 
 Session chain details:
 - **CSRF** via `CookieCsrfTokenRepository.withHttpOnlyFalse()` — mutating requests must echo the `XSRF-TOKEN` cookie value as the `X-XSRF-TOKEN` header. Login endpoints (`/api/auth/dev-login`, `/api/auth/demo-login`, `/api/auth/email`, `/api/auth/email/callback`, `/api/auth/password`) are exempt because they create the session (the magic-link token in the body is the credential); the Telegram OIDC start/callback are GETs (inherently CSRF-safe — the OAuth `state` parameter is the anti-forgery token; same for Google's). Account-linking endpoints (`/api/auth/identities/**`) are **not** exempt — the user is already signed in there. Frontend `api.ts` handles the token automatically.

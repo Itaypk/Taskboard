@@ -1,5 +1,6 @@
 package dev.itayp.tasker.config
 
+import dev.itayp.tasker.channel.whatsapp.WhatsAppProperties
 import dev.itayp.tasker.interceptor.ActivityTrackingInterceptor
 import dev.itayp.tasker.interceptor.MdcUserInterceptor
 import dev.itayp.tasker.interceptor.RateLimitInterceptor
@@ -20,7 +21,12 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
 import java.time.Clock
 
 @Configuration
-@EnableConfigurationProperties(RateLimitProperties::class, SessionProperties::class, InboundMailProperties::class)
+@EnableConfigurationProperties(
+    RateLimitProperties::class,
+    SessionProperties::class,
+    InboundMailProperties::class,
+    WhatsAppProperties::class,
+)
 class WebConfiguration(
     private val rateLimitProperties: RateLimitProperties,
     // ObjectProvider so @WebMvcTest slices (which don't load service beans) still construct this config.

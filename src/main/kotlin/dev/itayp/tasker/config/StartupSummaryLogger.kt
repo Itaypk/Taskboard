@@ -3,6 +3,7 @@ package dev.itayp.tasker.config
 import dev.itayp.tasker.ai.AiProperties
 import dev.itayp.tasker.ai.AiProvider
 import dev.itayp.tasker.channel.email.EmailProperties
+import dev.itayp.tasker.channel.whatsapp.WhatsAppProperties
 import dev.itayp.tasker.channel.telegram.OnTelegramBotCondition
 import dev.itayp.tasker.service.LocalLoginService
 import dev.itayp.tasker.service.LoginMethods
@@ -29,6 +30,7 @@ class StartupSummaryLogger(
     private val aiProperties: AiProperties,
     private val prometheusAuthProperties: PrometheusAuthProperties,
     private val inboundMailProperties: InboundMailProperties,
+    private val whatsAppProperties: WhatsAppProperties,
     private val environment: Environment,
 ) {
     private val log = LoggerFactory.getLogger(StartupSummaryLogger::class.java)
@@ -44,7 +46,7 @@ class StartupSummaryLogger(
             if (loginMethods.demo) add("demo")
         }
         log.info(
-            "Instance ready at {}: sign-in=[{}], registration={}, email={}, telegramBot={}, ai={}, inboundMail={}, metrics={}",
+            "Instance ready at {}: sign-in=[{}], registration={}, email={}, telegramBot={}, ai={}, inboundMail={}, whatsApp={}, metrics={}",
             appProperties.baseUrl,
             signIn.joinToString(),
             if (loginMethods.registrationOpen) "open" else "closed",
@@ -52,6 +54,7 @@ class StartupSummaryLogger(
             onOff(telegramBot),
             if (aiProperties.enabled) aiProperties.provider.name.lowercase().replace('_', '-') else "off",
             onOff(inboundMailProperties.active),
+            onOff(whatsAppProperties.active),
             onOff(prometheusAuthProperties.configured),
         )
 
@@ -66,6 +69,12 @@ class StartupSummaryLogger(
                 "TASKER_INBOUND_MAIL_ENABLED is set, but TASKER_INBOUND_MAIL_DOMAIN or TASKER_INBOUND_MAIL_DELIVERY_TOKEN " +
                     "(at least ${InboundMailProperties.MIN_DELIVERY_TOKEN_LENGTH} characters) is not: inbound email stays off.",
             )
+        }
+        if (whatsAppProperties.enabled && !whatsAppProperties.active) {
+            log.warn("TASKER_WHATSAPP_ENABLED is set, but TASKER_WHATSAPP_VERIFY_TOKEN or TASKER_WHATSAPP_APP_SECRET is not: the WhatsApp webhook stays off.")
+        }
+        if (whatsAppProperties.active && whatsAppProperties.logPayloads) {
+            log.warn("TASKER_WHATSAPP_LOG_PAYLOADS is on: WhatsApp webhook bodies, including phone numbers and message text, are logged. Turn it off once testing is done.")
         }
         warnAboutAiConfiguration()
         if (environment.containsProperty(LEGACY_MULTIMODAL_MODEL)) {
