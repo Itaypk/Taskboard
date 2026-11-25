@@ -465,48 +465,6 @@
   color: var(--cb-ink-mute);
 }
 
-.divider {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 18px 0 14px;
-}
-.divLine { flex: 1; height: 1px; background: var(--cb-rule); }
-.divText {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--cb-ink-mute);
-}
-
-.sandboxCard {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  align-items: center;
-  text-align: center;
-  width: 100%;
-  padding: 12px 14px;
-  border-radius: 12px;
-  border: 1.5px dashed rgba(120,90,40,0.4);
-  background: none;
-  cursor: pointer;
-  font-family: var(--font-serif);
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--cb-ink);
-}
-.sandboxCard:hover:not(:disabled) { background: rgba(120,90,40,0.05); }
-.sandboxCard:disabled { opacity: 0.6; cursor: wait; }
-.sandboxSub {
-  font-family: var(--font-serif);
-  font-weight: 400;
-  font-style: italic;
-  font-size: 13px;
-  color: var(--cb-ink-mute);
-}
-
 .fine {
   font-family: var(--font-serif);
   font-size: 12px;

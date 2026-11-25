@@ -221,7 +221,6 @@ export function LoginPage({ next }: { next?: string } = {}) {
                     busy={busy}
                     error={error}
                     next={next}
-                    onSandbox={handleDemoLogin}
                     onDevLogin={handleDevLogin}
                     onClose={() => setModalOpen(false)}
                 />
@@ -235,7 +234,6 @@ function LoginModal({
     busy,
     error,
     next,
-    onSandbox,
     onDevLogin,
     onClose,
 }: {
@@ -243,7 +241,6 @@ function LoginModal({
     busy: boolean;
     error: string | null;
     next?: string;
-    onSandbox: () => void;
     onDevLogin: () => void;
     onClose: () => void;
 }) {
@@ -384,26 +381,11 @@ function LoginModal({
                     )}
                 </div>
 
-                {!config.login.password && !config.login.telegram && !config.login.google && !config.login.email && !config.login.demo && (
+                {!config.login.password && !config.login.telegram && !config.login.google && !config.login.email && (
                     <p className={styles.error}>{t('login.modal.noMethods')}</p>
                 )}
 
                 {/* <p className={styles.moreNote}>{t('login.modal.moreWays')}</p> */}
-
-                {config.login.demo && (
-                    <>
-                        <div className={styles.divider}>
-                            <span className={styles.divLine} />
-                            <span className={styles.divText}>{t('login.modal.justLooking')}</span>
-                            <span className={styles.divLine} />
-                        </div>
-
-                        <button type="button" className={styles.sandboxCard} onClick={onSandbox} disabled={busy}>
-                            {t('login.modal.sandbox')} <Arrow direction="forward" />
-                            <span className={styles.sandboxSub}>{t('login.modal.sandboxSub')}</span>
-                        </button>
-                    </>
-                )}
 
                 <p className={styles.fine}>
                     <Trans
