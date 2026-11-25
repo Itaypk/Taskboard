@@ -10,7 +10,6 @@
   --cb-ink-mute: #706148; /* ≥4.5:1 on both the wall and the modal paper */
   --cb-paper:    #fbf6e3;
   --cb-rule:     #d6cbb0;
-  --cb-telegram: #2aabee;
 
   position: relative;
   z-index: 1; /* sit above the shared fixed body::before wall */
@@ -365,13 +364,14 @@
   font-family: var(--font-serif);
   font-size: 15px;
   color: var(--cb-ink-soft);
-  margin: 0 0 22px;
+  margin: 0;
 }
 
 .channels {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  margin-block-start: 22px;
 }
 
 .channelBtn {
@@ -390,11 +390,15 @@
   position: relative;
   text-decoration: none;
 }
-.chTelegram { background: #fff; color: var(--cb-ink); border: 1.5px solid var(--cb-telegram); }
-.chTelegram:hover { background: rgba(42,171,238,0.06); }
-/* Google's light theme for a custom sign-in button (identity/branding-guidelines): the colours are fixed. */
-.chGoogle { background: #fff; color: #1f1f1f; border: 1px solid #747775; }
-.chEmail  { background: transparent; color: var(--cb-ink); border: 1.5px solid var(--cb-ink); }
+/* Every sign-in method wears Google's light theme for a custom sign-in button
+   (developers.google.com/identity/branding-guidelines): white fill, 1px #747775 stroke, #1f1f1f text.
+   Google's colours are fixed, and the guidelines ask for equal prominence with the other providers, so
+   the others match it rather than the reverse (#390). Only the icons tell them apart. */
+.channelBtn { background: #fff; color: #1f1f1f; border: 1px solid #747775; }
+.channelBtn:hover:not(:disabled) { background: #f8f8f8; }
+/* A form's submit ("Send sign-in link", password "Sign in") is the next step, not another provider. */
+.channelSubmit,
+.channelSubmit:hover:not(:disabled) { background: var(--cb-ink); color: #fdf7e2; border-color: var(--cb-ink); }
 .channelBtn:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .notice {
@@ -418,7 +422,7 @@
   width: 100%;
   padding: 13px 18px;
   border-radius: 999px;
-  border: 1.5px solid rgba(60,40,15,0.25);
+  border: 1px solid #747775;
   background: #fff;
   color: #2a1f14;
   font-family: var(--font-serif);

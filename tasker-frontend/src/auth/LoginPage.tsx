@@ -320,28 +320,26 @@ function LoginModal({
 
                 <div className={styles.modalTag}>{t('login.modal.tag')}</div>
                 <h2 id="login-modal-title" className={styles.modalH}>{t('login.modal.title')}</h2>
-                <p className={styles.modalSub}>
-                    {t(config.registrationOpen ? 'login.modal.sub' : 'login.modal.subClosed')}
-                </p>
+                {!config.registrationOpen && <p className={styles.modalSub}>{t('login.modal.subClosed')}</p>}
 
                 <div className={styles.channels}>
                     {config.login.password && <PasswordForm />}
 
-                    {config.login.telegram && (
-                        <a
-                            href={telegramLoginUrl(next)}
-                            className={`${styles.channelBtn} ${styles.chTelegram}`}
-                        >
-                            <TelegramIcon /> {t('login.modal.telegram')}
-                        </a>
-                    )}
-
                     {config.login.google && (
                         <a
                             href={googleLoginUrl(next)}
-                            className={`${styles.channelBtn} ${styles.chGoogle}`}
+                            className={styles.channelBtn}
                         >
                             <GoogleIcon /> {t('login.modal.google')}
+                        </a>
+                    )}
+
+                    {config.login.telegram && (
+                        <a
+                            href={telegramLoginUrl(next)}
+                            className={styles.channelBtn}
+                        >
+                            <TelegramIcon /> {t('login.modal.telegram')}
                         </a>
                     )}
 
@@ -368,7 +366,7 @@ function LoginModal({
                             />
                             <button
                                 type="submit"
-                                className={`${styles.channelBtn} ${styles.chEmail}`}
+                                className={`${styles.channelBtn} ${styles.channelSubmit}`}
                                 disabled={emailBusy}
                             >
                                 {emailBusy ? t('login.modal.sending') : t('login.modal.sendLink')}
@@ -378,7 +376,7 @@ function LoginModal({
                     ) : (
                         <button
                             type="button"
-                            className={`${styles.channelBtn} ${styles.chEmail}`}
+                            className={styles.channelBtn}
                             onClick={() => setEmailMode(true)}
                         >
                             <MailIcon /> {t('login.modal.continueEmail')}
@@ -478,7 +476,7 @@ function PasswordForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
             />
-            <button type="submit" className={`${styles.channelBtn} ${styles.chEmail}`} disabled={busy}>
+            <button type="submit" className={`${styles.channelBtn} ${styles.channelSubmit}`} disabled={busy}>
                 {busy ? t('login.modal.signingIn') : t('login.modal.passwordSubmit')}
             </button>
             {error && <p className={styles.error} role="alert">{error}</p>}

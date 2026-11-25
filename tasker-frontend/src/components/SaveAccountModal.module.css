@@ -31,11 +31,14 @@
   gap: 8px;
 }
 
-/* Google's light theme for a custom sign-in button (identity/branding-guidelines): the "G" must sit on
-   white, so this one can't use the transparent ghost style of its neighbours. */
-.googleMethod,
-.googleMethod:hover {
+/* Every sign-in method wears Google's light theme for a custom sign-in button
+   (identity/branding-guidelines): the "G" must sit on white with fixed colours, and the guidelines ask
+   for equal prominence, so the other methods match it instead of the ghost style (#390). Same look as
+   the landing page's login modal. */
+.method,
+.method:hover {
   background: #fff;
   color: #1f1f1f;
   border: 1px solid #747775;
 }
+.method:hover { background: #f8f8f8; }
