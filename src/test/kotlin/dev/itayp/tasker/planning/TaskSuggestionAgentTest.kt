@@ -427,6 +427,36 @@ class TaskSuggestionAgentTest {
     }
 
     @Test
+    fun `quickAddDraft records a reply cut off at the token cap as truncated, not as malformed`() {
+        whenever(aiClient.chat(any(), any())).thenReturn(
+            chatResponse("""{"items":[{"kind":"event","title":"Rehearsal","start":"2026-""", finishReason = "length"),
+        )
+
+        assertIs<SuggestionOutcome.Unparseable>(agent.quickAddDraft(userId, "whatever"))
+        assertEquals(
+            1.0,
+            meterRegistry.counter(
+                "tasker.ai.parse_failures", "conversation_type", "task_suggestion", "reason", "truncated",
+            ).count(),
+        )
+        assertEquals(
+            0.0,
+            meterRegistry.counter(
+                "tasker.ai.parse_failures", "conversation_type", "task_suggestion", "reason", "no_json_found",
+            ).count(),
+        )
+    }
+
+    @Test
+    fun `quickAddDraft keeps a complete draft that came before the token cap`() {
+        whenever(aiClient.chat(any(), any())).thenReturn(
+            chatResponse("""{"items":[{"kind":"task","title":"Buy milk","tags":[]}]}""", finishReason = "length"),
+        )
+
+        assertIs<SuggestionOutcome.Draft>(agent.quickAddDraft(userId, "buy milk"))
+    }
+
+    @Test
     fun `quickAddDraft returns Unparseable and records empty_result when neither items nor a clarify question came back`() {
         whenever(aiClient.chat(any(), any())).thenReturn(chatResponse("""{"items":[]}"""))
 
@@ -439,9 +469,9 @@ class TaskSuggestionAgentTest {
         )
     }
 
-    private fun chatResponse(content: String) = ChatResponse(
+    private fun chatResponse(content: String, finishReason: String = "stop") = ChatResponse(
         id = "resp-1",
-        choices = listOf(Choice(message = ChatMessage(role = "assistant", content = content), finishReason = "stop")),
+        choices = listOf(Choice(message = ChatMessage(role = "assistant", content = content), finishReason = finishReason)),
         usage = null,
     )
 }
