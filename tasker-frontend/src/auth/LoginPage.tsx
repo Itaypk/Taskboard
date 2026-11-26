@@ -221,7 +221,6 @@ export function LoginPage({ next }: { next?: string } = {}) {
                     busy={busy}
                     error={error}
                     next={next}
-                    onSandbox={handleDemoLogin}
                     onDevLogin={handleDevLogin}
                     onClose={() => setModalOpen(false)}
                 />
@@ -235,7 +234,6 @@ function LoginModal({
     busy,
     error,
     next,
-    onSandbox,
     onDevLogin,
     onClose,
 }: {
@@ -243,7 +241,6 @@ function LoginModal({
     busy: boolean;
     error: string | null;
     next?: string;
-    onSandbox: () => void;
     onDevLogin: () => void;
     onClose: () => void;
 }) {
@@ -320,28 +317,26 @@ function LoginModal({
 
                 <div className={styles.modalTag}>{t('login.modal.tag')}</div>
                 <h2 id="login-modal-title" className={styles.modalH}>{t('login.modal.title')}</h2>
-                <p className={styles.modalSub}>
-                    {t(config.registrationOpen ? 'login.modal.sub' : 'login.modal.subClosed')}
-                </p>
+                {!config.registrationOpen && <p className={styles.modalSub}>{t('login.modal.subClosed')}</p>}
 
                 <div className={styles.channels}>
                     {config.login.password && <PasswordForm />}
 
-                    {config.login.telegram && (
-                        <a
-                            href={telegramLoginUrl(next)}
-                            className={`${styles.channelBtn} ${styles.chTelegram}`}
-                        >
-                            <TelegramIcon /> {t('login.modal.telegram')}
-                        </a>
-                    )}
-
                     {config.login.google && (
                         <a
                             href={googleLoginUrl(next)}
-                            className={`${styles.channelBtn} ${styles.chGoogle}`}
+                            className={styles.channelBtn}
                         >
                             <GoogleIcon /> {t('login.modal.google')}
+                        </a>
+                    )}
+
+                    {config.login.telegram && (
+                        <a
+                            href={telegramLoginUrl(next)}
+                            className={styles.channelBtn}
+                        >
+                            <TelegramIcon /> {t('login.modal.telegram')}
                         </a>
                     )}
 
@@ -368,7 +363,7 @@ function LoginModal({
                             />
                             <button
                                 type="submit"
-                                className={`${styles.channelBtn} ${styles.chEmail}`}
+                                className={`${styles.channelBtn} ${styles.channelSubmit}`}
                                 disabled={emailBusy}
                             >
                                 {emailBusy ? t('login.modal.sending') : t('login.modal.sendLink')}
@@ -378,7 +373,7 @@ function LoginModal({
                     ) : (
                         <button
                             type="button"
-                            className={`${styles.channelBtn} ${styles.chEmail}`}
+                            className={styles.channelBtn}
                             onClick={() => setEmailMode(true)}
                         >
                             <MailIcon /> {t('login.modal.continueEmail')}
@@ -386,26 +381,11 @@ function LoginModal({
                     )}
                 </div>
 
-                {!config.login.password && !config.login.telegram && !config.login.google && !config.login.email && !config.login.demo && (
+                {!config.login.password && !config.login.telegram && !config.login.google && !config.login.email && (
                     <p className={styles.error}>{t('login.modal.noMethods')}</p>
                 )}
 
                 {/* <p className={styles.moreNote}>{t('login.modal.moreWays')}</p> */}
-
-                {config.login.demo && (
-                    <>
-                        <div className={styles.divider}>
-                            <span className={styles.divLine} />
-                            <span className={styles.divText}>{t('login.modal.justLooking')}</span>
-                            <span className={styles.divLine} />
-                        </div>
-
-                        <button type="button" className={styles.sandboxCard} onClick={onSandbox} disabled={busy}>
-                            {t('login.modal.sandbox')} <Arrow direction="forward" />
-                            <span className={styles.sandboxSub}>{t('login.modal.sandboxSub')}</span>
-                        </button>
-                    </>
-                )}
 
                 <p className={styles.fine}>
                     <Trans
@@ -478,7 +458,7 @@ function PasswordForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
             />
-            <button type="submit" className={`${styles.channelBtn} ${styles.chEmail}`} disabled={busy}>
+            <button type="submit" className={`${styles.channelBtn} ${styles.channelSubmit}`} disabled={busy}>
                 {busy ? t('login.modal.signingIn') : t('login.modal.passwordSubmit')}
             </button>
             {error && <p className={styles.error} role="alert">{error}</p>}

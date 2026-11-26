@@ -127,7 +127,7 @@ export function SaveAccountModal({ open, onClose }: SaveAccountModalProps) {
               <p className={styles.lead}>{t('saveAccountModal.intro')}</p>
               <div className={styles.methods}>
                 {config.login.google && (
-                  <a className={`btn btn--ghost ${styles.method} ${styles.googleMethod}`} href={GOOGLE_LINK_URL}>
+                  <a className={`btn btn--ghost ${styles.method}`} href={GOOGLE_LINK_URL}>
                     <GoogleIcon /> {t('saveAccountModal.google')}
                   </a>
                 )}
