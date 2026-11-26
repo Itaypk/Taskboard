@@ -4,8 +4,9 @@ Implementation plan for WhatsApp (official Cloud API) as a quick-add source, and
 layer that the next chat channel (Slack, Teams, …) would reuse. A Cisco Webex bot is designed
 here too, but **deferred, possibly for good** (see "Why Webex is deferred").
 
-Status: **plan, not built.** Written to be handed to an implementation agent. It builds on the
-exploration in `docs/WHATSAPP-CHANNEL.md` (issue #268) and takes its recommendation as settled:
+Status: **plan, not built**, except the WhatsApp webhook, which exists in log-only form (issue
+#410: handshake, signature check, a log-safe summary per delivery). Written to be handed to an
+implementation agent. It builds on the exploration in `docs/WHATSAPP-CHANNEL.md` (issue #268) and takes its recommendation as settled:
 official API, reactive-only. Where this plan and that note disagree, this plan wins (see
 "Corrections to earlier notes").
 

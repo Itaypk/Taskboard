@@ -222,6 +222,28 @@ the full log to stdout instead and write no file — what `docker logs` and log 
   coexist with a mailbox provider's: its DKIM uses its own selector, and its SPF/MX go on a
   return-path subdomain, never on the apex.
 
+## WhatsApp (`WhatsAppProperties`)
+
+The WhatsApp Cloud API webhook, `GET|POST /webhooks/whatsapp`. For now it only verifies and logs
+what Meta delivers (issue #410); capture follows `docs/MESSAGING-CHANNELS.md`. In the Meta app's
+WhatsApp webhook settings, set the callback URL to `<TASKER_APP_BASE_URL>/webhooks/whatsapp` and
+the verify token to `TASKER_WHATSAPP_VERIFY_TOKEN`, then subscribe to the `messages` field.
+
+- `TASKER_WHATSAPP_ENABLED` — toggle the webhook (default: `false`). Off, or missing either secret
+  below, it answers 404 (and the startup log warns).
+- `TASKER_WHATSAPP_VERIFY_TOKEN` — any string, typed into the Meta app too; Meta sends it back in
+  the subscription handshake. It travels in a query string, so treat it as low-value.
+- `TASKER_WHATSAPP_APP_SECRET` — the Meta app secret (App settings → Basic). Every delivery's
+  `X-Hub-Signature-256` is checked against it; unsigned or wrongly signed ones get 401.
+- `TASKER_WHATSAPP_PHONE_NUMBER_ID` — optional: our business number's id. Deliveries for any other
+  number are logged as foreign.
+- `TASKER_WHATSAPP_LOG_PAYLOADS` — log each delivery's full body (default: `false`). A testing aid:
+  bodies carry phone numbers, names and message text, so the startup log warns while it's on.
+  Otherwise only ids, types and statuses are logged.
+
+Deliveries are capped at 3 MB (Meta's maximum). A reverse proxy with a lower body limit (Nginx's
+default is 1 MB) is fine for text messages, since media arrives as ids, not bytes.
+
 ## Feedback form (`FeedbackController` → `FeedbackService`, `POST /api/v1/feedback`)
 
 - `TASKER_FEEDBACK_RECIPIENT` — mailbox that feedback submissions are forwarded to, over the **auth**
