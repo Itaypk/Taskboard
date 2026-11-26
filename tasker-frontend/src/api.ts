@@ -663,6 +663,46 @@ export const updateCalendarDelivery = (delivery: CalendarDelivery): Promise<Cale
 export const rotateCalendarFeed = (): Promise<CalendarDeliveryState> =>
     apiRequest('/calendar-delivery/feed/rotate', { method: 'POST' });
 
+/** How much of a connected calendar the planner sees (GitHub issue #347). */
+export type CalendarSourceDetail = 'TITLES' | 'BUSY';
+
+/** Why reading a calendar address failed; the SPA shows one localized line per code. */
+export type CalendarSourceError =
+    | 'NOT_HTTPS' | 'BLOCKED_ADDRESS' | 'NOT_FOUND' | 'UNAUTHORIZED' | 'NOT_A_CALENDAR'
+    | 'TOO_LARGE' | 'TIMEOUT' | 'UNREACHABLE' | 'PARSE_ERROR';
+
+/** A calendar the planner reads. The secret address itself is never sent back, only its host. */
+export interface CalendarSource {
+    id: string;
+    label: string;
+    host: string;
+    detail: CalendarSourceDetail;
+    createdAt: string;
+    lastAttemptAt: string | null;
+    lastSuccessAt: string | null;
+    /** Set when the latest read failed. */
+    lastError: CalendarSourceError | null;
+    /** Events in the next 7 days, as of the latest successful read. */
+    lastEventCount: number | null;
+}
+
+export const fetchCalendarSources = (): Promise<CalendarSource[]> =>
+    apiRequest('/calendar-sources');
+
+/** Reads the calendar once before saving; a broken address fails with an `ApiError` whose `code` says why. */
+export const addCalendarSource = (url: string, label: string | null, detail: CalendarSourceDetail): Promise<CalendarSource> =>
+    apiRequest('/calendar-sources', { method: 'POST', ...jsonBody({ url, label, detail }) }, { emitErrors: false });
+
+export const updateCalendarSource = (id: string, changes: { label?: string; detail?: CalendarSourceDetail }): Promise<CalendarSource> =>
+    apiRequest(`/calendar-sources/${id}`, { method: 'PATCH', ...jsonBody(changes) });
+
+export const deleteCalendarSource = (id: string): Promise<void> =>
+    apiRequest(`/calendar-sources/${id}`, { method: 'DELETE' });
+
+/** Reads the calendar again now, skipping the cache. */
+export const refreshCalendarSource = (id: string): Promise<CalendarSource> =>
+    apiRequest(`/calendar-sources/${id}/refresh`, { method: 'POST' });
+
 export const fetchInboundMailAddress = (): Promise<InboundMailAddress> =>
     apiRequest('/inbound-mail-address');
 

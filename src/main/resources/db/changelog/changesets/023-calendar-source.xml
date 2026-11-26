@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Calendars the planner reads (GitHub issue #347): a user's private ICS addresses, up to five.
+
+        The address is the secret (anyone holding it can read the whole calendar), so it is kept
+        encrypted under the user's DEK and never shown again after it is added; the label is
+        user-written and encrypted alongside it. Nothing from the calendar itself is stored: events
+        are fetched when a planning conversation starts and kept in memory for a few minutes. The
+        `last_*` columns are what Settings shows about the last read.
+    -->
+    <changeSet id="023-1-calendar-source" author="tasker">
+        <createTable tableName="calendar_source">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="url" type="BYTEA">
+                <constraints nullable="false"/>
+            </column>
+            <column name="label" type="BYTEA">
+                <constraints nullable="false"/>
+            </column>
+            <column name="detail" type="VARCHAR(16)" defaultValue="TITLES">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_attempt_at" type="TIMESTAMP"/>
+            <column name="last_success_at" type="TIMESTAMP"/>
+            <column name="last_error" type="VARCHAR(32)"/>
+            <column name="last_event_count" type="INT"/>
+        </createTable>
+
+        <addForeignKeyConstraint
+                baseTableName="calendar_source"
+                baseColumnNames="user_id"
+                constraintName="fk_calendar_source_user"
+                referencedTableName="users"
+                referencedColumnNames="id"/>
+
+        <createIndex tableName="calendar_source" indexName="idx_calendar_source_user">
+            <column name="user_id"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

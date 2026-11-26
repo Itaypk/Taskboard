@@ -117,6 +117,12 @@ class WebConfiguration(
         windowMillis = rateLimitProperties.calendarFeedMiss.windowSeconds * 1_000,
     )
 
+    @Bean
+    fun calendarSourceRateLimiter(): RateLimiter = InMemoryRateLimiter(
+        limit = rateLimitProperties.calendarSource.limit,
+        windowMillis = rateLimitProperties.calendarSource.windowSeconds * 1_000,
+    )
+
     // Inbound email arrives from the MTA on loopback, never through RateLimitInterceptor.
     @Bean
     fun inboundMailRateLimiter(): RateLimiter = InMemoryRateLimiter(

@@ -30,6 +30,8 @@ export interface PublicConfig {
     aiZeroDataRetention: boolean;
     /** Users can get a personal inbound email address that turns mail into tasks (`TASKER_INBOUND_MAIL_*`). */
     inboundMail: boolean;
+    /** Users can connect their own calendars (secret iCal addresses) for the planner to read; needs AI. */
+    calendarSources: boolean;
 }
 
 export const DEFAULT_PUBLIC_CONFIG: PublicConfig = {
@@ -43,6 +45,7 @@ export const DEFAULT_PUBLIC_CONFIG: PublicConfig = {
     ai: true,
     aiZeroDataRetention: true,
     inboundMail: false,
+    calendarSources: true,
 };
 
 let cached: PublicConfig | null = null;

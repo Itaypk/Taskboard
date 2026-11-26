@@ -9,6 +9,7 @@ import { ApiTokens } from './ApiTokens';
 import { InboundMailAddress } from './InboundMailAddress';
 import { MessagingApps } from './MessagingApps';
 import { CalendarDeliverySection } from './CalendarDeliverySection';
+import { CalendarSourcesSection } from './CalendarSourcesSection';
 import { applyLocale } from '../i18n';
 import { usePublicConfig } from '../publicConfig';
 import { SETTINGS_SECTIONS, type SettingsSection } from '../taskLink';
@@ -76,7 +77,7 @@ export function SettingsModal(props: SettingsModalProps) {
 
 function SettingsDialog({ settings, open, section, onNavigate, onClose, onSave, onAccountDeleted }: SettingsModalProps) {
   const { t, i18n } = useTranslation();
-  const { inboundMail: inboundMailEnabled, ai: instanceAi } = usePublicConfig();
+  const { inboundMail: inboundMailEnabled, ai: instanceAi, calendarSources: calendarSourcesEnabled } = usePublicConfig();
   const { state: authState } = useAuth();
   // Telegram-delivered features need a chat the user has opened, not just a linked account.
   const telegramChatReady = authState.status === 'authenticated' && authState.user.telegramChatReady;
@@ -162,7 +163,12 @@ function SettingsDialog({ settings, open, section, onNavigate, onClose, onSave, 
       case 'reminders':
         return <RemindersSection autosave={autosave} instanceAi={instanceAi} telegramChatReady={telegramChatReady} />;
       case 'calendar':
-        return <CalendarDeliverySection onVerifyEmail={() => onNavigate('signin')} onDeliveryChange={handleDeliveryChange} />;
+        return (
+          <>
+            <CalendarDeliverySection onVerifyEmail={() => onNavigate('signin')} onDeliveryChange={handleDeliveryChange} />
+            {calendarSourcesEnabled && <CalendarSourcesSection />}
+          </>
+        );
       case 'ai':
         return <AiSection autosave={autosave} />;
       case 'connections':

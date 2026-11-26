@@ -218,6 +218,12 @@ tasker:
     delivery-token: ${TASKER_INBOUND_MAIL_DELIVERY_TOKEN:}
     # authserv-id of the Authentication-Results header the MTA adds; defaults to the domain.
     authserv-id: ${TASKER_INBOUND_MAIL_AUTHSERV_ID:}
+  calendar-sources:
+    # Users' private calendar addresses (ICS), read by the weekly planner. Offered only where AI is on.
+    enabled: ${TASKER_CALENDAR_SOURCES_ENABLED:true}
+    # Let those addresses resolve to private/LAN hosts (e.g. a Nextcloud next to a self-hosted
+    # instance). Off: anyone who can sign up could make the server probe its own network.
+    allow-private-addresses: ${TASKER_CALENDAR_SOURCES_ALLOW_PRIVATE_ADDRESSES:false}
   whatsapp:
     # WhatsApp Cloud API quick-add (/webhooks/whatsapp). The webhook needs both secrets; without the
     # access token and phone number id it only logs deliveries.

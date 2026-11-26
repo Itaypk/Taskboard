@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this project is
 
-**Backlog.fyi** is an AI-powered weekly planner: a task backlog plus a Telegram-driven weekly planning conversation that turns the tasks you agree to into calendar time blocks (today by emailing calendar invitations; reading Google Calendar directly is planned, see below). The internal codebase package is `dev.itayp.tasker` (historical name); the public-facing product name is **Backlog.fyi**, but it's configurable per instance (`TASKER_APP_NAME`), so user-visible copy never hard-codes it: message bundles and prompt templates say `@APP_NAME@` / `@APP_URL@` (substituted by `BrandedMessageSource` / `PromptTemplateLoader`; `BrandedMessageSourceTest` fails on a literal `backlog.fyi` in a bundle), SPA strings interpolate `{{appName}}` from `useBranding()` (`src/publicConfig.ts`), and the HTML document itself (title, meta/OG tags, JSON-LD, no-JS fallback) is rendered server-side from the built `index.html` as a Handlebars template by `IndexHtmlController`. The product vision (core loop, task fields, integrations, non-goals) lives in `docs/SPEC.md` — read it before making design decisions. 
+**Backlog.fyi** is an AI-powered weekly planner: a task backlog plus a Telegram-driven weekly planning conversation that turns the tasks you agree to into calendar time blocks (by emailing calendar invitations or through a subscribed calendar feed; it reads the user's own calendars through secret iCal addresses, see below). The internal codebase package is `dev.itayp.tasker` (historical name); the public-facing product name is **Backlog.fyi**, but it's configurable per instance (`TASKER_APP_NAME`), so user-visible copy never hard-codes it: message bundles and prompt templates say `@APP_NAME@` / `@APP_URL@` (substituted by `BrandedMessageSource` / `PromptTemplateLoader`; `BrandedMessageSourceTest` fails on a literal `backlog.fyi` in a bundle), SPA strings interpolate `{{appName}}` from `useBranding()` (`src/publicConfig.ts`), and the HTML document itself (title, meta/OG tags, JSON-LD, no-JS fallback) is rendered server-side from the built `index.html` as a Handlebars template by `IndexHtmlController`. The product vision (core loop, task fields, integrations, non-goals) lives in `docs/SPEC.md` — read it before making design decisions. 
 
-Current state: the backlog CRUD (tasks, categories, tags) is implemented end-to-end. Auth is **decoupled from Telegram** — registration/login go through an `auth_identities` table (one user → many providers), with Telegram OIDC login, Google OIDC login, passwordless email magic-link, operator-listed username/password (for self-hosting), demo, and dev-login session auth wired up, plus account-linking ("connected accounts"). The weekly planning conversation and LLM-driven planner are working, with email-invitation integration. No Google Calendar integration yet (planned). See `docs/archive/AUTH-DECOUPLING.md` for the auth-decoupling design and what's deferred (remaining deferred work is tracked as GitHub issues).
+Current state: the backlog CRUD (tasks, categories, tags) is implemented end-to-end. Auth is **decoupled from Telegram** — registration/login go through an `auth_identities` table (one user → many providers), with Telegram OIDC login, Google OIDC login, passwordless email magic-link, operator-listed username/password (for self-hosting), demo, and dev-login session auth wired up, plus account-linking ("connected accounts"). The weekly planning conversation and LLM-driven planner are working, with calendar delivery (invitations or a subscribed feed) and read-only access to the user's calendars through secret iCal addresses. No Google Calendar API integration. See `docs/archive/AUTH-DECOUPLING.md` for the auth-decoupling design and what's deferred (remaining deferred work is tracked as GitHub issues).
 
 This is a non-commercial solo side project. It is currently running in production, but only serves a handful of beta users.
 
@@ -185,6 +185,29 @@ a rollback keeps working.
   redacts it); the hosted Nginx redacts it from the shipped access log.
 - A link survives a switch away from the feed (it serves an empty calendar), so switching back
   needs no re-subscribing; "New link" replaces it.
+
+## Reading users' calendars
+
+Users can give the planner up to five secret iCal addresses (`calendar_source`, GitHub issue #347;
+`dev.itayp.tasker.calendar.source`). They're read when a planning conversation starts
+(`CalendarSourceService.readWindow`, 15-minute in-memory cache) and listed in the prompt by
+`KnownEventsCalendarWindowProvider`. What bites:
+
+- **The address is a server-side request a user chooses.** Fetch only through `IcsFetcher`, which
+  checks every resolved address (in OkHttp's `Dns` hook, so the checked address is the one connected
+  to, plus IP literals separately) and follows redirects by hand. Never fetch a user URL with
+  `RestClient` or another client. Don't add Apache HttpClient 5 to the classpath either: Spring then
+  picks it for every `RestClient`/`TestRestTemplate`, which broke the session tests.
+- **The address is a credential.** It's encrypted under the user's DEK, never sent back (Settings shows
+  the host), and never logged; the same goes for labels and event text. Log ids and `IcsFetchError` codes.
+- **No events are stored**, only the latest read's status. The data export leaves the table out.
+- **Event text is someone else's text** (whoever organized the meeting): it goes into the prompt through
+  `ExternalContent.wrap`. `BUSY` calendars send times only.
+- **Our own events come back** through the user's calendar (the feed, invitations, one-off events), so
+  the provider skips them by UID before the planner can take them for meetings. Keep the UID shapes
+  in "Calendar delivery" recognizable.
+- ical4j registers each file's VTIMEZONEs in a JVM-wide pool that never shrinks, so `IcsParser` caps
+  them per file; keep that cap if you touch the parser.
 
 ## Security response headers and caching
 

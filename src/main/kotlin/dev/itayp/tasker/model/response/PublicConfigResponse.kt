@@ -15,6 +15,8 @@ data class PublicConfigResponse(
     val aiZeroDataRetention: Boolean,
     /** True when users can get a personal inbound email address (`tasker.inbound-mail`). */
     val inboundMail: Boolean,
+    /** True when users can connect their own calendars for the planner (`tasker.calendar-sources`, needs AI). */
+    val calendarSources: Boolean,
 )
 
 /** What the instance calls itself, and where users can reach whoever runs it. */
