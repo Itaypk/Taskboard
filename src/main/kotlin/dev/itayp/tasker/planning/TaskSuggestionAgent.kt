@@ -99,10 +99,10 @@ class TaskSuggestionAgent(
         )
 
         val context = AiCallContext(userId = userId.toString(), conversationType = AiConversationType.TASK_SUGGESTION)
-        val raw = aiClient.chat(request, context).choices.firstOrNull()?.message?.contentText.orEmpty()
+        val choice = aiClient.chat(request, context).choices.firstOrNull()
         val draft = parseAssistantJsonResponseOrNull(
-            objectMapper, raw, TaskDraft::class.java,
-            AiConversationType.TASK_SUGGESTION, meterRegistry, log, "suggest_task",
+            objectMapper, choice?.message?.contentText.orEmpty(), TaskDraft::class.java,
+            AiConversationType.TASK_SUGGESTION, meterRegistry, log, "suggest_task", choice?.finishReason,
         )
         log.debug("suggest_task drafted a task (categories={}, tags={}, sample={})", categories.size, tags.size, sample.size)
         return draft
@@ -344,8 +344,8 @@ class TaskSuggestionAgent(
                 if (parts.isEmpty()) model else inputModalitySupport.visionModel,
             )
         }
-        val raw = aiClient.chat(chatRequest, context).choices.firstOrNull()?.message?.contentText.orEmpty()
-        return parseOutcome(raw, allowNotACapture = unprompted)
+        val choice = aiClient.chat(chatRequest, context).choices.firstOrNull()
+        return parseOutcome(choice?.message?.contentText.orEmpty(), choice?.finishReason, allowNotACapture = unprompted)
     }
 
     /**
@@ -402,10 +402,10 @@ the user sees it echoed back, so it must be faithful, not a summary of your reas
         }
     }
 
-    private fun parseOutcome(raw: String, allowNotACapture: Boolean): SuggestionOutcome {
+    private fun parseOutcome(raw: String, finishReason: String?, allowNotACapture: Boolean): SuggestionOutcome {
         val parsed = parseAssistantJsonResponseOrNull(
             objectMapper, raw, QuickAddRaw::class.java,
-            AiConversationType.TASK_SUGGESTION, meterRegistry, log, "quick-add",
+            AiConversationType.TASK_SUGGESTION, meterRegistry, log, "quick-add", finishReason,
         ) ?: return SuggestionOutcome.Unparseable
 
         val sourceText = parsed.sourceText?.trim()?.takeIf { it.isNotBlank() }
@@ -545,9 +545,13 @@ asks for one.
          * Completion budget for a draft. On reasoning models OpenRouter counts reasoning tokens
          * against `max_tokens`, so this must cover the model's thinking *plus* a multi-item JSON
          * draft — too tight a budget truncated the JSON mid-object (finish_reason=length), which
-         * surfaced to the user as "I couldn't turn that into a task".
+         * surfaced to the user as "I couldn't turn that into a task". 2048 was still too tight for
+         * a PDF listing several events at medium reasoning: the reasoning alone used most of it.
+         * For some models (Gemini, Anthropic) OpenRouter derives the reasoning budget from this
+         * cap, as a share set by the effort level, so raising it grows the room left for the JSON
+         * by the same factor. It is a cap, not a reservation: a call is billed for what it uses.
          */
-        private const val MAX_TOKENS = 2048
+        private const val MAX_TOKENS = 8192
     }
 }
 

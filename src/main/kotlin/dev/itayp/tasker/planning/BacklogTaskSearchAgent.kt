@@ -59,10 +59,10 @@ class BacklogTaskSearchAgent(
         )
 
         val context = AiCallContext(userId = userId.toString(), conversationType = AiConversationType.TASK_SEARCH)
-        val raw = aiClient.chat(request, context).choices.firstOrNull()?.message?.contentText.orEmpty()
+        val choice = aiClient.chat(request, context).choices.firstOrNull()
         val parsed = parseAssistantJsonResponseOrNull(
-            objectMapper, raw, SearchResult::class.java,
-            AiConversationType.TASK_SEARCH, meterRegistry, log, "find_task",
+            objectMapper, choice?.message?.contentText.orEmpty(), SearchResult::class.java,
+            AiConversationType.TASK_SEARCH, meterRegistry, log, "find_task", choice?.finishReason,
         )?.matches.orEmpty()
         val matches = resolveAgainstBacklog(parsed, tasks)
         log.debug(

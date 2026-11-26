@@ -10,8 +10,14 @@ import tools.jackson.databind.ObjectMapper
  * The metered, app-side wrapper over the library's [parseAssistantJsonResponse]: catches the
  * failure itself, increments `tasker.ai.parse_failures` (tagged by [conversationType] and a coarse
  * `reason` — `no_json_found` when no `{ ... }` span was present at all, `deserialize_error` when a
- * span was found but didn't match [type]) and logs a warning, then returns null so the caller can
- * fall back.
+ * span was found but didn't match [type], and `truncated` when either happened to a reply the model
+ * was cut off in) and logs a warning, then returns null so the caller can fall back.
+ *
+ * [finishReason] is the choice's `finish_reason`. `length` means the reply ran into `max_tokens`,
+ * and on a reasoning model the reasoning counts against that cap too, so a dense input can use the
+ * budget up before the JSON is complete. That is a budget problem, not a model mistake, and it
+ * gets its own `reason` so it doesn't hide among the malformed replies. A cut-off reply is still
+ * parsed first: a complete object may have come before the cut.
  *
  * Never logs the raw response: for these sub-agents it typically echoes back user-authored text (a
  * task title/description drafted from the user's own request), which CLAUDE.md forbids in logs at
@@ -29,9 +35,14 @@ fun <T : Any> parseAssistantJsonResponseOrNull(
     meterRegistry: MeterRegistry,
     log: Logger,
     agentLabel: String,
+    finishReason: String? = null,
 ): T? = runCatching { parseAssistantJsonResponse(objectMapper, raw, type) }
     .onFailure { e ->
-        val reason = if (e is IllegalArgumentException) "no_json_found" else "deserialize_error"
+        val reason = when {
+            finishReason == FINISH_REASON_LENGTH -> "truncated"
+            e is IllegalArgumentException -> "no_json_found"
+            else -> "deserialize_error"
+        }
         meterRegistry.counter(
             "tasker.ai.parse_failures", "conversation_type", conversationType, "reason", reason,
         ).increment()
@@ -39,3 +50,6 @@ fun <T : Any> parseAssistantJsonResponseOrNull(
         log.debug("{} redacted response shape: {}", agentLabel, redactLlmResponse(raw))
     }
     .getOrNull()
+
+/** The `finish_reason` of a reply that ran into `max_tokens`. */
+private const val FINISH_REASON_LENGTH = "length"
