@@ -4,11 +4,27 @@ Implementation plan for WhatsApp (official Cloud API) as a quick-add source, and
 layer that the next chat channel (Slack, Teams, …) would reuse. A Cisco Webex bot is designed
 here too, but **deferred, possibly for good** (see "Why Webex is deferred").
 
-Status: **plan, not built**, except the WhatsApp webhook, which exists in log-only form (issue
-#410: handshake, signature check, a log-safe summary per delivery). Written to be handed to an
-implementation agent. It builds on the exploration in `docs/WHATSAPP-CHANNEL.md` (issue #268) and takes its recommendation as settled:
-official API, reactive-only. Where this plan and that note disagree, this plan wins (see
-"Corrections to earlier notes").
+Status: **partly built.** Done: the WhatsApp webhook in log-only form (issue #410) and the shared
+foundation of work package 1 (linking, the capture router, the registry, metrics, deletion and
+export; see "As built" below). Not yet: the Settings UI, the WhatsApp adapter, and media. It
+builds on the exploration in `docs/WHATSAPP-CHANNEL.md` (issue #268) and takes its recommendation
+as settled: official API, reactive-only. Where this plan and that note disagree, this plan wins
+(see "Corrections to earlier notes").
+
+## As built (foundation)
+
+Where the code departs from the design below, the code wins:
+
+- **Media is a separate, later work package**, so `InboundEvent.Content` has `Text` and
+  `Selection` only, and `AttachmentIntake` isn't extracted yet. Text capture ships first.
+- **Link codes always contain a digit**, and a code-shaped message goes to `ChannelLinkService`
+  whether or not the sender is already linked (that is how a conflict is detected). So a one-word
+  task such as "homework" can never be taken for a code.
+- **No `last_inbound_at` column.** Nothing reads it yet, and it would be a write per message.
+- **Providers register as `MessagingProvider` beans**, only when configured. The channel-links API
+  offers exactly those, plus any channel the user is still linked on, so it can be disconnected.
+- **The unknown-sender, invalid-code and conflict replies** are `messaging.*` keys; the first is
+  English-only, the rest follow the linked user's language when there is one.
 
 ## Scope
 

@@ -45,6 +45,9 @@ enum class ChannelType(
 
     /** The dev-profile consoles (`DevPlanningController`, `DevQuickAddController`). */
     DEV("dev"),
+
+    /** WhatsApp Cloud API, a quick-add-only messaging channel (`docs/MESSAGING-CHANNELS.md`). */
+    WHATSAPP("whatsapp"),
 }
 
 data class ChannelCapabilities(

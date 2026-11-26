@@ -39,6 +39,13 @@ data class RateLimitProperties(
     val calendarFeed: Policy = Policy(limit = 120, windowSeconds = 3600),
     /** Requests for a feed link that doesn't exist, per client IP. */
     val calendarFeedMiss: Policy = Policy(limit = 30, windowSeconds = 3600),
+    /** Link-code attempts per chat account on a messaging channel (`ChannelLinkService`). */
+    val channelLinkAttempt: Policy = Policy(limit = 5, windowSeconds = 3600),
+    /**
+     * "How to connect" replies to a chat account that isn't linked. On WhatsApp each one is a
+     * billable message to a stranger, and the cap stops the bot from being a reflector.
+     */
+    val channelUnlinkedReply: Policy = Policy(limit = 1, windowSeconds = 86_400),
 ) {
     data class Policy(val limit: Int, val windowSeconds: Long)
 }

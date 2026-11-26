@@ -5,6 +5,8 @@ import dev.itayp.tasker.ai.conversation.ConversationRepository
 import dev.itayp.tasker.ai.conversation.ConversationStatus
 import dev.itayp.tasker.ai.conversation.MessageEntity
 import dev.itayp.tasker.ai.conversation.MessageRepository
+import dev.itayp.tasker.channel.ChannelType
+import dev.itayp.tasker.channel.messaging.ChannelLinkService
 import dev.itayp.tasker.jpa.BacklogTaskCategoryEntity
 import dev.itayp.tasker.jpa.BacklogTaskEntity
 import dev.itayp.tasker.jpa.BacklogTaskTagEntity
@@ -73,6 +75,7 @@ class PostgresIntegrationTest(
     @Autowired val boardMembershipService: BoardMembershipService,
     @Autowired val backlogTaskService: BacklogTaskService,
     @Autowired val jdbc: JdbcTemplate,
+    @Autowired val channelLinkService: ChannelLinkService,
     @Autowired val objectMapper: ObjectMapper,
     @Autowired val tutorialSeeder: dev.itayp.tasker.service.TutorialSeeder,
 ) {
@@ -182,6 +185,21 @@ class PostgresIntegrationTest(
             userId,
         )!!
         assertThat(remainingSlots).isZero()
+    }
+
+    @Test
+    fun `channel links round-trip through PostgreSQL and go with the account`() {
+        val userId = UUID.randomUUID()
+        userAuthService.ensureDevUser(userId, telegramId = System.nanoTime())
+        val code = channelLinkService.startLink(userId, ChannelType.WHATSAPP).code
+        val sender = "IL.${System.nanoTime()}"
+        channelLinkService.consume(ChannelType.WHATSAPP, sender, "972500000978", ChannelLinkService.extractCode(code)!!)
+
+        assertThat(channelLinkService.resolve(ChannelType.WHATSAPP, sender)).isEqualTo(userId)
+        assertThat(channelLinkService.list(userId).single().display).isEqualTo("•••• 0978")
+
+        accountService.deleteAccount(userId)
+        assertThat(channelLinkService.resolve(ChannelType.WHATSAPP, sender)).isNull()
     }
 
     @Test

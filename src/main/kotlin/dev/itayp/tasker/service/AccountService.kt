@@ -5,6 +5,7 @@ import dev.itayp.tasker.crypto.UserCryptoService
 import dev.itayp.tasker.model.response.AccountExportResponse
 import dev.itayp.tasker.model.response.BoardExport
 import dev.itayp.tasker.model.response.CategoryExport
+import dev.itayp.tasker.model.response.MessagingLinkExport
 import dev.itayp.tasker.model.response.SettingsExport
 import dev.itayp.tasker.model.response.TagExport
 import dev.itayp.tasker.model.response.TaskExport
@@ -81,6 +82,9 @@ class AccountService(
         jdbcTemplate.update("DELETE FROM inbound_mail_address WHERE user_id = ?", userId)
         // The calendar feed link FKs users(id) with no cascade.
         jdbcTemplate.update("DELETE FROM calendar_feed WHERE user_id = ?", userId)
+        // Messaging-channel links and pending link codes FK users(id) with no cascade.
+        jdbcTemplate.update("DELETE FROM channel_link_token WHERE user_id = ?", userId)
+        jdbcTemplate.update("DELETE FROM channel_link WHERE user_id = ?", userId)
         // Queued and recently processed inbound mail (payloads are under the user's DEK, deleted below).
         jdbcTemplate.update("DELETE FROM inbound_mail WHERE user_id = ?", userId)
         // planned_task_slot → planned_task → planning_session; no user_id on slot, so use a subquery
@@ -262,6 +266,16 @@ class AccountService(
                 telegramFirstName = userCrypto.decrypt(userId, user.telegramFirstName),
                 email = userCrypto.decrypt(userId, user.email),
                 createdAt = user.createdAt?.toString(),
+                messagingLinks = jdbcTemplate.query(
+                    "SELECT channel, linked_at FROM channel_link WHERE user_id = ? ORDER BY channel",
+                    { rs, _ ->
+                        MessagingLinkExport(
+                            channel = rs.getString("channel").lowercase(),
+                            linkedAt = rs.getTimestamp("linked_at").toInstant().toString(),
+                        )
+                    },
+                    userId,
+                ),
             ),
             settings = settings?.let {
                 SettingsExport(

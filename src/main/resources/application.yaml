@@ -201,6 +201,14 @@ tasker:
     password-login:
       limit: 10
       window-seconds: 900
+    # Link-code attempts per chat account on a messaging channel (WhatsApp).
+    channel-link-attempt:
+      limit: 5
+      window-seconds: 3600
+    # "How to connect" replies to an unlinked chat account: each is a billable message to a stranger.
+    channel-unlinked-reply:
+      limit: 1
+      window-seconds: 86400
   inbound-mail:
     # Personal inbound addresses (tasks.<token>@<domain>): mail sent there becomes a task. Needs an
     # MTA that accepts mail for the domain and hands it to the app; off unless both are set.
