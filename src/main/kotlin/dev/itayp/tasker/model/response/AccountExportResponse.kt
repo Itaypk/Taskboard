@@ -47,6 +47,19 @@ data class UserExport(
     val email: String?,
     @field:Size(max = 320)
     val createdAt: String?,
+    /**
+     * Chat accounts linked on messaging channels: which channel and since when, never the
+     * account's identifier. Export-only; import ignores it (a link has to be re-made from the
+     * chat account itself). Defaulted so earlier files still import.
+     */
+    val messagingLinks: List<@Valid MessagingLinkExport> = emptyList(),
+)
+
+data class MessagingLinkExport(
+    @field:NotBlank @field:Size(max = 16)
+    val channel: String,
+    @field:NotBlank @field:Size(max = 64)
+    val linkedAt: String,
 )
 
 data class SettingsExport(

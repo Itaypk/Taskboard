@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Messaging-channel links (WhatsApp, GitHub issue #268; design in docs/MESSAGING-CHANNELS.md,
+        section 3): which chat account belongs to which user.
+
+        A link is not a login method, so it does not live in auth_identities: rows there count
+        toward the "never remove the last login method" guard and are listed as connected accounts.
+
+        At most one link per user per channel, and one user per chat account. The chat account's id
+        (for WhatsApp, the business-scoped user id) is low-entropy, so its lookup key is an HMAC under
+        a key derived from the KEK (ChannelLinkHasher); the id itself and a display label (the phone
+        number, when the platform sends one) are kept encrypted under the user's DEK.
+    -->
+    <changeSet id="022-1-channel-link" author="tasker">
+        <createTable tableName="channel_link">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="channel" type="VARCHAR(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="external_id_hmac" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="external_id" type="BYTEA">
+                <constraints nullable="false"/>
+            </column>
+            <column name="display" type="BYTEA"/>
+            <column name="linked_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addUniqueConstraint tableName="channel_link" columnNames="channel, external_id_hmac"
+                             constraintName="uq_channel_link_external"/>
+        <addUniqueConstraint tableName="channel_link" columnNames="user_id, channel"
+                             constraintName="uq_channel_link_user"/>
+        <addForeignKeyConstraint
+                baseTableName="channel_link"
+                baseColumnNames="user_id"
+                constraintName="fk_channel_link_user"
+                referencedTableName="users"
+                referencedColumnNames="id"/>
+    </changeSet>
+
+    <!--
+        Pending link codes: the user asks for one in Settings, then sends it to the bot from the chat
+        account to link. Single use, short-lived, at most one live code per user and channel. 8 base32
+        characters (40 bits) is too little for a plain hash, so the lookup key is an HMAC like the
+        external id above. Expired rows are harmless (a lookup ignores them) and are replaced on the
+        user's next request.
+    -->
+    <changeSet id="022-2-channel-link-token" author="tasker">
+        <createTable tableName="channel_link_token">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="channel" type="VARCHAR(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="token_hmac" type="VARCHAR(64)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uq_channel_link_token_hmac"/>
+            </column>
+            <column name="expires_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addUniqueConstraint tableName="channel_link_token" columnNames="user_id, channel"
+                             constraintName="uq_channel_link_token_user"/>
+        <addForeignKeyConstraint
+                baseTableName="channel_link_token"
+                baseColumnNames="user_id"
+                constraintName="fk_channel_link_token_user"
+                referencedTableName="users"
+                referencedColumnNames="id"/>
+    </changeSet>
+
+</databaseChangeLog>

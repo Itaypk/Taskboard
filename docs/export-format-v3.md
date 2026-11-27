@@ -30,7 +30,8 @@ anything that isn't `3` (HTTP 400).
   "formatVersion": 3,
   "exportedAt": "2026-06-28T12:34:56.789Z",
   "user":     { "telegramUsername": "…"|null, "telegramFirstName": "…"|null,
-                "email": "…"|null, "createdAt": "…"|null },   // no "id"
+                "email": "…"|null, "createdAt": "…"|null,     // no "id"
+                "messagingLinks": [ { "channel": "whatsapp", "linkedAt": "…" } ] },
   "settings": { ... } | null,                                  // unchanged from v2
   "boards": [
     {
@@ -47,7 +48,9 @@ anything that isn't `3` (HTTP 400).
 `settings` is unchanged from v2, apart from three optional daily-digest fields added later
 (`dailyDigestEnabled`, `dailyDigestDueTasks`, `dailyDigestCron`; see `docs/DAILY-DIGEST.md`). They
 default to on, on and `0 0 8 * * *` when absent, so earlier v3 files import unchanged. `user` loses
-only its `id`.
+only its `id`, and later gained `messagingLinks`: the messaging channels (WhatsApp) the user linked
+a chat account on, and when. It never carries the account's identifier, it is optional, and import
+ignores it, since a link can only be re-made from the chat account itself.
 
 ## Index references
 

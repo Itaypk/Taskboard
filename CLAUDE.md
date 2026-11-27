@@ -121,6 +121,25 @@ rule doesn't hide them).
   an agent can self-correct.
 - Remember to clear new user-owned tables in `AccountService.deleteUserData` (`api_token` already is).
 
+## Messaging channels (WhatsApp)
+
+Chat apps as quick-add sources, reactive-only: the bot only ever replies, so no WhatsApp message
+templates (`docs/MESSAGING-CHANNELS.md`, issue #268). A provider's webhook turns deliveries into
+`InboundEvent`s for `MessagingCaptureService` (`channel/messaging`), which de-duplicates by
+message id, serializes per conversation, resolves the link, gates on AI access and drives
+`QuickAddFlow`. What bites:
+
+- **A link is not a login method.** `channel_link` is its own table, never `auth_identities`, so it
+  can't satisfy the "last login method" guard. Only claimed accounts can link; a chat account
+  linked to one user is refused for another (no merge).
+- **Chat account ids and link codes are low-entropy**, so their lookup keys are `ChannelLinkHasher`
+  HMACs, and the ids and phone numbers are kept only encrypted under the user's DEK. Never log
+  either, or message text: event ids and user ids only (`InboundEvent`/`ConversationKey` mask
+  their `toString` for that reason).
+- **An unlinked sender gets one "how to connect" reply per day** (`channel-unlinked-reply`): on
+  WhatsApp each is a billable message to a stranger.
+- These channels never plan or run commands: a `CaptureEntry.Routed` gets `messaging.capabilities`.
+
 ## Inbound email
 
 Users get a personal address, `tasks.<token>@<TASKER_INBOUND_MAIL_DOMAIN>`, and mail sent there
