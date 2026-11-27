@@ -17,20 +17,35 @@ data class WhatsAppInbound(
 }
 
 /**
+ * A photo, voice note or file in a message: what Meta says it is, before anything is downloaded.
+ * [filename] only for documents.
+ */
+data class WhatsAppMediaRef(val mediaId: String, val mimeType: String?, val filename: String?, val caption: String?)
+
+/**
  * Flattens a delivery's `entry[].changes[].value.messages[]` into [WhatsAppInbound]s
  * (`docs/MESSAGING-CHANNELS.md`, section 5). Skips statuses, other fields, messages for another
- * of the app's numbers, and messages without an id or a sender.
+ * of the app's numbers, and messages without an id or a sender. A photo, voice note or file becomes
+ * whatever [media] makes of its [WhatsAppMediaRef], so the parser itself does no I/O.
  */
 object WhatsAppWebhookParser {
 
-    fun parse(payload: JsonNode, ourPhoneNumberId: String): List<WhatsAppInbound> =
+    fun parse(
+        payload: JsonNode,
+        ourPhoneNumberId: String,
+        media: (WhatsAppMediaRef) -> InboundEvent.Content,
+    ): List<WhatsAppInbound> =
         payload.path("entry").flatMap { it.path("changes") }
             .filter { it.path("field").asString("") == "messages" }
             .map { it.path("value") }
             .filter { it.path("metadata").path("phone_number_id").asString("") == ourPhoneNumberId }
-            .flatMap { value -> value.path("messages").mapNotNull { parseMessage(it, value.path("contacts")) } }
+            .flatMap { value -> value.path("messages").mapNotNull { parseMessage(it, value.path("contacts"), media) } }
 
-    private fun parseMessage(message: JsonNode, contacts: JsonNode): WhatsAppInbound? {
+    private fun parseMessage(
+        message: JsonNode,
+        contacts: JsonNode,
+        media: (WhatsAppMediaRef) -> InboundEvent.Content,
+    ): WhatsAppInbound? {
         val id = message.path("id").asString("").ifEmpty { return null }
         val phone = message.path("from").asString("").ifEmpty { null }
         val userId = message.path("from_user_id").asString("").ifEmpty { null }
@@ -40,10 +55,10 @@ object WhatsAppWebhookParser {
             // Before business-scoped ids existed, the number was the only key.
             ?: phone
             ?: return null
-        return WhatsAppInbound(id, userId, phone, content(message))
+        return WhatsAppInbound(id, userId, phone, content(message, media))
     }
 
-    private fun content(message: JsonNode): InboundEvent.Content {
+    private fun content(message: JsonNode, media: (WhatsAppMediaRef) -> InboundEvent.Content): InboundEvent.Content {
         val type = message.path("type").asString("")
         return when (type) {
             "text" -> message.path("text").path("body").asString("")
@@ -57,6 +72,19 @@ object WhatsAppWebhookParser {
                     else -> null
                 }
                 reply?.path("id")?.asString("")?.ifEmpty { null }?.let { InboundEvent.Content.Selection(it) }
+            }
+            "image", "audio", "document" -> {
+                val node = message.path(type)
+                node.path("id").asString("").ifEmpty { null }?.let { mediaId ->
+                    media(
+                        WhatsAppMediaRef(
+                            mediaId = mediaId,
+                            mimeType = node.path("mime_type").asString("").ifEmpty { null },
+                            filename = node.path("filename").asString("").trim().ifEmpty { null },
+                            caption = node.path("caption").asString("").trim().ifEmpty { null },
+                        ),
+                    )
+                }
             }
             else -> null
         } ?: InboundEvent.Content.Unsupported(type.ifEmpty { "unknown" })

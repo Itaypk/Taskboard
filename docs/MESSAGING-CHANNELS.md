@@ -4,9 +4,10 @@ Implementation plan for WhatsApp (official Cloud API) as a quick-add source, and
 layer that the next chat channel (Slack, Teams, …) would reuse. A Cisco Webex bot is designed
 here too, but **deferred, possibly for good** (see "Why Webex is deferred").
 
-Status: **text capture on WhatsApp is built**: the webhook (issue #410), the shared foundation
-(linking, the capture router, the registry, metrics, deletion and export), the Settings UI
-(`MessagingApps.tsx`) and the WhatsApp adapter. See "As built" below. Not yet: media. It
+Status: **built** for WhatsApp: the webhook (issue #410), the shared foundation (linking, the
+capture router, the registry, metrics, deletion and export), the Settings UI (`MessagingApps.tsx`),
+the WhatsApp adapter, and media (photos, voice notes, PDFs, text files and invitations). See
+"As built" below. Webex stays deferred. It
 builds on the exploration in `docs/WHATSAPP-CHANNEL.md` (issue #268) and takes its recommendation
 as settled: official API, reactive-only. Where this plan and that note disagree, this plan wins
 (see "Corrections to earlier notes").
@@ -15,9 +16,13 @@ as settled: official API, reactive-only. Where this plan and that note disagree,
 
 Where the code departs from the design below, the code wins:
 
-- **Media is a separate, later work package**, so `InboundEvent.Content` has `Text`, `Selection`
-  and `Unsupported` (images and voice notes included, for now: they get
-  `quickadd.media.unsupported_type`), and `AttachmentIntake` isn't extracted yet.
+- **Media** is `InboundEvent.Content.Media(fetch)`: the download runs on the worker after the link
+  and AI gates, so a stranger's photo costs nothing. `AttachmentIntake` (`channel`) holds the shared
+  caps, classification and audio format mapping; `TelegramMediaExtractor` and
+  `WhatsAppMediaFetcher` both use it. The WhatsApp fetcher classifies by the webhook's declared
+  type before any API call, then checks Meta's `file_size`, then the bytes read. A failed download
+  replies `messaging.media.download_failed` (the `quickadd.` key names Telegram). Video, stickers,
+  locations and contacts stay `Unsupported`.
 - **Link codes always contain a digit**, and a code-shaped message goes to `ChannelLinkService`
   whether or not the sender is already linked (that is how a conflict is detected). So a one-word
   task such as "homework" can never be taken for a code.

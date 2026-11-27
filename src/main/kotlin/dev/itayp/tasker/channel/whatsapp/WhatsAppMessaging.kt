@@ -31,6 +31,7 @@ class WhatsAppMessaging(
     private val meterRegistry: MeterRegistry,
 ) : MessagingProvider {
     private val log = LoggerFactory.getLogger(WhatsAppMessaging::class.java)
+    private val mediaFetcher = WhatsAppMediaFetcher(client)
 
     override val channel = ChannelType.WHATSAPP
 
@@ -40,7 +41,9 @@ class WhatsAppMessaging(
 
     /** Hands each user message in a verified delivery to the capture service. Returns at once. */
     fun deliver(payload: JsonNode) {
-        val messages = WhatsAppWebhookParser.parse(payload, properties.phoneNumberId)
+        val messages = WhatsAppWebhookParser.parse(payload, properties.phoneNumberId) { ref ->
+            InboundEvent.Content.Media { mediaFetcher.fetch(ref) }
+        }
         messages.forEach { message ->
             log.debug("WhatsApp message {} ({}) accepted", message.messageId, message.content::class.simpleName)
             captureService.accept(

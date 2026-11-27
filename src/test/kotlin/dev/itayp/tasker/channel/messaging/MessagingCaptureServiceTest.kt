@@ -4,11 +4,14 @@ import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.capture.CaptureEntry
 import dev.itayp.tasker.capture.QuickAddFlow
 import dev.itayp.tasker.capture.QuickAddState
+import dev.itayp.tasker.channel.AttachmentIntake
+import dev.itayp.tasker.channel.AttachmentKind
 import dev.itayp.tasker.channel.ChannelCapabilities
 import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.ChannelType
 import dev.itayp.tasker.channel.ConversationChannel
+import dev.itayp.tasker.channel.InboundAttachment
 import dev.itayp.tasker.channel.MessageFormatter
 import dev.itayp.tasker.config.RateLimitProperties
 import dev.itayp.tasker.planning.CaptureIntent
@@ -177,6 +180,49 @@ class MessagingCaptureServiceTest {
         assertThat(sent).containsExactly("quickadd.media.unsupported_type@he")
         assertThat(registry.get(key)).isSameAs(state)
         assertThat(inbound("unsupported")).isEqualTo(1.0)
+    }
+
+    @Test
+    fun `a photo is fetched only after the gates, and opens a capture`() {
+        val media = ChannelInbound.Media(listOf(InboundAttachment(AttachmentKind.IMAGE, byteArrayOf(1), "image/jpeg")), "receipt")
+        var fetches = 0
+        val photo = event(InboundEvent.Content.Media { fetches++; MediaFetch.Fetched(media) })
+
+        service.process(photo)
+        assertThat(fetches).isEqualTo(0) // unlinked: no download for a stranger
+
+        linked()
+        val state = QuickAddState.AwaitingDescription(now)
+        whenever(quickAddFlow.beginUnpromptedFromMedia(userId, reply, media.attachments, "receipt"))
+            .thenReturn(CaptureEntry.Captured(state))
+        service.process(photo)
+
+        assertThat(fetches).isEqualTo(1)
+        assertThat(registry.get(key)).isSameAs(state)
+    }
+
+    @Test
+    fun `a photo during a capture continues it`() {
+        linked()
+        val state = QuickAddState.AwaitingDescription(now)
+        registry.set(key, state)
+        val media = ChannelInbound.Media(listOf(InboundAttachment(AttachmentKind.AUDIO, byteArrayOf(1), "audio/ogg", "ogg")))
+        whenever(quickAddFlow.handleInbound(userId, reply, state, media)).thenReturn(CaptureEntry.Captured(null))
+
+        service.process(event(InboundEvent.Content.Media { MediaFetch.Fetched(media) }))
+
+        assertThat(registry.get(key)).isNull()
+    }
+
+    @Test
+    fun `a declined attachment is explained, in a channel-neutral way for a failed download`() {
+        linked()
+
+        service.process(event(InboundEvent.Content.Media { MediaFetch.Rejected(AttachmentIntake.Rejection.TOO_LARGE) }))
+        service.process(event(InboundEvent.Content.Media { MediaFetch.Rejected(AttachmentIntake.Rejection.DOWNLOAD_FAILED) }, id = "wamid.2"))
+
+        assertThat(sent).containsExactly("quickadd.media.too_large@he", "messaging.media.download_failed@he")
+        assertThat(inbound("media_rejected")).isEqualTo(2.0)
     }
 
     @Test

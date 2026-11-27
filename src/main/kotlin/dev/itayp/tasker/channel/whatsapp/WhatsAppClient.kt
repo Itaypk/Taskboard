@@ -4,9 +4,11 @@ import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.web.client.RestClient
+import org.springframework.web.client.ResourceAccessException
 import org.springframework.web.client.RestClientResponseException
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
+import java.net.URI
 
 /** Who a reply goes to: by phone number when Meta sent one, else by business-scoped user id. */
 data class WhatsAppRecipient(val phone: String?, val userId: String) {
@@ -114,6 +116,40 @@ class WhatsAppClient(
         }
     }
 
+    /**
+     * Where to download a media id from a webhook, and what Meta says it is. The URL is valid for
+     * five minutes and needs the same bearer token.
+     */
+    fun mediaInfo(mediaId: String): WhatsAppMediaInfo {
+        val node = try {
+            restClient.get().uri("/{id}", mediaId).retrieve().body(JsonNode::class.java)
+        } catch (e: RestClientResponseException) {
+            throw WhatsAppApiException(e.statusCode.value(), errorCode(e), e)
+        }
+        val url = node?.path("url")?.asString("").orEmpty()
+        if (url.isEmpty()) throw WhatsAppApiException(200, null, IllegalStateException("No URL for media $mediaId"))
+        return WhatsAppMediaInfo(
+            url = url,
+            mimeType = node?.path("mime_type")?.asString("")?.ifEmpty { null },
+            fileSize = node?.path("file_size")?.asLong(-1)?.takeIf { it >= 0 },
+        )
+    }
+
+    /** Reads at most [maxBytes] + 1 bytes from [url], so a caller can tell an oversized file apart. */
+    fun download(url: String, maxBytes: Int): ByteArray =
+        try {
+            restClient.get().uri(URI.create(url)).exchange { _, response ->
+                if (response.statusCode.isError) {
+                    throw WhatsAppApiException(response.statusCode.value(), null, IllegalStateException("Media download failed"))
+                }
+                response.body.use { it.readNBytes(maxBytes + 1) }
+            }
+        } catch (e: RestClientResponseException) {
+            throw WhatsAppApiException(e.statusCode.value(), null, e)
+        } catch (e: ResourceAccessException) {
+            throw WhatsAppApiException(0, null, e)
+        }
+
     private fun send(to: WhatsAppRecipient, type: String, content: Map<String, Any>) {
         val body = buildMap {
             put("messaging_product", "whatsapp")
@@ -147,6 +183,12 @@ class WhatsAppClient(
         /** The Graph API version every call uses. */
         const val GRAPH_API_VERSION = "v27.0"
     }
+}
+
+/** A media id's download location; [fileSize] in bytes, when Meta says. */
+data class WhatsAppMediaInfo(val url: String, val mimeType: String?, val fileSize: Long?) {
+    /** The URL is a short-lived credential of sorts: never print it. */
+    override fun toString(): String = "WhatsAppMediaInfo(mimeType=$mimeType, fileSize=$fileSize)"
 }
 
 /** A Graph API call failed. [code] is Meta's `error.code`, when the response carried one. */

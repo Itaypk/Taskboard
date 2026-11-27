@@ -113,4 +113,32 @@ class WhatsAppClientTest {
 
         server.verify()
     }
+
+    @Test
+    fun `looks up a media id, then downloads it with the token, capped`() {
+        server.expect(requestTo("https://graph.test/v27.0/img1"))
+            .andRespond(
+                withSuccess(
+                    """{"url":"https://lookaside.test/img1?x=1","mime_type":"image/jpeg","file_size":5,"id":"img1"}""",
+                    MediaType.APPLICATION_JSON,
+                ),
+            )
+        server.expect(requestTo("https://lookaside.test/img1?x=1"))
+            .andExpect(header("Authorization", "Bearer token"))
+            .andRespond(withSuccess(byteArrayOf(1, 2, 3, 4, 5), MediaType.IMAGE_JPEG))
+
+        val info = client.mediaInfo("img1")
+        assertThat(info).isEqualTo(WhatsAppMediaInfo("https://lookaside.test/img1?x=1", "image/jpeg", 5))
+        assertThat(client.download(info.url, 3)).hasSize(4)
+
+        server.verify()
+    }
+
+    @Test
+    fun `a failed media download is an API exception`() {
+        server.expect(requestTo("https://lookaside.test/gone")).andRespond(withStatus(HttpStatus.NOT_FOUND))
+
+        assertThatThrownBy { client.download("https://lookaside.test/gone", 10) }
+            .isInstanceOfSatisfying(WhatsAppApiException::class.java) { assertThat(it.status).isEqualTo(404) }
+    }
 }

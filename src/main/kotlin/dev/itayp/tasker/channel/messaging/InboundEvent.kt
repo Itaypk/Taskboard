@@ -1,5 +1,7 @@
 package dev.itayp.tasker.channel.messaging
 
+import dev.itayp.tasker.channel.AttachmentIntake
+import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.ChannelType
 import dev.itayp.tasker.channel.ConversationChannel
 
@@ -27,12 +29,24 @@ data class InboundEvent(
         /** A tap on a button or list row: the [ChannelMessage.Choice] option's id. */
         data class Selection(val optionId: String) : Content
 
-        /** Something we can't capture yet (a sticker, a location; media until it is supported). */
+        /**
+         * A photo, voice note or file. [fetch] downloads it, and runs only on the worker after the
+         * link and AI gates, so a stranger's attachment costs no download.
+         */
+        class Media(val fetch: () -> MediaFetch) : Content
+
+        /** Something we don't capture from (a sticker, a location, a video). */
         data class Unsupported(val type: String) : Content
     }
 
     /** Never print the sender (data classes include every field in toString). */
     override fun toString(): String = "InboundEvent(channel=$channel, eventId=$eventId, content=${content::class.simpleName})"
+}
+
+/** What [InboundEvent.Content.Media.fetch] came back with. */
+sealed interface MediaFetch {
+    data class Fetched(val media: ChannelInbound.Media) : MediaFetch
+    data class Rejected(val reason: AttachmentIntake.Rejection) : MediaFetch
 }
 
 /** One chat on one channel: the unit of ordering and of stored capture state. */
