@@ -5,7 +5,9 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.ResourceAccessException
+import org.springframework.web.client.RestClientException
 import org.springframework.web.client.RestClientResponseException
+import tools.jackson.core.JacksonException
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 import java.net.URI
@@ -100,18 +102,18 @@ class WhatsAppClient(
         }
     }
 
-    /** Our number in international digits (no `+`), for `wa.me` links; looked up once, then cached. */
+    /**
+     * Our number in international digits (no `+`), for `wa.me` links; looked up once, then cached.
+     * Null when the lookup fails, for whatever reason: linking still works with the code typed.
+     */
     fun displayNumber(): String? {
         displayNumber?.let { return it }
         return try {
-            val node = restClient.get()
-                .uri("/{id}?fields=display_phone_number", properties.phoneNumberId)
-                .retrieve()
-                .body(JsonNode::class.java)
-            node?.path("display_phone_number")?.asString("")?.filter(Char::isDigit)?.ifEmpty { null }
+            getJson("/{id}?fields=display_phone_number", properties.phoneNumberId)
+                .path("display_phone_number").asString("").filter(Char::isDigit).ifEmpty { null }
                 ?.also { displayNumber = it }
-        } catch (e: RestClientResponseException) {
-            log.warn("Could not look up the WhatsApp display number: HTTP {}", e.statusCode.value())
+        } catch (e: Exception) {
+            log.warn("Could not look up the WhatsApp display number: {}", e.message)
             null
         }
     }
@@ -122,16 +124,20 @@ class WhatsAppClient(
      */
     fun mediaInfo(mediaId: String): WhatsAppMediaInfo {
         val node = try {
-            restClient.get().uri("/{id}", mediaId).retrieve().body(JsonNode::class.java)
+            getJson("/{id}", mediaId)
         } catch (e: RestClientResponseException) {
             throw WhatsAppApiException(e.statusCode.value(), errorCode(e), e)
+        } catch (e: RestClientException) {
+            throw WhatsAppApiException(0, null, e)
+        } catch (e: JacksonException) {
+            throw WhatsAppApiException(200, null, e)
         }
-        val url = node?.path("url")?.asString("").orEmpty()
+        val url = node.path("url").asString("")
         if (url.isEmpty()) throw WhatsAppApiException(200, null, IllegalStateException("No URL for media $mediaId"))
         return WhatsAppMediaInfo(
             url = url,
-            mimeType = node?.path("mime_type")?.asString("")?.ifEmpty { null },
-            fileSize = node?.path("file_size")?.asLong(-1)?.takeIf { it >= 0 },
+            mimeType = node.path("mime_type").asString("").ifEmpty { null },
+            fileSize = node.path("file_size").asLong(-1).takeIf { it >= 0 },
         )
     }
 
@@ -149,6 +155,13 @@ class WhatsAppClient(
         } catch (e: ResourceAccessException) {
             throw WhatsAppApiException(0, null, e)
         }
+
+    /**
+     * A Graph API GET, parsed as JSON. Read as bytes first: Graph answers JSON as
+     * `text/javascript`, which no message converter takes as JSON.
+     */
+    private fun getJson(uri: String, vararg variables: Any): JsonNode =
+        objectMapper.readTree(restClient.get().uri(uri, *variables).retrieve().body(ByteArray::class.java) ?: ByteArray(0))
 
     private fun send(to: WhatsAppRecipient, type: String, content: Map<String, Any>) {
         val body = buildMap {
