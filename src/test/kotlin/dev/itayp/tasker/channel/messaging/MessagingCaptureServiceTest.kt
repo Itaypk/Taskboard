@@ -167,6 +167,19 @@ class MessagingCaptureServiceTest {
     }
 
     @Test
+    fun `a message we can't read is declined without touching a capture in progress`() {
+        linked()
+        val state = QuickAddState.AwaitingDescription(now)
+        registry.set(key, state)
+
+        service.process(event(InboundEvent.Content.Unsupported("sticker")))
+
+        assertThat(sent).containsExactly("quickadd.media.unsupported_type@he")
+        assertThat(registry.get(key)).isSameAs(state)
+        assertThat(inbound("unsupported")).isEqualTo(1.0)
+    }
+
+    @Test
     fun `a message that isn't a capture gets the channel's capabilities, not a bot command`() {
         linked()
         whenever(quickAddFlow.beginUnprompted(userId, reply, "plan my week"))

@@ -1,4 +1,4 @@
-Last updated: November 13, 2026
+Last updated: November 27, 2026
 
 ## TL;DR
 
@@ -6,7 +6,7 @@ Last updated: November 13, 2026
 * Your private data is encrypted at rest
 * Your data is not sold
 * You can export or delete your data anytime
-* Third-party services are involved (Telegram, AI providers, etc.)
+* Third-party services are involved (Telegram, WhatsApp, AI providers, etc.)
 * Some logs/backups may be kept for up to 30 days
 
 ---
@@ -24,7 +24,8 @@ The service may collect and store:
 * Account information (e.g., email, identifiers)
 * Tasks, notes, and preferences
 * Calendar data (if you connect a calendar)
-* Messages sent via Telegram or email integrations
+* Messages sent via Telegram, WhatsApp or email integrations
+* For a connected WhatsApp account: its phone number (encrypted) and WhatsApp's account identifier (encrypted)
 * Basic technical data (e.g., logs, usage, error reports)
 
 ## 3. How Data Is Used
@@ -33,7 +34,7 @@ Your data is used only to:
 
 * Provide and operate the service
 * Enable AI features
-* Sync with connected services (Telegram, email, calendar)
+* Sync with connected services (Telegram, WhatsApp, email, calendar)
 * Monitor and maintain system health
 * Prevent abuse
 
@@ -72,6 +73,7 @@ Your data is not shared with third parties except:
 The service relies on third-party providers that may process or have access to your data. These include (but are not limited to):
 
 * Telegram (messaging)
+* Meta (WhatsApp messaging, only if you connect a WhatsApp account)
 * AI providers via OpenRouter (AI processing)
 * Email providers (sending emails)
 * Grafana Cloud (logs and metrics)

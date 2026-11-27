@@ -19,6 +19,7 @@ Optional integrations, all off unless configured:
 | Weekly planning assistant, AI capture | An [OpenRouter](https://openrouter.ai) API key, or any OpenAI-compatible server (including your own) |
 | Magic-link sign-in, calendar invitations | SMTP accounts |
 | Telegram sign-in and bot | A bot from [@BotFather](https://t.me/BotFather) |
+| Quick-add from WhatsApp | A Meta app with WhatsApp Cloud API access and a business number (see `docs/CONFIGURATION.md`) |
 
 Without any of them you still get the backlog board, signing in with a username and password.
 

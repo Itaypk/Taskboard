@@ -26,6 +26,9 @@ data class InboundEvent(
 
         /** A tap on a button or list row: the [ChannelMessage.Choice] option's id. */
         data class Selection(val optionId: String) : Content
+
+        /** Something we can't capture yet (a sticker, a location; media until it is supported). */
+        data class Unsupported(val type: String) : Content
     }
 
     /** Never print the sender (data classes include every field in toString). */

@@ -94,6 +94,12 @@ class MessagingCaptureService(
     }
 
     private fun capture(userId: UUID, key: ConversationKey, event: InboundEvent) {
+        if (event.content is InboundEvent.Content.Unsupported) {
+            // Leaves any capture in progress alone: the user can still answer its card.
+            count(event, "unsupported")
+            reply(event, "quickadd.media.unsupported_type", locale(userId))
+            return
+        }
         val state = registry.get(key)
         val entry = when {
             state != null -> quickAddFlow.handleInbound(userId, event.reply, state, event.content.toInbound())
@@ -152,6 +158,7 @@ class MessagingCaptureService(
     private fun InboundEvent.Content.toInbound(): ChannelInbound = when (this) {
         is InboundEvent.Content.Text -> ChannelInbound.Text(text)
         is InboundEvent.Content.Selection -> ChannelInbound.Selection(optionId)
+        is InboundEvent.Content.Unsupported -> error("Unsupported content never reaches QuickAddFlow")
     }
 
     @PreDestroy

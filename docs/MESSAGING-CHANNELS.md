@@ -4,10 +4,9 @@ Implementation plan for WhatsApp (official Cloud API) as a quick-add source, and
 layer that the next chat channel (Slack, Teams, …) would reuse. A Cisco Webex bot is designed
 here too, but **deferred, possibly for good** (see "Why Webex is deferred").
 
-Status: **partly built.** Done: the WhatsApp webhook in log-only form (issue #410) and the shared
-foundation of work package 1 (linking, the capture router, the registry, metrics, deletion and
-export; see "As built" below) and the Settings UI (`MessagingApps.tsx`). Not yet: the WhatsApp
-adapter, and media. It
+Status: **text capture on WhatsApp is built**: the webhook (issue #410), the shared foundation
+(linking, the capture router, the registry, metrics, deletion and export), the Settings UI
+(`MessagingApps.tsx`) and the WhatsApp adapter. See "As built" below. Not yet: media. It
 builds on the exploration in `docs/WHATSAPP-CHANNEL.md` (issue #268) and takes its recommendation
 as settled: official API, reactive-only. Where this plan and that note disagree, this plan wins
 (see "Corrections to earlier notes").
@@ -16,8 +15,9 @@ as settled: official API, reactive-only. Where this plan and that note disagree,
 
 Where the code departs from the design below, the code wins:
 
-- **Media is a separate, later work package**, so `InboundEvent.Content` has `Text` and
-  `Selection` only, and `AttachmentIntake` isn't extracted yet. Text capture ships first.
+- **Media is a separate, later work package**, so `InboundEvent.Content` has `Text`, `Selection`
+  and `Unsupported` (images and voice notes included, for now: they get
+  `quickadd.media.unsupported_type`), and `AttachmentIntake` isn't extracted yet.
 - **Link codes always contain a digit**, and a code-shaped message goes to `ChannelLinkService`
   whether or not the sender is already linked (that is how a conflict is detected). So a one-word
   task such as "homework" can never be taken for a code.
@@ -26,6 +26,24 @@ Where the code departs from the design below, the code wins:
   offers exactly those, plus any channel the user is still linked on, so it can be disconnected.
 - **The unknown-sender, invalid-code and conflict replies** are `messaging.*` keys; the first is
   English-only, the rest follow the linked user's language when there is one.
+
+As built (WhatsApp adapter):
+
+- **No `display-number` setting.** The number in the `wa.me` link is looked up once from the phone
+  number id (`GET /<id>?fields=display_phone_number`) and cached; without it the link is omitted and
+  the code can still be typed.
+- **One bean, `WhatsAppMessaging`,** is both the `MessagingProvider` and the webhook's hand-off,
+  present only under `@ConditionalOnWhatsAppCapture`. The webhook controller always exists and
+  only logs when that bean is absent.
+- **The sender key** is `from_user_id`, then the matching contact's `user_id`, then (for payloads
+  older than BSUIDs) the phone number. Replies use `to` when Meta sent a number, else `recipient`.
+- **Choices**: buttons when they fit, else a list whose button and overflow line are
+  `messaging.choose`, in the linked user's language (looked up only when a list is sent). A cut
+  row title shows the full label as the row's description.
+- **Undeliverable replies** (Meta codes 131047, window closed, and 131026, undeliverable) are logged
+  and counted as `tasker.channel.outbound{outcome=undeliverable}`, never retried.
+- **Bundles carry no markup**: `quickadd.saved`, `quickadd.media.read*` and `voice.heard` used to
+  embed Telegram HTML; callers now pass `formatter.bold`/`italic` output instead.
 
 ## Scope
 

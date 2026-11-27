@@ -54,7 +54,11 @@ class StartupSummaryLogger(
             onOff(telegramBot),
             if (aiProperties.enabled) aiProperties.provider.name.lowercase().replace('_', '-') else "off",
             onOff(inboundMailProperties.active),
-            onOff(whatsAppProperties.active),
+            when {
+                whatsAppProperties.captureActive -> "on"
+                whatsAppProperties.active -> "log-only"
+                else -> "off"
+            },
             onOff(prometheusAuthProperties.configured),
         )
 
@@ -72,6 +76,9 @@ class StartupSummaryLogger(
         }
         if (whatsAppProperties.enabled && !whatsAppProperties.active) {
             log.warn("TASKER_WHATSAPP_ENABLED is set, but TASKER_WHATSAPP_VERIFY_TOKEN or TASKER_WHATSAPP_APP_SECRET is not: the WhatsApp webhook stays off.")
+        }
+        if (whatsAppProperties.active && !whatsAppProperties.captureActive) {
+            log.warn("The WhatsApp webhook is on, but TASKER_WHATSAPP_ACCESS_TOKEN or TASKER_WHATSAPP_PHONE_NUMBER_ID is not set: deliveries are only logged.")
         }
         if (whatsAppProperties.active && whatsAppProperties.logPayloads) {
             log.warn("TASKER_WHATSAPP_LOG_PAYLOADS is on: WhatsApp webhook bodies, including phone numbers and message text, are logged. Turn it off once testing is done.")
