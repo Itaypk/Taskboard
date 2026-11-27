@@ -3,6 +3,7 @@ package dev.itayp.tasker.channel.whatsapp
 import dev.itayp.tasker.channel.WebhookSignatures
 import jakarta.servlet.http.HttpServletRequest
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
@@ -17,8 +18,9 @@ import tools.jackson.databind.ObjectMapper
 import java.security.MessageDigest
 
 /**
- * The WhatsApp Cloud API webhook (GitHub issue #410): the subscription handshake, and signed
- * deliveries, which for now are only logged. Design: `docs/MESSAGING-CHANNELS.md`, section 2.
+ * The WhatsApp Cloud API webhook: the subscription handshake, and signed deliveries. Each delivery
+ * is summarized in the log (ids and types only); when quick-add is configured ([WhatsAppMessaging]
+ * exists) its messages then go on to capture. Design: `docs/MESSAGING-CHANNELS.md`, section 2.
  *
  * Reached through the stateless `webhookFilterChain`; the signature is the authentication.
  *
@@ -30,6 +32,7 @@ import java.security.MessageDigest
 class WhatsAppWebhookController(
     private val properties: WhatsAppProperties,
     private val objectMapper: ObjectMapper,
+    private val messaging: ObjectProvider<WhatsAppMessaging>,
 ) {
     private val log = LoggerFactory.getLogger(WhatsAppWebhookController::class.java)
 
@@ -71,21 +74,24 @@ class WhatsAppWebhookController(
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build()
         }
 
-        logDelivery(body)
-        return ResponseEntity.ok().build()
-    }
-
-    private fun logDelivery(body: ByteArray) {
-        try {
-            val summary = WhatsAppWebhookSummary.describe(objectMapper.readTree(body), properties.phoneNumberId)
-            log.info("WhatsApp webhook delivery: {}", summary)
-        } catch (e: JacksonException) {
-            // Signed, so Meta's: acknowledge anyway, or it would redeliver for a week.
-            log.warn("WhatsApp webhook delivery is not valid JSON ({} bytes): {}", body.size, e.originalMessage)
-        }
         if (properties.logPayloads) {
             log.info("WhatsApp webhook raw payload (TASKER_WHATSAPP_LOG_PAYLOADS is on): {}", String(body, Charsets.UTF_8))
         }
+        val payload = try {
+            objectMapper.readTree(body)
+        } catch (e: JacksonException) {
+            // Signed, so Meta's: acknowledge anyway, or it would redeliver for a week.
+            log.warn("WhatsApp webhook delivery is not valid JSON ({} bytes): {}", body.size, e.originalMessage)
+            return ResponseEntity.ok().build()
+        }
+        log.info("WhatsApp webhook delivery: {}", WhatsAppWebhookSummary.describe(payload, properties.phoneNumberId))
+        try {
+            messaging.ifAvailable { it.deliver(payload) }
+        } catch (e: Exception) {
+            // Still a 200: a redelivery would fail the same way, for a week.
+            log.error("WhatsApp webhook delivery could not be handed to capture", e)
+        }
+        return ResponseEntity.ok().build()
     }
 
     companion object {

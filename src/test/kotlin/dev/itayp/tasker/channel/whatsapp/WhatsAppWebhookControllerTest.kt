@@ -3,6 +3,11 @@ package dev.itayp.tasker.channel.whatsapp
 import dev.itayp.tasker.channel.WebhookSignatures
 import dev.itayp.tasker.config.SecurityConfiguration
 import org.junit.jupiter.api.Test
+import org.mockito.kotlin.any
+import org.mockito.kotlin.never
+import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
+import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest
 import org.springframework.context.annotation.Import
@@ -27,6 +32,8 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 class WhatsAppWebhookControllerTest {
 
     @Autowired lateinit var mockMvc: MockMvc
+
+    @MockitoBean lateinit var messaging: WhatsAppMessaging
 
     private fun handshake(token: String?, mode: String = "subscribe") = mockMvc.perform(
         get(WhatsAppWebhookController.PATH)
@@ -68,8 +75,24 @@ class WhatsAppWebhookControllerTest {
     }
 
     @Test
+    fun `hands a signed delivery to capture`() {
+        deliver(WhatsAppWebhookFixtures.RECEIVED_TEXT).andExpect(status().isOk)
+
+        verify(messaging).deliver(any())
+    }
+
+    @Test
+    fun `still acknowledges when capture fails`() {
+        whenever(messaging.deliver(any())).thenThrow(IllegalStateException("boom"))
+
+        deliver(WhatsAppWebhookFixtures.RECEIVED_TEXT).andExpect(status().isOk)
+    }
+
+    @Test
     fun `acknowledges a signed delivery it can't parse, so Meta doesn't redeliver it for a week`() {
         deliver("not json").andExpect(status().isOk)
+
+        verify(messaging, never()).deliver(any())
     }
 
     @Test

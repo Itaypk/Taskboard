@@ -459,7 +459,7 @@ class QuickAddFlow(
         result.onSuccess { saved ->
             count("saved", channel)
             log.debug("quick-add created {} item(s)", saved.titles.size)
-            val joined = saved.titles.joinToString(", ") { channel.formatter.escape(it) }
+            val joined = channel.formatter.bold(saved.titles.joinToString(", "))
             channel.send(ChannelMessage.Text(msg(userId, "quickadd.saved", joined)))
             if (saved.invitesSkipped) {
                 channel.send(ChannelMessage.Text(msg(userId, "quickadd.event.invite_skipped")))
@@ -910,7 +910,7 @@ class QuickAddFlow(
             AttachmentKind.IMAGE in kinds -> "quickadd.media.read"
             else -> "quickadd.media.read_file"
         }
-        channel.send(ChannelMessage.Text(msg(userId, key, channel.formatter.escape(truncate(sourceText)))))
+        channel.send(ChannelMessage.Text(msg(userId, key, channel.formatter.italic(truncate(sourceText)))))
     }
 
     /** Point the user back to `/add` only where typing it does something. */

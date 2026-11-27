@@ -54,7 +54,7 @@ There are seven independent `SecurityFilterChain` beans:
 3. **`externalApiFilterChain` (`@Order(2)`)** — matches `/api/external/**`. Stateless bearer-token auth for the external API (see below). CSRF disabled.
 4. **`internalFilterChain` (`@Order(3)`)** — matches only `/internal/inbound-mail`, where the MTA delivers inbound email. Stateless, CSRF disabled, `permitAll`: the shared delivery token is checked in `InboundMailController` (constant time). Must stay unreachable from outside (the hosted Nginx 404s `/internal/`). See `docs/INBOUND-EMAIL.md`.
 5. **`calendarFeedFilterChain` (`@Order(4)`)** — matches `/calendar/**`, the calendar subscription feed (`GET /calendar/<token>.ics`, `CalendarFeedController`). Stateless (a poll never creates a session or sets a cookie), CSRF disabled, GET/HEAD `permitAll`: the 256-bit token in the path is the authentication, checked in the controller. See "Calendar delivery" below.
-6. **`webhookFilterChain` (`@Order(5)`)** — matches `/webhooks/**`, inbound chat-platform webhooks (today `GET|POST /webhooks/whatsapp`, `WhatsAppWebhookController`; everything else under the prefix is denied). Stateless, CSRF disabled, `permitAll` on exactly those methods and paths: the provider's HMAC over the raw body (`WebhookSignatures`) is the authentication, checked in the controller in constant time. A signed delivery always answers 200, since anything else makes Meta redeliver for a week. Log-only for now (issue #410); never log bodies, phone numbers or message text outside the `TASKER_WHATSAPP_LOG_PAYLOADS` testing aid. Plan: `docs/MESSAGING-CHANNELS.md`.
+6. **`webhookFilterChain` (`@Order(5)`)** — matches `/webhooks/**`, inbound chat-platform webhooks (today `GET|POST /webhooks/whatsapp`, `WhatsAppWebhookController`; everything else under the prefix is denied). Stateless, CSRF disabled, `permitAll` on exactly those methods and paths: the provider's HMAC over the raw body (`WebhookSignatures`) is the authentication, checked in the controller in constant time. A signed delivery always answers 200, since anything else makes Meta redeliver for a week. Only logs deliveries until `TASKER_WHATSAPP_ACCESS_TOKEN` and the phone number id are set, then hands them to capture (`WhatsAppMessaging`); never log bodies, phone numbers or message text outside the `TASKER_WHATSAPP_LOG_PAYLOADS` testing aid. Plan: `docs/MESSAGING-CHANNELS.md`.
 7. **`securityFilterChain` (`@Order(6)`)** — everything else. Session-based with a `SameSite=Lax`, `HttpOnly`, `Secure` (prod) cookie (`SESSION`), 30-day rolling timeout. 
 
 Session chain details:
@@ -139,6 +139,14 @@ message id, serializes per conversation, resolves the link, gates on AI access a
 - **An unlinked sender gets one "how to connect" reply per day** (`channel-unlinked-reply`): on
   WhatsApp each is a billable message to a stranger.
 - These channels never plan or run commands: a `CaptureEntry.Routed` gets `messaging.capabilities`.
+- **WhatsApp beans exist only when fully configured** (`@ConditionalOnWhatsAppCapture`, which binds
+  `WhatsAppProperties.captureActive`): no `WhatsAppMessaging` bean means WhatsApp isn't offered in
+  Settings and the webhook only logs. A sender is keyed by the BSUID (`from_user_id`), never the
+  phone number, which Meta may omit.
+- **Bot strings are rendered by each channel's `MessageFormatter`, never written as markup in a
+  bundle.** WhatsApp uses `*bold*`/`_italic_`, not Telegram's HTML: pass `f.bold(x)` as the
+  argument rather than putting `<b>{0}</b>` in `messages*.properties`. Quick-add button labels must
+  fit WhatsApp's 20-character buttons in every bundle (`WhatsAppButtonLabelsTest`).
 
 ## Inbound email
 

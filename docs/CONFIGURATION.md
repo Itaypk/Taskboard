@@ -224,8 +224,11 @@ the full log to stdout instead and write no file — what `docker logs` and log 
 
 ## WhatsApp (`WhatsAppProperties`)
 
-The WhatsApp Cloud API webhook, `GET|POST /webhooks/whatsapp`. For now it only verifies and logs
-what Meta delivers (issue #410); capture follows `docs/MESSAGING-CHANNELS.md`. In the Meta app's
+WhatsApp quick-add over the Cloud API (`docs/MESSAGING-CHANNELS.md`): users link their WhatsApp in
+Settings → Connections, then messages to the business number become tasks. Two levels: with the
+two secrets the webhook (`GET|POST /webhooks/whatsapp`) is on but only logs deliveries; with the
+access token and phone number id as well, capture is on and WhatsApp is offered in Settings. The
+startup line shows `whatsApp=on|log-only|off`. In the Meta app's
 WhatsApp webhook settings, set the callback URL to `<TASKER_APP_BASE_URL>/webhooks/whatsapp` and
 the verify token to `TASKER_WHATSAPP_VERIFY_TOKEN`, then subscribe to the `messages` field.
 
@@ -235,8 +238,12 @@ the verify token to `TASKER_WHATSAPP_VERIFY_TOKEN`, then subscribe to the `messa
   the subscription handshake. It travels in a query string, so treat it as low-value.
 - `TASKER_WHATSAPP_APP_SECRET` — the Meta app secret (App settings → Basic). Every delivery's
   `X-Hub-Signature-256` is checked against it; unsigned or wrongly signed ones get 401.
-- `TASKER_WHATSAPP_PHONE_NUMBER_ID` — optional: our business number's id. Deliveries for any other
-  number are logged as foreign.
+- `TASKER_WHATSAPP_PHONE_NUMBER_ID` — our business number's id (WhatsApp → API Setup). Replies go
+  out from it; deliveries for any other number are ignored. The number shown in the Settings link is
+  looked up from it.
+- `TASKER_WHATSAPP_ACCESS_TOKEN` — a Graph API token with `whatsapp_business_messaging`, for sending
+  replies. Use a system user's permanent token (Business settings → System users); the dashboard's
+  temporary token expires within a day. Not the app secret.
 - `TASKER_WHATSAPP_LOG_PAYLOADS` — log each delivery's full body (default: `false`). A testing aid:
   bodies carry phone numbers, names and message text, so the startup log warns while it's on.
   Otherwise only ids, types and statuses are logged.
