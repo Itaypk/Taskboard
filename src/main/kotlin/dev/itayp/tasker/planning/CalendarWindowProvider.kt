@@ -34,7 +34,8 @@ interface CalendarWindowProvider {
  *
  * Without a connected calendar this is a partial view, and [PARTIAL_NOTICE] says so. With one, the
  * events come per calendar, at the detail the user chose for it, and a calendar that couldn't be
- * read gets its own line so the assistant asks rather than assuming the time is free.
+ * read gets its own line, so the assistant can say that clashes with it weren't checked (without
+ * questioning the user about their commitments: planning goes on as it did before #347).
  *
  * Our own blocks are left out of connected calendars, or the planner would treat last week's plan
  * as fixed meetings: events from our subscription feed (UIDs ending `@<our host>`), emailed
@@ -74,7 +75,8 @@ class KnownEventsCalendarWindowProvider(
                 val name = sanitizeLabel(reading.label)
                 if (reading.error != null) {
                     append("\n\nThe user's calendar \"$name\" couldn't be read this time (${describe(reading.error)}), ")
-                    append("so its events are missing: ask about commitments rather than assuming that time is free.")
+                    append("so its events are missing from this list. Plan with what is known; mention this once, briefly, ")
+                    append("so the user knows clashes with that calendar weren't checked, without asking about their commitments.")
                     continue
                 }
                 val events = reading.occurrences.filter { occurrence ->
