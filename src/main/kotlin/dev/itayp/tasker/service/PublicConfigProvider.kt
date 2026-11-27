@@ -1,6 +1,7 @@
 package dev.itayp.tasker.service
 
 import dev.itayp.tasker.ai.AiProperties
+import dev.itayp.tasker.calendar.source.CalendarSourceProperties
 import dev.itayp.tasker.config.AppProperties
 import dev.itayp.tasker.config.InboundMailProperties
 import dev.itayp.tasker.model.response.BrandingResponse
@@ -20,6 +21,7 @@ class PublicConfigProvider(
     private val appProperties: AppProperties,
     private val aiProperties: AiProperties,
     private val inboundMailProperties: InboundMailProperties,
+    private val calendarSourceProperties: CalendarSourceProperties,
 ) {
     fun config(): PublicConfigResponse = PublicConfigResponse(
         login = LoginMethodsResponse(
@@ -38,5 +40,7 @@ class PublicConfigProvider(
         ai = aiProperties.enabled,
         aiZeroDataRetention = aiProperties.zeroDataRetentionInEffect,
         inboundMail = inboundMailProperties.active,
+        // Only the planner reads these calendars, so they're offered only where it exists.
+        calendarSources = calendarSourceProperties.enabled && aiProperties.enabled,
     )
 }

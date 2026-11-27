@@ -29,6 +29,7 @@ const selfHosted: PublicConfig = {
     ai: false,
     aiZeroDataRetention: false,
     inboundMail: false,
+    calendarSources: false,
 };
 
 /** What IndexHtmlController inlines into the served page. */

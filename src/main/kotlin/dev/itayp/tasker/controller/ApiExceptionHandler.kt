@@ -1,6 +1,7 @@
 package dev.itayp.tasker.controller
 
 import dev.itayp.tasker.calendar.CalendarInvitesUnavailableException
+import dev.itayp.tasker.calendar.source.CalendarSourceException
 import dev.itayp.tasker.planning.NoPlannableTasksException
 import dev.itayp.tasker.service.BlockedEmailDomainException
 import dev.itayp.tasker.service.InvalidRecurrenceException
@@ -57,6 +58,14 @@ class ApiExceptionHandler {
         ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.message!!).apply {
             title = "Calendar invitations unavailable"
             setProperty("code", "CALENDAR_INVITES_UNAVAILABLE")
+        }
+
+    /** A calendar address that can't be added or read; the SPA shows a localized line per `code`. */
+    @ExceptionHandler(CalendarSourceException::class)
+    fun handleCalendarSource(ex: CalendarSourceException): ProblemDetail =
+        ProblemDetail.forStatusAndDetail(ex.status, "The calendar couldn't be added: ${ex.code}").apply {
+            title = "Calendar not added"
+            setProperty("code", ex.code)
         }
 
     /** Same reasoning as [handleBlockedEmailDomain]: set `detail` explicitly so it reaches the client. */

@@ -1039,5 +1039,43 @@
     "errors": {
       "failed": "Something went wrong. Please try again."
     }
+  },
+  "calendarSources": {
+    "title": "Let the planner see my calendar",
+    "help": "When a planning chat starts, the planner reads these calendars so new blocks don't clash with your events. With “Times and titles”, event titles go to the AI provider too; “Busy times only” sends just the times. Nothing is stored.",
+    "details": {
+      "TITLES": "Times and titles",
+      "BUSY": "Busy times only"
+    },
+    "detailLabel": "What the planner sees in {{name}}",
+    "rename": "Rename",
+    "remove": "Remove",
+    "confirmRemove": "Remove “{{name}}”? The planner stops reading it.",
+    "lastRead_one": "Read {{when}} · {{count}} event in the next 7 days",
+    "lastRead_other": "Read {{when}} · {{count}} events in the next 7 days",
+    "checkAgain": "Check again",
+    "urlLabel": "Secret iCal address",
+    "nameLabel": "Name",
+    "namePlaceholder": "Work",
+    "add": "Add calendar",
+    "reading": "Reading…",
+    "where": "Where do I find it?",
+    "whereHelp": "Google Calendar: Settings › your calendar › Integrate calendar › Secret address in iCal format. Outlook: Settings › Calendar › Shared calendars › Publish a calendar, then copy the ICS link. iCloud: share the calendar as a public calendar and copy the link. Other apps: look for an “ICS”, “iCal” or “subscribe” link.",
+    "limit": "Up to {{max}} calendars.",
+    "errors": {
+      "NOT_HTTPS": "Use the full address, starting with https:// or webcal://.",
+      "BLOCKED_ADDRESS": "That address points to a private network, so it can't be read from here.",
+      "NOT_FOUND": "Nothing was found at that address.",
+      "UNAUTHORIZED": "The calendar refused access. Use its secret address.",
+      "NOT_A_CALENDAR": "That's a web page, not a calendar. Use the secret address in iCal format.",
+      "TOO_LARGE": "The calendar is too large to read.",
+      "TIMEOUT": "The calendar took too long to answer.",
+      "UNREACHABLE": "The calendar's server couldn't be reached.",
+      "PARSE_ERROR": "The calendar file couldn't be read.",
+      "LIMIT_REACHED": "Up to {{max}} calendars.",
+      "DUPLICATE": "That calendar is already connected.",
+      "RATE_LIMITED": "Too many tries. Please wait a while and try again.",
+      "failed": "Something went wrong. Please try again."
+    }
   }
 }

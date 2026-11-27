@@ -289,6 +289,21 @@ are capped per link by `tasker.rate-limit.calendar-feed` (120 an hour) and reque
 links per client IP by `tasker.rate-limit.calendar-feed-miss` (30 an hour). The token is the path,
 so keep it out of shipped access logs (the hosted Nginx redacts `/calendar/<token>`).
 
+## Reading users' calendars (`CalendarSourceProperties`, GitHub issue #347)
+
+Users can give the planner up to five secret iCal addresses (Settings › Calendar). The server fetches
+them itself when a planning conversation starts (cached for 15 minutes), so it needs outbound HTTPS
+to wherever those calendars live.
+
+- `TASKER_CALENDAR_SOURCES_ENABLED` — toggle the feature (default: `true`). It only shows when AI is
+  configured too, since the planner is its only reader.
+- `TASKER_CALENDAR_SOURCES_ALLOW_PRIVATE_ADDRESSES` — allow addresses that resolve to private,
+  loopback or link-local networks (default: `false`). Leave it off unless every user is trusted and
+  you want a calendar server on your own network: with it on, any user can make the server request
+  internal addresses.
+
+Adding a calendar is rate-limited per user by `tasker.rate-limit.calendar-source` (20 an hour).
+
 ## Frontend
 
 The SPA reads no `VITE_*` variables: everything instance-specific (login methods, name, contact

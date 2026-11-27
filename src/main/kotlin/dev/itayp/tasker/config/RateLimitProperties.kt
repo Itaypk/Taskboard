@@ -46,6 +46,11 @@ data class RateLimitProperties(
      * billable message to a stranger, and the cap stops the bot from being a reflector.
      */
     val channelUnlinkedReply: Policy = Policy(limit = 1, windowSeconds = 86_400),
+    /**
+     * Adding a calendar for the planner or checking one again, per user. Each one makes the server
+     * fetch a URL the user typed, so this keeps the endpoint from being used as a fetch proxy.
+     */
+    val calendarSource: Policy = Policy(limit = 20, windowSeconds = 3600),
 ) {
     data class Policy(val limit: Int, val windowSeconds: Long)
 }

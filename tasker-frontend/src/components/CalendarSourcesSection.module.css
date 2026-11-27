@@ -1,0 +1,170 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--paper-border);
+  border-radius: var(--r-lg);
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-block-start: 10px;
+  border-block-start: 1px dashed var(--paper-border);
+}
+
+.row:first-child {
+  padding-block-start: 0;
+  border-block-start: 0;
+}
+
+.rowMain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.name {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: start;
+  cursor: text;
+  overflow-wrap: anywhere;
+}
+
+.name:hover {
+  text-decoration: underline dotted;
+}
+
+.renameInput {
+  inline-size: auto;
+  max-inline-size: 14rem;
+  padding-block: 5px;
+}
+
+.host {
+  font-size: 12px;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
+.detail {
+  inline-size: auto;
+  margin-inline-start: auto;
+  padding-block: 6px;
+}
+
+@media (max-width: 560px) {
+  .host {
+    margin-inline-end: auto;
+  }
+
+  .detail {
+    flex: 1 1 10rem;
+    margin-inline-start: 0;
+  }
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 12.5px;
+}
+
+.dot {
+  flex-shrink: 0;
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.statusOk {
+  color: #2f5b34;
+}
+
+.statusError {
+  color: #8e2a1e;
+}
+
+.add {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.list + .add,
+.list + p {
+  padding-block-start: 10px;
+  border-block-start: 1px dashed var(--paper-border);
+}
+
+.addFields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 10rem;
+  gap: 10px;
+}
+
+@media (max-width: 560px) {
+  .addFields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.addField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.addError {
+  margin: 0;
+}
+
+.addActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.whereHelp {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}

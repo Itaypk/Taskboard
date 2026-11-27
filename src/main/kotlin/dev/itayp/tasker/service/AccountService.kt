@@ -85,6 +85,8 @@ class AccountService(
         // Messaging-channel links and pending link codes FK users(id) with no cascade.
         jdbcTemplate.update("DELETE FROM channel_link_token WHERE user_id = ?", userId)
         jdbcTemplate.update("DELETE FROM channel_link WHERE user_id = ?", userId)
+        // Calendars the planner reads (private ICS addresses) FK users(id) with no cascade.
+        jdbcTemplate.update("DELETE FROM calendar_source WHERE user_id = ?", userId)
         // Queued and recently processed inbound mail (payloads are under the user's DEK, deleted below).
         jdbcTemplate.update("DELETE FROM inbound_mail WHERE user_id = ?", userId)
         // planned_task_slot → planned_task → planning_session; no user_id on slot, so use a subquery

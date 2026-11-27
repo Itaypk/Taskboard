@@ -8,6 +8,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties
  */
 @ConfigurationProperties("tasker.calendar-sources")
 data class CalendarSourceProperties(
+    /** Lets users add their private calendar addresses for the planner. Only offered where AI is on. */
+    val enabled: Boolean = true,
     /**
      * Lets user-supplied addresses resolve to private, loopback or link-local hosts. Off by
      * default: with it on, anyone who can sign up can make the server fetch from its own network.

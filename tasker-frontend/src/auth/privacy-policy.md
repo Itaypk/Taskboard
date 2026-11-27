@@ -23,7 +23,7 @@ The service may collect and store:
 
 * Account information (e.g., email, identifiers)
 * Tasks, notes, and preferences
-* Calendar data (if you connect a calendar)
+* Calendar data (if you connect a calendar). If you let the planner see your calendar, its secret address is stored encrypted; its events are read when a planning conversation starts and are not stored
 * Messages sent via Telegram, WhatsApp or email integrations
 * For a connected WhatsApp account: its phone number (encrypted) and WhatsApp's account identifier (encrypted)
 * Basic technical data (e.g., logs, usage, error reports)
@@ -89,6 +89,7 @@ When you use AI features:
 
 * Your input may be sent to third-party AI providers
 * Responses are generated based on that input
+* If you let the planner see your calendar, event times (and titles, unless you choose busy times only) are part of that input
 * Providers that may use your input to train models are excluded
 
 {{AI_RETENTION_NOTE}}
