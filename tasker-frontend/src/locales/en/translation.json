@@ -241,6 +241,24 @@
       "failed": "Something went wrong. Please try again."
     }
   },
+  "messagingApps": {
+    "label": "Messaging apps",
+    "hint": "Connect a chat app and send it a message to add a task, just like quick-add.",
+    "connect": "Connect",
+    "connected": "Connected",
+    "connectedAs": "Connected · {{display}}",
+    "disconnect": "Disconnect",
+    "confirmDisconnect": "Disconnect {{app}}? Messages from it will no longer become tasks.",
+    "sendCode": "Send this code to us on {{app}} within 15 minutes:",
+    "openApp": "Open {{app}}",
+    "newCode": "Get a new code",
+    "cancel": "Cancel",
+    "expired": "The code expired before it arrived.",
+    "errors": {
+      "failed": "Something went wrong. Please try again.",
+      "notClaimed": "Add a sign-in method to your account before connecting a messaging app."
+    }
+  },
   "emailLoginConfirm": {
     "loading": "Loading…",
     "invalid": {

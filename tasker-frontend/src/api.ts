@@ -672,3 +672,37 @@ export const rotateInboundMailAddress = (): Promise<InboundMailAddress> =>
 
 export const revokeInboundMailAddress = (): Promise<void> =>
     apiRequest('/inbound-mail-address', { method: 'DELETE' });
+
+// --- Messaging apps (chat accounts linked for quick-add) ---
+
+export interface LinkedChatAccount {
+    /** Already masked by the server, e.g. "•••• 0978". */
+    display: string | null;
+    linkedAt: string;
+}
+
+export interface ChannelLink {
+    /** The channel's id, e.g. "whatsapp". */
+    channel: string;
+    /** False for a channel the user linked that this instance no longer runs: it can only be disconnected. */
+    offered: boolean;
+    link: LinkedChatAccount | null;
+}
+
+export interface ChannelLinkCode {
+    /** Sent to the bot from the chat app to prove the account is the user's. */
+    code: string;
+    expiresAt: string;
+    /** Opens the chat with the bot with the code prefilled, when the platform allows it. */
+    url: string | null;
+}
+
+export const fetchChannelLinks = (): Promise<{ channels: ChannelLink[] }> =>
+    apiRequest('/channel-links');
+
+/** Issues a link code, replacing any earlier one. 403 for an account with no sign-in method yet. */
+export const startChannelLink = (channel: string): Promise<ChannelLinkCode> =>
+    apiRequest(`/channel-links/${channel}/token`, { method: 'POST' });
+
+export const unlinkChannel = (channel: string): Promise<void> =>
+    apiRequest(`/channel-links/${channel}`, { method: 'DELETE' });
