@@ -3,7 +3,7 @@ import org.gradle.language.jvm.tasks.ProcessResources
 plugins {
     kotlin("jvm") version "2.4.21"
     kotlin("plugin.spring") version "2.4.21"
-    id("org.springframework.boot") version "4.1.2"
+    id("org.springframework.boot") version "4.2.0"
     id("io.spring.dependency-management") version "1.1.7"
     kotlin("plugin.jpa") version "2.4.21"
     kotlin("plugin.lombok") version "2.4.21"
@@ -54,17 +54,17 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("tools.jackson.module:jackson-module-kotlin")
     implementation("org.liquibase:liquibase-core")
-    implementation("io.micrometer:micrometer-registry-prometheus:1.17.2")
+    implementation("io.micrometer:micrometer-registry-prometheus:1.18.0")
     implementation("net.logstash.logback:logstash-logback-encoder:9.0")
     implementation("com.github.jknack:handlebars:4.5.8")
-    implementation("org.commonmark:commonmark:0.32.0")
+    implementation("org.commonmark:commonmark:0.33.0")
     implementation("org.jsoup:jsoup:1.24.1")
     // Reading other calendars over ICS (GitHub issues #347, #413): parsing with recurrence expansion,
     // and an HTTP client whose DNS hook can refuse private addresses (SSRF guard). OkHttp is already
     // here through the Telegram client; Apache HttpClient would do too, but Spring would then pick
     // it over the JDK client for every RestTemplate/RestClient in the app.
     implementation("org.mnode.ical4j:ical4j:4.4.0")
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:okhttp:5.5.1")
     implementation("org.telegram:telegrambots-springboot-longpolling-starter:10.3.0")
     implementation("org.telegram:telegrambots-client:10.3.0")
     runtimeOnly("com.h2database:h2")
