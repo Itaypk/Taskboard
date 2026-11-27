@@ -7,6 +7,7 @@ import { fetchIdentities } from '../auth/authApi';
 import { fetchSettingsOptions } from '../api';
 import { ApiTokens } from './ApiTokens';
 import { InboundMailAddress } from './InboundMailAddress';
+import { MessagingApps } from './MessagingApps';
 import { CalendarDeliverySection } from './CalendarDeliverySection';
 import { applyLocale } from '../i18n';
 import { usePublicConfig } from '../publicConfig';
@@ -168,6 +169,7 @@ function SettingsDialog({ settings, open, section, onNavigate, onClose, onSave, 
         return (
           <>
             {inboundMailEnabled && <InboundMailAddress />}
+            <MessagingApps />
             <ApiTokens />
           </>
         );

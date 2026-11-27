@@ -1,0 +1,47 @@
+.channel + .channel {
+  margin-block-start: 12px;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.app {
+  font-weight: 600;
+}
+
+.status {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.pending {
+  margin-block-start: 8px;
+}
+
+.pending p {
+  margin-block: 0 6px;
+}
+
+.code {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+  letter-spacing: 0.08em;
+  user-select: all;
+  padding: 6px 10px;
+  border-radius: var(--r-sm);
+  background: var(--paper-surface);
+  border: 1px solid var(--paper-border);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-block-start: 8px;
+}

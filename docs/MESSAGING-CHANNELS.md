@@ -6,7 +6,8 @@ here too, but **deferred, possibly for good** (see "Why Webex is deferred").
 
 Status: **partly built.** Done: the WhatsApp webhook in log-only form (issue #410) and the shared
 foundation of work package 1 (linking, the capture router, the registry, metrics, deletion and
-export; see "As built" below). Not yet: the Settings UI, the WhatsApp adapter, and media. It
+export; see "As built" below) and the Settings UI (`MessagingApps.tsx`). Not yet: the WhatsApp
+adapter, and media. It
 builds on the exploration in `docs/WHATSAPP-CHANNEL.md` (issue #268) and takes its recommendation
 as settled: official API, reactive-only. Where this plan and that note disagree, this plan wins
 (see "Corrections to earlier notes").
@@ -265,9 +266,10 @@ instance offers, and the user's links), `POST /{channel}/token`, `DELETE /{chann
 channels are on comes from this authenticated endpoint, not from the public config.
 
 SPA: a "Messaging apps" block in Settings → Connections, next to `InboundMailAddress.tsx`,
-one row per offered channel: not connected (Connect → shows the link / QR / code and polls
+one row per offered channel: not connected (Connect → shows the code and the link and polls
 `GET` until linked or expired) or connected (masked identifier, Disconnect). All four UI
-languages; logical CSS properties.
+languages; logical CSS properties. As built: no QR code. The SPA has no QR library, and the
+`wa.me` link already opens WhatsApp Desktop or Web on a computer; the code can also be typed.
 
 ### 4. Shared attachment policy
 
