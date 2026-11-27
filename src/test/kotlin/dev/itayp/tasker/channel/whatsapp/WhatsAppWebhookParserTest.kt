@@ -10,7 +10,14 @@ class WhatsAppWebhookParserTest {
     private val mapper = JsonMapper.builder().build()
     private val ours = WhatsAppWebhookFixtures.PHONE_NUMBER_ID
 
-    private fun parse(json: String, phoneNumberId: String = ours) = WhatsAppWebhookParser.parse(mapper.readTree(json), phoneNumberId)
+    private val mediaRefs = mutableListOf<WhatsAppMediaRef>()
+
+    /** Media becomes a marker naming its id, and its ref is kept for inspection. */
+    private fun parse(json: String, phoneNumberId: String = ours) =
+        WhatsAppWebhookParser.parse(mapper.readTree(json), phoneNumberId) { ref ->
+            mediaRefs += ref
+            InboundEvent.Content.Unsupported("media:${ref.mediaId}")
+        }
 
     /** One delivery whose `value.messages` is [messages], for [phoneNumberId]. */
     private fun delivery(vararg messages: String, phoneNumberId: String = ours, contacts: String = "[]") = """
@@ -57,20 +64,43 @@ class WhatsAppWebhookParserTest {
     }
 
     @Test
+    fun `photos, voice notes and files are handed over as media refs, without downloading`() {
+        val parsed = parse(
+            delivery(
+                message("m1", "image", """"image": { "id": "img1", "mime_type": "image/jpeg", "caption": " receipt " }"""),
+                message("m2", "audio", """"audio": { "id": "aud1", "mime_type": "audio/ogg; codecs=opus", "voice": true }"""),
+                message("m3", "document", """"document": { "id": "doc1", "mime_type": "application/pdf", "filename": "invite.pdf" }"""),
+            ),
+        )
+
+        assertThat(parsed.map { it.content }).containsExactly(
+            InboundEvent.Content.Unsupported("media:img1"),
+            InboundEvent.Content.Unsupported("media:aud1"),
+            InboundEvent.Content.Unsupported("media:doc1"),
+        )
+        assertThat(mediaRefs).containsExactly(
+            WhatsAppMediaRef("img1", "image/jpeg", null, "receipt"),
+            WhatsAppMediaRef("aud1", "audio/ogg; codecs=opus", null, null),
+            WhatsAppMediaRef("doc1", "application/pdf", "invite.pdf", null),
+        )
+    }
+
+    @Test
     fun `anything else is unsupported, named by its type`() {
         val parsed = parse(
             delivery(
                 message("m1", "sticker", """"sticker": { "id": "123" }"""),
-                message("m2", "image", """"image": { "id": "456", "caption": "receipt" }"""),
+                message("m2", "video", """"video": { "id": "456" }"""),
                 message("m3", "text", """"text": { "body": "  " }"""),
             ),
         )
 
         assertThat(parsed.map { it.content }).containsExactly(
             InboundEvent.Content.Unsupported("sticker"),
-            InboundEvent.Content.Unsupported("image"),
+            InboundEvent.Content.Unsupported("video"),
             InboundEvent.Content.Unsupported("text"),
         )
+        assertThat(mediaRefs).isEmpty()
     }
 
     @Test

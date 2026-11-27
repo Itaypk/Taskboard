@@ -114,8 +114,8 @@ whose URL **embeds the bot token**. Handing that URL to OpenRouter would leak th
 downloads and base64s the bytes itself
 ([FAQ: how to download photo](https://rubenlagus.github.io/TelegramBotsDocumentation/faq.html#how-to-download-photo)).
 
-Guardrails in `TelegramMediaExtractor`: 5 MB per image and per audio clip, checked against Telegram's
-declared size *before* the download and again while reading the stream (a declared size can be
+Guardrails in `AttachmentIntake` (shared with WhatsApp, which downloads in `WhatsAppMediaFetcher`):
+5 MB per image, audio clip and file, checked against the channel's declared size *before* the download and again while reading the stream (a declared size can be
 missing or wrong). Base64 inflates the payload by a third on top of that. Telegram compresses photos
 hard and a voice note is a few hundred KB per minute, so these are guardrails against a pathological
 file, not everyday limits.

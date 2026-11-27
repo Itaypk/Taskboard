@@ -243,7 +243,7 @@
   },
   "messagingApps": {
     "label": "Messaging apps",
-    "hint": "Connect a chat app and send it a message to add a task, just like quick-add.",
+    "hint": "Connect a chat app and send it a message, a photo or a voice note to add a task, just like quick-add.",
     "connect": "Connect",
     "connected": "Connected",
     "connectedAs": "Connected · {{display}}",

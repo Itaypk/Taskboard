@@ -106,11 +106,52 @@ class WhatsAppClientTest {
     @Test
     fun `the display number is looked up once, as digits`() {
         server.expect(requestTo("https://graph.test/v27.0/106540352242922?fields=display_phone_number"))
-            .andRespond(withSuccess("""{"display_phone_number":"+1 555-078-3881","id":"1"}""", MediaType.APPLICATION_JSON))
+            // Graph's real content type for JSON.
+            .andRespond(withSuccess("""{"display_phone_number":"+1 555-078-3881","id":"1"}""", GRAPH_JSON))
 
         assertThat(client.displayNumber()).isEqualTo("15550783881")
         assertThat(client.displayNumber()).isEqualTo("15550783881")
 
         server.verify()
+    }
+
+    @Test
+    fun `looks up a media id, then downloads it with the token, capped`() {
+        server.expect(requestTo("https://graph.test/v27.0/img1"))
+            .andRespond(
+                withSuccess(
+                    """{"url":"https://lookaside.test/img1?x=1","mime_type":"image/jpeg","file_size":5,"id":"img1"}""",
+                    GRAPH_JSON,
+                ),
+            )
+        server.expect(requestTo("https://lookaside.test/img1?x=1"))
+            .andExpect(header("Authorization", "Bearer token"))
+            .andRespond(withSuccess(byteArrayOf(1, 2, 3, 4, 5), MediaType.IMAGE_JPEG))
+
+        val info = client.mediaInfo("img1")
+        assertThat(info).isEqualTo(WhatsAppMediaInfo("https://lookaside.test/img1?x=1", "image/jpeg", 5))
+        assertThat(client.download(info.url, 3)).hasSize(4)
+
+        server.verify()
+    }
+
+    @Test
+    fun `a failed media download is an API exception`() {
+        server.expect(requestTo("https://lookaside.test/gone")).andRespond(withStatus(HttpStatus.NOT_FOUND))
+
+        assertThatThrownBy { client.download("https://lookaside.test/gone", 10) }
+            .isInstanceOfSatisfying(WhatsAppApiException::class.java) { assertThat(it.status).isEqualTo(404) }
+    }
+
+    @Test
+    fun `a failed display number lookup is null, not an error`() {
+        server.expect(requestTo("https://graph.test/v27.0/106540352242922?fields=display_phone_number"))
+            .andRespond(withSuccess("<html>not json</html>", MediaType.TEXT_HTML))
+
+        assertThat(client.displayNumber()).isNull()
+    }
+
+    private companion object {
+        val GRAPH_JSON: MediaType = MediaType.parseMediaType("text/javascript;charset=UTF-8")
     }
 }

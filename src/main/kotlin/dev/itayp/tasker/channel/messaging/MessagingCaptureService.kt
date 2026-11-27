@@ -3,6 +3,7 @@ package dev.itayp.tasker.channel.messaging
 import dev.itayp.tasker.ai.access.AiAccessService
 import dev.itayp.tasker.capture.CaptureEntry
 import dev.itayp.tasker.capture.QuickAddFlow
+import dev.itayp.tasker.channel.AttachmentIntake
 import dev.itayp.tasker.channel.ChannelInbound
 import dev.itayp.tasker.channel.ChannelMessage
 import dev.itayp.tasker.channel.KeyedSerialExecutor
@@ -94,16 +95,31 @@ class MessagingCaptureService(
     }
 
     private fun capture(userId: UUID, key: ConversationKey, event: InboundEvent) {
-        if (event.content is InboundEvent.Content.Unsupported) {
-            // Leaves any capture in progress alone: the user can still answer its card.
-            count(event, "unsupported")
-            reply(event, "quickadd.media.unsupported_type", locale(userId))
-            return
+        val inbound = when (val content = event.content) {
+            is InboundEvent.Content.Text -> ChannelInbound.Text(content.text)
+            is InboundEvent.Content.Selection -> ChannelInbound.Selection(content.optionId)
+            is InboundEvent.Content.Unsupported -> {
+                // Leaves any capture in progress alone: the user can still answer its card.
+                count(event, "unsupported")
+                reply(event, "quickadd.media.unsupported_type", locale(userId))
+                return
+            }
+            is InboundEvent.Content.Media -> when (val fetched = content.fetch()) {
+                is MediaFetch.Fetched -> fetched.media
+                is MediaFetch.Rejected -> {
+                    // Leaves any capture in progress alone, as above.
+                    count(event, "media_rejected")
+                    reply(event, rejectionKey(fetched.reason), locale(userId))
+                    return
+                }
+            }
         }
         val state = registry.get(key)
         val entry = when {
-            state != null -> quickAddFlow.handleInbound(userId, event.reply, state, event.content.toInbound())
-            event.content is InboundEvent.Content.Text -> quickAddFlow.beginUnprompted(userId, event.reply, event.content.text)
+            state != null -> quickAddFlow.handleInbound(userId, event.reply, state, inbound)
+            inbound is ChannelInbound.Text -> quickAddFlow.beginUnprompted(userId, event.reply, inbound.text)
+            inbound is ChannelInbound.Media ->
+                quickAddFlow.beginUnpromptedFromMedia(userId, event.reply, inbound.attachments, inbound.caption)
             else -> {
                 // A tap on a card whose capture has expired or finished.
                 count(event, "expired_card")
@@ -155,10 +171,11 @@ class MessagingCaptureService(
     private fun count(event: InboundEvent, outcome: String) =
         meterRegistry.counter(INBOUND_METRIC, "channel", event.channel.metricTag, "outcome", outcome).increment()
 
-    private fun InboundEvent.Content.toInbound(): ChannelInbound = when (this) {
-        is InboundEvent.Content.Text -> ChannelInbound.Text(text)
-        is InboundEvent.Content.Selection -> ChannelInbound.Selection(optionId)
-        is InboundEvent.Content.Unsupported -> error("Unsupported content never reaches QuickAddFlow")
+    private fun rejectionKey(reason: AttachmentIntake.Rejection): String = when (reason) {
+        AttachmentIntake.Rejection.TOO_LARGE -> "quickadd.media.too_large"
+        AttachmentIntake.Rejection.UNSUPPORTED_TYPE -> "quickadd.media.unsupported_type"
+        // Not quickadd.media.download_failed, which names Telegram.
+        AttachmentIntake.Rejection.DOWNLOAD_FAILED -> "messaging.media.download_failed"
     }
 
     @PreDestroy

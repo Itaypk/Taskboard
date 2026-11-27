@@ -1,5 +1,6 @@
 package dev.itayp.tasker.channel.telegram
 
+import dev.itayp.tasker.channel.AttachmentIntake
 import dev.itayp.tasker.channel.AttachmentKind
 import dev.itayp.tasker.channel.TextAttachments
 import org.junit.jupiter.api.Test
@@ -68,7 +69,7 @@ class TelegramMediaExtractorTest {
     @Test
     fun `rejects a photo whose declared size is over the limit without downloading it`() {
         val message = photoMessage(
-            photoSize("huge", width = 4000, fileSize = TelegramMediaExtractor.MAX_IMAGE_BYTES + 1),
+            photoSize("huge", width = 4000, fileSize = AttachmentIntake.MAX_IMAGE_BYTES + 1),
         )
 
         val rejected = assertIs<TelegramMediaExtractor.Extraction.Rejected>(extractor.extract(message))
@@ -79,7 +80,7 @@ class TelegramMediaExtractorTest {
 
     @Test
     fun `rejects a file that lied about its size, caught while reading the stream`() {
-        stubDownload(ByteArray(TelegramMediaExtractor.MAX_IMAGE_BYTES + 10))
+        stubDownload(ByteArray(AttachmentIntake.MAX_IMAGE_BYTES + 10))
         val message = photoMessage(photoSize("sneaky", width = 1280, fileSize = null))
 
         val rejected = assertIs<TelegramMediaExtractor.Extraction.Rejected>(extractor.extract(message))

@@ -1,9 +1,8 @@
 package dev.itayp.tasker.channel.telegram
 
+import dev.itayp.tasker.channel.AttachmentIntake
 import dev.itayp.tasker.channel.AttachmentKind
 import dev.itayp.tasker.channel.ChannelInbound
-import dev.itayp.tasker.channel.InboundAttachment
-import dev.itayp.tasker.channel.TextAttachments
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.telegram.telegrambots.meta.api.methods.GetFile
@@ -60,13 +59,13 @@ class TelegramMediaExtractor(
 
             message.hasVoice() -> {
                 val voice = message.voice
-                val format = audioFormat(voice.mimeType) ?: return unsupported(AttachmentKind.AUDIO, voice.mimeType)
+                val format = AttachmentIntake.audioFormat(voice.mimeType) ?: return unsupported(AttachmentKind.AUDIO, voice.mimeType)
                 download(voice.fileId, voice.fileSize, AttachmentKind.AUDIO, voice.mimeType ?: "audio/ogg", format, caption)
             }
 
             message.hasAudio() -> {
                 val audio = message.audio
-                val format = audioFormat(audio.mimeType) ?: return unsupported(AttachmentKind.AUDIO, audio.mimeType)
+                val format = AttachmentIntake.audioFormat(audio.mimeType) ?: return unsupported(AttachmentKind.AUDIO, audio.mimeType)
                 download(audio.fileId, audio.fileSize, AttachmentKind.AUDIO, audio.mimeType ?: "audio/mpeg", format, caption)
             }
 
@@ -75,18 +74,12 @@ class TelegramMediaExtractor(
             // naming what we do read, rather than silence.
             message.hasDocument() -> {
                 val document = message.document
-                val mimeType = document.mimeType?.substringBefore(';')?.trim()?.lowercase().orEmpty()
                 val filename = document.fileName?.trim()?.takeIf { it.isNotEmpty() }
-                val textType = TextAttachments.mediaTypeOf(mimeType, filename)
-                when {
-                    mimeType.startsWith("image/") ->
-                        download(document.fileId, document.fileSize, AttachmentKind.IMAGE, mimeType, null, caption)
-                    mimeType == PDF || filename?.lowercase()?.endsWith(".pdf") == true ->
-                        download(document.fileId, document.fileSize, AttachmentKind.DOCUMENT, PDF, null, caption, filename)
-                    textType != null ->
-                        download(document.fileId, document.fileSize, AttachmentKind.TEXT, textType, null, caption, filename)
-                    else -> unsupported(null, mimeType)
-                }
+                // Audio sent as a file isn't taken: Telegram delivers real audio as `audio`.
+                val intake = AttachmentIntake.classify(document.mimeType, filename)
+                    ?.takeIf { it.kind != AttachmentKind.AUDIO }
+                    ?: return unsupported(null, document.mimeType)
+                download(document.fileId, document.fileSize, intake.kind, intake.mediaType, null, caption, filename)
             }
 
             else -> Extraction.None
@@ -102,7 +95,7 @@ class TelegramMediaExtractor(
         caption: String?,
         filename: String? = null,
     ): Extraction {
-        val limit = limitFor(kind)
+        val limit = AttachmentIntake.limitFor(kind)
         if (declaredSize != null && declaredSize > limit) {
             log.info("declining {} attachment: {}B exceeds the {}B limit", kind, declaredSize, limit)
             return Extraction.Rejected(Reason.TOO_LARGE, kind)
@@ -122,53 +115,14 @@ class TelegramMediaExtractor(
         }
         if (bytes.isEmpty()) return Extraction.Rejected(Reason.DOWNLOAD_FAILED, kind)
         log.debug("downloaded {} attachment ({}, {}B) for capture", kind, mediaType, bytes.size)
-        val attachment = if (kind == AttachmentKind.TEXT) {
-            // Empty, or binary under a text name: nothing to read.
-            TextAttachments.of(bytes, mediaType, filename) ?: return unsupported(kind, mediaType)
-        } else {
-            InboundAttachment(kind, bytes, mediaType, format, filename)
-        }
+        // Null for binary under a text name: nothing to read.
+        val attachment = AttachmentIntake.attachment(AttachmentIntake.Intake(kind, mediaType, format), bytes, filename)
+            ?: return unsupported(kind, mediaType)
         return Extraction.Media(ChannelInbound.Media(attachments = listOf(attachment), caption = caption))
     }
 
     private fun unsupported(kind: AttachmentKind?, mimeType: String?): Extraction {
         log.info("declining {} attachment: unsupported media type {}", kind, mimeType)
         return Extraction.Rejected(Reason.UNSUPPORTED_TYPE, kind)
-    }
-
-    private fun limitFor(kind: AttachmentKind): Int = when (kind) {
-        AttachmentKind.IMAGE -> MAX_IMAGE_BYTES
-        AttachmentKind.AUDIO -> MAX_AUDIO_BYTES
-        AttachmentKind.DOCUMENT, AttachmentKind.TEXT -> MAX_DOCUMENT_BYTES
-    }
-
-    /**
-     * The codec label OpenRouter's transcription endpoint wants for the audio, from Telegram's
-     * declared mime type. Telegram voice notes are always OGG/Opus; the rest cover audio files a user might forward.
-     * An unmapped type is declined rather than guessed — a wrong label is a provider-side error.
-     */
-    private fun audioFormat(mimeType: String?): String? = when (mimeType?.substringBefore(';')?.trim()?.lowercase()) {
-        "audio/ogg", "audio/opus", "audio/x-opus+ogg" -> "ogg"
-        "audio/mpeg", "audio/mp3" -> "mp3"
-        "audio/wav", "audio/x-wav", "audio/wave" -> "wav"
-        "audio/mp4", "audio/x-m4a", "audio/m4a" -> "m4a"
-        "audio/flac", "audio/x-flac" -> "flac"
-        "audio/aac" -> "aac"
-        else -> null
-    }
-
-    companion object {
-        /**
-         * Caps on what we'll pull down and base64 into a prompt. Telegram compresses photos hard
-         * (a phone snapshot lands well under a megabyte), and a voice note is a few hundred KB per
-         * minute — so these are guardrails against a pathological file, not everyday limits.
-         * Base64 inflates the payload by a third on top of these.
-         */
-        const val MAX_IMAGE_BYTES = 5 * 1024 * 1024
-        const val MAX_AUDIO_BYTES = 5 * 1024 * 1024
-
-        /** PDFs and text files, as on inbound email. A text file is cut to `TextAttachments.MAX_CHARS` after. */
-        const val MAX_DOCUMENT_BYTES = 5 * 1024 * 1024
-        private const val PDF = "application/pdf"
     }
 }
